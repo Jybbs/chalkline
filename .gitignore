@@ -1,0 +1,26 @@
+# Agent and project documentation
+.claude/
+CLAUDE.md
+docs/
+
+# Data (proprietary)
+data/postings/
+data/processed/
+data/resumes/
+data/stakeholder/
+
+# Development
+*.lock
+!uv.lock
+.DS_Store
+.ipynb_checkpoints
+.pytest_cache
+.venv
+.vscode
+
+# Python
+*.py[cod]
+*.so
+__pycache__/
+dist/
+*.egg-info/

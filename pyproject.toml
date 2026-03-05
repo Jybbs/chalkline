@@ -1,0 +1,46 @@
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name            = "chalkline"
+version         = "0.1.0"
+description     = "Career mapping for Maine's construction industry."
+authors         = [{ name = "James Parkington" }]
+readme          = "README.md"
+requires-python = ">=3.14"
+license         = { text = "MIT" }
+dependencies    = [
+    "ahocorasick-rs",
+    "kneed",
+    "marimo",
+    "matplotlib",
+    "mlxtend",
+    "networkx",
+    "nltk",
+    "numpy",
+    "pandas",
+    "pdfplumber",
+    "plotly",
+    "scikit-learn",
+    "scipy",
+    "seaborn",
+]
+
+[project.scripts]
+chalkline = "chalkline.__main__:main"
+
+[dependency-groups]
+dev = [
+    "openpyxl",
+    "pytest",
+]
+
+[tool.hatch.build]
+sources = ["src"]
+
+[tool.marimo.runtime]
+pythonpath = ["./src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
