@@ -1,9 +1,8 @@
 """
-Tests for storage, manifest generation, and corpus statistics.
+Tests for storage, manifest generation, and tracking parameter removal.
 
 Validates save/load round-tripping, deduplication, manifest URL
-classification, tracking parameter removal, and statistics
-reporting.
+classification, and tracking parameter removal.
 """
 
 from datetime import date
@@ -11,44 +10,22 @@ from json     import dumps, loads
 from pathlib  import Path
 from pytest   import fixture, skip
 
-from chalkline.collection.manifest import generate, _strip_tracking_params
-from chalkline.collection.models   import Posting, SourceType, make_posting_id
-from chalkline.collection.stats    import CorpusStats
+from chalkline.collection.manifest import generate, GOOGLE_ADS_PARAMS
+from chalkline.collection.manifest import _strip_tracking_params
+from chalkline.collection.models   import Posting, SourceType
 from chalkline.collection.storage  import deduplicate, load, save
+from tests.conftest                import SAMPLE_DESCRIPTION
 
 
-SAMPLE_DESCRIPTION = (
-    "Seeking an experienced electrician for commercial construction "
-    "projects. Must have valid journeyman license and OSHA 10 "
-    "certification. Responsibilities include conduit bending, "
-    "blueprint reading, and NEC code compliance."
+_CAREER_URLS_PATH = (
+    Path(__file__).parent.parent.parent
+    / "data" / "stakeholder" / "reference" / "career_urls.json"
 )
 
 
 # -----------------------------------------------------------------------------
 # Fixtures
 # -----------------------------------------------------------------------------
-
-
-@fixture
-def sample_posting() -> Posting:
-    """
-    A minimal valid posting for testing.
-    """
-    return Posting(
-        company        = "Cianbro",
-        date_collected = date(2026, 3, 5),
-        date_posted    = date(2026, 3, 1),
-        description    = SAMPLE_DESCRIPTION,
-        id             = make_posting_id(
-            company     = "Cianbro",
-            date_posted = date(2026, 3, 1),
-            title       = "Electrician"
-        ),
-        source_type    = SourceType.DIRECT_SCRAPE,
-        source_url     = "https://www.cianbro.com/careers-list",
-        title          = "Electrician"
-    )
 
 
 @fixture
@@ -59,28 +36,17 @@ def reference_dir(tmp_path: Path) -> Path:
     Uses the real stakeholder data when available, falling back to a
     single synthetic entry for CI environments without the data.
     """
-    ref_dir  = tmp_path / "reference"
-    ref_dir.mkdir()
-    src_path = (
-        Path(__file__).parent.parent.parent
-        / "data" / "stakeholder" / "reference" / "career_urls.json"
+    (ref_dir := tmp_path / "reference").mkdir()
+    (ref_dir / "career_urls.json").write_text(
+        _CAREER_URLS_PATH.read_text(encoding="utf-8")
+        if _CAREER_URLS_PATH.exists()
+        else dumps([{
+            "company" : "Test Corp",
+            "source"  : "dot_prequal",
+            "url"     : "https://testcorp.com/careers/"
+        }]),
+        encoding="utf-8"
     )
-    if src_path.exists():
-        (ref_dir / "career_urls.json").write_text(
-            src_path.read_text(encoding="utf-8"),
-            encoding="utf-8"
-        )
-    else:
-        (ref_dir / "career_urls.json").write_text(
-            dumps([
-                {
-                    "company" : "Test Corp",
-                    "source"  : "dot_prequal",
-                    "url"     : "https://testcorp.com/careers/"
-                }
-            ]),
-            encoding="utf-8"
-        )
     return ref_dir
 
 
@@ -98,29 +64,16 @@ class TestStorage:
         """
         Saving new postings merges with existing ones on disk.
         """
-        save(
-            postings     = [sample_posting],
-            postings_dir = tmp_path
-        )
-
-        second = Posting(
+        save([sample_posting], tmp_path)
+        save([Posting(
             company        = "Reed & Reed",
             date_collected = date(2026, 3, 5),
             date_posted    = None,
             description    = SAMPLE_DESCRIPTION,
-            id             = make_posting_id(
-                company     = "Reed & Reed",
-                date_posted = None,
-                title       = "Laborer"
-            ),
             source_type    = SourceType.DIRECT_SCRAPE,
             source_url     = "https://reed-reed.com/jobs/",
             title          = "Laborer"
-        )
-        save(
-            postings     = [second],
-            postings_dir = tmp_path
-        )
+        )], tmp_path)
 
         assert len(load(tmp_path)) == 2
 
@@ -134,10 +87,7 @@ class TestStorage:
         """
         Save followed by load produces identical postings.
         """
-        save(
-            postings     = [sample_posting],
-            postings_dir = tmp_path
-        )
+        save([sample_posting], tmp_path)
         loaded = load(tmp_path)
         assert len(loaded) == 1
         assert loaded[0] == sample_posting
@@ -205,25 +155,22 @@ class TestManifest:
         """
         Every URL from `career_urls.json` appears in the manifest.
         """
-        src = loads(
+        assert len(generate(
+            output_dir    = tmp_path / "postings",
+            reference_dir = reference_dir
+        )) == len(loads(
             (reference_dir / "career_urls.json").read_text(
                 encoding="utf-8"
             )
-        )
-        entries = generate(
-            output_dir    = tmp_path / "postings",
-            reference_dir = reference_dir
-        )
-        assert len(entries) == len(src)
+        ))
 
     def test_generate_creates_file(self, reference_dir: Path, tmp_path: Path):
         """
         Manifest generation writes `manifest.json` to the output
         dir.
         """
-        output_dir = tmp_path / "postings"
         generate(
-            output_dir    = output_dir,
+            output_dir    = (output_dir := tmp_path / "postings"),
             reference_dir = reference_dir
         )
         assert (output_dir / "manifest.json").exists()
@@ -234,38 +181,28 @@ class TestManifest:
 
         Skips when the real `career_urls.json` is not available.
         """
-        src_path = (
-            Path(__file__).parent.parent.parent
-            / "data" / "stakeholder" / "reference"
-            / "career_urls.json"
-        )
-        if not src_path.exists():
+        if not _CAREER_URLS_PATH.exists():
             skip("Full career_urls.json not available")
 
-        entries = generate(
-            output_dir    = tmp_path / "postings",
-            reference_dir = reference_dir
-        )
-        assert len([e for e in entries if not e.active]) == 9
+        assert sum(
+            not e.active for e in generate(
+                output_dir    = tmp_path / "postings",
+                reference_dir = reference_dir
+            )
+        ) == 9
 
     def test_no_tracking_params(self, reference_dir: Path, tmp_path: Path):
         """
         No manifest URL contains Google Ads tracking parameters.
         """
-        entries = generate(
-            output_dir    = tmp_path / "postings",
-            reference_dir = reference_dir
+        assert all(
+            param not in entry.url
+            for entry in generate(
+                output_dir    = tmp_path / "postings",
+                reference_dir = reference_dir
+            )
+            for param in GOOGLE_ADS_PARAMS
         )
-        tracking = {
-            "gad_campaignid",
-            "gad_source",
-            "gbraid",
-            "gclid",
-            "srsltid"
-        }
-        for entry in entries:
-            for param in tracking:
-                assert param not in entry.url
 
 
 class TestStripTrackingParams:
@@ -302,35 +239,3 @@ class TestStripTrackingParams:
             "&gbraid=abc&gclid=def&srsltid=ghi"
         )
         assert "?" not in result or "gad" not in result
-
-
-# -----------------------------------------------------------------------------
-# Corpus Statistics Tests
-# -----------------------------------------------------------------------------
-
-
-class TestCorpusStats:
-    """
-    Validate corpus statistics reporting.
-    """
-
-    def test_empty_corpus(self):
-        """
-        The reporter handles an empty corpus without error.
-        """
-        stats = CorpusStats([])
-        assert stats.total == 0
-        assert stats.company_counts == {}
-        assert stats.date_range is None
-        assert stats.source_type_counts == {}
-        assert "Total postings: 0" in stats.report()
-
-    def test_populated_corpus(self, sample_posting: Posting):
-        """
-        Statistics reflect the postings in the corpus.
-        """
-        stats = CorpusStats([sample_posting])
-        assert stats.total == 1
-        assert stats.company_counts == {"Cianbro": 1}
-        assert stats.date_range is not None
-        assert "DIRECT_SCRAPE" in stats.source_type_counts

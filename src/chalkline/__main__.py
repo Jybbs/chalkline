@@ -22,10 +22,9 @@ def main():
         print("Run this command from the project root.")
         sys.exit(1)
 
-    result = subprocess.run(
+    sys.exit(subprocess.run(
         [sys.executable, "-m", "marimo", "run", str(app_path)]
-    )
-    sys.exit(result.returncode)
+    ).returncode)
 
 
 if __name__ == "__main__":

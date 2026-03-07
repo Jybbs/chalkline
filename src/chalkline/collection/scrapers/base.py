@@ -1,30 +1,24 @@
 """
-Base scraper with shared HTTP infrastructure.
+Shared infrastructure for career page crawling.
 
-Provides configurable retries, timeouts, User-Agent identification,
-`robots.txt` compliance, and per-domain crawl delay enforcement.
-Concrete scraper implementations use `BaseScraper` as their HTTP
-client for fetching pages and API endpoints.
+Provides `HttpClient` for HTTP transport with retries, timeouts,
+`robots.txt` compliance, and rate limiting, and `BaseScraper` as
+the abstract base for site-specific extractors.
 """
 
+from abc                import ABC, abstractmethod
 from httpx              import Client, HTTPStatusError, RequestError, Response
 from logging            import getLogger
 from time               import monotonic, sleep
 from urllib.parse       import urlparse
 from urllib.robotparser import RobotFileParser
 
+from chalkline.collection.models import Posting, ScrapeCategory, SourceType
+
 logger = getLogger(__name__)
 
 
-USER_AGENT = "ChalklineBot/0.1 (+https://github.com/Jybbs/chalkline)"
-
-
-DEFAULT_CRAWL_DELAY = 2.0
-DEFAULT_RETRIES     = 3
-DEFAULT_TIMEOUT     = 30.0
-
-
-class BaseScraper:
+class HttpClient:
     """
     HTTP client with rate limiting, retries, and `robots.txt` respect.
 
@@ -33,21 +27,13 @@ class BaseScraper:
     fetch and skips disallowed URLs.
     """
 
-    def __del__(self):
-        """
-        Release the underlying `httpx` connection pool on cleanup.
-
-        Using `__del__` rather than a context manager because the
-        scraper's lifetime spans the entire collection run and is not
-        scoped to a single `with` block.
-        """
-        self._client.close()
+    _USER_AGENT = "ChalklineBot/0.1 (+https://github.com/Jybbs/chalkline)"
 
     def __init__(
         self,
-        crawl_delay : float = DEFAULT_CRAWL_DELAY,
-        retries     : int   = DEFAULT_RETRIES,
-        timeout     : float = DEFAULT_TIMEOUT
+        crawl_delay : float = 2.0,
+        retries     : int   = 3,
+        timeout     : float = 30.0
     ):
         """
         Configure the HTTP client and rate-limiting parameters.
@@ -60,7 +46,7 @@ class BaseScraper:
         """
         self._client = Client(
             follow_redirects = True,
-            headers          = {"User-Agent": USER_AGENT},
+            headers          = {"User-Agent": self._USER_AGENT},
             timeout          = timeout
         )
         self._crawl_delay  = crawl_delay
@@ -82,19 +68,17 @@ class BaseScraper:
         Returns:
             `True` if the URL is allowed, `False` if disallowed.
         """
-        parsed = urlparse(url)
-        origin = f"{parsed.scheme}://{parsed.hostname}"
+        origin = f"{(p := urlparse(url)).scheme}://{p.hostname}"
 
         if origin not in self._robots_cache:
-            rp = RobotFileParser()
-            rp.set_url(f"{origin}/robots.txt")
+            rp = RobotFileParser(f"{origin}/robots.txt")
             try:
                 rp.read()
             except Exception:
-                rp.allow_all = True
+                rp.parse([])
             self._robots_cache[origin] = rp
 
-        return self._robots_cache[origin].can_fetch(USER_AGENT, url)
+        return self._robots_cache[origin].can_fetch(self._USER_AGENT, url)
 
     def _enforce_delay(self, url: str):
         """
@@ -108,20 +92,34 @@ class BaseScraper:
         """
         domain = urlparse(url).hostname or ""
         if (last := self._domain_times.get(domain)) is not None:
-            elapsed = monotonic() - last
-            if elapsed < self._crawl_delay:
-                sleep(self._crawl_delay - elapsed)
+            if (remaining := self._crawl_delay - (monotonic() - last)) > 0:
+                sleep(remaining)
         self._domain_times[domain] = monotonic()
 
-    def fetch(self, url: str) -> Response | None:
+    def _parse_json(self, response: Response | None) -> dict | list | None:
         """
-        Fetch a URL with retries, rate limiting, and `robots.txt` check.
+        Extract JSON from a response, returning `None` on failure.
+        """
+        if not response:
+            return None
+        try:
+            return response.json()
+        except Exception as error:
+            logger.error(f"JSON decode failed for {response.url}: {error}")
+            return None
 
-        Returns `None` when the URL is disallowed by `robots.txt` or
-        all retry attempts fail, logging the reason in either case.
+    def _request(self, method: str, url: str, **kwargs) -> Response | None:
+        """
+        Execute an HTTP request with retries, rate limiting, and
+        `robots.txt` compliance.
+
+        Shared implementation behind `fetch` and `post`, dispatching
+        to the appropriate `httpx.Client` method via `method` name.
 
         Args:
-            url: The URL to fetch.
+            method   : The HTTP method name, namely "get" or "post".
+            url      : The URL to request.
+            **kwargs : Forwarded to the `httpx.Client` method.
 
         Returns:
             The HTTP response, or `None` on failure.
@@ -134,18 +132,18 @@ class BaseScraper:
 
         for attempt in range(1, self._retries + 1):
             try:
-                response = self._client.get(url)
+                response = getattr(self._client, method)(url, **kwargs)
                 response.raise_for_status()
                 return response
-            except HTTPStatusError as error:
-                logger.warning(
-                    f"HTTP {error.response.status_code} on attempt "
-                    f"{attempt}/{self._retries}: {url}"
+            except (HTTPStatusError, RequestError) as error:
+                detail = (
+                    f"HTTP {error.response.status_code}"
+                    if isinstance(error, HTTPStatusError)
+                    else f"Request error ({error})"
                 )
-            except RequestError as error:
                 logger.warning(
-                    f"Request error on attempt "
-                    f"{attempt}/{self._retries}: {url} ({error})"
+                    f"{detail} on attempt "
+                    f"{attempt}/{self._retries}: {url}"
                 )
 
             if attempt < self._retries:
@@ -154,9 +152,24 @@ class BaseScraper:
         logger.error(f"All {self._retries} attempts failed: {url}")
         return None
 
+    def fetch(self, url: str) -> Response | None:
+        """
+        GET a URL with retries, rate limiting, and `robots.txt` check.
+
+        Returns `None` when the URL is disallowed by `robots.txt` or
+        all retry attempts fail, logging the reason in either case.
+
+        Args:
+            url: The URL to fetch.
+
+        Returns:
+            The HTTP response, or `None` on failure.
+        """
+        return self._request("get", url)
+
     def fetch_json(self, url: str) -> dict | list | None:
         """
-        Fetch a URL and parse the response body as JSON.
+        GET a URL and parse the response body as JSON.
 
         Convenience wrapper for ATS API endpoints that return structured
         data. Returns `None` on fetch failure or JSON decode error.
@@ -167,12 +180,82 @@ class BaseScraper:
         Returns:
             The parsed JSON payload, or `None` on failure.
         """
-        response = self.fetch(url)
-        if response is None:
-            return None
+        return self._parse_json(self.fetch(url))
 
-        try:
-            return response.json()
-        except Exception as error:
-            logger.error(f"JSON decode failed for {url}: {error}")
-            return None
+    def post(self, url: str, json: dict | list | None = None) -> Response | None:
+        """
+        POST to a URL with rate limiting and `robots.txt` check.
+
+        Mirrors `fetch` semantics for POST endpoints, used by ATS
+        scrapers that require POST requests for paginated search.
+
+        Args:
+            url  : The URL to post to.
+            json : JSON-serializable payload for the request body.
+
+        Returns:
+            The HTTP response, or `None` on failure.
+        """
+        return self._request("post", url, json=json)
+
+    def post_json(
+        self,
+        url  : str,
+        json : dict | list | None = None
+    ) -> dict | list | None:
+        """
+        POST to a URL and parse the response body as JSON.
+
+        Convenience wrapper for ATS API endpoints that require POST
+        requests and return structured data.
+
+        Args:
+            url  : The URL to post to.
+            json : JSON-serializable payload for the request body.
+
+        Returns:
+            The parsed JSON payload, or `None` on failure.
+        """
+        return self._parse_json(self.post(url, json=json))
+
+
+class BaseScraper(ABC):
+    """
+    Shared constructor and contract for site-specific extractors.
+
+    Subclasses declare `categories` and `source_type` as class
+    attributes and implement `extract` to handle their specific
+    scraping approach.
+    """
+
+    categories  : frozenset[ScrapeCategory]
+    source_type : SourceType
+
+    def __init__(self, http: HttpClient):
+        """
+        Bind the shared HTTP client for fetching pages and APIs.
+
+        Args:
+            http: The HTTP client for making requests.
+        """
+        self._http = http
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        Validate that concrete subclasses declare `categories` and
+        `source_type` at class definition time rather than failing
+        when the collector builds its dispatch table.
+        """
+        super().__init_subclass__(**kwargs)
+
+        if getattr(cls, "__abstractmethods__", frozenset()):
+            return
+
+        if missing := [a for a in ("categories", "source_type") if not hasattr(cls, a)]:
+            raise TypeError(
+                f"{cls.__name__} must define: {', '.join(missing)}"
+            )
+
+    @abstractmethod
+    def extract(self, company: str, source_url: str) -> list[Posting]:
+        ...

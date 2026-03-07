@@ -45,6 +45,9 @@ sources = ["src"]
 [tool.marimo.runtime]
 pythonpath = ["./src"]
 
+[tool.pyright]
+extraPaths = ["src"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths  = ["tests"]

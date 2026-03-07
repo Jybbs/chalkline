@@ -1,1 +1,32 @@
-"""Shared test fixtures for the Chalkline test suite."""
+"""
+Shared test fixtures for the Chalkline test suite.
+"""
+
+from datetime import date
+from pytest   import fixture
+
+from chalkline.collection.models import Posting, SourceType
+
+
+SAMPLE_DESCRIPTION = (
+    "Seeking an experienced electrician for commercial construction "
+    "projects. Must have valid journeyman license and OSHA 10 "
+    "certification. Responsibilities include conduit bending, "
+    "blueprint reading, and NEC code compliance."
+)
+
+
+@fixture
+def sample_posting() -> Posting:
+    """
+    A minimal valid posting for testing.
+    """
+    return Posting(
+        company        = "Cianbro",
+        date_collected = date(2026, 3, 5),
+        date_posted    = date(2026, 3, 1),
+        description    = SAMPLE_DESCRIPTION,
+        source_type    = SourceType.DIRECT_SCRAPE,
+        source_url     = "https://www.cianbro.com/careers-list",
+        title          = "Electrician"
+    )

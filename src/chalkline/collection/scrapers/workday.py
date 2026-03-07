@@ -6,17 +6,19 @@ career sites expose at `/wday/cxs/` as a JSON API accepting POST
 requests with search criteria. Used for Maine DOT postings.
 """
 
-from datetime import date
-from logging  import getLogger
-from re       import match, search
+from datetime  import date
+from itertools import count
+from logging   import getLogger
+from re        import compile
 
-from chalkline.collection.models        import Posting, SourceType, make_posting_id
+from chalkline.collection.models        import parse_iso_date
+from chalkline.collection.models        import Posting, ScrapeCategory, SourceType
 from chalkline.collection.scrapers.base import BaseScraper
 
 logger = getLogger(__name__)
 
 
-class WorkdayScraper:
+class WorkdayScraper(BaseScraper):
     """
     Query Workday's semi-public CXS search endpoint for job listings.
 
@@ -26,35 +28,15 @@ class WorkdayScraper:
     job description from a detail endpoint.
     """
 
-    def _build_api_url(self, url: str) -> str | None:
-        """
-        Derive the Workday CXS API endpoint from a career page URL.
+    _PAGE_SIZE   = 20
+    _URL_PATTERN = compile(
+        r"(https?://[^/]+\.myworkdayjobs\.com)/([^/?]+)"
+    )
 
-        Extracts the base domain and tenant slug from the
-        `myworkdayjobs.com` URL to construct the `/wday/cxs/` path.
+    categories  = frozenset({ScrapeCategory.WORKDAY})
+    source_type = SourceType.WORKDAY_API
 
-        Args:
-            url: The Workday career page URL.
-
-        Returns:
-            The CXS API endpoint URL, or `None` if the URL does
-            not match the expected pattern.
-        """
-        if (result := search(
-            r"(https?://[^/]+\.myworkdayjobs\.com)/([^/?]+)", url
-        )):
-            return (
-                f"{result.group(1)}/wday/cxs/"
-                f"{result.group(2)}/jobs"
-            )
-        return None
-
-    def _fetch_detail(
-        self,
-        external_path : str,
-        scraper       : BaseScraper,
-        source_url    : str
-    ) -> str | None:
+    def _fetch_detail(self, base_url: str, external_path: str) -> str | None:
         """
         Fetch the full job description from a Workday detail endpoint.
 
@@ -63,57 +45,23 @@ class WorkdayScraper:
         complete description for skill extraction.
 
         Args:
+            base_url      : The Workday domain from the career page
+                URL, already extracted by `extract`.
             external_path : The relative path from the search
                 result's `externalPath` field.
-            scraper       : The HTTP client for making requests.
-            source_url    : The original career page URL for
-                deriving the base domain.
 
         Returns:
             The full job description HTML, or `None` on failure.
         """
-        base = match(
-            r"(https?://[^/]+\.myworkdayjobs\.com)", source_url
-        )
-        if not base:
-            return None
-
-        data = scraper.fetch_json(
-            f"{base.group(1)}/wday/cxs{external_path}"
-        )
-        if not data:
-            return None
-
-        return data.get("jobPostingInfo", {}).get(
-            "jobDescription", ""
+        return (
+            data.get("jobPostingInfo", {}).get("jobDescription", "")
+            if isinstance(data := self._http.fetch_json(
+                f"{base_url}/wday/cxs{external_path}"
+            ), dict)
+            else None
         )
 
-    def _parse_date(self, date_str: str | None) -> date | None:
-        """
-        Parse a Workday ISO date string, tolerating time suffixes.
-
-        Workday returns dates as full ISO timestamps, so truncating
-        to the first 10 characters extracts the date portion.
-
-        Args:
-            date_str: The raw date string from the API response.
-
-        Returns:
-            The parsed date, or `None` if parsing fails.
-        """
-        if not date_str:
-            return None
-        try:
-            return date.fromisoformat(date_str[:10])
-        except (ValueError, TypeError):
-            return None
-
-    def extract(
-        self,
-        company    : str,
-        scraper    : BaseScraper,
-        source_url : str
-    ) -> list[Posting]:
+    def extract(self, company: str, source_url: str) -> list[Posting]:
         """
         Paginate through Workday's search API and collect postings.
 
@@ -123,86 +71,63 @@ class WorkdayScraper:
 
         Args:
             company    : The employer name for the postings.
-            scraper    : The HTTP client for making requests.
             source_url : The Workday career page URL.
 
         Returns:
             A list of `Posting` records from the API response.
         """
-        api_url = self._build_api_url(source_url)
-        if not api_url:
+        if not (api_match := self._URL_PATTERN.search(source_url)):
             logger.error(
                 f"Cannot build Workday API URL from: {source_url}"
             )
             return []
 
-        postings  = []
-        today     = date.today()
-        offset    = 0
-        page_size = 20
+        base_url = api_match.group(1)
+        api_url  = f"{base_url}/wday/cxs/{api_match.group(2)}/jobs"
+        postings = []
+        today    = date.today()
 
-        while True:
-            payload = {
+        for offset in count(0, self._PAGE_SIZE):
+            data = self._http.post_json(api_url, json={
                 "appliedFacets" : {},
-                "limit"         : page_size,
+                "limit"         : self._PAGE_SIZE,
                 "offset"        : offset,
                 "searchText"    : ""
-            }
+            })
 
-            try:
-                scraper._enforce_delay(api_url)
-                response = scraper._client.post(api_url, json=payload)
-                response.raise_for_status()
-                data = response.json()
-            except Exception as error:
-                logger.error(f"Workday API error: {error}")
+            if not isinstance(data, dict) or not (
+                job_postings := data.get("jobPostings", [])
+            ):
                 break
 
-            job_postings = data.get("jobPostings", [])
-            if not job_postings:
-                break
-
-            for job in job_postings:
-                title         = job.get("title", "")
-                bullet_fields = job.get("bulletFields", [])
-                location      = job.get("locationsText", None)
-                posted_on     = job.get("postedOn", None)
-
-                desc_parts = [title]
-                desc_parts.extend(bullet_fields)
-                if (external := job.get("externalPath")):
-                    detail = self._fetch_detail(
-                        external_path = external,
-                        scraper       = scraper,
-                        source_url    = source_url
-                    )
-                    if detail:
-                        desc_parts.append(detail)
-
-                description = "\n".join(
-                    p for p in desc_parts if p
-                )
-                if not title or len(description) < 50:
-                    continue
-
-                postings.append(Posting(
+            postings.extend(
+                Posting(
                     company        = company,
                     date_collected = today,
-                    date_posted    = self._parse_date(posted_on),
+                    date_posted    = parse_iso_date(job.get("postedOn")),
                     description    = description,
-                    id             = make_posting_id(
-                        company     = company,
-                        date_posted = self._parse_date(posted_on),
-                        title       = title
-                    ),
-                    location       = location,
-                    source_type    = SourceType.WORKDAY_API,
+                    location       = job.get("locationsText"),
+                    source_type    = self.source_type,
                     source_url     = source_url,
                     title          = title
-                ))
+                )
+                for job in job_postings
+                if (title := job.get("title"))
+                if len(description := "\n".join(filter(None, [
+                    title,
+                    *job.get("bulletFields", []),
+                    *(
+                        [detail]
+                        if (external := job.get("externalPath"))
+                        and (detail := self._fetch_detail(
+                            base_url, external
+                        ))
+                        else []
+                    )
+                ]))) >= 50
+            )
 
-            if len(job_postings) < page_size:
+            if len(job_postings) < self._PAGE_SIZE:
                 break
-            offset += page_size
 
         return postings

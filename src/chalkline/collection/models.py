@@ -10,7 +10,7 @@ from datetime import date
 from enum     import StrEnum
 from pydantic import BaseModel, Field, model_validator
 from re       import sub
-from typing   import Annotated, Self
+from typing   import Annotated, Any
 
 NonEmptyStr = Annotated[str, Field(min_length=1)]
 
@@ -24,12 +24,11 @@ class ScrapeCategory(StrEnum):
     """
     Classification of a career page URL by its scraping approach.
 
-    Drives `match`/`case` dispatch in the collector to route each
-    manifest entry to the appropriate scraper implementation.
+    Drives dispatch in the collector to route each manifest entry
+    to the appropriate scraper implementation.
     """
 
     APPLICATION_ONLY = "APPLICATION_ONLY"
-    CIANBRO          = "CIANBRO"
     ENGAGEDTAS       = "ENGAGEDTAS"
     PDF_ONLY         = "PDF_ONLY"
     STATIC_HTML      = "STATIC_HTML"
@@ -96,39 +95,41 @@ class Posting(BaseModel, extra="forbid"):
 
     The `id` field is a composite key derived from company slug, title
     slug, and date, enabling deterministic deduplication across sources.
-    Salary, experience level, and credential fields are intentionally
-    omitted because they are unreliable in scraped postings.
+    When omitted at construction time, `id` is auto-computed from the
+    sibling fields. Salary, experience level, and credential fields are
+    intentionally omitted because they are unreliable in scraped
+    postings.
     """
 
     company        : NonEmptyStr
     date_collected : date
     date_posted    : date | None
-    description    : NonEmptyStr
-    id             : NonEmptyStr
+    description    : Annotated[str, Field(min_length=50)]
     source_type    : SourceType
     source_url     : NonEmptyStr
     title          : NonEmptyStr
 
-    location: NonEmptyStr | None = None
+    id       : NonEmptyStr        = ""
+    location : NonEmptyStr | None = None
 
-    @model_validator(mode="after")
-    def validate_description_length(self) -> Self:
+    @model_validator(mode="before")
+    @classmethod
+    def _auto_id(cls, data: Any) -> Any:
         """
-        Reject descriptions too short for meaningful skill extraction.
-
-        The 50-character floor filters out stub postings and placeholder
-        entries that would contribute noise to the TF-IDF matrix.
-
-        Raises:
-            ValueError: When the description is shorter than 50
-                characters.
+        Derive `id` from `company`, `date_posted`, and `title` when
+        absent, so callers need not invoke `make_posting_id` manually.
         """
-        if len(self.description) < 50:
-            raise ValueError(
-                f"Description must be at least 50 characters, "
-                f"got {len(self.description)}"
+        if isinstance(data, dict) and not data.get("id"):
+            data["id"] = make_posting_id(
+                company     = data.get("company", ""),
+                date_posted = (
+                    date.fromisoformat(dp)
+                    if isinstance(dp := data.get("date_posted"), str)
+                    else dp
+                ),
+                title = data.get("title", "")
             )
-        return self
+        return data
 
 
 def make_posting_id(
@@ -150,5 +151,26 @@ def make_posting_id(
     Returns:
         A composite key in the format `company_title_date`.
     """
-    date_str = date_posted.isoformat() if date_posted else "undated"
-    return f"{_slugify(company)}_{_slugify(title)}_{date_str}"
+    return (
+        f"{_slugify(company)}_{_slugify(title)}_"
+        f"{date_posted.isoformat() if date_posted else 'undated'}"
+    )
+
+
+def parse_iso_date(date_str: str | None) -> date | None:
+    """
+    Parse an ISO date string, tolerating trailing time suffixes.
+
+    ATS APIs (*Workable, Workday*) return dates as full ISO timestamps,
+    so truncating to the first 10 characters extracts the date portion.
+
+    Args:
+        date_str: The raw date string from the API response.
+
+    Returns:
+        The parsed date, or `None` if absent or unparseable.
+    """
+    try:
+        return date.fromisoformat(date_str[:10]) if date_str else None
+    except ValueError:
+        return None

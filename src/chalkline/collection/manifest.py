@@ -37,8 +37,10 @@ _APPLICATION_ONLY_URLS = {
 }
 
 
-_PDF_ONLY_EXTENSIONS = {
-    ".pdf"
+_HOSTNAME_CATEGORIES = {
+    "engagedtas.com"    : ScrapeCategory.ENGAGEDTAS,
+    "myworkdayjobs.com" : ScrapeCategory.WORKDAY,
+    "workable.com"      : ScrapeCategory.WORKABLE
 }
 
 
@@ -56,26 +58,19 @@ def _classify(url: str) -> ScrapeCategory:
         The `ScrapeCategory` that determines which scraper handles
         this URL.
     """
-    parsed   = urlparse(url)
-    path_key = _url_path_key(url)
+    hostname = (parsed := urlparse(url)).hostname or ""
 
-    if path_key in _APPLICATION_ONLY_URLS:
+    if f"{hostname.removeprefix('www.')}{parsed.path}" in _APPLICATION_ONLY_URLS:
         return ScrapeCategory.APPLICATION_ONLY
 
-    if any(url.lower().endswith(ext) for ext in _PDF_ONLY_EXTENSIONS):
+    if url.lower().endswith(".pdf"):
         return ScrapeCategory.PDF_ONLY
 
-    hostname = parsed.hostname or ""
-    if "workable.com" in hostname:
-        return ScrapeCategory.WORKABLE
-    if "myworkdayjobs.com" in hostname:
-        return ScrapeCategory.WORKDAY
-    if "engagedtas.com" in hostname:
-        return ScrapeCategory.ENGAGEDTAS
-    if "cianbro.com" in hostname:
-        return ScrapeCategory.CIANBRO
-
-    return ScrapeCategory.STATIC_HTML
+    return next(
+        (cat for domain, cat in _HOSTNAME_CATEGORIES.items()
+         if domain in hostname),
+        ScrapeCategory.STATIC_HTML
+    )
 
 
 def _strip_tracking_params(url: str) -> str:
@@ -92,33 +87,14 @@ def _strip_tracking_params(url: str) -> str:
     Returns:
         The URL with all Google Ads parameters removed.
     """
-    parsed = urlparse(url)
-    params = parse_qs(parsed.query, keep_blank_values=True)
-    cleaned = {
-        k: v for k, v in params.items()
-        if k not in GOOGLE_ADS_PARAMS
-    }
-    return urlunparse(
-        parsed._replace(query=urlencode(cleaned, doseq=True))
-    )
-
-
-def _url_path_key(url: str) -> str:
-    """
-    Extract the domain and path for matching against known patterns.
-
-    Strips the `www.` prefix so that `www.example.com/path` and
-    `example.com/path` resolve to the same key.
-
-    Args:
-        url: The URL to extract the path key from.
-
-    Returns:
-        A string combining hostname and path for pattern matching.
-    """
-    parsed = urlparse(url)
-    host   = (parsed.hostname or "").removeprefix("www.")
-    return f"{host}{parsed.path}"
+    return urlunparse((parsed := urlparse(url))._replace(
+        query=urlencode(
+            {k: v for k, v in
+             parse_qs(parsed.query, keep_blank_values=True).items()
+             if k not in GOOGLE_ADS_PARAMS},
+            doseq=True
+        )
+    ))
 
 
 def generate(output_dir: Path, reference_dir: Path) -> list[ManifestEntry]:
@@ -136,28 +112,22 @@ def generate(output_dir: Path, reference_dir: Path) -> list[ManifestEntry]:
     Returns:
         The complete list of manifest entries.
     """
-    raw = loads(
-        (reference_dir / "career_urls.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    entries = []
-    for record in raw:
-        clean_url = _strip_tracking_params(record["url"])
-        category  = _classify(clean_url)
-        active    = category not in {
-            ScrapeCategory.APPLICATION_ONLY,
-            ScrapeCategory.PDF_ONLY
-        }
-
-        entries.append(ManifestEntry(
-            active   = active,
-            category = category,
+    entries = [
+        ManifestEntry(
+            active   = (cat := _classify(url := _strip_tracking_params(
+                record["url"]
+            ))) not in {ScrapeCategory.APPLICATION_ONLY, ScrapeCategory.PDF_ONLY},
+            category = cat,
             company  = record["company"],
             source   = record["source"],
-            url      = clean_url
-        ))
+            url      = url
+        )
+        for record in loads(
+            (reference_dir / "career_urls.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    ]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "manifest.json").write_text(
@@ -168,10 +138,9 @@ def generate(output_dir: Path, reference_dir: Path) -> list[ManifestEntry]:
         encoding="utf-8"
     )
 
-    active_count   = sum(1 for e in entries if e.active)
-    inactive_count = len(entries) - active_count
     logger.info(
         f"Manifest: {len(entries)} URLs "
-        f"({active_count} active, {inactive_count} inactive)"
+        f"({(active := sum(e.active for e in entries))} active, "
+        f"{len(entries) - active} inactive)"
     )
     return entries

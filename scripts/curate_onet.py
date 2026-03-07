@@ -13,7 +13,7 @@ Run from the worktree root:
 """
 
 from collections import Counter, defaultdict
-from json        import dumps, load
+from json        import dumps, loads
 from operator    import itemgetter
 from pandas      import read_csv
 from pathlib     import Path
@@ -46,8 +46,9 @@ entry = lambda name, type_label, importance=None, level=None: {
 def main():
     root = Path(__file__).resolve().parent.parent
 
-    with open(root / "data/stakeholder/reference/onet_codes.json") as f:
-        codes = {c["soc_code"]: c for c in load(f)}
+    codes = {c["soc_code"]: c for c in loads(
+        (root / "data/stakeholder/reference/onet_codes.json").read_text()
+    )}
 
     print("Downloading O*NET 30.0 database files...")
     raw = {}

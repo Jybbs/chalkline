@@ -8,50 +8,16 @@ handled by this scraper because their single-listing HTML structure
 matches generic extraction patterns.
 """
 
-from bs4      import BeautifulSoup, Tag
-from datetime import date
-from re       import compile, IGNORECASE, search
+from bs4       import BeautifulSoup, Tag
+from datetime  import date
+from itertools import takewhile
+from re        import compile, IGNORECASE
 
-from chalkline.collection.models import Posting, SourceType, make_posting_id
-
-
-_ACCORDION_PATTERN = compile(
-    r"accordion|collapse|toggle", IGNORECASE
-)
+from chalkline.collection.models        import Posting, ScrapeCategory, SourceType
+from chalkline.collection.scrapers.base import BaseScraper
 
 
-_CONTENT_AREA_PATTERN = compile(r"content|main", IGNORECASE)
-
-
-_JOB_DIV_PATTERN = compile(
-    r"job|career|position|listing|opening|posting", IGNORECASE
-)
-
-
-_JOB_LI_PATTERN = compile(
-    r"job|career|position|listing|opening|posting", IGNORECASE
-)
-
-
-_LOCATION_PATTERNS = [
-    r"(?:Location|location|LOCATION)\s*[:\-]\s*(.+?)(?:\n|$)",
-    r"([\w\s]+,\s*(?:ME|Maine))"
-]
-
-
-_NOISE_TITLES = {
-    "about",
-    "apply",
-    "benefits",
-    "contact",
-    "culture",
-    "home",
-    "menu",
-    "values"
-}
-
-
-class HeuristicScraper:
+class HeuristicScraper(BaseScraper):
     """
     Extract postings from arbitrary career pages using heuristics.
 
@@ -62,13 +28,43 @@ class HeuristicScraper:
     have no current openings.
     """
 
+    _ACCORDION_PATTERN    = compile(r"accordion|collapse|toggle", IGNORECASE)
+    _CONTENT_AREA_PATTERN = compile(r"content|main", IGNORECASE)
+    _CONTENT_TAGS         = ("p", "li", "span", "div", "dd", "td")
+    _HEADING_TAGS         = ("h2", "h3", "h4")
+    _JOB_PATTERN          = compile(
+        r"job|career|position|listing|opening|posting", IGNORECASE
+    )
+    _LOCATION_PATTERN     = compile(
+        r"location\s*[:\-]\s*(.+?)(?:\n|$)"
+        r"|([\w\s]+,\s*(?:ME|Maine))",
+        IGNORECASE
+    )
+    _NOISE_TITLES         = frozenset({
+        "about",
+        "apply",
+        "benefits",
+        "contact",
+        "culture",
+        "home",
+        "menu",
+        "values"
+    })
+    _TITLE_TAGS           = ("h1", "h2", "h3", "h4", "a", "strong", "b")
+
+    categories  = frozenset({
+        ScrapeCategory.ENGAGEDTAS,
+        ScrapeCategory.STATIC_HTML
+    })
+    source_type = SourceType.DIRECT_SCRAPE
+
     def _extract_description(self, block: Tag) -> str | None:
         """
         Concatenate visible text from content elements in a block.
 
-        Casts a wider net than the Cianbro scraper by also pulling
-        from `<dd>` and `<td>` elements, because arbitrary career
-        pages use definition lists and tables for job details.
+        Pulls from paragraphs, list items, spans, divs, definition
+        descriptions, and table cells to capture the full posting body
+        for skill extraction.
 
         Args:
             block: The HTML element containing posting content.
@@ -76,20 +72,18 @@ class HeuristicScraper:
         Returns:
             The concatenated text, or `None` if no content is found.
         """
-        texts = []
-        for element in block.find_all(
-            ["p", "li", "span", "div", "dd", "td"]
-        ):
-            if (text := element.get_text(strip=True)):
-                texts.append(text)
-        return "\n".join(texts) if texts else None
+        return ("\n".join(
+            text for el in block.find_all(self._CONTENT_TAGS)
+            if (text := el.get_text(strip=True))
+        )) or None
 
     def _extract_location(self, block: Tag) -> str | None:
         """
         Search for location patterns including Maine-specific formats.
 
-        Tries explicit "Location:" labels first, then falls back to
-        city-state patterns like "Portland, ME" or "Bangor, Maine".
+        Tries explicit "Location:" labels first via the combined
+        alternation regex, then falls back to city-state patterns
+        like "Portland, ME" or "Bangor, Maine".
 
         Args:
             block: The HTML element to search for location text.
@@ -97,11 +91,11 @@ class HeuristicScraper:
         Returns:
             The extracted location string, or `None` if not found.
         """
-        text = block.get_text()
-        for pattern in _LOCATION_PATTERNS:
-            if (match := search(pattern, text)):
-                return match.group(1).strip()
-        return None
+        return (
+            (match.group(1) or match.group(2)).strip()
+            if (match := self._LOCATION_PATTERN.search(block.get_text()))
+            else None
+        )
 
     def _extract_title(self, block: Tag) -> str | None:
         """
@@ -117,11 +111,13 @@ class HeuristicScraper:
             The extracted title text, or `None` if no heading is
             found.
         """
-        for tag in ["h1", "h2", "h3", "h4", "a", "strong", "b"]:
-            if (heading := block.find(tag)):
-                if (text := heading.get_text(strip=True)):
-                    return text
-        return None
+        return next(
+            (text
+             for tag in self._TITLE_TAGS
+             if (heading := block.find(tag))
+             and (text := heading.get_text(strip=True))),
+            None
+        )
 
     def _find_posting_blocks(self, soup: BeautifulSoup) -> list[Tag]:
         """
@@ -137,23 +133,16 @@ class HeuristicScraper:
         Returns:
             A list of HTML elements, each containing one posting.
         """
-        for selector in [
-            "article",
-            ("div", {"class": _JOB_DIV_PATTERN}),
-            ("li", {"class": _JOB_LI_PATTERN})
-        ]:
-            if isinstance(selector, str):
-                blocks = soup.find_all(selector)
-            else:
-                blocks = soup.find_all(selector[0], selector[1])
-            if blocks:
-                return blocks
-
-        blocks = soup.find_all(
-            "div", class_=_ACCORDION_PATTERN
-        )
-        if blocks:
+        if (blocks := soup.find_all("article")):
             return blocks
+
+        for tag, pattern in (
+            ("div", self._JOB_PATTERN),
+            ("li",  self._JOB_PATTERN),
+            ("div", self._ACCORDION_PATTERN)
+        ):
+            if (blocks := soup.find_all(tag, class_=pattern)):
+                return blocks
 
         return self._segment_by_headings(soup)
 
@@ -170,7 +159,7 @@ class HeuristicScraper:
         Returns:
             `True` if the title is a known noise heading.
         """
-        return title.lower().strip() in _NOISE_TITLES or len(title) < 3
+        return title.lower() in self._NOISE_TITLES or len(title) < 3
 
     def _segment_by_headings(self, soup: BeautifulSoup) -> list[Tag]:
         """
@@ -187,73 +176,60 @@ class HeuristicScraper:
         """
         main = (
             soup.find("main")
-            or soup.find("div", class_=_CONTENT_AREA_PATTERN)
+            or soup.find("div", class_=self._CONTENT_AREA_PATTERN)
             or soup.body
             or soup
         )
 
         blocks = []
 
-        for heading in main.find_all(["h2", "h3", "h4"]):
-            block = BeautifulSoup(
-                "<div></div>", "html.parser"
-            ).div
+        for heading in main.find_all(self._HEADING_TAGS):
+            block = soup.new_tag("div")
             block.append(heading.__copy__())
-            for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2", "h3", "h4"]:
-                    break
+            for sibling in takewhile(
+                lambda s: s.name not in self._HEADING_TAGS,
+                heading.find_next_siblings()
+            ):
                 block.append(sibling.__copy__())
             blocks.append(block)
 
         return blocks
 
-    def extract(
-        self,
-        company    : str,
-        html       : str,
-        source_url : str
-    ) -> list[Posting]:
+    def extract(self, company: str, source_url: str) -> list[Posting]:
         """
-        Parse arbitrary career page HTML into posting records.
+        Fetch and parse a career page into posting records.
 
-        Skips blocks without a title, noise headings, or
-        descriptions shorter than 50 characters.
+        Fetches the HTML via the shared HTTP client, then searches
+        for posting blocks. Skips blocks without a title, noise
+        headings, or descriptions shorter than 50 characters.
 
         Args:
             company    : The employer name for the postings.
-            html       : The raw HTML string to parse.
-            source_url : The URL the HTML was fetched from.
+            source_url : The career page URL to fetch and parse.
 
         Returns:
             A list of `Posting` records extracted from the page.
         """
-        soup     = BeautifulSoup(html, "html.parser")
-        postings = []
-        today    = date.today()
+        if (response := self._http.fetch(source_url)) is None:
+            return []
 
-        for block in self._find_posting_blocks(soup):
-            title = self._extract_title(block)
-            if not title or self._is_noise(title):
-                continue
-
-            description = self._extract_description(block)
-            if not description or len(description) < 50:
-                continue
-
-            postings.append(Posting(
+        today = date.today()
+        return [
+            Posting(
                 company        = company,
                 date_collected = today,
                 date_posted    = None,
                 description    = description,
-                id             = make_posting_id(
-                    company     = company,
-                    date_posted = None,
-                    title       = title
-                ),
                 location       = self._extract_location(block),
-                source_type    = SourceType.DIRECT_SCRAPE,
+                source_type    = self.source_type,
                 source_url     = source_url,
                 title          = title
-            ))
-
-        return postings
+            )
+            for block in self._find_posting_blocks(
+                BeautifulSoup(response.text, "html.parser")
+            )
+            if (title := self._extract_title(block))
+            and not self._is_noise(title)
+            if (description := self._extract_description(block))
+            and len(description) >= 50
+        ]
