@@ -2,15 +2,17 @@
 Tests for collection domain models and enums.
 
 Validates enum membership and serialization for `ScrapeCategory` and
-`SourceType`, Pydantic model constraints for `Posting`, and composite
-key generation via `make_posting_id`.
+`SourceType`, Pydantic model constraints for `Posting`, composite
+key generation via `Posting.make_id`, `ScrapeCategory` property
+mappings, and `ManifestEntry` active derivation.
 """
 
 from datetime import date
+from enum     import StrEnum
 from pytest   import mark, raises
 
-from chalkline.collection.models import make_posting_id
-from chalkline.collection.models import Posting, ScrapeCategory, SourceType
+from chalkline.collection.models import ManifestEntry, Posting
+from chalkline.collection.models import ScrapeCategory, SourceType
 from tests.conftest              import SAMPLE_DESCRIPTION
 
 
@@ -20,53 +22,33 @@ from tests.conftest              import SAMPLE_DESCRIPTION
 
 
 @mark.parametrize("enum_cls", [ScrapeCategory, SourceType])
-def test_all_enum_members_are_strings(enum_cls):
+def test_enum_is_str_enum(enum_cls):
     """
-    Every member of each `StrEnum` serializes as its string value.
+    Collection enums are `StrEnum` subclasses.
     """
-    for member in enum_cls:
-        assert isinstance(member.value, str)
-        assert member == member.value
+    assert issubclass(enum_cls, StrEnum)
 
 
-class TestScrapeCategory:
+@mark.parametrize("enum_cls, expected", [
+    (ScrapeCategory, {
+        "APPLICATION_ONLY",
+        "ENGAGEDTAS",
+        "PDF_ONLY",
+        "STATIC_HTML",
+        "WORKABLE",
+        "WORKDAY"
+    }),
+    (SourceType, {
+        "DIRECT_SCRAPE",
+        "WORKABLE_API",
+        "WORKDAY_API"
+    })
+])
+def test_expected_enum_members(enum_cls, expected):
     """
-    Validate `ScrapeCategory` enum membership.
+    Each enum contains exactly its expected member values.
     """
-
-    def test_expected_members(self):
-        """
-        The enum contains exactly the expected scraping approaches.
-        """
-        expected = {
-            "APPLICATION_ONLY",
-            "ENGAGEDTAS",
-            "PDF_ONLY",
-            "STATIC_HTML",
-            "WORKABLE",
-            "WORKDAY"
-        }
-        assert {m.value for m in ScrapeCategory} == expected
-
-
-class TestSourceType:
-    """
-    Validate `SourceType` enum membership.
-    """
-
-    def test_expected_members(self):
-        """
-        The enum contains exactly the expected acquisition methods.
-        """
-        expected = {
-            "AGC_EXPORT",
-            "AGGREGATOR",
-            "ATS_SCRAPE",
-            "DIRECT_SCRAPE",
-            "WORKABLE_API",
-            "WORKDAY_API"
-        }
-        assert {m.value for m in SourceType} == expected
+    assert {m.value for m in enum_cls} == expected
 
 
 # -----------------------------------------------------------------------------
@@ -91,7 +73,7 @@ class TestPosting:
             source_type    = SourceType.DIRECT_SCRAPE,
             source_url     = "https://example.com",
             title          = "Electrician"
-        ).id == make_posting_id(
+        ).id == Posting.make_id(
             company     = "Cianbro",
             date_posted = date(2026, 3, 1),
             title       = "Electrician"
@@ -153,7 +135,7 @@ class TestPosting:
 # -----------------------------------------------------------------------------
 
 
-class TestMakePostingId:
+class TestPostingMakeId:
     """
     Validate composite key generation for deduplication.
     """
@@ -162,18 +144,17 @@ class TestMakePostingId:
         """
         Identical inputs produce the same composite key.
         """
-        args = {
+        assert Posting.make_id(**(args := {
             "company"     : "Cianbro",
             "date_posted" : date(2026, 3, 1),
             "title"       : "Electrician"
-        }
-        assert make_posting_id(**args) == make_posting_id(**args)
+        })) == Posting.make_id(**args)
 
     def test_none_date(self):
         """
         A `None` date produces an "undated" segment in the key.
         """
-        assert "undated" in make_posting_id(
+        assert "undated" in Posting.make_id(
             company     = "Cianbro",
             date_posted = None,
             title       = "Electrician"
@@ -183,9 +164,154 @@ class TestMakePostingId:
         """
         Spaces, ampersands, and dots are replaced with hyphens.
         """
-        result = make_posting_id(
+        assert not any(c in Posting.make_id(
             company     = "R.J. Grondin & Sons",
             date_posted = date(2026, 1, 1),
             title       = "Heavy Equip. Operator"
+        ) for c in " &.")
+
+
+# -----------------------------------------------------------------------------
+# ScrapeCategory Property Tests
+# -----------------------------------------------------------------------------
+
+
+class TestScrapeCategoryProperties:
+    """
+    Validate `scrapeable` and `source_type` property mappings.
+    """
+
+    @mark.parametrize("category", [
+        ScrapeCategory.ENGAGEDTAS,
+        ScrapeCategory.STATIC_HTML,
+        ScrapeCategory.WORKABLE,
+        ScrapeCategory.WORKDAY
+    ])
+    def test_scrapeable_categories(self, category: ScrapeCategory):
+        """
+        Active scraping categories report as scrapeable.
+        """
+        assert category.scrapeable
+
+    @mark.parametrize("category", [
+        ScrapeCategory.APPLICATION_ONLY,
+        ScrapeCategory.PDF_ONLY
+    ])
+    def test_non_scrapeable_categories(self, category: ScrapeCategory):
+        """
+        Application-only and PDF-only categories are not scrapeable.
+        """
+        assert not category.scrapeable
+
+    @mark.parametrize("category, expected", [
+        (ScrapeCategory.WORKABLE, SourceType.WORKABLE_API),
+        (ScrapeCategory.WORKDAY,  SourceType.WORKDAY_API)
+    ])
+    def test_api_source_types(self, category: ScrapeCategory, expected: SourceType):
+        """
+        ATS categories map to their specific API source types.
+        """
+        assert category.source_type == expected
+
+    @mark.parametrize("category", [
+        ScrapeCategory.ENGAGEDTAS,
+        ScrapeCategory.STATIC_HTML
+    ])
+    def test_html_source_type(self, category: ScrapeCategory):
+        """
+        HTML-based categories map to `DIRECT_SCRAPE`.
+        """
+        assert category.source_type == SourceType.DIRECT_SCRAPE
+
+
+# -----------------------------------------------------------------------------
+# ManifestEntry Tests
+# -----------------------------------------------------------------------------
+
+
+class TestManifestEntry:
+    """
+    Validate `ManifestEntry` model constraints and derived fields.
+    """
+
+    def test_active_derived_from_scrapeable(self):
+        """
+        The `active` field is set from `category.scrapeable`
+        regardless of input.
+        """
+        entry = ManifestEntry(
+            category = ScrapeCategory.STATIC_HTML,
+            company  = "Cianbro",
+            source   = "dot_prequal",
+            url      = "https://cianbro.com/careers-list"
         )
-        assert not any(c in result for c in " &.")
+        assert entry.active is True
+
+    def test_inactive_for_application_only(self):
+        """
+        Application-only entries are always inactive.
+        """
+        entry = ManifestEntry(
+            category = ScrapeCategory.APPLICATION_ONLY,
+            company  = "Test Corp",
+            source   = "dot_prequal",
+            url      = "https://example.com/apply"
+        )
+        assert entry.active is False
+
+    def test_extra_fields_rejected(self):
+        """
+        Unknown fields raise `ValidationError` with `extra="forbid"`.
+        """
+        with raises(Exception, match="Extra inputs"):
+            ManifestEntry(
+                category = ScrapeCategory.STATIC_HTML,
+                company  = "Test",
+                source   = "test",
+                url      = "https://example.com",
+                notes    = "should not be allowed"
+            )
+
+
+# -----------------------------------------------------------------------------
+# Date Parsing Tests
+# -----------------------------------------------------------------------------
+
+
+class TestParseIsoDate:
+    """
+    Validate ISO date parsing used by the `Posting` model and
+    ATS scrapers.
+    """
+
+    def test_plain_date(self):
+        """
+        A standard ISO date string parses correctly.
+        """
+        assert Posting.parse_iso_date("2026-03-01") == date(2026, 3, 1)
+
+    def test_timestamp_truncated(self):
+        """
+        Full ISO timestamps are truncated to the date portion.
+        """
+        assert Posting.parse_iso_date(
+            "2026-03-01T14:30:00Z"
+        ) == date(2026, 3, 1)
+
+    def test_none_returns_none(self):
+        """
+        `None` input returns `None` without error.
+        """
+        assert Posting.parse_iso_date(None) is None
+
+    def test_empty_string_returns_none(self):
+        """
+        An empty string returns `None` without error.
+        """
+        assert Posting.parse_iso_date("") is None
+
+    def test_malformed_returns_none(self):
+        """
+        Unparseable strings return `None` without raising.
+        """
+        assert Posting.parse_iso_date("not-a-date") is None

@@ -5,26 +5,24 @@ This module serves as the entry point for the ``chalkline`` console
 script defined in pyproject.toml.
 """
 
-import subprocess
-import sys
+from logging    import getLogger
+from pathlib    import Path
+from subprocess import run
+from sys        import executable, exit
 
-from pathlib import Path
+logger = getLogger(__name__)
 
 
 def main():
     """
     Launch the Marimo app from the project root.
     """
-    app_path = Path.cwd() / "app" / "main.py"
+    if not (app_path := Path.cwd() / "app" / "main.py").exists():
+        logger.error(f"App not found at {app_path}")
+        logger.error("Run this command from the project root.")
+        exit(1)
 
-    if not app_path.exists():
-        print(f"App not found at {app_path}")
-        print("Run this command from the project root.")
-        sys.exit(1)
-
-    sys.exit(subprocess.run(
-        [sys.executable, "-m", "marimo", "run", str(app_path)]
-    ).returncode)
+    exit(run([executable, "-m", "marimo", "run", str(app_path)]).returncode)
 
 
 if __name__ == "__main__":

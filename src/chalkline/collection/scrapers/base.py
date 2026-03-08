@@ -8,12 +8,15 @@ the abstract base for site-specific extractors.
 
 from abc                import ABC, abstractmethod
 from httpx              import Client, HTTPStatusError, RequestError, Response
-from logging            import getLogger
+from logging            import WARNING, getLogger
+from tenacity           import Retrying, before_sleep_log
+from tenacity           import retry_if_exception_type, stop_after_attempt, wait_fixed
 from time               import monotonic, sleep
 from urllib.parse       import urlparse
 from urllib.robotparser import RobotFileParser
+from w3lib.html         import replace_tags
 
-from chalkline.collection.models import Posting, ScrapeCategory, SourceType
+from chalkline.collection.models import ManifestEntry, Posting, ScrapeCategory
 
 logger = getLogger(__name__)
 
@@ -22,9 +25,8 @@ class HttpClient:
     """
     HTTP client with rate limiting, retries, and `robots.txt` respect.
 
-    Tracks the last request timestamp per domain to enforce a minimum
-    crawl delay between requests. Checks `robots.txt` before each
-    fetch and skips disallowed URLs.
+    Per-domain crawl delay is enforced automatically via an httpx
+    request hook. Retries are handled declaratively by tenacity.
     """
 
     _USER_AGENT = "ChalklineBot/0.1 (+https://github.com/Jybbs/chalkline)"
@@ -44,192 +46,95 @@ class HttpClient:
             retries     : Maximum number of retry attempts per URL.
             timeout     : HTTP request timeout in seconds.
         """
+        domain_times: dict[str, float] = {}
+
+        def throttle(request):
+            domain = request.url.host or ""
+            if (
+                (last := domain_times.get(domain)) is not None
+                and (wait := crawl_delay - (monotonic() - last)) > 0
+            ):
+                sleep(wait)
+            domain_times[domain] = monotonic()
+
         self._client = Client(
+            event_hooks      = {"request": [throttle]},
             follow_redirects = True,
             headers          = {"User-Agent": self._USER_AGENT},
             timeout          = timeout
         )
-        self._crawl_delay  = crawl_delay
-        self._domain_times : dict[str, float] = {}
-        self._retries      = retries
-        self._robots_cache : dict[str, RobotFileParser] = {}
+        self._retrier = Retrying(
+            before_sleep = before_sleep_log(logger, WARNING),
+            reraise      = True,
+            retry        = retry_if_exception_type((HTTPStatusError, RequestError)),
+            stop         = stop_after_attempt(retries),
+            wait         = wait_fixed(crawl_delay)
+        )
+        self._robots: dict[str, RobotFileParser] = {}
 
-    def _check_robots(self, url: str) -> bool:
+    def _robots_allowed(self, url: str) -> bool:
         """
-        Consult `robots.txt` for the URL's origin.
+        Check `robots.txt` for the URL's origin, caching per origin.
 
-        Caches the parsed `robots.txt` per origin so repeated checks
-        against the same domain avoid redundant fetches. When
-        `robots.txt` is unreachable, assumes access is allowed.
-
-        Args:
-            url: The full URL to check against `robots.txt`.
-
-        Returns:
-            `True` if the URL is allowed, `False` if disallowed.
+        Fetches `robots.txt` through our own httpx client rather than
+        `RobotFileParser.read()` so the request inherits the shared
+        User-Agent header and per-domain rate limiting.
         """
         origin = f"{(p := urlparse(url)).scheme}://{p.hostname}"
 
-        if origin not in self._robots_cache:
-            rp = RobotFileParser(f"{origin}/robots.txt")
+        if origin not in self._robots:
+            rp = RobotFileParser()
             try:
-                rp.read()
+                response = self._client.get(f"{origin}/robots.txt")
+                rp.parse(response.text.splitlines())
             except Exception:
                 rp.parse([])
-            self._robots_cache[origin] = rp
+            self._robots[origin] = rp
 
-        return self._robots_cache[origin].can_fetch(self._USER_AGENT, url)
+        return self._robots[origin].can_fetch(self._USER_AGENT, url)
 
-    def _enforce_delay(self, url: str):
+    def request(
+        self, 
+        url    : str, 
+        method : str = "GET", 
+        **kwargs
+    ) -> Response | None:
         """
-        Sleep until the minimum crawl delay has elapsed for this domain.
-
-        Prevents aggressive request rates that could trigger rate
-        limiting or IP bans on employer career sites.
+        Execute an HTTP request with `robots.txt` compliance,
+        per-domain rate limiting, and tenacity-managed retries.
 
         Args:
-            url: The URL whose domain to throttle against.
-        """
-        domain = urlparse(url).hostname or ""
-        if (last := self._domain_times.get(domain)) is not None:
-            if (remaining := self._crawl_delay - (monotonic() - last)) > 0:
-                sleep(remaining)
-        self._domain_times[domain] = monotonic()
-
-    def _parse_json(self, response: Response | None) -> dict | list | None:
-        """
-        Extract JSON from a response, returning `None` on failure.
-        """
-        if not response:
-            return None
-        try:
-            return response.json()
-        except Exception as error:
-            logger.error(f"JSON decode failed for {response.url}: {error}")
-            return None
-
-    def _request(self, method: str, url: str, **kwargs) -> Response | None:
-        """
-        Execute an HTTP request with retries, rate limiting, and
-        `robots.txt` compliance.
-
-        Shared implementation behind `fetch` and `post`, dispatching
-        to the appropriate `httpx.Client` method via `method` name.
-
-        Args:
-            method   : The HTTP method name, namely "get" or "post".
             url      : The URL to request.
-            **kwargs : Forwarded to the `httpx.Client` method.
+            method   : The HTTP method, defaulting to "GET".
+            **kwargs : Forwarded to `httpx.Client.request`.
 
         Returns:
             The HTTP response, or `None` on failure.
         """
-        if not self._check_robots(url):
+        if not self._robots_allowed(url):
             logger.warning(f"Blocked by robots.txt: {url}")
             return None
 
-        self._enforce_delay(url)
-
-        for attempt in range(1, self._retries + 1):
-            try:
-                response = getattr(self._client, method)(url, **kwargs)
-                response.raise_for_status()
-                return response
-            except (HTTPStatusError, RequestError) as error:
-                detail = (
-                    f"HTTP {error.response.status_code}"
-                    if isinstance(error, HTTPStatusError)
-                    else f"Request error ({error})"
-                )
-                logger.warning(
-                    f"{detail} on attempt "
-                    f"{attempt}/{self._retries}: {url}"
-                )
-
-            if attempt < self._retries:
-                sleep(self._crawl_delay)
-
-        logger.error(f"All {self._retries} attempts failed: {url}")
-        return None
-
-    def fetch(self, url: str) -> Response | None:
-        """
-        GET a URL with retries, rate limiting, and `robots.txt` check.
-
-        Returns `None` when the URL is disallowed by `robots.txt` or
-        all retry attempts fail, logging the reason in either case.
-
-        Args:
-            url: The URL to fetch.
-
-        Returns:
-            The HTTP response, or `None` on failure.
-        """
-        return self._request("get", url)
-
-    def fetch_json(self, url: str) -> dict | list | None:
-        """
-        GET a URL and parse the response body as JSON.
-
-        Convenience wrapper for ATS API endpoints that return structured
-        data. Returns `None` on fetch failure or JSON decode error.
-
-        Args:
-            url: The URL to fetch and parse.
-
-        Returns:
-            The parsed JSON payload, or `None` on failure.
-        """
-        return self._parse_json(self.fetch(url))
-
-    def post(self, url: str, json: dict | list | None = None) -> Response | None:
-        """
-        POST to a URL with rate limiting and `robots.txt` check.
-
-        Mirrors `fetch` semantics for POST endpoints, used by ATS
-        scrapers that require POST requests for paginated search.
-
-        Args:
-            url  : The URL to post to.
-            json : JSON-serializable payload for the request body.
-
-        Returns:
-            The HTTP response, or `None` on failure.
-        """
-        return self._request("post", url, json=json)
-
-    def post_json(
-        self,
-        url  : str,
-        json : dict | list | None = None
-    ) -> dict | list | None:
-        """
-        POST to a URL and parse the response body as JSON.
-
-        Convenience wrapper for ATS API endpoints that require POST
-        requests and return structured data.
-
-        Args:
-            url  : The URL to post to.
-            json : JSON-serializable payload for the request body.
-
-        Returns:
-            The parsed JSON payload, or `None` on failure.
-        """
-        return self._parse_json(self.post(url, json=json))
+        try:
+            for attempt in self._retrier:
+                with attempt:
+                    response = self._client.request(method, url, **kwargs)
+                    response.raise_for_status()
+                    return response
+        except (HTTPStatusError, RequestError):
+            logger.error(f"All retries failed: {url}")
+            return None
 
 
 class BaseScraper(ABC):
     """
     Shared constructor and contract for site-specific extractors.
 
-    Subclasses declare `categories` and `source_type` as class
-    attributes and implement `extract` to handle their specific
-    scraping approach.
+    Subclasses declare `categories` as a class attribute and implement
+    `extract` to handle their specific scraping approach.
     """
 
-    categories  : frozenset[ScrapeCategory]
-    source_type : SourceType
+    categories : frozenset[ScrapeCategory]
 
     def __init__(self, http: HttpClient):
         """
@@ -242,20 +147,28 @@ class BaseScraper(ABC):
 
     def __init_subclass__(cls, **kwargs):
         """
-        Validate that concrete subclasses declare `categories` and
-        `source_type` at class definition time rather than failing
-        when the collector builds its dispatch table.
+        Validate that concrete subclasses declare `categories` at
+        class definition time rather than failing when the collector
+        builds its dispatch table.
         """
         super().__init_subclass__(**kwargs)
 
-        if getattr(cls, "__abstractmethods__", frozenset()):
+        if getattr(cls, "__abstractmethods__", None):
             return
 
-        if missing := [a for a in ("categories", "source_type") if not hasattr(cls, a)]:
-            raise TypeError(
-                f"{cls.__name__} must define: {', '.join(missing)}"
-            )
+        if not hasattr(cls, "categories"):
+            raise TypeError(f"{cls.__name__} must define: categories")
 
     @abstractmethod
-    def extract(self, company: str, source_url: str) -> list[Posting]:
+    def extract(self, entry: ManifestEntry) -> list[Posting]:
+        """
+        Scrape the entry's URL and return postings for its company.
+        """
         ...
+
+    @staticmethod
+    def strip_html(html: str) -> str:
+        """
+        Replace HTML tags with spaces and normalize whitespace.
+        """
+        return " ".join(replace_tags(html, token=" ").split())

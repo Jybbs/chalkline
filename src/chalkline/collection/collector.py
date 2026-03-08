@@ -11,13 +11,10 @@ from collections import Counter
 from logging     import basicConfig, getLogger, INFO
 from pathlib     import Path
 
-from chalkline.collection.manifest           import generate
-from chalkline.collection.models             import ManifestEntry, Posting
-from chalkline.collection.scrapers.base      import HttpClient
-from chalkline.collection.scrapers.heuristic import HeuristicScraper
-from chalkline.collection.scrapers.workable  import WorkableScraper
-from chalkline.collection.scrapers.workday   import WorkdayScraper
-from chalkline.collection.storage            import save
+from chalkline.collection.manifest      import generate
+from chalkline.collection.models        import ManifestEntry, Posting
+from chalkline.collection.scrapers.base import BaseScraper, HttpClient
+from chalkline.collection.storage       import save
 
 logger = getLogger(__name__)
 
@@ -46,37 +43,58 @@ class Collector:
         """
         http = HttpClient()
         self._dispatch = {
-            category: extractor
-            for extractor in (
-                HeuristicScraper(http=http),
-                WorkableScraper(http=http),
-                WorkdayScraper(http=http)
-            )
-            for category in extractor.categories
+            category: scraper
+            for cls in BaseScraper.__subclasses__()
+            for scraper in [cls(http=http)]
+            for category in scraper.categories
         }
         self._postings  = postings_dir
         self._reference = reference_dir
 
-    def _scrape_entry(self, entry: ManifestEntry) -> list[Posting]:
+    @staticmethod
+    def _log_stats(postings: list[Posting]):
+        """
+        Log a human-readable summary of collected postings.
+
+        Includes total count, company breakdown, date range, and source
+        type distribution.
+        """
+        companies = Counter(p.company for p in postings)
+        sources   = Counter(p.source_type.value for p in postings)
+        dates     = [p.date_posted for p in postings if p.date_posted]
+
+        logger.info("\n" + "\n".join([
+            "Corpus Statistics",
+            f"  Total postings: {len(postings)}",
+            f"  Companies: {len(companies)}",
+            f"  Date range: {min(dates).isoformat()} to "
+            f"{max(dates).isoformat()}" if dates else "  Date range: none",
+            *(
+                line
+                for label, counter, limit in (
+                    ("Source types",  sources,   None),
+                    ("Top companies", companies, 10)
+                )
+                if counter
+                for line in (
+                    f"  {label}:",
+                    *(f"    {k}: {v}" for k, v in counter.most_common(limit))
+                )
+            )
+        ]))
+
+    def _scrape(self, entry: ManifestEntry) -> list[Posting]:
         """
         Dispatch a manifest entry to its extractor by category.
 
-        Looks up the extractor registered for the entry's
-        `ScrapeCategory` and delegates extraction. Returns an empty
-        list for categories without a registered extractor.
-
-        Args:
-            entry: The manifest entry to scrape.
-
-        Returns:
-            A list of postings extracted from the entry's URL.
+        Returns an empty list for categories without a registered
+        extractor.
         """
-        if (extractor := self._dispatch.get(entry.category)):
-            return extractor.extract(
-                company    = entry.company,
-                source_url = entry.url
-            )
-        return []
+        return (
+            extractor.extract(entry)
+            if (extractor := self._dispatch.get(entry.category))
+            else []
+        )
 
     def run(self) -> list[Posting]:
         """
@@ -101,7 +119,7 @@ class Collector:
         for entry in active:
             try:
                 all_postings.extend(
-                    postings := self._scrape_entry(entry)
+                    postings := self._scrape(entry)
                 )
                 logger.info(
                     f"{entry.company}: {len(postings)} postings "
@@ -116,39 +134,8 @@ class Collector:
         if all_postings:
             save(all_postings, self._postings)
 
-        _log_stats(all_postings)
+        self._log_stats(all_postings)
         return all_postings
-
-
-def _log_stats(postings: list[Posting]):
-    """
-    Log a human-readable summary of collected postings.
-
-    Includes total count, company breakdown, date range, and source
-    type distribution.
-    """
-    companies = Counter(p.company for p in postings)
-    sources   = Counter(p.source_type.value for p in postings)
-    dates     = [p.date_posted for p in postings if p.date_posted]
-
-    lines = [
-        "Corpus Statistics",
-        f"  Total postings: {len(postings)}",
-        f"  Companies: {len(companies)}",
-        f"  Date range: "
-        f"{(min(dates).isoformat(), max(dates).isoformat()) if dates else 'no dates available'}"
-    ]
-    for label, counter, limit in (
-        ("Source types",  sources,   None),
-        ("Top companies", companies, 10)
-    ):
-        if counter:
-            lines.append(f"  {label}:")
-            lines.extend(
-                f"    {k}: {v}" for k, v in counter.most_common(limit)
-            )
-
-    logger.info("\n" + "\n".join(lines))
 
 
 # -----------------------------------------------------------------------------

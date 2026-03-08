@@ -28,6 +28,8 @@ dependencies    = [
     "scikit-learn",
     "scipy",
     "seaborn",
+    "tenacity",
+    "w3lib",
 ]
 
 [project.scripts]

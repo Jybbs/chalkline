@@ -7,17 +7,13 @@ existing ones. Deduplication retains the most recently collected
 version when duplicate composite IDs appear.
 """
 
-from json     import dumps, loads
 from logging  import getLogger
 from operator import attrgetter
 from pathlib  import Path
 
-from chalkline.collection.models import Posting
+from chalkline.collection.models import POSTINGS, Posting
 
 logger = getLogger(__name__)
-
-
-CORPUS_FILE = "corpus.json"
 
 
 def deduplicate(postings: list[Posting]) -> list[Posting]:
@@ -52,15 +48,10 @@ def load(postings_dir: Path) -> list[Posting]:
     Returns:
         The deserialized list of postings.
     """
-    if not (corpus_path := postings_dir / CORPUS_FILE).exists():
+    if not (corpus_path := postings_dir / "corpus.json").exists():
         return []
 
-    return [
-        Posting.model_validate(record)
-        for record in loads(
-            corpus_path.read_text(encoding="utf-8")
-        )
-    ]
+    return POSTINGS.validate_json(corpus_path.read_bytes())
 
 
 def save(postings: list[Posting], postings_dir: Path):
@@ -77,10 +68,10 @@ def save(postings: list[Posting], postings_dir: Path):
     """
     postings_dir.mkdir(parents=True, exist_ok=True)
 
-    merged = deduplicate(load(postings_dir) + postings)
-
-    (corpus_path := postings_dir / CORPUS_FILE).write_text(
-        data     = dumps([p.model_dump(mode="json") for p in merged], indent=2),
-        encoding = "utf-8"
+    (corpus_path := postings_dir / "corpus.json").write_bytes(
+        POSTINGS.dump_json(
+            merged := deduplicate(load(postings_dir) + postings),
+            indent=2
+        )
     )
     logger.info(f"Saved {len(merged)} postings to {corpus_path}")

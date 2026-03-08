@@ -30,3 +30,19 @@ def sample_posting() -> Posting:
         source_url     = "https://www.cianbro.com/careers-list",
         title          = "Electrician"
     )
+
+
+@fixture
+def second_posting() -> Posting:
+    """
+    A second valid posting with a distinct company for multi-posting tests.
+    """
+    return Posting(
+        company        = "Reed & Reed",
+        date_collected = date(2026, 3, 5),
+        date_posted    = None,
+        description    = SAMPLE_DESCRIPTION,
+        source_type    = SourceType.DIRECT_SCRAPE,
+        source_url     = "https://reed-reed.com/jobs/",
+        title          = "Laborer"
+    )

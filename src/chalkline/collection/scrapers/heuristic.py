@@ -9,12 +9,17 @@ matches generic extraction patterns.
 """
 
 from bs4       import BeautifulSoup, Tag
-from datetime  import date
 from itertools import takewhile
-from re        import compile, IGNORECASE
+from re        import compile, IGNORECASE, search
 
-from chalkline.collection.models        import Posting, ScrapeCategory, SourceType
+from chalkline.collection.models        import ManifestEntry, Posting, ScrapeCategory
 from chalkline.collection.scrapers.base import BaseScraper
+
+ACCORDION_PATTERN    = compile(r"accordion|collapse|toggle", IGNORECASE)
+CONTENT_AREA_PATTERN = compile(r"content|main", IGNORECASE)
+JOB_PATTERN          = compile(
+    r"job|career|position|listing|opening|posting", IGNORECASE
+)
 
 
 class HeuristicScraper(BaseScraper):
@@ -28,35 +33,10 @@ class HeuristicScraper(BaseScraper):
     have no current openings.
     """
 
-    _ACCORDION_PATTERN    = compile(r"accordion|collapse|toggle", IGNORECASE)
-    _CONTENT_AREA_PATTERN = compile(r"content|main", IGNORECASE)
-    _CONTENT_TAGS         = ("p", "li", "span", "div", "dd", "td")
-    _HEADING_TAGS         = ("h2", "h3", "h4")
-    _JOB_PATTERN          = compile(
-        r"job|career|position|listing|opening|posting", IGNORECASE
-    )
-    _LOCATION_PATTERN     = compile(
-        r"location\s*[:\-]\s*(.+?)(?:\n|$)"
-        r"|([\w\s]+,\s*(?:ME|Maine))",
-        IGNORECASE
-    )
-    _NOISE_TITLES         = frozenset({
-        "about",
-        "apply",
-        "benefits",
-        "contact",
-        "culture",
-        "home",
-        "menu",
-        "values"
-    })
-    _TITLE_TAGS           = ("h1", "h2", "h3", "h4", "a", "strong", "b")
-
-    categories  = frozenset({
+    categories = frozenset({
         ScrapeCategory.ENGAGEDTAS,
         ScrapeCategory.STATIC_HTML
     })
-    source_type = SourceType.DIRECT_SCRAPE
 
     def _extract_description(self, block: Tag) -> str | None:
         """
@@ -73,7 +53,8 @@ class HeuristicScraper(BaseScraper):
             The concatenated text, or `None` if no content is found.
         """
         return ("\n".join(
-            text for el in block.find_all(self._CONTENT_TAGS)
+            text
+            for el in block.find_all(("p", "li", "span", "div", "dd", "td"))
             if (text := el.get_text(strip=True))
         )) or None
 
@@ -91,11 +72,13 @@ class HeuristicScraper(BaseScraper):
         Returns:
             The extracted location string, or `None` if not found.
         """
-        return (
-            (match.group(1) or match.group(2)).strip()
-            if (match := self._LOCATION_PATTERN.search(block.get_text()))
-            else None
+        match = search(
+            r"location\s*[:\-]\s*(.+?)(?:\n|$)"
+            r"|([\w\s]+,\s*(?:ME|Maine))",
+            block.get_text(),
+            IGNORECASE
         )
+        return (match.group(1) or match.group(2)).strip() if match else None
 
     def _extract_title(self, block: Tag) -> str | None:
         """
@@ -113,7 +96,7 @@ class HeuristicScraper(BaseScraper):
         """
         return next(
             (text
-             for tag in self._TITLE_TAGS
+             for tag in ("h1", "h2", "h3", "h4", "a", "strong", "b")
              if (heading := block.find(tag))
              and (text := heading.get_text(strip=True))),
             None
@@ -133,33 +116,14 @@ class HeuristicScraper(BaseScraper):
         Returns:
             A list of HTML elements, each containing one posting.
         """
-        if (blocks := soup.find_all("article")):
-            return blocks
-
-        for tag, pattern in (
-            ("div", self._JOB_PATTERN),
-            ("li",  self._JOB_PATTERN),
-            ("div", self._ACCORDION_PATTERN)
-        ):
-            if (blocks := soup.find_all(tag, class_=pattern)):
-                return blocks
-
-        return self._segment_by_headings(soup)
-
-    def _is_noise(self, title: str) -> bool:
-        """
-        Filter out navigation items and boilerplate headings.
-
-        Career pages often have headings like "About" or "Benefits"
-        that would produce spurious postings if not filtered.
-
-        Args:
-            title: The candidate job title to check.
-
-        Returns:
-            `True` if the title is a known noise heading.
-        """
-        return title.lower() in self._NOISE_TITLES or len(title) < 3
+        return soup.find_all("article") or next(
+            (blocks for tag, pattern in (
+                ("div", JOB_PATTERN),
+                ("li",  JOB_PATTERN),
+                ("div", ACCORDION_PATTERN)
+            ) if (blocks := soup.find_all(tag, class_=pattern))),
+            self._segment_by_headings(soup)
+        )
 
     def _segment_by_headings(self, soup: BeautifulSoup) -> list[Tag]:
         """
@@ -176,18 +140,18 @@ class HeuristicScraper(BaseScraper):
         """
         main = (
             soup.find("main")
-            or soup.find("div", class_=self._CONTENT_AREA_PATTERN)
+            or soup.find("div", class_=CONTENT_AREA_PATTERN)
             or soup.body
             or soup
         )
 
         blocks = []
 
-        for heading in main.find_all(self._HEADING_TAGS):
+        for heading in main.find_all(("h2", "h3", "h4")):
             block = soup.new_tag("div")
             block.append(heading.__copy__())
             for sibling in takewhile(
-                lambda s: s.name not in self._HEADING_TAGS,
+                lambda s: s.name not in ("h2", "h3", "h4"),
                 heading.find_next_siblings()
             ):
                 block.append(sibling.__copy__())
@@ -195,7 +159,7 @@ class HeuristicScraper(BaseScraper):
 
         return blocks
 
-    def extract(self, company: str, source_url: str) -> list[Posting]:
+    def extract(self, entry: ManifestEntry) -> list[Posting]:
         """
         Fetch and parse a career page into posting records.
 
@@ -204,32 +168,33 @@ class HeuristicScraper(BaseScraper):
         headings, or descriptions shorter than 50 characters.
 
         Args:
-            company    : The employer name for the postings.
-            source_url : The career page URL to fetch and parse.
+            entry: The manifest entry to scrape.
 
         Returns:
             A list of `Posting` records extracted from the page.
         """
-        if (response := self._http.fetch(source_url)) is None:
+        if not (response := self._http.request(entry.url)):
             return []
 
-        today = date.today()
         return [
             Posting(
-                company        = company,
-                date_collected = today,
+                company        = entry.company,
                 date_posted    = None,
                 description    = description,
                 location       = self._extract_location(block),
-                source_type    = self.source_type,
-                source_url     = source_url,
+                source_type    = entry.category.source_type,
+                source_url     = entry.url,
                 title          = title
             )
             for block in self._find_posting_blocks(
                 BeautifulSoup(response.text, "html.parser")
             )
             if (title := self._extract_title(block))
-            and not self._is_noise(title)
+            and title.lower() not in {
+                "about", "apply", "benefits", "contact",
+                "culture", "home", "menu", "values"
+            }
+            and len(title) >= 3
             if (description := self._extract_description(block))
             and len(description) >= 50
         ]
