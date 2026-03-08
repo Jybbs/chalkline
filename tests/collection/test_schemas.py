@@ -1,5 +1,5 @@
 """
-Tests for collection domain models.
+Tests for collection domain schemas.
 
 Validates Pydantic model constraints for `Posting` and composite
 key generation via `Posting.make_id`.
@@ -8,7 +8,7 @@ key generation via `Posting.make_id`.
 from datetime import date
 from pytest   import mark, raises
 
-from chalkline.collection.models import Posting
+from chalkline.collection.schemas import Posting
 
 
 class TestPosting:

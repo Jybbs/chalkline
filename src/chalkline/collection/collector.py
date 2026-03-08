@@ -14,7 +14,7 @@ from jobspy   import scrape_jobs
 from logging  import basicConfig, getLogger, INFO
 from pathlib  import Path
 
-from chalkline.collection.models  import Posting
+from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import save
 
 logger = getLogger(__name__)

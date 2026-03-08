@@ -1,20 +1,16 @@
 """
-Domain models for corpus collection.
+Schemas for corpus collection.
 
-Defines the `Posting` domain model and composite key builder for
+Defines the `Posting` schema and composite key builder for
 deduplication.
 """
 
 from datetime import date
-from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, model_validator
 from slugify  import slugify
 from typing   import Annotated, Self
 
-NonEmptyStr = Annotated[str, Field(min_length=1)]
-CoercedDate = Annotated[
-    date | None,
-    BeforeValidator(lambda v: v[:10] if isinstance(v, str) else v)
-]
+from chalkline import NonEmptyStr
 
 
 class Posting(BaseModel, extra="forbid"):
@@ -28,7 +24,10 @@ class Posting(BaseModel, extra="forbid"):
     """
 
     company     : NonEmptyStr
-    date_posted : CoercedDate
+    date_posted : Annotated[
+                      date | None,
+                      BeforeValidator(lambda v: v[:10] if isinstance(v, str) else v)
+                  ]
     description : Annotated[str, Field(min_length=50)]
     source_url  : NonEmptyStr
     title       : NonEmptyStr
@@ -77,6 +76,3 @@ class Posting(BaseModel, extra="forbid"):
             f"{slugify(title, stopwords=stops)}_"
             f"{date_posted.isoformat() if date_posted else 'undated'}"
         )
-
-
-POSTINGS = TypeAdapter(list[Posting])

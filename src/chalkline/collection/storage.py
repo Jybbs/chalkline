@@ -6,12 +6,14 @@ collection by appending without overwriting. Deduplication retains
 the most recently collected version when duplicate IDs appear.
 """
 
-from logging import getLogger
-from pathlib import Path
+from logging  import getLogger
+from pathlib  import Path
+from pydantic import TypeAdapter
 
-from chalkline.collection.models import POSTINGS, Posting
+from chalkline.collection.schemas import Posting
 
-logger = getLogger(__name__)
+Postings = TypeAdapter(list[Posting])
+logger   = getLogger(__name__)
 
 
 def deduplicate(postings: list[Posting]) -> list[Posting]:
@@ -48,7 +50,7 @@ def load(postings_dir: Path) -> list[Posting]:
         The deserialized list of postings.
     """
     try:
-        return POSTINGS.validate_json((postings_dir / "corpus.json").read_bytes())
+        return Postings.validate_json((postings_dir / "corpus.json").read_bytes())
     except FileNotFoundError:
         return []
 
@@ -67,7 +69,7 @@ def save(postings: list[Posting], postings_dir: Path):
     postings_dir.mkdir(parents=True, exist_ok=True)
 
     (corpus_path := postings_dir / "corpus.json").write_bytes(
-        POSTINGS.dump_json(
+        Postings.dump_json(
             merged := deduplicate(load(postings_dir) + postings),
             indent=2
         )

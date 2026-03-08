@@ -8,7 +8,7 @@ deduplication that retains the most recently collected version.
 from datetime import date
 from pathlib  import Path
 
-from chalkline.collection.models  import Posting
+from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import deduplicate, load, save
 
 
