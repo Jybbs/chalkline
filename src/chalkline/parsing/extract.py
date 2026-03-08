@@ -1,16 +1,15 @@
 """
-Text extraction from PDF and plain-text documents.
+Text extraction from PDF documents.
 
-Handles PDF extraction via `pdfplumber` and plain-text file reading,
-with shared text cleaning for downstream tokenization. Each extractor
-returns clean text suitable for skill extraction in CL-06.
+Handles PDF extraction via `pdfplumber` with shared text cleaning
+for downstream tokenization. Plain-text files need no dedicated
+extractor because `Path.read_text` with tolerant encoding suffices.
 """
 
-import re
+import pdfplumber
 
 from pathlib import Path
-
-import pdfplumber
+from re      import sub
 
 
 def clean_text(raw: str) -> str:
@@ -30,10 +29,10 @@ def clean_text(raw: str) -> str:
     if not raw:
         return ""
 
-    text = re.sub(r"(?m)^\s*\d+\s*$", "", raw)
-    text = re.sub(r"[^\x00-\x7f]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    return sub(
+        r"\s+", " ",
+        sub(r"[^\x00-\x7f]", " ", sub(r"(?m)^\s*\d+\s*$", "", raw))
+    ).strip()
 
 
 def extract_pdf(path: Path) -> str:
@@ -51,25 +50,8 @@ def extract_pdf(path: Path) -> str:
     Returns:
         Concatenated page text, or empty string if no text is found.
     """
-    pages = []
     with pdfplumber.open(path) as pdf:
-        for page in pdf.pages:
-            if text := page.extract_text():
-                pages.append(text)
-    return "\n".join(pages)
-
-
-def extract_text(path: Path) -> str:
-    """
-    Read a plain-text file with tolerant encoding.
-
-    Uses UTF-8 with replacement to handle Windows-1252 artifacts that
-    commonly appear in job posting exports and older resume formats.
-
-    Args:
-        path: Filesystem path to the text file.
-
-    Returns:
-        File contents as a string.
-    """
-    return path.read_text(encoding="utf-8", errors="replace")
+        return "\n".join(
+            text for page in pdf.pages
+            if (text := page.extract_text())
+        )

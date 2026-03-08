@@ -84,8 +84,7 @@ class TestStorage:
         """
         Saving to a non-existent nested directory creates it.
         """
-        nested = tmp_path / "a" / "b"
-        save([sample_posting], nested)
+        save([sample_posting], (nested := tmp_path / "a" / "b"))
         assert load(nested) == [sample_posting]
 
     def test_save_deduplicates_same_posting(

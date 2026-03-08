@@ -42,12 +42,7 @@ class Posting(BaseModel, extra="forbid"):
         Derive `id` from `company`, `date_posted`, and `title`
         when absent.
         """
-        if not self.id:
-            self.id = self.make_id(
-                company     = self.company,
-                date_posted = self.date_posted,
-                title       = self.title
-            )
+        self.id = self.id or self.make_id(self.company, self.date_posted, self.title)
         return self
 
     @staticmethod
@@ -70,9 +65,8 @@ class Posting(BaseModel, extra="forbid"):
         Returns:
             A composite key in the format `company_title_date`.
         """
-        stops = ["and", "of", "the"]
+        slug = lambda v: slugify(v, stopwords=["and", "of", "the"])
         return (
-            f"{slugify(company, stopwords=stops)}_"
-            f"{slugify(title, stopwords=stops)}_"
+            f"{slug(company)}_{slug(title)}_"
             f"{date_posted.isoformat() if date_posted else 'undated'}"
         )

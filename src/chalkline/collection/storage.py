@@ -12,6 +12,7 @@ from pydantic import TypeAdapter
 
 from chalkline.collection.schemas import Posting
 
+
 Postings = TypeAdapter(list[Posting])
 logger   = getLogger(__name__)
 
@@ -29,11 +30,10 @@ def deduplicate(postings: list[Posting]) -> list[Posting]:
     Returns:
         A deduplicated list with the latest version of each.
     """
-    by_id = {
+    return list({
         p.id: p for p in
         sorted(postings, key=lambda p: p.date_collected)
-    }
-    return list(by_id.values())
+    }.values())
 
 
 def load(postings_dir: Path) -> list[Posting]:

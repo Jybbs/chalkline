@@ -6,65 +6,59 @@ Validates `PipelineConfig` field constraints, defaults, and the
 """
 
 from pathlib import Path
-from pytest  import raises
+from pytest  import mark, raises
 
 from chalkline.pipeline.schemas import DistanceMetric, PipelineConfig
 
 
-class TestDistanceMetric:
+class TestPipelineConfig:
     """
-    Validate `DistanceMetric` enum values and serialization.
+    Validate `PipelineConfig` constraints, defaults, and
+    `DistanceMetric` enum behavior.
     """
 
-    def test_member_count(self):
+    @staticmethod
+    def _config(tmp_path: Path, **overrides) -> PipelineConfig:
         """
-        Exactly three distance metrics are defined.
+        Build a `PipelineConfig` with `tmp_path` for all required
+        directories.
         """
-        assert len(DistanceMetric) == 3
+        return PipelineConfig(
+            lexicon_dir  = tmp_path,
+            output_dir   = tmp_path,
+            postings_dir = tmp_path,
+            **overrides
+        )
 
-    def test_member_values(self):
+    @mark.parametrize("field, expected", [
+        ("distance_metric",      DistanceMetric.EUCLIDEAN),
+        ("max_components",       20),
+        ("min_cooccurrence_pct", 0.05),
+        ("random_seed",          42),
+        ("reference_dir",        Path("data/stakeholder/reference")),
+        ("top_k_gaps",           10),
+        ("variance_threshold",   0.85)
+    ])
+    def test_defaults_applied(self, expected, field: str, tmp_path: Path):
         """
-        Each member serializes to its expected lowercase string.
+        Optional fields receive their documented defaults.
         """
-        assert DistanceMetric.COSINE                 == "cosine"
-        assert DistanceMetric.EUCLIDEAN              == "euclidean"
-        assert DistanceMetric.STANDARDIZED_EUCLIDEAN == "standardized_euclidean"
+        assert getattr(self._config(tmp_path), field) == expected
 
-    def test_string_coercion_in_config(self, tmp_path: Path):
+    def test_distance_metric_members(self):
+        """
+        All expected distance metrics are defined.
+        """
+        assert set(DistanceMetric) == {"cosine", "euclidean", "standardized_euclidean"}
+
+    def test_distance_metric_string_coercion(self, tmp_path: Path):
         """
         A raw string coerces to the correct enum member when
         passed through `PipelineConfig`.
         """
-        config = PipelineConfig(
-            distance_metric = "cosine",
-            lexicon_dir     = tmp_path,
-            output_dir      = tmp_path,
-            postings_dir    = tmp_path
-        )
-        assert config.distance_metric is DistanceMetric.COSINE
-
-
-class TestPipelineConfig:
-    """
-    Validate `PipelineConfig` constraints and defaults.
-    """
-
-    def test_defaults_applied(self, tmp_path: Path):
-        """
-        Optional fields receive their documented defaults.
-        """
-        config = PipelineConfig(
-            lexicon_dir  = tmp_path / "lexicons",
-            output_dir   = tmp_path / "output",
-            postings_dir = tmp_path / "postings"
-        )
-        assert config.distance_metric == DistanceMetric.EUCLIDEAN
-        assert config.max_components == 20
-        assert config.min_cooccurrence_pct == 0.05
-        assert config.random_seed == 42
-        assert config.reference_dir == Path("data/stakeholder/reference")
-        assert config.top_k_gaps == 10
-        assert config.variance_threshold == 0.85
+        assert self._config(
+            tmp_path, distance_metric="cosine"
+        ).distance_metric is DistanceMetric.COSINE
 
     def test_extra_fields_rejected(self, tmp_path: Path):
         """
@@ -72,12 +66,15 @@ class TestPipelineConfig:
         `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
-            PipelineConfig(
-                lexicon_dir  = tmp_path,
-                output_dir   = tmp_path,
-                postings_dir = tmp_path,
-                stale_field  = True
-            )
+            self._config(tmp_path, stale_field=True)
+
+    def test_invalid_distance_metric_rejected(self, tmp_path: Path):
+        """
+        Unrecognized metric strings fail at construction, not
+        downstream in sklearn.
+        """
+        with raises(Exception):
+            self._config(tmp_path, distance_metric="manhattan")
 
     def test_missing_required_fields(self):
         """
@@ -86,56 +83,29 @@ class TestPipelineConfig:
         with raises(Exception):
             PipelineConfig()
 
-    def test_random_seed_propagates(self, tmp_path: Path):
+    def test_override_accepted(self, tmp_path: Path):
         """
-        `random_seed` is present and accessible for stochastic
-        steps.
+        Non-default values are accepted for optional fields.
         """
-        config = PipelineConfig(
-            lexicon_dir  = tmp_path,
-            output_dir   = tmp_path,
-            postings_dir = tmp_path,
-            random_seed  = 123
-        )
-        assert config.random_seed == 123
-
-    def test_variance_threshold_rejects_zero(self, tmp_path: Path):
-        """
-        `variance_threshold` must be strictly greater than zero.
-        """
-        with raises(Exception):
-            PipelineConfig(
-                lexicon_dir        = tmp_path,
-                output_dir         = tmp_path,
-                postings_dir       = tmp_path,
-                variance_threshold = 0.0
-            )
+        config = self._config(tmp_path, max_components=50, random_seed=99)
+        assert config.max_components == 50
+        assert config.random_seed == 99
 
     def test_variance_threshold_accepts_one(self, tmp_path: Path):
         """
         `variance_threshold` of exactly 1.0 is valid, meaning
         keep all variance.
         """
-        config = PipelineConfig(
-            lexicon_dir        = tmp_path,
-            output_dir         = tmp_path,
-            postings_dir       = tmp_path,
-            variance_threshold = 1.0
-        )
-        assert config.variance_threshold == 1.0
+        assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0
 
-    def test_variance_threshold_rejects_above_one(
+    @mark.parametrize("threshold", [0.0, 1.5])
+    def test_variance_threshold_rejects_boundary(
         self,
-        tmp_path : Path
+        threshold : float,
+        tmp_path  : Path
     ):
         """
-        `variance_threshold` above 1.0 violates the `UnitInterval`
-        upper bound.
+        Values at or beyond `UnitInterval` bounds are rejected.
         """
         with raises(Exception):
-            PipelineConfig(
-                lexicon_dir        = tmp_path,
-                output_dir         = tmp_path,
-                postings_dir       = tmp_path,
-                variance_threshold = 1.5
-            )
+            self._config(tmp_path, variance_threshold=threshold)

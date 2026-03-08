@@ -17,10 +17,10 @@ class DistanceMetric(StrEnum):
     """
     Distance functions for resume matching and clustering comparison.
 
-    EUCLIDEAN is the default because `StandardScaler(with_mean=False)`
+    `EUCLIDEAN` is the default because `StandardScaler(with_mean=False)`
     is always applied after PCA, making Euclidean on scaled coordinates
-    equivalent to standardized Euclidean on raw PCA output. COSINE and
-    STANDARDIZED_EUCLIDEAN exist for comparison experiments in CL-08.
+    equivalent to standardized Euclidean on raw PCA output. `COSINE` and
+    `STANDARDIZED_EUCLIDEAN` exist for comparison experiments in CL-08.
     """
 
     COSINE                 = "cosine"

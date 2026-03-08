@@ -17,6 +17,7 @@ from pathlib  import Path
 from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import save
 
+
 logger = getLogger(__name__)
 
 
@@ -35,8 +36,6 @@ class Collector:
         results_wanted : int       = 10000,
         sites          : list[str] = ["indeed"]
     ):
-        self.frames         : list[pd.DataFrame] = []
-        self.postings       : list[Posting]      = []
         self.postings_dir   = postings_dir
         self.results_wanted = results_wanted
         self.search_terms   = search_terms
@@ -73,10 +72,11 @@ class Collector:
         Returns an empty DataFrame when every term fails,
         allowing downstream code to iterate without guarding.
         """
+        frames = []
         for term in self.search_terms:
             logger.info(f"Searching {term!r}")
             try:
-                self.frames.append(scrape_jobs(
+                frames.append(scrape_jobs(
                     location           = "Maine",
                     results_wanted     = self.results_wanted,
                     search_term        = term,
@@ -87,8 +87,8 @@ class Collector:
                 logger.error(f"{term!r}: {error}")
 
         return (
-            pd.concat(self.frames, ignore_index=True)
-            if self.frames else pd.DataFrame()
+            pd.concat(frames, ignore_index=True)
+            if frames else pd.DataFrame()
         )
 
     def run(self):
@@ -96,11 +96,10 @@ class Collector:
         Collect postings from all search terms and persist to
         disk.
         """
-        self.postings = [
+        save([
             p for record in self._scrape().to_dict("records")
             if (p := self._parse_record(record))
-        ]
-        save(self.postings, self.postings_dir)
+        ], self.postings_dir)
 
 
 if __name__ == "__main__":
