@@ -1,146 +1,102 @@
 """
-Orchestrate corpus collection across all manifest URLs.
+Corpus collection via job aggregators.
 
-Reads the crawl manifest, dispatches each active URL to its
-appropriate extractor, and stores collected postings through the
-storage layer. Logs each attempt with its result to support
-debugging and coverage tracking.
+Wraps the JobSpy `scrape_jobs` function to query multiple search
+terms across configured job boards, convert results to `Posting`
+records, and persist deduplicated postings through the storage layer.
+
+    uv run python -m chalkline.collection.collector
 """
 
-from collections import Counter
-from logging     import basicConfig, getLogger, INFO
-from pathlib     import Path
+import pandas as pd
 
-from chalkline.collection.manifest      import generate
-from chalkline.collection.models        import ManifestEntry, Posting
-from chalkline.collection.scrapers.base import BaseScraper, HttpClient
-from chalkline.collection.storage       import save
+from jobspy   import scrape_jobs
+from logging  import basicConfig, getLogger, INFO
+from pathlib  import Path
+
+from chalkline.collection.models  import Posting
+from chalkline.collection.storage import save
 
 logger = getLogger(__name__)
 
 
 class Collector:
     """
-    Run the full collection pipeline across all manifest URLs.
+    Corpus collector that queries job aggregators via JobSpy.
 
-    Generates the crawl manifest from stakeholder reference data,
-    dispatches each active URL to the appropriate extractor, and
-    persists results to disk. Inactive URLs are skipped with a log
-    message.
+    Stores configuration in `__init__` and executes the full
+    scrape-convert-save pipeline via `run`.
     """
 
-    def __init__(self, postings_dir: Path, reference_dir: Path):
-        """
-        Initialize the collector with output and reference paths.
-
-        Builds a dispatch table mapping each `ScrapeCategory` to the
-        extractor that handles it, sharing a single `HttpClient`
-        across all extractors.
-
-        Args:
-            postings_dir  : Directory for storing collected postings.
-            reference_dir : Directory containing `career_urls.json`.
-        """
-        http = HttpClient()
-        self._dispatch = {
-            category: scraper
-            for cls in BaseScraper.__subclasses__()
-            for scraper in [cls(http=http)]
-            for category in scraper.categories
-        }
-        self._postings  = postings_dir
-        self._reference = reference_dir
+    def __init__(
+        self,
+        postings_dir : Path,
+        search_terms : list[str],
+        sites        : list[str] = ["glassdoor", "indeed", "linkedin"]
+    ):
+        self.frames       : list[pd.DataFrame] = []
+        self.postings     : list[Posting]      = []
+        self.postings_dir = postings_dir
+        self.search_terms = search_terms
+        self.sites        = sites
 
     @staticmethod
-    def _log_stats(postings: list[Posting]):
+    def _parse_record(record: dict) -> Posting | None:
         """
-        Log a human-readable summary of collected postings.
+        Convert a single JobSpy row into a `Posting`.
 
-        Includes total count, company breakdown, date range, and source
-        type distribution.
+        Returns `None` when validation fails because aggregator
+        results occasionally include stub listings.
         """
-        companies = Counter(p.company for p in postings)
-        sources   = Counter(p.source_type.value for p in postings)
-        dates     = [p.date_posted for p in postings if p.date_posted]
-
-        logger.info("\n" + "\n".join([
-            "Corpus Statistics",
-            f"  Total postings: {len(postings)}",
-            f"  Companies: {len(companies)}",
-            f"  Date range: {min(dates).isoformat()} to "
-            f"{max(dates).isoformat()}" if dates else "  Date range: none",
-            *(
-                line
-                for label, counter, limit in (
-                    ("Source types",  sources,   None),
-                    ("Top companies", companies, 10)
-                )
-                if counter
-                for line in (
-                    f"  {label}:",
-                    *(f"    {k}: {v}" for k, v in counter.most_common(limit))
-                )
+        try:
+            date_posted = record["date_posted"]
+            location    = record["location"]
+            return Posting(
+                company     = record["company"],
+                date_posted = date_posted.date() if pd.notna(date_posted) else None,
+                description = record["description"],
+                location    = location if pd.notna(location) else None,
+                source_url  = record["job_url"],
+                title       = record["title"]
             )
-        ]))
+        except Exception as error:
+            logger.debug(f"Skipped row: {error}")
+            return None
 
-    def _scrape(self, entry: ManifestEntry) -> list[Posting]:
+    def _scrape(self) -> pd.DataFrame:
         """
-        Dispatch a manifest entry to its extractor by category.
+        Run `scrape_jobs` once per search term and concatenate
+        all results into a single DataFrame.
 
-        Returns an empty list for categories without a registered
-        extractor.
+        Returns an empty DataFrame when every term fails,
+        allowing downstream code to iterate without guarding.
         """
+        for term in self.search_terms:
+            try:
+                self.frames.append(scrape_jobs(
+                    description_format = "markdown",
+                    location           = "Maine",
+                    search_term        = term,
+                    site_name          = self.sites
+                ))
+            except Exception as error:
+                logger.error(f"{term!r}: {error}")
+
         return (
-            extractor.extract(entry)
-            if (extractor := self._dispatch.get(entry.category))
-            else []
+            pd.concat(self.frames, ignore_index=True)
+            if self.frames else pd.DataFrame()
         )
 
-    def run(self) -> list[Posting]:
+    def run(self):
         """
-        Execute the full collection pipeline.
-
-        Generates the manifest, scrapes all active URLs, stores
-        results, and logs a corpus statistics report.
-
-        Returns:
-            All postings collected in this run.
+        Collect postings from all search terms and persist to
+        disk.
         """
-        active = [
-            e for e in generate(
-                output_dir    = self._postings,
-                reference_dir = self._reference
-            ) if e.active
+        self.postings = [
+            p for record in self._scrape().to_dict("records")
+            if (p := self._parse_record(record))
         ]
-
-        all_postings = []
-        logger.info(f"Scraping {len(active)} active URLs")
-
-        for entry in active:
-            try:
-                all_postings.extend(
-                    postings := self._scrape(entry)
-                )
-                logger.info(
-                    f"{entry.company}: {len(postings)} postings "
-                    f"from {entry.url}"
-                )
-            except Exception as error:
-                logger.error(
-                    f"{entry.company}: failed to scrape "
-                    f"{entry.url} ({error})"
-                )
-
-        if all_postings:
-            save(all_postings, self._postings)
-
-        self._log_stats(all_postings)
-        return all_postings
-
-
-# -----------------------------------------------------------------------------
-# Entry Point
-# -----------------------------------------------------------------------------
+        save(self.postings, self.postings_dir)
 
 
 if __name__ == "__main__":
@@ -151,6 +107,13 @@ if __name__ == "__main__":
     )
 
     Collector(
-        postings_dir  = Path("data/postings"),
-        reference_dir = Path("data/stakeholder/reference")
+        postings_dir = Path("data/postings"),
+        search_terms = [
+            "carpenter",
+            "construction",
+            "electrician",
+            "equipment operator",
+            "paving",
+            "superintendent"
+        ]
     ).run()

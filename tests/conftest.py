@@ -5,7 +5,7 @@ Shared test fixtures for the Chalkline test suite.
 from datetime import date
 from pytest   import fixture
 
-from chalkline.collection.models import Posting, SourceType
+from chalkline.collection.models import Posting
 
 
 SAMPLE_DESCRIPTION = (
@@ -26,7 +26,6 @@ def sample_posting() -> Posting:
         date_collected = date(2026, 3, 5),
         date_posted    = date(2026, 3, 1),
         description    = SAMPLE_DESCRIPTION,
-        source_type    = SourceType.DIRECT_SCRAPE,
         source_url     = "https://www.cianbro.com/careers-list",
         title          = "Electrician"
     )
@@ -35,14 +34,13 @@ def sample_posting() -> Posting:
 @fixture
 def second_posting() -> Posting:
     """
-    A second valid posting with a distinct company for multi-posting tests.
+    A distinct-company posting for multi-posting tests.
     """
     return Posting(
         company        = "Reed & Reed",
         date_collected = date(2026, 3, 5),
         date_posted    = None,
         description    = SAMPLE_DESCRIPTION,
-        source_type    = SourceType.DIRECT_SCRAPE,
         source_url     = "https://reed-reed.com/jobs/",
         title          = "Laborer"
     )

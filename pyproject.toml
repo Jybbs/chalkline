@@ -12,8 +12,6 @@ requires-python = ">=3.14"
 license         = { text = "MIT" }
 dependencies    = [
     "ahocorasick-rs",
-    "beautifulsoup4",
-    "httpx",
     "kneed",
     "marimo",
     "matplotlib",
@@ -25,11 +23,18 @@ dependencies    = [
     "pdfplumber",
     "plotly",
     "pydantic",
+    "python-jobspy",
+    "python-slugify>=8.0.4",
     "scikit-learn",
     "scipy",
     "seaborn",
-    "tenacity",
-    "w3lib",
+]
+
+[tool.uv]
+override-dependencies = [
+    "numpy>=2.0",
+    "pandas>=3.0",
+    "regex>=2025",
 ]
 
 [project.scripts]

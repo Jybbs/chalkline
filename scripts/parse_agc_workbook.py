@@ -38,47 +38,6 @@ class StakeholderExtractor:
     # Private Helpers
     # -----------------------------------------------------------------
 
-    @staticmethod
-    def _classify_url(url: str) -> str:
-        """
-        Assign a scraping category to a career page URL.
-
-        Uses structural signals to determine how the collector should
-        handle each URL. Application-only pages are identified by path
-        because the workbook mixes them with career listing pages.
-
-        Args:
-            url: The career page URL to classify.
-
-        Returns:
-            A `ScrapeCategory` member value string.
-        """
-        hostname = (parsed := urlparse(url)).hostname or ""
-        bare     = f"{hostname.removeprefix('www.')}{parsed.path}"
-
-        if bare in {
-            "cemmaine.com/apply-now",
-            "gcmaine.com/contact-us/employment/",
-            "gendroncorp.com/application/",
-            "prattandsons.net/apply-online/",
-            "soderbergconstruction.com/employment-application/",
-            "vaughndthibodeau.com/employment-application-2/"
-        }:
-            return "APPLICATION_ONLY"
-
-        if url.lower().endswith(".pdf"):
-            return "PDF_ONLY"
-
-        for domain, category in (
-            ("engagedtas.com",    "ENGAGEDTAS"),
-            ("myworkdayjobs.com", "WORKDAY"),
-            ("workable.com",      "WORKABLE"),
-        ):
-            if domain in hostname:
-                return category
-
-        return "STATIC_HTML"
-
     def _parse_job_board(self, section: pd.DataFrame) -> list[dict]:
         """
         Parse a job board section into a list of records.
@@ -164,42 +123,6 @@ class StakeholderExtractor:
             .map(self._clean)
             .to_dict(orient="records")
         )
-
-    def extract_career_urls(self) -> list[dict]:
-        """
-        Extract career page URLs for corpus collection.
-
-        The DOT Prequal List and Maine DOT Jobs tabs contain hyperlinks
-        to contractor career pages and the state Workday instance.
-        Each URL is classified by its scraping approach so the
-        collector can route it to the appropriate extractor.
-        """
-        records = []
-
-        for row in self.wb["JobBoards -DOT Prequal List"].iter_rows(min_row=2):
-            company = row[0].value
-            link    = row[1].hyperlink
-            if company and link and link.target and not str(company).startswith("*"):
-                url = self._unwrap_google_redirect(link.target)
-                records.append({
-                    "category" : self._classify_url(url),
-                    "company"  : self._clean(company),
-                    "source"   : "dot_prequal",
-                    "url"      : url
-                })
-
-        for row in self.wb["Maine DOT Jobs"].iter_rows():
-            for cell in row:
-                if cell.hyperlink and cell.hyperlink.target:
-                    url = cell.hyperlink.target
-                    records.append({
-                        "category" : self._classify_url(url),
-                        "company"  : "Maine DOT",
-                        "source"   : "workday",
-                        "url"      : url
-                    })
-
-        return records
 
     def extract_cc_programs(self) -> dict:
         """
@@ -328,7 +251,6 @@ class StakeholderExtractor:
         for method in (
             self.extract_agc_members,
             self.extract_apprenticeships,
-            self.extract_career_urls,
             self.extract_cc_programs,
             self.extract_dot_contractors,
             self.extract_job_boards,

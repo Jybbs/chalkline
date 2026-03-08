@@ -1,15 +1,13 @@
 """
 Persistent storage for the job posting corpus.
 
-Serializes `Posting` records as JSON in `data/postings/` and supports
-incremental collection by appending new postings without overwriting
-existing ones. Deduplication retains the most recently collected
-version when duplicate composite IDs appear.
+Serializes `Posting` records as JSON and supports incremental
+collection by appending without overwriting. Deduplication retains
+the most recently collected version when duplicate IDs appear.
 """
 
-from logging  import getLogger
-from operator import attrgetter
-from pathlib  import Path
+from logging import getLogger
+from pathlib import Path
 
 from chalkline.collection.models import POSTINGS, Posting
 
@@ -21,25 +19,26 @@ def deduplicate(postings: list[Posting]) -> list[Posting]:
     Retain the most recently collected version of each posting.
 
     When duplicate `id` values exist, the posting with the latest
-    `date_collected` wins. Stable sort order is preserved for
-    non-duplicate entries.
+    `date_collected` wins.
 
     Args:
         postings: The list of postings to deduplicate.
 
     Returns:
-        A deduplicated list with the latest version of each posting.
+        A deduplicated list with the latest version of each.
     """
-    return list({
-        p.id: p for p in sorted(postings, key=attrgetter("date_collected"))
-    }.values())
+    by_id = {
+        p.id: p for p in
+        sorted(postings, key=lambda p: p.date_collected)
+    }
+    return list(by_id.values())
 
 
 def load(postings_dir: Path) -> list[Posting]:
     """
     Load all postings from the corpus file.
 
-    Returns an empty list when the corpus file does not exist,
+    Returns an empty list when `corpus.json` does not exist,
     allowing the collector to bootstrap from an empty directory.
 
     Args:
@@ -48,19 +47,18 @@ def load(postings_dir: Path) -> list[Posting]:
     Returns:
         The deserialized list of postings.
     """
-    if not (corpus_path := postings_dir / "corpus.json").exists():
+    try:
+        return POSTINGS.validate_json((postings_dir / "corpus.json").read_bytes())
+    except FileNotFoundError:
         return []
-
-    return POSTINGS.validate_json(corpus_path.read_bytes())
 
 
 def save(postings: list[Posting], postings_dir: Path):
     """
     Persist postings to disk with deduplication.
 
-    Merges `postings` with any existing corpus on disk, deduplicates
-    by composite `id`, and writes the merged result. Creates the
-    output directory if it does not exist.
+    Merges `postings` with any existing corpus on disk,
+    deduplicates by composite `id`, and writes the result.
 
     Args:
         postings     : The new postings to save.

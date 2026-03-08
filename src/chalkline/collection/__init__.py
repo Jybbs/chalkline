@@ -1,3 +1,3 @@
 """
-Corpus collection and career page scraping.
+Corpus collection from job aggregators.
 """
