@@ -30,15 +30,17 @@ class Collector:
 
     def __init__(
         self,
-        postings_dir : Path,
-        search_terms : list[str],
-        sites        : list[str] = ["glassdoor", "indeed", "linkedin"]
+        postings_dir   : Path,
+        search_terms   : list[str],
+        results_wanted : int       = 10000,
+        sites          : list[str] = ["indeed"]
     ):
-        self.frames       : list[pd.DataFrame] = []
-        self.postings     : list[Posting]      = []
-        self.postings_dir = postings_dir
-        self.search_terms = search_terms
-        self.sites        = sites
+        self.frames         : list[pd.DataFrame] = []
+        self.postings       : list[Posting]      = []
+        self.postings_dir   = postings_dir
+        self.results_wanted = results_wanted
+        self.search_terms   = search_terms
+        self.sites          = sites
 
     @staticmethod
     def _parse_record(record: dict) -> Posting | None:
@@ -48,14 +50,14 @@ class Collector:
         Returns `None` when validation fails because aggregator
         results occasionally include stub listings.
         """
+        clean = lambda v: v if pd.notna(v) else None
+
         try:
-            date_posted = record["date_posted"]
-            location    = record["location"]
             return Posting(
                 company     = record["company"],
-                date_posted = date_posted.date() if pd.notna(date_posted) else None,
-                description = record["description"],
-                location    = location if pd.notna(location) else None,
+                date_posted = clean(record["date_posted"]),
+                description = clean(record["description"]) or "",
+                location    = clean(record["location"]),
                 source_url  = record["job_url"],
                 title       = record["title"]
             )
@@ -72,12 +74,14 @@ class Collector:
         allowing downstream code to iterate without guarding.
         """
         for term in self.search_terms:
+            logger.info(f"Searching {term!r}")
             try:
                 self.frames.append(scrape_jobs(
-                    description_format = "markdown",
                     location           = "Maine",
+                    results_wanted     = self.results_wanted,
                     search_term        = term,
-                    site_name          = self.sites
+                    site_name          = self.sites,
+                    verbose            = 2
                 ))
             except Exception as error:
                 logger.error(f"{term!r}: {error}")
@@ -102,7 +106,7 @@ class Collector:
 if __name__ == "__main__":
 
     basicConfig(
-        format = "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         level  = INFO
     )
 
