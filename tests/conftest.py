@@ -5,7 +5,7 @@ Shared test fixtures for the Chalkline test suite.
 from datetime import date
 from pytest   import fixture
 
-from chalkline.collection.models import Posting
+from chalkline.collection.schemas import Posting
 
 
 SAMPLE_DESCRIPTION = (

@@ -8,7 +8,7 @@ deduplication that retains the most recently collected version.
 from datetime import date
 from pathlib  import Path
 
-from chalkline.collection.models  import Posting
+from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import deduplicate, load, save
 
 
@@ -84,8 +84,7 @@ class TestStorage:
         """
         Saving to a non-existent nested directory creates it.
         """
-        nested = tmp_path / "a" / "b"
-        save([sample_posting], nested)
+        save([sample_posting], (nested := tmp_path / "a" / "b"))
         assert load(nested) == [sample_posting]
 
     def test_save_deduplicates_same_posting(
