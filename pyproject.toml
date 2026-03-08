@@ -22,9 +22,19 @@ dependencies    = [
     "pandas",
     "pdfplumber",
     "plotly",
+    "pydantic",
+    "python-jobspy",
+    "python-slugify>=8.0.4",
     "scikit-learn",
     "scipy",
     "seaborn",
+]
+
+[tool.uv]
+override-dependencies = [
+    "numpy>=2.0",
+    "pandas>=3.0",
+    "regex>=2025",
 ]
 
 [project.scripts]
@@ -42,5 +52,9 @@ sources = ["src"]
 [tool.marimo.runtime]
 pythonpath = ["./src"]
 
+[tool.pyright]
+extraPaths = ["src"]
+
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+pythonpath = ["src"]
+testpaths  = ["tests"]

@@ -13,11 +13,10 @@ Run from the worktree root:
 """
 
 from collections import Counter, defaultdict
-from json        import dumps, load
-from operator    import itemgetter
+from json        import dumps, loads
 from pandas      import read_csv
 from pathlib     import Path
-from urllib      import request
+from urllib      import parse, request
 
 
 ONET_FILES = {
@@ -44,26 +43,32 @@ entry = lambda name, type_label, importance=None, level=None: {
 
 
 def main():
+    """
+    Fetch O*NET element files and write `data/lexicons/onet.json`.
+
+    Downloads ten tab-delimited files from the O*NET 30.0 database,
+    filters each to the 21 stakeholder SOC codes, merges eight element
+    types into a structured `skills` array per occupation, and writes
+    the result as a sorted JSON array.
+    """
     root = Path(__file__).resolve().parent.parent
 
-    with open(root / "data/stakeholder/reference/onet_codes.json") as f:
-        codes = {c["soc_code"]: c for c in load(f)}
+    codes = {c["soc_code"]: c for c in loads(
+        (root / "data/stakeholder/reference/onet_codes.json").read_text()
+    )}
 
     print("Downloading O*NET 30.0 database files...")
     raw = {}
     for name, filename in ONET_FILES.items():
         print(f"  Downloading {filename}...")
         with request.urlopen(
-            f"{BASE}/{request.quote(filename)}"
+            f"{BASE}/{parse.quote(filename)}"
         ) as resp:
             df = read_csv(resp, delimiter="\t", dtype=str)
         raw[name] = (
             df[df["O*NET-SOC Code"].isin(codes)]
             if "O*NET-SOC Code" in df.columns else df
         )
-    print(f"  Downloaded {len(ONET_FILES)} files.\n")
-
-    print("Extracting element types for 21 SOC codes...")
     merged = defaultdict(list)
 
     for source_key, type_label in (
@@ -71,8 +76,7 @@ def main():
         ("knowledge", "knowledge"),
         ("skills",    "skill")
     ):
-        df = raw[source_key]
-        df = df[df["Recommend Suppress"] != "Y"]
+        df = raw[source_key].query("`Recommend Suppress` != 'Y'")
         for soc, group in df.groupby("O*NET-SOC Code"):
             im, lv = (
                 dict(zip(
@@ -83,21 +87,18 @@ def main():
             )
             merged[soc].extend(
                 entry(name, type_label, im.get(name), lv.get(name))
-                for name in im.keys() | lv.keys()
+                for name in {*im, *lv}
             )
 
-    for soc, group in (
+    raw["dwas"] = (
         raw["tasks_to_dwas"]
         .drop_duplicates(subset=["O*NET-SOC Code", "DWA ID"])
         .merge(raw["dwa_reference"], on="DWA ID")
-        .groupby("O*NET-SOC Code")
-    ):
-        merged[soc].extend(
-            entry(title, "dwa") for title in group["DWA Title"]
-        )
+    )
 
     for source_key, name_column, type_label in (
         ("alt_titles",  "Alternate Title", "alternate_title"),
+        ("dwas",        "DWA Title",       "dwa"),
         ("tasks",       "Task",            "task"),
         ("tech_skills", "Example",         "technology"),
         ("tools_used",  "Example",         "tool")
@@ -122,18 +123,18 @@ def main():
         {
             "job_zone" : job_zones.get(soc),
             "sector"   : codes[soc]["sector"],
-            "skills"   : sorted(merged[soc], key=itemgetter("type", "name")),
+            "skills"   : sorted(merged[soc], key=lambda s: (s["type"], s["name"])),
             "soc_code" : soc,
             "title"    : codes[soc]["title"]
         }
         for soc in sorted(codes)
     ]
 
-    out_path = root / "data/lexicons/onet.json"
-    out_path.parent.mkdir(exist_ok=True, parents=True)
-    out_path.write_text(dumps(occupations, ensure_ascii=False, indent=2) + "\n")
+    output = root / "data/lexicons/onet.json"
+    output.parent.mkdir(exist_ok=True, parents=True)
+    output.write_text(dumps(occupations, indent=2) + "\n")
 
-    print(f"  Wrote {len(occupations)} occupations to {out_path}")
+    print(f"  Wrote {len(occupations)} occupations to {output}")
     for occ in occupations:
         print(
             f"    {occ['soc_code']}  {occ['title']:45s}"
