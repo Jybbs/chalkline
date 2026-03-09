@@ -1,8 +1,7 @@
 """
 Schemas for corpus collection.
 
-Defines the `Posting` schema and composite key builder for
-deduplication.
+Defines the `Posting` schema and composite key builder for deduplication.
 """
 
 from datetime import date
@@ -17,10 +16,9 @@ class Posting(BaseModel, extra="forbid"):
     """
     Canonical schema for a collected job posting.
 
-    The `id` field is a composite key derived from company slug,
-    title slug, and date, enabling deterministic deduplication.
-    When omitted at construction time, `id` is auto-computed from
-    the sibling fields.
+    The `id` field is a composite key derived from company slug, title
+    slug, and date, enabling deterministic deduplication. When omitted at
+    construction time, `id` is auto-computed from the sibling fields.
     """
 
     company     : NonEmptyStr
@@ -39,8 +37,8 @@ class Posting(BaseModel, extra="forbid"):
     @model_validator(mode="after")
     def _auto_id(self) -> Self:
         """
-        Derive `id` from `company`, `date_posted`, and `title`
-        when absent.
+        Derive `id` from `company`, `date_posted`, and `title` when
+        absent.
         """
         self.id = self.id or self.make_id(self.company, self.date_posted, self.title)
         return self
@@ -54,8 +52,8 @@ class Posting(BaseModel, extra="forbid"):
         """
         Build a deterministic composite key for deduplication.
 
-        Uses company slug, title slug, and date to produce the
-        same `id` when the same posting appears across sources.
+        Uses company slug, title slug, and date to produce the same `id`
+        when the same posting appears across sources.
 
         Args:
             company     : Employer name to slugify.

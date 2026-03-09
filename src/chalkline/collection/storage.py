@@ -1,9 +1,9 @@
 """
 Persistent storage for the job posting corpus.
 
-Serializes `Posting` records as JSON and supports incremental
-collection by appending without overwriting. Deduplication retains
-the most recently collected version when duplicate IDs appear.
+Serializes `Posting` records as JSON and supports incremental collection by
+appending without overwriting. Deduplication retains the most recently
+collected version when duplicate IDs appear.
 """
 
 from logging  import getLogger
@@ -40,8 +40,8 @@ def load(postings_dir: Path) -> list[Posting]:
     """
     Load all postings from the corpus file.
 
-    Returns an empty list when `corpus.json` does not exist,
-    allowing the collector to bootstrap from an empty directory.
+    Returns an empty list when `corpus.json` does not exist, allowing the
+    collector to bootstrap from an empty directory.
 
     Args:
         postings_dir: The directory containing `corpus.json`.
@@ -59,8 +59,8 @@ def save(postings: list[Posting], postings_dir: Path):
     """
     Persist postings to disk with deduplication.
 
-    Merges `postings` with any existing corpus on disk,
-    deduplicates by composite `id`, and writes the result.
+    Merges `postings` with any existing corpus on disk, deduplicates by
+    composite `id`, and writes the result.
 
     Args:
         postings     : The new postings to save.

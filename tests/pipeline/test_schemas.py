@@ -13,8 +13,8 @@ from chalkline.pipeline.schemas import DistanceMetric, PipelineConfig
 
 class TestPipelineConfig:
     """
-    Validate `PipelineConfig` constraints, defaults, and
-    `DistanceMetric` enum behavior.
+    Validate `PipelineConfig` constraints, defaults, and `DistanceMetric`
+    enum behavior.
     """
 
     @staticmethod
@@ -53,8 +53,8 @@ class TestPipelineConfig:
 
     def test_distance_metric_string_coercion(self, tmp_path: Path):
         """
-        A raw string coerces to the correct enum member when
-        passed through `PipelineConfig`.
+        A raw string coerces to the correct enum member when passed through
+        `PipelineConfig`.
         """
         assert self._config(
             tmp_path, distance_metric="cosine"
@@ -62,16 +62,15 @@ class TestPipelineConfig:
 
     def test_extra_fields_rejected(self, tmp_path: Path):
         """
-        Unknown fields raise `ValidationError` per
-        `extra="forbid"`.
+        Unknown fields raise `ValidationError` per `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
             self._config(tmp_path, stale_field=True)
 
     def test_invalid_distance_metric_rejected(self, tmp_path: Path):
         """
-        Unrecognized metric strings fail at construction, not
-        downstream in sklearn.
+        Unrecognized metric strings fail at construction, not downstream in
+        sklearn.
         """
         with raises(Exception):
             self._config(tmp_path, distance_metric="manhattan")
@@ -93,8 +92,8 @@ class TestPipelineConfig:
 
     def test_variance_threshold_accepts_one(self, tmp_path: Path):
         """
-        `variance_threshold` of exactly 1.0 is valid, meaning
-        keep all variance.
+        `variance_threshold` of exactly 1.0 is valid, meaning keep all
+        variance.
         """
         assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0
 

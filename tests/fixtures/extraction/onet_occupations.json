@@ -1,0 +1,80 @@
+[
+    {
+        "job_zone" : 3,
+        "sector"   : "Building Construction",
+        "skills"   : [
+            {
+                "name" : "Autodesk AutoCAD",
+                "type" : "technology"
+            },
+            {
+                "importance" : 3.5,
+                "level"      : 3.0,
+                "name"       : "Blueprint Reading",
+                "type"       : "skill"
+            },
+            {
+                "name" : "Electricians",
+                "type" : "alternate_title"
+            },
+            {
+                "name" : "Install electrical wiring, equipment, and fixtures",
+                "type" : "task"
+            },
+            {
+                "name" : "Laptop computers",
+                "type" : "tool"
+            },
+            {
+                "name" : "Maintain electrical systems",
+                "type" : "dwa"
+            },
+            {
+                "importance" : 3.0,
+                "level"      : 3.0,
+                "name"       : "Mathematics",
+                "type"       : "knowledge"
+            },
+            {
+                "name" : "Welding",
+                "type" : "technology"
+            }
+        ],
+        "soc_code" : "47-2111.00",
+        "title"    : "Electricians"
+    },
+    {
+        "job_zone" : 2,
+        "sector"   : "Heavy Highway Construction",
+        "skills"   : [
+            {
+                "name" : "Backhoes",
+                "type" : "tool"
+            },
+            {
+                "name" : "Concrete finishing",
+                "type" : "technology"
+            },
+            {
+                "name" : "Equipment Operators",
+                "type" : "alternate_title"
+            },
+            {
+                "name" : "Operate construction equipment",
+                "type" : "task"
+            },
+            {
+                "importance" : 4.0,
+                "level"      : 4.0,
+                "name"       : "Physical Strength",
+                "type"       : "ability"
+            },
+            {
+                "name" : "Pour and spread concrete for building foundations",
+                "type" : "dwa"
+            }
+        ],
+        "soc_code" : "47-2071.00",
+        "title"    : "Paving Equipment Operators"
+    }
+]

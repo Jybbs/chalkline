@@ -1,8 +1,7 @@
 """
 Launch the Marimo reactive notebook.
 
-Entry point for the `chalkline` console script defined in
-pyproject.toml.
+Entry point for the `chalkline` console script defined in pyproject.toml.
 """
 
 from logging    import getLogger

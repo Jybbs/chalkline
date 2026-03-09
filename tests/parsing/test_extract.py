@@ -1,8 +1,8 @@
 """
 Tests for document text extraction and cleaning.
 
-Validates PDF extraction via `pdfplumber` and text normalization
-for downstream tokenization.
+Validates PDF extraction via `pdfplumber` and text normalization for
+downstream tokenization.
 """
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from pathlib import Path
 from chalkline.parsing.extract import clean_text, extract_pdf
 
 
-FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "parsing"
 
 
 class TestCleanText:
@@ -32,8 +32,8 @@ class TestCleanText:
 
     def test_page_numbers_only_returns_empty(self):
         """
-        Input containing only standalone page numbers normalizes
-        to an empty string.
+        Input containing only standalone page numbers normalizes to an empty
+        string.
         """
         assert clean_text("\n  1  \n  2  \n") == ""
 
@@ -53,8 +53,7 @@ class TestCleanText:
 
     def test_whitespace_only_returns_empty(self):
         """
-        Input containing only whitespace normalizes to an empty
-        string.
+        Input containing only whitespace normalizes to an empty string.
         """
         assert clean_text("   \n\n  ") == ""
 
@@ -72,8 +71,8 @@ class TestExtractPdf:
 
     def test_known_text_from_pdf(self):
         """
-        A sample resume PDF returns its known text content with
-        no binary artifacts.
+        A sample resume PDF returns its known text content with no binary
+        artifacts.
         """
         result = extract_pdf(FIXTURES / "sample.pdf")
         assert "Walt Amper" in result
