@@ -1,8 +1,8 @@
 """
 Tests for collection domain schemas.
 
-Validates Pydantic model constraints for `Posting` and composite
-key generation via `Posting.make_id`.
+Validates Pydantic model constraints for `Posting` and composite key
+generation via `Posting.make_id`.
 """
 
 from datetime import date
@@ -16,14 +16,12 @@ FILLER_DESCRIPTION = "x" * 50
 
 class TestPosting:
     """
-    Validate `Posting` model constraints and composite key
-    generation.
+    Validate `Posting` model constraints and composite key generation.
     """
 
     def test_auto_id_generation(self, sample_posting: Posting):
         """
-        Omitting `id` auto-computes it from company, date, and
-        title.
+        Omitting `id` auto-computes it from company, date, and title.
         """
         assert sample_posting.id == Posting.make_id(
             sample_posting.company,
@@ -42,8 +40,8 @@ class TestPosting:
 
     def test_date_coercion_in_id(self):
         """
-        Timestamp `date_posted` values are truncated to date and
-        reflected in the composite key.
+        Timestamp `date_posted` values are truncated to date and reflected
+        in the composite key.
         """
         posting = Posting.model_validate({
             "company"     : "Cianbro",
@@ -62,8 +60,7 @@ class TestPosting:
         field          : str
     ):
         """
-        Empty strings on `NonEmptyStr` fields raise
-        `ValidationError`.
+        Empty strings on `NonEmptyStr` fields raise `ValidationError`.
         """
         with raises(Exception, match="at least 1 character"):
             Posting.model_validate(
@@ -87,8 +84,7 @@ class TestPosting:
 
     def test_extra_fields_rejected(self, sample_posting: Posting):
         """
-        Unknown fields raise `ValidationError` per
-        `extra="forbid"`.
+        Unknown fields raise `ValidationError` per `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
             Posting.model_validate(

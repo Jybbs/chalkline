@@ -1,8 +1,7 @@
 """
 Tests for corpus collection via job aggregators.
 
-Validates record parsing from JobSpy DataFrame rows into
-`Posting` records.
+Validates record parsing from JobSpy DataFrame rows into `Posting` records.
 """
 
 from chalkline.collection.collector import Collector
@@ -11,21 +10,19 @@ from chalkline.collection.schemas   import Posting
 
 class TestParseRecord:
     """
-    Validate `Collector._parse_record` conversion from raw
-    JobSpy rows to `Posting` instances.
+    Validate `Collector._parse_record` conversion from raw JobSpy rows to
+    `Posting` instances.
     """
 
     def test_missing_required_field_returns_none(self):
         """
-        A row missing required fields returns `None` instead
-        of raising.
+        A row missing required fields returns `None` instead of raising.
         """
         assert Collector._parse_record({"company": "Cianbro"}) is None
 
     def test_nan_fields_become_none(self):
         """
-        Pandas `NaN` values coerce to `None` for optional
-        fields.
+        Pandas `NaN` values coerce to `None` for optional fields.
         """
         result = Collector._parse_record({
             "company"     : "Cianbro",
@@ -40,8 +37,7 @@ class TestParseRecord:
 
     def test_valid_record(self):
         """
-        A complete row converts to a `Posting` with correct
-        field mapping.
+        A complete row converts to a `Posting` with correct field mapping.
         """
         result = Collector._parse_record({
             "company"     : "Cianbro",

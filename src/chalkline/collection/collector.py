@@ -1,9 +1,9 @@
 """
 Corpus collection via job aggregators.
 
-Wraps the JobSpy `scrape_jobs` function to query multiple search
-terms across configured job boards, convert results to `Posting`
-records, and persist deduplicated postings through the storage layer.
+Wraps the JobSpy `scrape_jobs` function to query multiple search terms
+across configured job boards, convert results to `Posting` records, and
+persist deduplicated postings through the storage layer.
 
     uv run python -m chalkline.collection.collector
 """
@@ -46,8 +46,8 @@ class Collector:
         """
         Convert a single JobSpy row into a `Posting`.
 
-        Returns `None` when validation fails because aggregator
-        results occasionally include stub listings.
+        Returns `None` when validation fails because aggregator results
+        occasionally include stub listings.
         """
         clean = lambda v: v if pd.notna(v) else None
 
@@ -66,11 +66,11 @@ class Collector:
 
     def _scrape(self) -> pd.DataFrame:
         """
-        Run `scrape_jobs` once per search term and concatenate
-        all results into a single DataFrame.
+        Run `scrape_jobs` once per search term and concatenate all results
+        into a single DataFrame.
 
-        Returns an empty DataFrame when every term fails,
-        allowing downstream code to iterate without guarding.
+        Returns an empty DataFrame when every term fails, allowing
+        downstream code to iterate without guarding.
         """
         frames = []
         for term in self.search_terms:
@@ -93,8 +93,7 @@ class Collector:
 
     def run(self):
         """
-        Collect postings from all search terms and persist to
-        disk.
+        Collect postings from all search terms and persist to disk.
         """
         save([
             p for record in self._scrape().to_dict("records")

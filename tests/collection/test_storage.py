@@ -25,8 +25,7 @@ class TestStorage:
 
     def test_duplicate_keeps_latest(self, sample_posting: Posting):
         """
-        When two postings share an ID, the later
-        `date_collected` wins.
+        When two postings share an ID, the later `date_collected` wins.
         """
         assert len(result := deduplicate([
             sample_posting.model_copy(

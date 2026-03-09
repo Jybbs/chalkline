@@ -1,9 +1,9 @@
 """
 Pipeline configuration with validated parameters.
 
-Centralizes directory paths, thresholds, and hyperparameters that
-propagate through every pipeline step. The `extra="forbid"` policy
-surfaces typos and stale fields immediately.
+Centralizes directory paths, thresholds, and hyperparameters that propagate
+through every pipeline step. The `extra="forbid"` policy surfaces typos and
+stale fields immediately.
 """
 
 from enum     import StrEnum
@@ -17,8 +17,8 @@ class DistanceMetric(StrEnum):
     """
     Distance functions for resume matching and clustering comparison.
 
-    `EUCLIDEAN` is the default because `StandardScaler(with_mean=False)`
-    is always applied after PCA, making Euclidean on scaled coordinates
+    `EUCLIDEAN` is the default because `StandardScaler(with_mean=False)` is
+    always applied after PCA, making Euclidean on scaled coordinates
     equivalent to standardized Euclidean on raw PCA output. `COSINE` and
     `STANDARDIZED_EUCLIDEAN` exist for comparison experiments in CL-08.
     """
@@ -33,8 +33,8 @@ class PipelineConfig(BaseModel, extra="forbid"):
     End-to-end configuration for the Chalkline pipeline.
 
     Required path fields locate the corpus, lexicons, and output
-    directories. Optional fields control hyperparameters with defaults
-    tuned for the 922-posting Maine construction corpus.
+    directories. Optional fields control hyperparameters with defaults tuned
+    for the 922-posting Maine construction corpus.
     """
 
     lexicon_dir  : Path

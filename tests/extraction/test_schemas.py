@@ -1,0 +1,115 @@
+"""
+Tests for lexicon validation schemas.
+
+Validates `OnetSkillType` enum members, `OnetSkill` field constraints, and
+`OnetOccupation` model structure.
+"""
+
+from pytest import mark, raises
+
+from chalkline.extraction.schemas import OnetOccupation, OnetSkill, OnetSkillType
+
+
+SAMPLE_SKILL = {
+    "name" : "Autodesk AutoCAD",
+    "type" : "technology"
+}
+
+SAMPLE_OCCUPATION = {
+    "job_zone" : 3,
+    "sector"   : "Building Construction",
+    "skills"   : [SAMPLE_SKILL],
+    "soc_code" : "47-2111.00",
+    "title"    : "Electricians"
+}
+
+
+class TestOnetSchemas:
+    """
+    Validate lexicon data schemas for O*NET entries.
+    """
+
+    def test_concrete_types_count(self):
+        """
+        Exactly five element types feed the normalization index.
+        """
+        assert sum(m.is_concrete for m in OnetSkillType) == 5
+
+    def test_decomposable_implies_concrete(self):
+        """
+        Every decomposable type is also concrete.
+        """
+        assert all(m.is_concrete for m in OnetSkillType if m.is_decomposable)
+
+    def test_occupation_extra_fields_rejected(self):
+        """
+        Unknown fields raise `ValidationError` per `extra="forbid"`.
+        """
+        with raises(Exception, match="Extra inputs"):
+            OnetOccupation(**SAMPLE_OCCUPATION, unknown="value")
+
+    @mark.parametrize("job_zone", [0, 6])
+    def test_occupation_job_zone_boundary(self, job_zone):
+        """
+        Job zone values outside 1-5 are rejected.
+        """
+        with raises(Exception):
+            OnetOccupation(**{**SAMPLE_OCCUPATION, "job_zone": job_zone})
+
+    def test_occupation_missing_fields(self):
+        """
+        Omitting required fields raises `ValidationError`.
+        """
+        with raises(Exception):
+            OnetOccupation(job_zone=3, title="Test")
+
+    def test_occupation_valid_construction(self):
+        """
+        A complete occupation validates without error.
+        """
+        assert (occupation := OnetOccupation(**SAMPLE_OCCUPATION)).soc_code == "47-2111.00"
+        assert len(occupation.skills) == 1
+
+    def test_skill_empty_name_rejected(self):
+        """
+        Empty skill names violate the `NonEmptyStr` constraint.
+        """
+        with raises(Exception):
+            OnetSkill(name="", type="technology")
+
+    def test_skill_extra_fields_rejected(self):
+        """
+        Unknown fields raise `ValidationError` per `extra="forbid"`.
+        """
+        with raises(Exception, match="Extra inputs"):
+            OnetSkill(**SAMPLE_SKILL, unknown="value")
+
+    def test_skill_type_members(self):
+        """
+        All eight O*NET element types are defined.
+        """
+        assert len(OnetSkillType) == 8
+
+    def test_skill_type_string_coercion(self):
+        """
+        Raw strings coerce to enum members through Pydantic.
+        """
+        assert OnetSkill(name="Test Skill", type="task").type is OnetSkillType.TASK
+
+    def test_skill_valid_with_ratings(self):
+        """
+        KSA-typed skills carry populated importance and level.
+        """
+        s = OnetSkill(
+            importance = 3.62,
+            level      = 3.88,
+            name       = "Critical Thinking",
+            type       = "skill"
+        )
+        assert (s.importance, s.level) == (3.62, 3.88)
+
+    def test_skill_valid_without_ratings(self):
+        """
+        Concrete-typed skills default importance and level to `None`.
+        """
+        assert ((s := OnetSkill(**SAMPLE_SKILL)).importance, s.level) == (None, None)
