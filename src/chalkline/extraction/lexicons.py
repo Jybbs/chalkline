@@ -21,6 +21,7 @@ def _ensure_nltk_data():
     """
     for package in (
         "averaged_perceptron_tagger_eng",
+        "omw-1.4",
         "punkt_tab",
         "wordnet"
     ):
@@ -47,10 +48,10 @@ class LexiconRegistry:
         """
         _ensure_nltk_data()
         self.lemmatizer  = WordNetLemmatizer()
-        self.lemma_index = {}
-        self.lemma_index.update(self._build_onet_index(occupations))
-        self.lemma_index.update(self._build_lemma_index(osha_terms))
-
+        self.lemma_index = (
+            self._build_onet_index(occupations)
+            | self._build_lemma_index(osha_terms)
+        )
 
     def _build_lemma_index(self, terms: list[str]) -> dict[str, str]:
         """
@@ -149,7 +150,6 @@ class LexiconRegistry:
             )
             for word, tag in pos_tag(word_tokenize(text.lower()))
         )
-
 
     def normalize(self, raw_term: str) -> str | None:
         """

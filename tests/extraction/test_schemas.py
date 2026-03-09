@@ -1,12 +1,14 @@
 """
-Tests for lexicon validation schemas.
+Tests for extraction schemas.
 
-Validates `OnetSkillType` enum members, `OnetSkill` field constraints, and
-`OnetOccupation` model structure.
+Validates `ConfidenceTier` membership, `CorpusStatistics` extra-field
+rejection, `OnetSkillType` enum members, `OnetSkill` field constraints,
+and `OnetOccupation` model structure.
 """
 
 from pytest import mark, raises
 
+from chalkline.extraction.schemas import ConfidenceTier, CorpusStatistics
 from chalkline.extraction.schemas import OnetOccupation, OnetSkill, OnetSkillType
 
 
@@ -29,11 +31,41 @@ class TestOnetSchemas:
     Validate lexicon data schemas for O*NET entries.
     """
 
+    def test_confidence_tier_members(self):
+        """
+        The three confidence tiers are defined for Aho-Corasick matching.
+        """
+        assert len(ConfidenceTier) == 3
+
+    def test_confidence_tier_ordering(self):
+        """
+        Tier values sort so that higher-confidence tiers compare lower,
+        matching the `_match` priority logic.
+        """
+        assert (
+            ConfidenceTier.ABBREVIATION.value
+            < ConfidenceTier.MULTI_WORD.value
+            < ConfidenceTier.SINGLE_WORD.value
+        )
+
     def test_concrete_types_count(self):
         """
         Exactly five element types feed the normalization index.
         """
         assert sum(m.is_concrete for m in OnetSkillType) == 5
+
+    def test_corpus_statistics_extra_fields_rejected(self):
+        """
+        Unknown fields raise `ValidationError` per `extra="forbid"`.
+        """
+        with raises(Exception, match="Extra inputs"):
+            CorpusStatistics(
+                matrix_sparsity         = 0.9,
+                mean_skills_per_posting = 5.0,
+                skill_frequency         = {"welding": 3},
+                unknown                 = "value",
+                vocabulary_size         = 10
+            )
 
     def test_decomposable_implies_concrete(self):
         """
@@ -67,7 +99,8 @@ class TestOnetSchemas:
         """
         A complete occupation validates without error.
         """
-        assert (occupation := OnetOccupation(**SAMPLE_OCCUPATION)).soc_code == "47-2111.00"
+        occupation = OnetOccupation(**SAMPLE_OCCUPATION)
+        assert occupation.soc_code == "47-2111.00"
         assert len(occupation.skills) == 1
 
     def test_skill_empty_name_rejected(self):

@@ -35,7 +35,6 @@ class OccupationIndex:
             o.soc_code: o for o in occupations
         }
 
-
     @cached_property
     def bare_to_full(self) -> dict[str, str]:
         """
@@ -69,13 +68,6 @@ class OccupationIndex:
         }
 
     @cached_property
-    def socs(self) -> list[str]:
-        """
-        Sorted SOC codes from the occupation map.
-        """
-        return sorted(self.occupation_map)
-
-    @cached_property
     def soc_skill_matrix(self) -> np.ndarray:
         """
         Binary SOC-skill matrix for vectorized Jaccard matching.
@@ -95,6 +87,12 @@ class OccupationIndex:
             ]] = 1
         return matrix
 
+    @cached_property
+    def socs(self) -> list[str]:
+        """
+        Sorted SOC codes from the occupation map.
+        """
+        return sorted(self.occupation_map)
 
     def get(self, soc: str) -> OnetOccupation:
         """
@@ -112,10 +110,10 @@ class OccupationIndex:
         """
         if soc in self.occupation_map:
             return self.occupation_map[soc]
-        
+
         if full := self.bare_to_full.get(soc):
             return self.occupation_map[full]
-        
+
         raise KeyError(f"Unknown or ambiguous SOC code: {soc!r}")
 
     def nearest(self, posting_skills: set[str]) -> str:
@@ -139,5 +137,4 @@ class OccupationIndex:
             for s in posting_skills if s in self.skill_to_col
         ]] = 1
 
-        distances = cdist(vector, self.soc_skill_matrix, "jaccard")
-        return self.socs[np.argmin(distances)]
+        return self.socs[np.argmin(cdist(vector, self.soc_skill_matrix, "jaccard"))]

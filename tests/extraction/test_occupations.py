@@ -56,7 +56,7 @@ class TestOccupationIndex:
         with raises(KeyError):
             occupation_index.get("99-9999.00")
 
-    @mark.parametrize("skills", [set(), {"quantum computing", "blockchain"}])
+    @mark.parametrize("skills", [set(), {"blockchain", "quantum computing"}])
     def test_nearest_degenerate_input(
         self,
         occupation_index : OccupationIndex,
@@ -129,3 +129,9 @@ class TestOccupationIndex:
         unique skill across all occupations.
         """
         assert occupation_index.soc_skill_matrix.shape == (2, 14)
+
+    def test_socs_sorted(self, occupation_index: OccupationIndex):
+        """
+        SOC codes are in alphabetical order for stable row indices.
+        """
+        assert occupation_index.socs == sorted(occupation_index.socs)
