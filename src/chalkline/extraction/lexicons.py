@@ -70,7 +70,7 @@ class LexiconRegistry:
         return {
             key: term
             for term in terms
-            for key  in (self._lemmatize(term), term.lower())
+            for key  in (self.lemmatize(term), term.lower())
         }
 
     def _build_onet_index(self, occupations: list[OnetOccupation]) -> dict[str, str]:
@@ -88,7 +88,7 @@ class LexiconRegistry:
             Mapping from lemmatized form to canonical skill name.
         """
         return {
-            self._lemmatize(phrase): skill.name
+            self.lemmatize(phrase): skill.name
             for occupation in occupations
             for skill      in occupation.skills if skill.type.is_concrete
             for phrase     in [
@@ -127,7 +127,7 @@ class LexiconRegistry:
               if isinstance(item, tuple) and item[1].startswith("NN"))
         ]
 
-    def _lemmatize(self, text: str) -> str:
+    def lemmatize(self, text: str) -> str:
         """
         Lowercase, tokenize, POS-tag, and lemmatize a term.
 
@@ -164,4 +164,4 @@ class LexiconRegistry:
         Returns:
             The canonical form, or `None` if no match.
         """
-        return self.lemma_index.get(self._lemmatize(raw_term))
+        return self.lemma_index.get(self.lemmatize(raw_term))

@@ -72,7 +72,7 @@ class TestLexiconRegistry:
         # "welding" is in both OSHA (as "welding") and O*NET
         # (as technology "Welding"). The merged index should
         # have the OSHA lowercase version.
-        assert registry.lemma_index[registry._lemmatize("welding")] == "welding"
+        assert registry.lemma_index[registry.lemmatize("welding")] == "welding"
 
     # ---------------------------------------------------------
     # Normalization
