@@ -5,7 +5,8 @@ Downloads element-type files from the O*NET 30.0 database, filters to the
 stakeholder-curated SOC codes in `data/stakeholder/reference/onet_codes.json`,
 merges Skills, Knowledge, Abilities, Tasks, Technology Skills, Detailed Work
 Activities, Tools Used, and Alternate Titles into a structured `skills` array,
-and writes `data/lexicons/onet.json`.
+decomposes Task and DWA entries into matchable sub-phrases via POS-based
+chunking, and writes `data/lexicons/onet.json`.
 
 Run from the worktree root:
 
@@ -14,6 +15,7 @@ Run from the worktree root:
 
 from collections import Counter, defaultdict
 from json        import dumps, loads
+from nltk        import download, pos_tag, RegexpParser, word_tokenize
 from pandas      import read_csv
 from pathlib     import Path
 from urllib      import parse, request
@@ -38,8 +40,39 @@ entry = lambda name, type_label, importance=None, level=None: {
     "importance" : importance,
     "level"      : level,
     "name"       : name,
+    "phrases"    : decompose(name) if type_label in ("dwa", "task") else None,
     "type"       : type_label
 }
+
+
+def decompose(text: str) -> list[str]:
+    """
+    Extract matchable sub-phrases from a sentence-length entry.
+
+    Uses `nltk.RegexpParser` with NP and VP grammar rules to chunk
+    POS-tagged tokens. Determiners are stripped from chunks and only
+    phrases with at least two tokens are retained, filtering out
+    generic single-word nouns like "equipment" and "materials."
+
+    Args:
+        text: A sentence-length O*NET Task or DWA.
+
+    Returns:
+        List of extracted sub-phrase strings.
+    """
+    tree = RegexpParser(r"""
+        NP: {<DT>?<JJ>*<NN.*>+}
+        VP: {<VB.*><NP>}
+    """).parse(pos_tag(word_tokenize(text)))
+    return [
+        " ".join(words).lower()
+        for subtree in tree.subtrees(
+            lambda t: t.label() in ("NP", "VP")
+        )
+        if len(words := [
+            w for w, tag in subtree.leaves() if tag != "DT"
+        ]) >= 2
+    ]
 
 
 def main():
@@ -48,10 +81,14 @@ def main():
 
     Downloads ten tab-delimited files from the O*NET 30.0 database,
     filters each to the 21 stakeholder SOC codes, merges eight element
-    types into a structured `skills` array per occupation, and writes
-    the result as a sorted JSON array.
+    types into a structured `skills` array per occupation, decomposes
+    Task and DWA entries into matchable sub-phrases, and writes the
+    result as a sorted JSON array.
     """
     root = Path(__file__).resolve().parent.parent
+
+    download("averaged_perceptron_tagger_eng", quiet=True)
+    download("punkt_tab", quiet=True)
 
     codes = {c["soc_code"]: c for c in loads(
         (root / "data/stakeholder/reference/onet_codes.json").read_text()

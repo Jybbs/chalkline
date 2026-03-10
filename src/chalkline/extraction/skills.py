@@ -8,12 +8,12 @@ phrase masking. The output is a mapping from document identifiers to
 deduplicated, sorted canonical skill names.
 """
 
-from ahocorasick_rs import AhoCorasick, MatchKind
-from collections    import Counter
-from logging        import getLogger
-from nltk.stem      import PorterStemmer
-from re             import sub
-from typing         import NamedTuple
+from ahocorasick_rs                  import AhoCorasick, MatchKind
+from logging                         import getLogger
+from nltk.stem                       import PorterStemmer
+from re                              import sub
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+from typing                          import NamedTuple
 
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
@@ -308,8 +308,9 @@ class SkillExtractor:
             Mapping from document identifier to sorted canonical skill
             names, excluding documents with no matches.
         """
-        results   = {}
-        unmatched = Counter()
+        results        = {}
+        corpus_tokens  = set()
+        matched_tokens = set()
 
         for doc_id in sorted(postings):
             lemmatized = self.registry.lemmatize(
@@ -320,26 +321,29 @@ class SkillExtractor:
             if skills:
                 results[doc_id] = skills
 
-            unmatched.update(
-                set(lemmatized.split())
-                - {t for s in skills for t in s.lower().split()}
-                - {"", ".", ",", ":", ";"}
+            corpus_tokens.update(
+                t for t in lemmatized.split()
+                if len(t) >= 3 and t not in ENGLISH_STOP_WORDS
+            )
+            matched_tokens.update(
+                t for s in skills for t in s.lower().split()
             )
 
-        excluded = len(postings) - len(results)
+        excluded  = len(postings) - len(results)
+        unmatched = corpus_tokens - matched_tokens
 
         if excluded:
             logger.info(
                 f"Excluded {excluded} posting(s) with zero matched skills"
             )
 
-        if unmatched:
-            unmatched_rate = len(unmatched) / (len(unmatched) + len(self.vocabulary))
-            if unmatched_rate > 0.25:
+        if corpus_tokens:
+            unmatched_rate = len(unmatched) / len(corpus_tokens)
+            if unmatched_rate > 0.15:
                 logger.warning(
                     f"Unmatched term rate {unmatched_rate:.1%} exceeds "
                     f"threshold. Top unmatched: "
-                    f"{[t for t, _ in unmatched.most_common(20)]}"
+                    f"{sorted(unmatched)[:20]}"
                 )
 
         logger.debug(

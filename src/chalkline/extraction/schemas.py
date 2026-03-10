@@ -96,13 +96,16 @@ class OnetSkill(BaseModel, extra="forbid"):
 
     Concrete element types carry `None` for `importance` and `level`,
     whereas abstract KSA types populate both fields with numeric ratings.
+    Decomposable types (Tasks, DWAs) carry pre-computed sub-phrases
+    from POS-based chunking performed at curation time.
     """
 
     name : NonEmptyStr
     type : OnetSkillType
 
-    importance : float | None = None
-    level      : float | None = None
+    importance : float | None     = None
+    level      : float | None     = None
+    phrases    : list[str] | None = None
 
 
 class OnetOccupation(BaseModel, extra="forbid"):
