@@ -3788,13 +3788,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "Levels",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "Multi-rotor unmanned aerial vehicles UAV",
         "phrases": null,
         "type": "tool"
@@ -5529,20 +5522,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "C",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "C#",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "C++",
         "phrases": null,
         "type": "technology"
@@ -5684,13 +5663,6 @@
         "importance": null,
         "level": null,
         "name": "GitHub",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Go",
         "phrases": null,
         "type": "technology"
       },
@@ -6047,13 +6019,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "R",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "RTA Fleet Management",
         "phrases": null,
         "type": "technology"
@@ -6153,13 +6118,6 @@
         "importance": null,
         "level": null,
         "name": "Supervisory control and data acquisition SCADA software",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Swift",
         "phrases": null,
         "type": "technology"
       },
@@ -9261,13 +9219,6 @@
         "importance": null,
         "level": null,
         "name": "Bridge design software",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "C",
         "phrases": null,
         "type": "technology"
       },
@@ -14677,13 +14628,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "Planes",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "Plumb bobs",
         "phrases": null,
         "type": "tool"
@@ -18380,13 +18324,6 @@
         "importance": null,
         "level": null,
         "name": "Phillips head screwdrivers",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Planes",
         "phrases": null,
         "type": "tool"
       },
@@ -24814,13 +24751,6 @@
         "importance": null,
         "level": null,
         "name": "Laydown machines",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Levels",
         "phrases": null,
         "type": "tool"
       },
@@ -34339,13 +34269,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "Snakes",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "Stationary grinders",
         "phrases": null,
         "type": "tool"
@@ -37507,13 +37430,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "Levels",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "Light pickup trucks",
         "phrases": null,
         "type": "tool"
@@ -38327,13 +38243,6 @@
         "importance": null,
         "level": null,
         "name": "Spud wrenches",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Stands",
         "phrases": null,
         "type": "tool"
       },
@@ -44376,13 +44285,6 @@
         "importance": null,
         "level": null,
         "name": "Laser levels",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Levels",
         "phrases": null,
         "type": "tool"
       },

@@ -22,7 +22,7 @@ SKIP = compile(
     r"^(applicability|definitions|equipment|general"
     r"|general provisions|general requirements"
     r"|general requirements for storage|introduction"
-    r"|operation|scope|severability|training)$"
+    r"|lead|operation|scope|severability|training)$"
     r"|^scope,? |definitions applicable"
 )
 
