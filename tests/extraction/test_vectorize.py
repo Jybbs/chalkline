@@ -18,31 +18,10 @@ class TestSkillVectorizer:
     """
 
     # ---------------------------------------------------------
-    # Binary matrix
-    # ---------------------------------------------------------
-
-    def test_binary_matrix_nonempty(
-        self, skill_vectorizer: SkillVectorizer
-    ):
-        """
-        The binary matrix has at least one non-zero entry from the
-        synthetic extraction fixture.
-        """
-        assert skill_vectorizer.binary_matrix.nnz > 0
-
-    def test_binary_matrix_values(self, skill_vectorizer: SkillVectorizer):
-        """
-        The binary matrix contains only 0s and 1s.
-        """
-        assert (skill_vectorizer.binary_matrix.data == 1).all()
-
-    # ---------------------------------------------------------
     # Document identifiers
     # ---------------------------------------------------------
 
-    def test_document_ids_match_row_count(
-        self, skill_vectorizer: SkillVectorizer
-    ):
+    def test_document_ids_match_row_count(self, skill_vectorizer: SkillVectorizer):
         """
         Document identifiers are returned in row order alongside
         both matrices.
@@ -65,9 +44,7 @@ class TestSkillVectorizer:
     # Feature names
     # ---------------------------------------------------------
 
-    def test_feature_names_match_columns(
-        self, skill_vectorizer: SkillVectorizer
-    ):
+    def test_feature_names_match_columns(self, skill_vectorizer: SkillVectorizer):
         """
         Feature names length matches matrix column count.
         """
@@ -84,13 +61,36 @@ class TestSkillVectorizer:
             skill_vectorizer.feature_names
         )
 
+    def test_transform_preserves_vocabulary(self, skill_vectorizer: SkillVectorizer):
+        """
+        `DictVectorizer.transform(new_doc)` produces a vector with the
+        same number of columns as `fit_transform()`.
+        """
+        assert skill_vectorizer.pipeline.named_steps["vec"].transform(
+            [{
+                "unknown_skill" : 1,
+                "welding"       : 1
+            }]
+        ).shape[1] == skill_vectorizer.binary_matrix.shape[1]
+
     # ---------------------------------------------------------
-    # Matrix dimensions
+    # Matrices
     # ---------------------------------------------------------
 
-    def test_matrices_identical_dimensions(
-        self, skill_vectorizer: SkillVectorizer
-    ):
+    def test_binary_matrix_nonempty(self, skill_vectorizer: SkillVectorizer):
+        """
+        The binary matrix has at least one non-zero entry from the
+        synthetic extraction fixture.
+        """
+        assert skill_vectorizer.binary_matrix.nnz > 0
+
+    def test_binary_matrix_values(self, skill_vectorizer: SkillVectorizer):
+        """
+        The binary matrix contains only 0s and 1s.
+        """
+        assert (skill_vectorizer.binary_matrix.data == 1).all()
+
+    def test_matrices_identical_dimensions(self, skill_vectorizer: SkillVectorizer):
         """
         TF-IDF and binary matrices have the same shape.
         """
@@ -99,19 +99,32 @@ class TestSkillVectorizer:
             == skill_vectorizer.binary_matrix.shape
         )
 
+    def test_tfidf_differs_from_binary(self, skill_vectorizer: SkillVectorizer):
+        """
+        TF-IDF weighting and L2 normalization produce values distinct
+        from the raw binary presence/absence matrix.
+        """
+        assert (
+            skill_vectorizer.tfidf_matrix.toarray()
+            != skill_vectorizer.binary_matrix.toarray()
+        ).any()
+
+    def test_tfidf_values_nonnegative(self, skill_vectorizer: SkillVectorizer):
+        """
+        TF-IDF matrix values are non-negative after L2 normalization.
+        """
+        assert skill_vectorizer.tfidf_matrix.min() >= 0
+
     # ---------------------------------------------------------
-    # Pipeline serialization
+    # Serialization
     # ---------------------------------------------------------
 
-    def test_pipeline_serialization(
-        self, skill_vectorizer: SkillVectorizer, tmp_path: Path
-    ):
+    def test_pipeline_persist(self, skill_vectorizer: SkillVectorizer, tmp_path: Path):
         """
         The fitted pipeline serializes and restores via `joblib`,
         producing identical output on the same input.
         """
-        path = tmp_path / "pipeline.joblib"
-        dump(skill_vectorizer.pipeline, path)
+        dump(skill_vectorizer.pipeline, path := tmp_path / "pipeline.joblib")
         test_dict = [{
             "scaffolding" : 1,
             "welding"     : 1
@@ -125,6 +138,16 @@ class TestSkillVectorizer:
     # Statistics
     # ---------------------------------------------------------
 
+    def test_single_posting_vectorizer(self):
+        """
+        A single-document corpus produces valid matrices where TF-IDF
+        normalization degenerates to uniform weights.
+        """
+        vec = SkillVectorizer({"only": ["scaffolding", "welding"]})
+        assert vec.tfidf_matrix.shape[0] == 1
+        assert vec.binary_matrix.nnz == 2
+        assert vec.statistics.mean_skills_per_posting == 2.0
+
     def test_statistics_fields(self, skill_vectorizer: SkillVectorizer):
         """
         Corpus statistics report vocabulary size, sparsity, and
@@ -136,32 +159,10 @@ class TestSkillVectorizer:
         assert stats.mean_skills_per_posting > 0
         assert len(stats.skill_frequency) == stats.vocabulary_size
 
-    # ---------------------------------------------------------
-    # TF-IDF values
-    # ---------------------------------------------------------
-
-    def test_tfidf_values_nonnegative(
-        self, skill_vectorizer: SkillVectorizer
-    ):
+    def test_statistics_frequency_values(self, skill_vectorizer: SkillVectorizer):
         """
-        TF-IDF matrix values are non-negative after L2 normalization.
+        Per-skill frequency counts reflect actual document occurrences.
         """
-        assert skill_vectorizer.tfidf_matrix.min() >= 0
-
-    # ---------------------------------------------------------
-    # Vocabulary consistency
-    # ---------------------------------------------------------
-
-    def test_transform_preserves_vocabulary(
-        self, skill_vectorizer: SkillVectorizer
-    ):
-        """
-        `DictVectorizer.transform(new_doc)` produces a vector with the
-        same number of columns as `fit_transform()`.
-        """
-        assert skill_vectorizer.pipeline.named_steps["vec"].transform(
-            [{
-                "unknown_skill" : 1,
-                "welding"       : 1
-            }]
-        ).shape[1] == skill_vectorizer.binary_matrix.shape[1]
+        freq = skill_vectorizer.statistics.skill_frequency
+        assert all(v >= 1 for v in freq.values())
+        assert sum(freq.values()) >= len(skill_vectorizer.document_ids)

@@ -50,9 +50,9 @@ class TestOnetSchemas:
 
     def test_concrete_types_count(self):
         """
-        Exactly five element types feed the normalization index.
+        Exactly six element types feed the normalization index.
         """
-        assert sum(m.is_concrete for m in OnetSkillType) == 5
+        assert sum(m.is_concrete for m in OnetSkillType) == 6
 
     def test_corpus_statistics_extra_fields_rejected(self):
         """
@@ -66,12 +66,6 @@ class TestOnetSchemas:
                 unknown                 = "value",
                 vocabulary_size         = 10
             )
-
-    def test_decomposable_implies_concrete(self):
-        """
-        Every decomposable type is also concrete.
-        """
-        assert all(m.is_concrete for m in OnetSkillType if m.is_decomposable)
 
     def test_occupation_extra_fields_rejected(self):
         """
@@ -119,9 +113,9 @@ class TestOnetSchemas:
 
     def test_skill_type_members(self):
         """
-        All eight O*NET element types are defined.
+        All nine O*NET element types are defined.
         """
-        assert len(OnetSkillType) == 8
+        assert len(OnetSkillType) == 9
 
     def test_skill_type_string_coercion(self):
         """

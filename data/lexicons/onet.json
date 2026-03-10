@@ -899,6 +899,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Building Maintenance Superintendent",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Building Services Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Coordinator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Director",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Maintenance Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Operations Manager (Facilities Ops Manager)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Facilities Operations Specialist (Facilities Ops Specialist)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Maintenance Superintendent",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.12,
         "level": 3.12,
         "name": "Active Learning",
@@ -1234,11 +1304,29 @@
       {
         "importance": null,
         "level": null,
+        "name": "Plan, create, and manage budgets for contracts, equipment, and supplies.",
+        "phrases": [
+          "manage budgets"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
         "name": "Prepare and review operational reports and schedules to ensure accuracy and efficiency.",
         "phrases": [
           "review operational reports",
           "operational reports",
           "ensure accuracy"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Review and approve payroll for employees.",
+        "phrases": [
+          "approve payroll"
         ],
         "type": "task"
       },
@@ -2758,6 +2846,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Concrete Foreman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Area Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Foreman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Management Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Services Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Superintendent",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "General Superintendent",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Job Superintendent",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Site Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.88,
         "level": 4.0,
         "name": "Active Learning",
@@ -3107,6 +3265,19 @@
         "phrases": [
           "supervise construction",
           "related workers"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Direct how drone technology is used for site inspections and progress monitoring, ensuring accurate and timely project completion.",
+        "phrases": [
+          "drone technology",
+          "site inspections",
+          "progress monitoring",
+          "ensuring accurate",
+          "timely project completion"
         ],
         "type": "task"
       },
@@ -4884,6 +5055,69 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Civil Engineering Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Electrical Engineering Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Engineering Director",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Engineering Group Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Engineering Program Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Mechanical Engineering Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Process Engineering Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Project Engineering Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Project Manager",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.88,
         "level": 3.88,
         "name": "Active Learning",
@@ -5522,20 +5756,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "C++",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Chef",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "Cisco IOS",
         "phrases": null,
         "type": "technology"
@@ -6020,13 +6240,6 @@
         "importance": null,
         "level": null,
         "name": "RTA Fleet Management",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "React",
         "phrases": null,
         "type": "technology"
       },
@@ -7416,13 +7629,6 @@
       {
         "importance": null,
         "level": null,
-        "name": "YouTube",
-        "phrases": null,
-        "type": "technology"
-      },
-      {
-        "importance": null,
-        "level": null,
         "name": "Zoom",
         "phrases": null,
         "type": "technology"
@@ -8708,6 +8914,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "City Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Civil Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "County Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Design Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Geotechnical Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Licensed Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Project Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Railroad Design Consultant",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Structural Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.25,
         "level": 4.62,
         "name": "Active Learning",
@@ -9135,6 +9411,17 @@
         "name": "Test soils or materials to determine the adequacy and strength of foundations, concrete, asphalt, or steel.",
         "phrases": [
           "determine adequacy"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Use drone technology for site surveying, inspection, and monitoring of infrastructure projects.",
+        "phrases": [
+          "use drone technology",
+          "site surveying",
+          "infrastructure projects"
         ],
         "type": "task"
       },
@@ -10851,6 +11138,69 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Project Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Rail Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Roadway Designer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Roadway Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "State Roadway Design Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Traffic Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Traffic Operations Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Transportation Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.25,
         "level": 3.88,
         "name": "Active Learning",
@@ -11172,6 +11522,17 @@
         "phrases": [
           "transportation-related computer software",
           "computer processes"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Develop plans for integration of drone technology into transportation systems for purposes such as delivery of goods or traffic monitoring.",
+        "phrases": [
+          "drone technology",
+          "transportation systems",
+          "traffic monitoring"
         ],
         "type": "task"
       },
@@ -13557,6 +13918,76 @@
         "name": "Transportation",
         "phrases": null,
         "type": "knowledge"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Coal Mine Production Foreman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Foreman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Electrical Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Field Operations Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Field Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Insulation Foreman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Roustabout Field Supervisor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Sheet Metal Foreman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Site Superintendent",
+        "phrases": null,
+        "type": "reported_title"
       },
       {
         "importance": 3.0,
@@ -17107,6 +17538,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Bridge Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Cabinet Maker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Concrete Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Construction Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Form Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Framer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Maintenance Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Rough Carpenter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Scaffold Builder",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.0,
         "level": 2.88,
         "name": "Active Learning",
@@ -17659,6 +18160,18 @@
           "prepare project layout",
           "project layout",
           "determine dimensions"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Use drones for site surveying and to inspect hard-to-reach areas of a structure.",
+        "phrases": [
+          "use drones",
+          "site surveying",
+          "inspect hard-to-reach areas",
+          "hard-to-reach areas"
         ],
         "type": "task"
       },
@@ -19906,6 +20419,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Asphalt Paver Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Asphalt Paving Machine Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Asphalt Raker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Asphalt Roller Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Equipment Operator (EO)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Loader Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Maintenance Equipment Operator (MEO)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Paver Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Roller Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Screed Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.62,
         "level": 2.12,
         "name": "Active Learning",
@@ -21634,6 +22217,27 @@
         "name": "Transportation",
         "phrases": null,
         "type": "knowledge"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Pile Driver",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Pile Driver Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Pile Driving Operator",
+        "phrases": null,
+        "type": "reported_title"
       },
       {
         "importance": 2.0,
@@ -23696,6 +24300,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Back Hoe Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Engineering Equipment Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Equipment Operator (EO)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Forklift Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Heavy Equipment Operator (HEO)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Hot Mix Asphalt Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Machine Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Motor Grader Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Operating Engineer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Hoe Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.88,
         "level": 2.62,
         "name": "Active Learning",
@@ -24842,13 +25516,6 @@
         "importance": null,
         "level": null,
         "name": "Personal computers",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Picks",
         "phrases": null,
         "type": "tool"
       },
@@ -26454,6 +27121,76 @@
         "name": "Transportation",
         "phrases": null,
         "type": "knowledge"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Ceiling Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Dry Wall Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Drywall Finisher",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Drywall Hanger",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Drywall Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Drywall Mechanic",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Drywaller",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Exterior Interior Specialist",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Metal Framer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Metal Stud Framer",
+        "phrases": null,
+        "type": "reported_title"
       },
       {
         "importance": 2.12,
@@ -28931,6 +29668,76 @@
         "name": "Transportation",
         "phrases": null,
         "type": "knowledge"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Control Electrician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Electrical Journey Person",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Electrical Troubleshooter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Electrician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Housing Maintenance Electrician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Industrial Electrician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Inside Wireman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Maintenance Electrician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Paper Mill Electrician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Wireman",
+        "phrases": null,
+        "type": "reported_title"
       },
       {
         "importance": 3.25,
@@ -31672,6 +32479,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Commercial Insulator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Heat and Frost Insulator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Industrial Insulator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Insulation Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Insulation Mechanic",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Insulation Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Insulator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Insulator Journeyman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Mechanic Insulator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Mechanical Insulator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.75,
         "level": 2.62,
         "name": "Active Learning",
@@ -33350,6 +34227,20 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Pipelayer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Tailman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.0,
         "level": 2.0,
         "name": "Active Learning",
@@ -34263,6 +35154,13 @@
         "importance": null,
         "level": null,
         "name": "Sledgehammers",
+        "phrases": null,
+        "type": "tool"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Snakes",
         "phrases": null,
         "type": "tool"
       },
@@ -35812,6 +36710,76 @@
         "name": "Transportation",
         "phrases": null,
         "type": "knowledge"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Drain Technician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Fire Sprinkler Service Technician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Pipe Welder",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Pipefitter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Plumber",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Plumbing Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Residential Plumber",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Service Plumber",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Sprinkler Fitter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Steamfitter",
+        "phrases": null,
+        "type": "reported_title"
       },
       {
         "importance": 2.62,
@@ -39519,6 +40487,62 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Field Ironworker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Iron Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Iron Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Ironworker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Reinforced Ironworker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Rodbuster",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Rodman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Steel Tier",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.38,
         "level": 1.88,
         "name": "Active Learning",
@@ -39843,6 +40867,26 @@
         "name": "Space and fasten together rods in forms according to blueprints, using wire and pliers.",
         "phrases": [
           "using wire"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Unload rebar from trucks.",
+        "phrases": [
+          "unload rebar"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Use forklifts or cranes to move construction material, such as rebar.",
+        "phrases": [
+          "use forklifts",
+          "move construction material",
+          "construction material"
         ],
         "type": "task"
       },
@@ -41498,6 +42542,55 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Fitter",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Iron Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Ironworker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Steel Fabricator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Steel Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Structural Steel Erector",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Tower Hand",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 3.0,
         "level": 3.0,
         "name": "Active Learning",
@@ -41756,6 +42849,17 @@
       {
         "importance": null,
         "level": null,
+        "name": "Assemble or inspect hoisting equipment or rigging, such as cables, pulleys, or hooks, to move heavy equipment or materials.",
+        "phrases": [
+          "inspect hoisting equipment",
+          "move heavy equipment",
+          "heavy equipment"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
         "name": "Bolt aligned structural steel members in position for permanent riveting, bolting, or welding into place.",
         "phrases": [
           "aligned structural steel members",
@@ -41886,6 +42990,19 @@
         "phrases": [
           "sealing strips",
           "insulating material"
+        ],
+        "type": "task"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Lift steel beams, girders, or columns using cranes or forklifts, or by signaling hoisting equipment operators to lift or position structural steel members.",
+        "phrases": [
+          "lift steel beams",
+          "using cranes",
+          "hoisting equipment operators",
+          "equipment operators",
+          "structural steel members"
         ],
         "type": "task"
       },
@@ -43559,6 +44676,76 @@
         "name": "Transportation",
         "phrases": null,
         "type": "knowledge"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Adjuster",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Constructor",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Installer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Mechanic",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Repair and Maintenance Technician (Elevator Repair and Maintenance Tech)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Service Mechanic",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Service Technician (Elevator Service Tech)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Serviceman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Technician (Elevator Tech)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Elevator Troubleshooter",
+        "phrases": null,
+        "type": "reported_title"
       },
       {
         "importance": 3.12,
@@ -45702,6 +46889,76 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Equipment Operator (EO)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Highway Maintainer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Highway Maintenance Crew Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Highway Maintenance Technician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Highway Maintenance Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Maintenance Technician",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Maintenance Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Transportation Maintenance Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Transportation Maintenance Specialist (TMS)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Transportation Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.38,
         "level": 2.12,
         "name": "Active Learning",
@@ -46764,13 +48021,6 @@
         "importance": null,
         "level": null,
         "name": "Personal computers",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Picks",
         "phrases": null,
         "type": "tool"
       },
@@ -48248,6 +49498,69 @@
         "type": "knowledge"
       },
       {
+        "importance": null,
+        "level": null,
+        "name": "Machine Operator",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Rail Maintenance Worker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Equipment Operator (TEO)",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Inspector",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Laborer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Maintainer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Repairer",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Track Walker",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
+        "importance": null,
+        "level": null,
+        "name": "Trackman",
+        "phrases": null,
+        "type": "reported_title"
+      },
+      {
         "importance": 2.62,
         "level": 2.38,
         "name": "Active Learning",
@@ -48974,13 +50287,6 @@
         "importance": null,
         "level": null,
         "name": "Pesticide sprayers",
-        "phrases": null,
-        "type": "tool"
-      },
-      {
-        "importance": null,
-        "level": null,
-        "name": "Picks",
         "phrases": null,
         "type": "tool"
       },

@@ -59,7 +59,7 @@ class TestLexiconRegistry:
         ) is None
 
     # ---------------------------------------------------------
-    # Empty inputs
+    # Index construction
     # ---------------------------------------------------------
 
     def test_empty_inputs_returns_none(self):
@@ -68,9 +68,35 @@ class TestLexiconRegistry:
         """
         assert LexiconRegistry([], []).normalize("anything") is None
 
-    # ---------------------------------------------------------
-    # Lemmatize
-    # ---------------------------------------------------------
+    def test_explicit_none_supplement(
+        self,
+        occupations : list[OnetOccupation],
+        osha_terms  : list[str]
+    ):
+        """
+        Passing `None` for `supplement_terms` builds the index without
+        supplement data, equivalent to omitting the argument.
+        """
+        registry = LexiconRegistry(occupations, osha_terms, None)
+        assert registry.normalize("fall protection") == "fall protection"
+        assert registry.normalize("rebar") is None
+
+    @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
+    def test_lemma_index_contains_terms(self, registry: LexiconRegistry, term: str):
+        """
+        Both O*NET and OSHA terms appear in the merged index.
+        """
+        assert term in registry.lemma_index.values()
+
+    def test_lemma_index_osha_overwrites_onet(self, registry: LexiconRegistry):
+        """
+        When a lemmatized form exists in both indices, the `lemma_index`
+        resolves to the OSHA canonical form.
+        """
+        # "welding" is in both OSHA (as "welding") and O*NET
+        # (as technology "Welding"). The merged index should
+        # have the OSHA lowercase version.
+        assert registry.lemma_index[registry.lemmatize("welding")] == "welding"
 
     def test_lemmatize_caches_words(self, registry: LexiconRegistry):
         """
@@ -90,27 +116,6 @@ class TestLexiconRegistry:
         assert registry.lemmatize("installing") == "installing"
 
     # ---------------------------------------------------------
-    # Lemma index
-    # ---------------------------------------------------------
-
-    @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
-    def test_lemma_index_contains_terms(self, registry: LexiconRegistry, term: str):
-        """
-        Both O*NET and OSHA terms appear in the merged index.
-        """
-        assert term in registry.lemma_index.values()
-
-    def test_lemma_index_osha_overwrites_onet(self, registry: LexiconRegistry):
-        """
-        When a lemmatized form exists in both indices, the `lemma_index`
-        resolves to the OSHA canonical form.
-        """
-        # "welding" is in both OSHA (as "welding") and O*NET
-        # (as technology "Welding"). The merged index should
-        # have the OSHA lowercase version.
-        assert registry.lemma_index[registry.lemmatize("welding")] == "welding"
-
-    # ---------------------------------------------------------
     # Normalization
     # ---------------------------------------------------------
 
@@ -120,6 +125,12 @@ class TestLexiconRegistry:
         lemmatization.
         """
         assert registry.normalize("FALL PROTECTION") == "fall protection"
+
+    def test_normalize_empty_string(self, registry: LexiconRegistry):
+        """
+        An empty string normalizes to `None`.
+        """
+        assert registry.normalize("") is None
 
     def test_normalize_excludes_ksa_types(self, registry: LexiconRegistry):
         """
@@ -203,3 +214,30 @@ class TestLexiconRegistry:
         Tool entries are indexed directly without decomposition.
         """
         assert registry.normalize("Laptop computers") == "Laptop computers"
+
+    # ---------------------------------------------------------
+    # Supplement integration
+    # ---------------------------------------------------------
+
+    def test_supplement_onet_overwrites_supplement(self, registry: LexiconRegistry):
+        """
+        A term in both supplement and O*NET resolves to the O*NET
+        canonical form, confirming O*NET > supplement priority.
+        """
+        # "concrete finishing" is both an O*NET technology on the
+        # paving operator and a supplement term. O*NET wins.
+        assert registry.normalize("concrete finishing") == "Concrete finishing"
+
+    def test_supplement_only_term(self, registry: LexiconRegistry):
+        """
+        A term present only in the supplement lexicon normalizes
+        to its canonical form.
+        """
+        assert registry.normalize("rebar") == "rebar"
+
+    def test_supplement_term_not_in_primary(self, registry: LexiconRegistry):
+        """
+        Supplement terms that overlap with neither OSHA nor O*NET
+        are still resolved by the registry.
+        """
+        assert registry.normalize("excavation") == "excavation"

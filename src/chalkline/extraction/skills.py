@@ -123,13 +123,12 @@ class SkillExtractor:
 
         self.filler_automaton = AhoCorasick(
             [p.lower() for p in filler_phrases],
-            matchkind=MatchKind.LeftmostLongest
+            MatchKind.LeftmostLongest
         )
 
         patterns, self.metadata = self._build_patterns()
         self.automaton = AhoCorasick(
-            patterns,
-            matchkind=MatchKind.LeftmostLongest
+            patterns, MatchKind.LeftmostLongest
         )
 
     # -----------------------------------------------------------------
@@ -173,10 +172,9 @@ class SkillExtractor:
             if len(words := canonical.lower().split()) == 2:
                 forms.add(f"{words[1]} {words[0]}")
 
+            forms -= seen | {""}
+            seen |= forms
             for form in sorted(forms):
-                if not form or form in seen:
-                    continue
-                seen.add(form)
                 patterns.append(form)
                 metadata.append(PatternMeta(
                     canonical = canonical,
@@ -269,8 +267,7 @@ class SkillExtractor:
         chars = list(text)
         for _, start, end in self.filler_automaton.find_matches_as_indexes(text):
             if self._is_word_boundary(end, start, text):
-                for i in range(start, end):
-                    chars[i] = " "
+                chars[start:end] = " " * (end - start)
         return "".join(chars)
 
     def _stem(self, text: str) -> str:
@@ -337,14 +334,12 @@ class SkillExtractor:
                 f"Excluded {excluded} posting(s) with zero matched skills"
             )
 
-        if corpus_tokens:
-            unmatched_rate = len(unmatched) / len(corpus_tokens)
-            if unmatched_rate > 0.15:
-                logger.warning(
-                    f"Unmatched term rate {unmatched_rate:.1%} exceeds "
-                    f"threshold. Top unmatched: "
-                    f"{sorted(unmatched)[:20]}"
-                )
+        if corpus_tokens and (rate := len(unmatched) / len(corpus_tokens)) > 0.15:
+            logger.warning(
+                f"Unmatched term rate {rate:.1%} exceeds "
+                f"threshold. Top unmatched: "
+                f"{sorted(unmatched)[:20]}"
+            )
 
         logger.debug(
             f"Extracted skills from {len(results)} posting(s), "

@@ -8,7 +8,7 @@ from pytest  import fixture
 
 from chalkline.collection.schemas     import Posting
 from chalkline.extraction.lexicons    import LexiconRegistry
-from chalkline.extraction.loaders     import load_onet, load_osha
+from chalkline.extraction.loaders     import load_onet, load_osha, load_supplement
 from chalkline.extraction.occupations import OccupationIndex
 from chalkline.extraction.schemas     import OnetOccupation
 from chalkline.extraction.skills      import SkillExtractor
@@ -24,12 +24,12 @@ def lexicon_dir(tmp_path: Path) -> Path:
     Write synthetic lexicon files to a temporary directory.
     """
     extraction = FIXTURES / "extraction"
-    (tmp_path / "osha.json").write_text(
-        (extraction / "osha_terms.json").read_text()
-    )
-    (tmp_path / "onet.json").write_text(
-        (extraction / "onet_occupations.json").read_text()
-    )
+    for src, dst in (
+        ("onet_occupations.json", "onet.json"),
+        ("osha_terms.json",       "osha.json"),
+        ("supplement_terms.json", "supplement.json")
+    ):
+        (tmp_path / dst).write_text((extraction / src).read_text())
     return tmp_path
 
 
@@ -59,13 +59,14 @@ def osha_terms() -> list[str]:
 
 @fixture
 def registry(
-    occupations : list[OnetOccupation],
-    osha_terms  : list[str]
+    occupations      : list[OnetOccupation],
+    osha_terms       : list[str],
+    supplement_terms : list[str]
 ) -> LexiconRegistry:
     """
     Build a registry from synthetic fixture data.
     """
-    return LexiconRegistry(occupations, osha_terms)
+    return LexiconRegistry(occupations, osha_terms, supplement_terms)
 
 
 @fixture
@@ -85,7 +86,7 @@ def second_posting() -> Posting:
 
 
 @fixture
-def skill_extractor(registry: LexiconRegistry) -> SkillExtractor:
+def extractor(registry: LexiconRegistry) -> SkillExtractor:
     """
     Build a skill extractor from synthetic fixture data.
     """
@@ -93,11 +94,11 @@ def skill_extractor(registry: LexiconRegistry) -> SkillExtractor:
 
 
 @fixture
-def skill_vectorizer(skill_extractor: SkillExtractor) -> SkillVectorizer:
+def skill_vectorizer(extractor: SkillExtractor) -> SkillVectorizer:
     """
     Build a vectorizer from synthetic extraction results.
     """
-    return SkillVectorizer(skill_extractor.extract({
+    return SkillVectorizer(extractor.extract({
         "posting-a" : "Fall protection and welding are required. "
                       "Experience with Autodesk AutoCAD preferred.",
         "posting-b" : "Electrical safety training and scaffolding "
@@ -111,6 +112,14 @@ def soc(request) -> str:
     Electrician SOC code in both bare and suffixed formats.
     """
     return request.param
+
+
+@fixture
+def supplement_terms() -> list[str]:
+    """
+    Load synthetic supplement terms from fixture data.
+    """
+    return load_supplement(FIXTURES / "extraction/supplement_terms.json")
 
 
 def _postings() -> list[Posting]:

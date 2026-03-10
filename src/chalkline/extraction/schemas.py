@@ -46,16 +46,18 @@ class OnetSkillType(StrEnum):
     """
     O*NET element types across the 21 stakeholder SOC codes.
 
-    Concrete types (`ALTERNATE_TITLE`, `DWA`, `TASK`, `TECHNOLOGY`,
-    `TOOL`) feed the normalization index. Abstract KSA types (`ABILITY`,
-    `KNOWLEDGE`, `SKILL`) are excluded from normalization but remain
-    available for occupation-level Jaccard matching.
+    Concrete types (`ALTERNATE_TITLE`, `DWA`, `REPORTED_TITLE`,
+    `TASK`, `TECHNOLOGY`, `TOOL`) feed the normalization index.
+    Abstract KSA types (`ABILITY`, `KNOWLEDGE`, `SKILL`) are
+    excluded from normalization but remain available for
+    occupation-level Jaccard matching.
     """
 
     ABILITY         = "ability"
     ALTERNATE_TITLE = "alternate_title"
     DWA             = "dwa"
     KNOWLEDGE       = "knowledge"
+    REPORTED_TITLE  = "reported_title"
     SKILL           = "skill"
     TASK            = "task"
     TECHNOLOGY      = "technology"
@@ -74,19 +76,6 @@ class OnetSkillType(StrEnum):
             OnetSkillType.ABILITY,
             OnetSkillType.KNOWLEDGE,
             OnetSkillType.SKILL
-        }
-
-    @property
-    def is_decomposable(self) -> bool:
-        """
-        Whether this type requires POS-based chunking.
-
-        Tasks and DWAs are sentence-length entries that must be decomposed
-        into sub-phrases for Aho-Corasick matching.
-        """
-        return self in {
-            OnetSkillType.DWA,
-            OnetSkillType.TASK
         }
 
 

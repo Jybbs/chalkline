@@ -10,7 +10,7 @@ from logging         import WARNING
 from pathlib         import Path
 from pytest          import LogCaptureFixture, mark
 
-from chalkline.extraction.loaders import load_onet, load_osha
+from chalkline.extraction.loaders import load_onet, load_osha, load_supplement
 
 
 class TestLoaders:
@@ -32,9 +32,17 @@ class TestLoaders:
         assert len(terms := load_osha(lexicon_dir / "osha.json")) == 5
         assert "fall protection" in terms
 
+    def test_load_supplement_valid(self, lexicon_dir: Path):
+        """
+        Valid supplement JSON deserializes into a list of strings.
+        """
+        assert len(terms := load_supplement(lexicon_dir / "supplement.json")) == 3
+        assert "rebar" in terms
+
     @mark.parametrize(("loader", "label"), [
-        (load_onet, "O*NET"),
-        (load_osha, "OSHA")
+        (load_onet,       "O*NET"),
+        (load_osha,       "OSHA"),
+        (load_supplement, "Supplement")
     ])
     def test_missing_file_logs_warning(
         self,

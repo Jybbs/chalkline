@@ -3,11 +3,12 @@ Curate the O*NET occupation-skill mapping for Chalkline's 21 SOC codes.
 
 Downloads element-type files from the O*NET 30.0 database, filters
 to the stakeholder-curated SOC codes, merges Skills, Knowledge,
-Abilities, Tasks, Technology Skills, Detailed Work Activities, Tools
-Used, and Alternate Titles into a structured `skills` array, decomposes
-Task and DWA entries into matchable sub-phrases via POS-based chunking,
-filters ambiguous single-word tool and technology entries using Brown
-corpus frequency, and writes `data/lexicons/onet.json`.
+Abilities, Tasks, Emerging Tasks, Technology Skills, Detailed Work
+Activities, Tools Used, Alternate Titles, and Sample of Reported
+Titles into a structured `skills` array, decomposes Task and DWA
+entries into matchable sub-phrases via POS-based chunking, filters
+ambiguous single-word tool and technology entries using wordfreq
+Zipf frequency, and writes `data/lexicons/onet.json`.
 
 Run from the worktree root:
 
@@ -18,11 +19,11 @@ from collections        import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from json               import dumps, loads
 from nltk               import download, pos_tag, RegexpParser, word_tokenize
-from nltk.corpus        import brown
 from pandas             import read_csv
 from pathlib            import Path
 from urllib.parse       import quote
 from urllib.request     import urlopen
+from wordfreq           import zipf_frequency
 
 
 class OnetCurator:
@@ -30,29 +31,31 @@ class OnetCurator:
     Fetch, filter, and merge O*NET element files into a structured
     occupation-skill lexicon for Aho-Corasick extraction.
 
-    Downloads ten tab-delimited files from the O*NET 30.0 database,
-    filters to stakeholder SOC codes, merges eight element types with
+    Downloads tab-delimited files from the O*NET 30.0 database,
+    filters to stakeholder SOC codes, merges element types with
     POS-based phrase decomposition for Tasks and DWAs, and excludes
-    ambiguous single-word tools and technologies via Brown corpus
+    ambiguous single-word tools and technologies via wordfreq Zipf
     frequency.
     """
 
     def __init__(self, root: Path):
         """
-        Download NLTK data, build the Brown frequency index, compile
-        the chunk parser, and load stakeholder SOC codes.
+        Download NLTK data, compile the chunk parser, and load
+        stakeholder SOC codes.
 
         Args:
             root: Worktree root containing `data/` directories.
         """
-        for corpus in ("averaged_perceptron_tagger_eng", "brown", "punkt_tab"):
+        for corpus in ("averaged_perceptron_tagger_eng", "punkt_tab"):
             download(corpus, quiet=True)
 
-        codes_path      = root / "data/stakeholder/reference/onet_codes.json"
-        self.brown_freq = Counter(w.lower() for w in brown.words())
-        self.codes      = {c["soc_code"]: c for c in loads(codes_path.read_text())}
-        self.output     = root / "data/lexicons/onet.json"
-        self.parser     = RegexpParser(r"""
+        self.codes = {
+            c["soc_code"]: c for c in loads(
+                (root / "data/stakeholder/reference/onet_codes.json").read_text()
+            )
+        }
+        self.output = root / "data/lexicons/onet.json"
+        self.parser = RegexpParser(r"""
             NP: {<DT>?<JJ>*<NN.*>+}
             VP: {<VB.*><NP>}
         """)
@@ -95,16 +98,18 @@ class OnetCurator:
             Mapping from internal key to filtered `DataFrame`.
         """
         files = {
-            "abilities"     : "Abilities.txt",
-            "alt_titles"    : "Alternate Titles.txt",
-            "dwa_reference" : "DWA Reference.txt",
-            "job_zones"     : "Job Zones.txt",
-            "knowledge"     : "Knowledge.txt",
-            "skills"        : "Skills.txt",
-            "tasks"         : "Task Statements.txt",
-            "tasks_to_dwas" : "Tasks to DWAs.txt",
-            "tech_skills"   : "Technology Skills.txt",
-            "tools_used"    : "Tools Used.txt"
+            "abilities"       : "Abilities.txt",
+            "alt_titles"      : "Alternate Titles.txt",
+            "dwa_reference"   : "DWA Reference.txt",
+            "emerging_tasks"  : "Emerging Tasks.txt",
+            "job_zones"       : "Job Zones.txt",
+            "knowledge"       : "Knowledge.txt",
+            "reported_titles" : "Sample of Reported Titles.txt",
+            "skills"          : "Skills.txt",
+            "tasks"           : "Task Statements.txt",
+            "tasks_to_dwas"   : "Tasks to DWAs.txt",
+            "tech_skills"     : "Technology Skills.txt",
+            "tools_used"      : "Tools Used.txt"
         }
 
         print("Downloading O*NET 30.0 database files...")
@@ -176,13 +181,13 @@ class OnetCurator:
         Test whether a single-word tool or technology name collides
         with common English.
 
-        Uses Brown corpus word frequency as the ambiguity signal.
-        The threshold of 20 occurrences sits above domain-specific
-        terms like "rebar" while catching general English words like
-        "level" and "iron" that would produce false Aho-Corasick
-        matches. Terms with 2 or fewer characters are always
-        ambiguous regardless of frequency because single letters
-        match too broadly.
+        Uses wordfreq Zipf frequency as the ambiguity signal. The
+        threshold of 4.0 corresponds to roughly one occurrence per
+        10,000 words in modern English, sitting above domain terms
+        like "rebar" (2.57) while catching general words like
+        "level" (4.84) and "iron" (4.27) that would produce false
+        Aho-Corasick matches. Terms with 2 or fewer characters are
+        always ambiguous because single letters match too broadly.
 
         Args:
             name: The O*NET entry name to test.
@@ -192,7 +197,7 @@ class OnetCurator:
         """
         return " " not in name and (
             len(name) <= 2
-            or self.brown_freq[name.lower()] >= 20
+            or zipf_frequency(name.lower(), "en") >= 4.0
         )
 
     def _merge(self, raw: dict) -> tuple[dict, set]:
@@ -242,11 +247,13 @@ class OnetCurator:
 
         excluded = set()
         for source_key, name_column, type_label in (
-            ("alt_titles",  "Alternate Title", "alternate_title"),
-            ("dwas",        "DWA Title",       "dwa"),
-            ("tasks",       "Task",            "task"),
-            ("tech_skills", "Example",         "technology"),
-            ("tools_used",  "Example",         "tool")
+            ("alt_titles",      "Alternate Title",    "alternate_title"),
+            ("dwas",            "DWA Title",          "dwa"),
+            ("emerging_tasks",  "Task",               "task"),
+            ("reported_titles", "Reported Job Title", "reported_title"),
+            ("tasks",           "Task",               "task"),
+            ("tech_skills",     "Example",            "technology"),
+            ("tools_used",      "Example",            "tool")
         ):
             for soc, group in (
                 raw[source_key]
@@ -274,7 +281,7 @@ class OnetCurator:
         if excluded:
             print(f"  Excluded {len(excluded)} ambiguous tool/tech entries:")
             for name in sorted(excluded):
-                print(f"    {name:20s}  brown_freq={self.brown_freq[name.lower()]}")
+                print(f"    {name:20s}  zipf={zipf_frequency(name.lower(), "en"):.2f}")
 
         job_zones = (
             raw["job_zones"]

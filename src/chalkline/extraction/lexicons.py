@@ -1,9 +1,10 @@
 """
-Skill normalization against OSHA and O*NET lexicons.
+Skill normalization against OSHA, O*NET, and supplement lexicons.
 
-Builds lemmatized lookup indices with OSHA > O*NET priority from
-pre-decomposed O*NET sub-phrases and OSHA topic terms so that
-Aho-Corasick matching in CL-06 can find fragments within posting text.
+Builds lemmatized lookup indices with OSHA > O*NET > supplement
+priority from pre-decomposed O*NET sub-phrases, OSHA topic terms,
+and domain supplement terms so that Aho-Corasick matching can find
+fragments within posting text.
 """
 
 from functools import cache
@@ -28,27 +29,35 @@ def _ensure_nltk_data():
 
 class LexiconRegistry:
     """
-    Normalization index merging OSHA and O*NET lexicons.
+    Normalization index merging OSHA, O*NET, and supplement lexicons.
 
-    Builds lemmatized lookup indices from both lexicon sources using
-    pre-decomposed sub-phrases for O*NET Tasks and DWAs, and exposes a
-    merged `lemma_index` with OSHA > O*NET priority for CL-06 pattern
-    matching.
+    Builds lemmatized lookup indices from all lexicon sources using
+    pre-decomposed sub-phrases for O*NET Tasks and DWAs, and exposes
+    a merged `lemma_index` with OSHA > O*NET > supplement priority
+    for pattern matching.
     """
 
-    def __init__(self, occupations: list[OnetOccupation], osha_terms: list[str]):
+    def __init__(
+        self,
+        occupations      : list[OnetOccupation],
+        osha_terms       : list[str],
+        supplement_terms : list[str] | None = None
+    ):
         """
         Build normalization indices from loaded lexicon data.
 
         Args:
-            occupations : Validated O*NET occupation records.
-            osha_terms  : Validated OSHA topic strings.
+            occupations      : Validated O*NET occupation records.
+            osha_terms       : Validated OSHA topic strings.
+            supplement_terms : Domain supplement terms at lowest
+                               priority, or `None` to skip.
         """
         _ensure_nltk_data()
         self.lemma_cache = {}
         self.lemmatizer  = WordNetLemmatizer()
         self.lemma_index = (
-            self._build_onet_index(occupations)
+            self._build_lemma_index(supplement_terms or [])
+            | self._build_onet_index(occupations)
             | self._build_lemma_index(osha_terms)
         )
 
@@ -114,14 +123,13 @@ class LexiconRegistry:
         Returns:
             Space-joined lemmatized form.
         """
-        words = []
-        for word in text.lower().split():
-            if word not in self.lemma_cache:
-                self.lemma_cache[word] = self.lemmatizer.lemmatize(
-                    word, pos="n"
-                )
-            words.append(self.lemma_cache[word])
-        return " ".join(words)
+        return " ".join(
+            self.lemma_cache.get(word)
+            or self.lemma_cache.setdefault(
+                word, self.lemmatizer.lemmatize(word, pos="n")
+            )
+            for word in text.lower().split()
+        )
 
     def normalize(self, raw_term: str) -> str | None:
         """

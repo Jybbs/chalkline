@@ -39,8 +39,8 @@ class SkillVectorizer:
                     skill names, as returned by `SkillExtractor.extract`.
         """
         self.document_ids = sorted(skills)
-        self._dicts       = [
-            {skill: 1 for skill in skills[doc]}
+        self._dicts = [
+            dict.fromkeys(skills[doc], 1)
             for doc in self.document_ids
         ]
 
@@ -82,13 +82,12 @@ class SkillVectorizer:
         and per-skill frequency counts across the corpus.
         """
         binary     = self.binary_matrix
-        dicts      = self._dicts
         rows, cols = binary.shape
-        frequency  = Counter(skill for d in dicts for skill in d)
+        frequency  = Counter(skill for d in self._dicts for skill in d)
 
         return CorpusStatistics(
             matrix_sparsity         = 1 - binary.nnz / (rows * cols),
-            mean_skills_per_posting = sum(len(d) for d in dicts) / len(dicts),
+            mean_skills_per_posting = sum(map(len, self._dicts)) / len(self._dicts),
             skill_frequency         = dict(sorted(frequency.items())),
             vocabulary_size         = cols
         )
