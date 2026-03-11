@@ -39,19 +39,13 @@ class TestPipelineConfig:
         ("top_k_gaps",           10),
         ("variance_threshold",   0.85)
     ])
-    def test_defaults_applied(self, expected, field: str, tmp_path: Path):
+    def test_defaults(self, expected, field: str, tmp_path: Path):
         """
         Optional fields receive their documented defaults.
         """
         assert getattr(self._config(tmp_path), field) == expected
 
-    def test_distance_metric_members(self):
-        """
-        All expected distance metrics are defined.
-        """
-        assert set(DistanceMetric) == {"cosine", "euclidean", "standardized_euclidean"}
-
-    def test_distance_metric_string_coercion(self, tmp_path: Path):
+    def test_distance_metric_coercion(self, tmp_path: Path):
         """
         A raw string coerces to the correct enum member when passed through
         `PipelineConfig`.
@@ -60,14 +54,20 @@ class TestPipelineConfig:
             tmp_path, distance_metric="cosine"
         ).distance_metric is DistanceMetric.COSINE
 
-    def test_extra_fields_rejected(self, tmp_path: Path):
+    def test_distance_metric_members(self):
+        """
+        All expected distance metrics are defined.
+        """
+        assert set(DistanceMetric) == {"cosine", "euclidean", "standardized_euclidean"}
+
+    def test_extra_fields(self, tmp_path: Path):
         """
         Unknown fields raise `ValidationError` per `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
             self._config(tmp_path, stale_field=True)
 
-    def test_invalid_distance_metric_rejected(self, tmp_path: Path):
+    def test_invalid_distance_metric(self, tmp_path: Path):
         """
         Unrecognized metric strings fail at construction, not downstream in
         sklearn.
@@ -75,14 +75,14 @@ class TestPipelineConfig:
         with raises(Exception):
             self._config(tmp_path, distance_metric="manhattan")
 
-    def test_missing_required_fields(self):
+    def test_missing_fields(self):
         """
         Omitting required path fields raises `ValidationError`.
         """
         with raises(Exception):
             PipelineConfig()
 
-    def test_override_accepted(self, tmp_path: Path):
+    def test_override(self, tmp_path: Path):
         """
         Non-default values are accepted for optional fields.
         """
@@ -90,15 +90,8 @@ class TestPipelineConfig:
         assert config.max_components == 50
         assert config.random_seed == 99
 
-    def test_variance_threshold_accepts_one(self, tmp_path: Path):
-        """
-        `variance_threshold` of exactly 1.0 is valid, meaning keep all
-        variance.
-        """
-        assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0
-
     @mark.parametrize("threshold", [0.0, 1.5])
-    def test_variance_threshold_rejects_boundary(
+    def test_variance_threshold_boundary(
         self,
         threshold : float,
         tmp_path  : Path
@@ -108,3 +101,10 @@ class TestPipelineConfig:
         """
         with raises(Exception):
             self._config(tmp_path, variance_threshold=threshold)
+
+    def test_variance_threshold_one(self, tmp_path: Path):
+        """
+        `variance_threshold` of exactly 1.0 is valid, meaning keep all
+        variance.
+        """
+        assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0

@@ -18,7 +18,7 @@ class TestSkillExtractor:
     # Extraction
     # ---------------------------------------------------------
 
-    def test_case_insensitive_extraction(self, extractor: SkillExtractor):
+    def test_case_insensitive(self, extractor: SkillExtractor):
         """
         Identical text in different casings produces identical output.
         """
@@ -28,7 +28,7 @@ class TestSkillExtractor:
             == extractor.extract({"a": text.upper()})["a"]
         )
 
-    def test_decomposed_phrase_extraction(self, extractor: SkillExtractor):
+    def test_decomposed_phrase(self, extractor: SkillExtractor):
         """
         Sub-phrases from decomposed O*NET Tasks and DWAs are matchable
         through the automaton.
@@ -40,7 +40,7 @@ class TestSkillExtractor:
             }).get("a", [])
         )
 
-    def test_inverted_bigram_extraction(self, extractor: SkillExtractor):
+    def test_inverted_bigram(self, extractor: SkillExtractor):
         """
         Two-word skills match even when their words appear in reverse
         order, because the automaton indexes inverted bigram variants.
@@ -49,7 +49,7 @@ class TestSkillExtractor:
             "a": "protection fall is important"
         }).get("a", [])
 
-    def test_multi_word_extraction(self, extractor: SkillExtractor):
+    def test_multi_word(self, extractor: SkillExtractor):
         """
         Multi-word lexicon terms like "fall protection" are extracted as
         complete phrases rather than individual words.
@@ -58,7 +58,7 @@ class TestSkillExtractor:
             "a": "Fall protection and welding are required"
         })["a"]
 
-    def test_osha_priority_over_onet(self, extractor: SkillExtractor):
+    def test_osha_priority(self, extractor: SkillExtractor):
         """
         A term present in both OSHA and O*NET resolves to the OSHA
         canonical form.
@@ -70,7 +70,7 @@ class TestSkillExtractor:
         # OSHA "welding" is lowercase; O*NET is "Welding"
         assert "Welding" not in result["a"]
 
-    def test_stemmed_form_matching(self, extractor: SkillExtractor):
+    def test_stemmed_form(self, extractor: SkillExtractor):
         """
         Porter-stemmed surface forms match their canonical entry,
         allowing shortened word forms to resolve correctly.
@@ -110,7 +110,7 @@ class TestSkillExtractor:
     # Output format
     # ---------------------------------------------------------
 
-    def test_output_sorted_deduplicated(self, extractor: SkillExtractor):
+    def test_output_sorted(self, extractor: SkillExtractor):
         """
         Each posting's skill list is sorted alphabetically with no
         duplicates, even when the same term appears multiple times.
@@ -153,7 +153,7 @@ class TestSkillExtractor:
             "a": "fallProtection is required"
         })["a"]
 
-    def test_filler_masking_no_false_match(self, extractor: SkillExtractor):
+    def test_filler_no_false_match(self, extractor: SkillExtractor):
         """
         Filler phrases are blanked before matching so that terms within
         them do not produce false positives.
@@ -175,14 +175,14 @@ class TestSkillExtractor:
     # Vocabulary
     # ---------------------------------------------------------
 
-    def test_vocabulary_contains_osha_terms(self, extractor: SkillExtractor):
+    def test_vocabulary_osha(self, extractor: SkillExtractor):
         """
         OSHA lexicon terms appear in the extractor's vocabulary.
         """
         assert "fall protection" in extractor.vocabulary
         assert "welding" in extractor.vocabulary
 
-    def test_vocabulary_contains_supplement_terms(
+    def test_vocabulary_supplement(
         self, extractor: SkillExtractor
     ):
         """
@@ -195,16 +195,7 @@ class TestSkillExtractor:
     # Word boundaries
     # ---------------------------------------------------------
 
-    def test_word_boundary_enforcement(self, extractor: SkillExtractor):
-        """
-        Partial-word matches are rejected, meaning "weld" inside
-        "welder" does not match the "weld" surface form.
-        """
-        assert "weld" not in extractor.extract(
-            {"a": "The welder inspected the scaffoldings"}
-        ).get("a", [])
-
-    def test_word_boundary_with_digit(self, extractor: SkillExtractor):
+    def test_boundary_digit(self, extractor: SkillExtractor):
         """
         Digits are alphanumeric, so a match abutting a digit is
         rejected because `isalnum()` treats digits as word characters.
@@ -213,7 +204,7 @@ class TestSkillExtractor:
             {"a": "3welding required on site"}
         ).get("a", [])
 
-    def test_word_boundary_with_hyphen(self, extractor: SkillExtractor):
+    def test_boundary_hyphen(self, extractor: SkillExtractor):
         """
         Hyphens are non-alphanumeric, so terms separated by hyphens
         are treated as valid word boundaries.
@@ -222,17 +213,26 @@ class TestSkillExtractor:
             {"a": "welding-certified technician needed"}
         ).get("a", [])
 
+    def test_word_boundary(self, extractor: SkillExtractor):
+        """
+        Partial-word matches are rejected, meaning "weld" inside
+        "welder" does not match the "weld" surface form.
+        """
+        assert "weld" not in extractor.extract(
+            {"a": "The welder inspected the scaffoldings"}
+        ).get("a", [])
+
     # ---------------------------------------------------------
     # Zero-skill exclusion
     # ---------------------------------------------------------
 
-    def test_extract_empty_corpus(self, extractor: SkillExtractor):
+    def test_empty_corpus(self, extractor: SkillExtractor):
         """
         An empty corpus returns an empty mapping without error.
         """
         assert extractor.extract({}) == {}
 
-    def test_filler_only_posting_excluded(self, extractor: SkillExtractor):
+    def test_filler_only_excluded(self, extractor: SkillExtractor):
         """
         A posting consisting entirely of filler phrases produces zero
         skills and is excluded from output.
@@ -241,7 +241,7 @@ class TestSkillExtractor:
             "a": "Must have experience with knowledge of"
         }) == {}
 
-    def test_zero_skill_postings_excluded(self, extractor: SkillExtractor):
+    def test_zero_skills_excluded(self, extractor: SkillExtractor):
         """
         Postings with no matched skills are omitted from the output.
         """

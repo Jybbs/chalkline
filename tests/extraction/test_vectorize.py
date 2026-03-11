@@ -21,7 +21,7 @@ class TestSkillVectorizer:
     # Document identifiers
     # ---------------------------------------------------------
 
-    def test_document_ids_match_row_count(self, skill_vectorizer: SkillVectorizer):
+    def test_document_ids_row_count(self, skill_vectorizer: SkillVectorizer):
         """
         Document identifiers are returned in row order alongside
         both matrices.
@@ -44,7 +44,7 @@ class TestSkillVectorizer:
     # Feature names
     # ---------------------------------------------------------
 
-    def test_feature_names_match_columns(self, skill_vectorizer: SkillVectorizer):
+    def test_feature_names_columns(self, skill_vectorizer: SkillVectorizer):
         """
         Feature names length matches matrix column count.
         """
@@ -61,7 +61,7 @@ class TestSkillVectorizer:
             skill_vectorizer.feature_names
         )
 
-    def test_transform_preserves_vocabulary(self, skill_vectorizer: SkillVectorizer):
+    def test_transform_vocabulary(self, skill_vectorizer: SkillVectorizer):
         """
         `DictVectorizer.transform(new_doc)` produces a vector with the
         same number of columns as `fit_transform()`.
@@ -90,7 +90,7 @@ class TestSkillVectorizer:
         """
         assert (skill_vectorizer.binary_matrix.data == 1).all()
 
-    def test_matrices_identical_dimensions(self, skill_vectorizer: SkillVectorizer):
+    def test_matrices_dimensions(self, skill_vectorizer: SkillVectorizer):
         """
         TF-IDF and binary matrices have the same shape.
         """
@@ -138,7 +138,7 @@ class TestSkillVectorizer:
     # Statistics
     # ---------------------------------------------------------
 
-    def test_single_posting_vectorizer(self):
+    def test_single_posting(self):
         """
         A single-document corpus produces valid matrices where TF-IDF
         normalization degenerates to uniform weights.
@@ -159,7 +159,7 @@ class TestSkillVectorizer:
         assert stats.mean_skills_per_posting > 0
         assert len(stats.skill_frequency) == stats.vocabulary_size
 
-    def test_statistics_frequency_values(self, skill_vectorizer: SkillVectorizer):
+    def test_statistics_frequency(self, skill_vectorizer: SkillVectorizer):
         """
         Per-skill frequency counts reflect actual document occurrences.
         """

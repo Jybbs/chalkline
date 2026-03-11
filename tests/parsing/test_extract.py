@@ -24,13 +24,13 @@ class TestCleanText:
         """
         assert clean_text("hello   world\n\nfoo") == "hello world foo"
 
-    def test_empty_input_returns_empty(self):
+    def test_empty_input(self):
         """
         An empty input returns an empty string without raising.
         """
         assert clean_text("") == ""
 
-    def test_page_numbers_only_returns_empty(self):
+    def test_page_numbers_only(self):
         """
         Input containing only standalone page numbers normalizes to an empty
         string.
@@ -51,7 +51,7 @@ class TestCleanText:
         assert "42" not in result
         assert "Some text" in result
 
-    def test_whitespace_only_returns_empty(self):
+    def test_whitespace_only(self):
         """
         Input containing only whitespace normalizes to an empty string.
         """
@@ -69,7 +69,7 @@ class TestExtractPdf:
         """
         assert extract_pdf(FIXTURES / "empty.pdf") == ""
 
-    def test_known_text_from_pdf(self):
+    def test_known_text(self):
         """
         A sample resume PDF returns its known text content with no binary
         artifacts.
@@ -88,7 +88,7 @@ class TestExtractPdf:
         assert "Page 1" in result
         assert "Page 2" in result
 
-    def test_pdf_through_clean_text(self):
+    def test_pdf_clean_text(self):
         """
         Extracted PDF text normalizes cleanly for downstream use.
         """
