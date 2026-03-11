@@ -19,7 +19,7 @@ class TestLoaders:
     Validate lexicon file loading and missing-file handling.
     """
 
-    def test_load_certifications_valid(self, lexicon_dir: Path):
+    def test_load_certifications(self, lexicon_dir: Path):
         """
         Valid certifications JSON deserializes into certification
         records.
@@ -29,21 +29,21 @@ class TestLoaders:
         )) == 2
         assert certs[0].name == "Certified Welding Inspector"
 
-    def test_load_onet_valid(self, lexicon_dir: Path):
+    def test_load_onet(self, lexicon_dir: Path):
         """
         Valid O*NET JSON deserializes into occupation records.
         """
         assert len(occupations := load_onet(lexicon_dir / "onet.json")) == 2
         assert occupations[0].soc_code == "47-2111.00"
 
-    def test_load_osha_valid(self, lexicon_dir: Path):
+    def test_load_osha(self, lexicon_dir: Path):
         """
         Valid OSHA JSON deserializes into a list of strings.
         """
         assert len(terms := load_osha(lexicon_dir / "osha.json")) == 5
         assert "fall protection" in terms
 
-    def test_load_supplement_valid(self, lexicon_dir: Path):
+    def test_load_supplement(self, lexicon_dir: Path):
         """
         Valid supplement JSON deserializes into a list of strings.
         """
@@ -56,7 +56,7 @@ class TestLoaders:
         (load_osha,           "OSHA"),
         (load_supplement,     "Supplement")
     ])
-    def test_missing_file_logs_warning(
+    def test_missing_file_warns(
         self,
         caplog   : LogCaptureFixture,
         label    : str,

@@ -17,7 +17,7 @@ class TestOccupationIndex:
     Validate occupation lookups, SOC resolution, and Jaccard matching.
     """
 
-    def test_ambiguous_bare_prefix_raises(self):
+    def test_ambiguous_prefix(self):
         """
         A bare prefix with multiple suffixes raises `KeyError` because the
         resolver cannot disambiguate.
@@ -49,7 +49,7 @@ class TestOccupationIndex:
         """
         assert occupation_index.get(soc).job_zone == 3
 
-    def test_invalid_soc_raises(self, occupation_index: OccupationIndex):
+    def test_invalid_soc(self, occupation_index: OccupationIndex):
         """
         An unrecognized SOC code raises `KeyError`.
         """
@@ -71,30 +71,12 @@ class TestOccupationIndex:
             "47-2111.00"
         }
 
-    def test_nearest_mixed_overlap_paving(self, occupation_index: OccupationIndex):
-        """
-        A skill set with majority paving operator overlap resolves to the
-        paving operator SOC code even with shared terms.
-        """
-        assert occupation_index.nearest(
-            {"Backhoes", "Concrete finishing", "Welding"}
-        ) == "47-2071.00"
-
-    def test_nearest_resolves_paving(self, occupation_index: OccupationIndex):
-        """
-        Skills unique to paving operators resolve to that occupation's SOC
-        code.
-        """
-        assert occupation_index.nearest(
-            {"Backhoes", "Concrete finishing"}
-        ) == "47-2071.00"
-
     @mark.parametrize("skills", [
         {"Autodesk AutoCAD"},
         {"Autodesk AutoCAD", "Laptop computers", "Mathematics"},
         {"Autodesk AutoCAD", "Backhoes", "Laptop computers", "Welding"}
     ])
-    def test_nearest_resolves_to_electrician(
+    def test_nearest_electrician(
         self,
         occupation_index : OccupationIndex,
         skills           : set[str]
@@ -104,6 +86,24 @@ class TestOccupationIndex:
         electrician SOC code.
         """
         assert occupation_index.nearest(skills) == "47-2111.00"
+
+    def test_nearest_mixed_overlap(self, occupation_index: OccupationIndex):
+        """
+        A skill set with majority paving operator overlap resolves to the
+        paving operator SOC code even with shared terms.
+        """
+        assert occupation_index.nearest(
+            {"Backhoes", "Concrete finishing", "Welding"}
+        ) == "47-2071.00"
+
+    def test_nearest_paving(self, occupation_index: OccupationIndex):
+        """
+        Skills unique to paving operators resolve to that occupation's SOC
+        code.
+        """
+        assert occupation_index.nearest(
+            {"Backhoes", "Concrete finishing"}
+        ) == "47-2071.00"
 
     def test_sector(self, occupation_index: OccupationIndex, soc: str):
         """

@@ -19,7 +19,7 @@ class TestPosting:
     Validate `Posting` model constraints and composite key generation.
     """
 
-    def test_auto_id_generation(self, sample_posting: Posting):
+    def test_auto_id(self, sample_posting: Posting):
         """
         Omitting `id` auto-computes it from company, date, and title.
         """
@@ -38,7 +38,7 @@ class TestPosting:
             == "cianbro_electrician_2026-03-01"
         )
 
-    def test_date_coercion_in_id(self):
+    def test_date_coercion(self):
         """
         Timestamp `date_posted` values are truncated to date and reflected
         in the composite key.
@@ -54,7 +54,7 @@ class TestPosting:
         assert "2026-03-01" in posting.id
 
     @mark.parametrize("field", ["company", "source_url", "title"])
-    def test_empty_string_rejected(
+    def test_empty_string(
         self,
         sample_posting : Posting,
         field          : str
@@ -67,7 +67,7 @@ class TestPosting:
                 sample_posting.model_dump() | {field: ""}
             )
 
-    def test_explicit_id_preserved(self):
+    def test_explicit_id(self):
         """
         An explicitly provided `id` is not overwritten by
         auto-generation.
@@ -82,7 +82,7 @@ class TestPosting:
         )
         assert posting.id == "custom-id"
 
-    def test_extra_fields_rejected(self, sample_posting: Posting):
+    def test_extra_fields(self, sample_posting: Posting):
         """
         Unknown fields raise `ValidationError` per `extra="forbid"`.
         """

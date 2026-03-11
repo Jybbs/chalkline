@@ -14,13 +14,13 @@ class TestParseRecord:
     `Posting` instances.
     """
 
-    def test_missing_required_field_returns_none(self):
+    def test_missing_field(self):
         """
         A row missing required fields returns `None` instead of raising.
         """
         assert Collector._parse_record({"company": "Cianbro"}) is None
 
-    def test_nan_fields_become_none(self):
+    def test_nan_fields(self):
         """
         Pandas `NaN` values coerce to `None` for optional fields.
         """

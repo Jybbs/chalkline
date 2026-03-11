@@ -20,7 +20,7 @@ class TestLexiconRegistry:
     # Decomposition
     # -------------------------------------------------------------------------
 
-    def test_decompose_filters_single_word_nouns(self, registry: LexiconRegistry):
+    def test_decompose_filters_single_words(self, registry: LexiconRegistry):
         """
         Single-word nouns from coordinate structures are filtered by the
         two-token minimum, preventing generic terms like "equipment" from
@@ -34,7 +34,7 @@ class TestLexiconRegistry:
         "operate construction equipment",
         "spread concrete"
     ])
-    def test_decompose_sub_phrase_normalizes(
+    def test_decompose_sub_phrase(
         self,
         phrase   : str,
         registry : LexiconRegistry
@@ -59,7 +59,7 @@ class TestLexiconRegistry:
     # Index construction
     # -------------------------------------------------------------------------
 
-    def test_empty_inputs_returns_none(self):
+    def test_empty_inputs(self):
         """
         With no lexicon data, `normalize` returns `None`.
         """
@@ -86,7 +86,7 @@ class TestLexiconRegistry:
         assert registry.normalize("rebar") is None
 
     @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
-    def test_lemma_index_contains_terms(self, registry: LexiconRegistry, term: str):
+    def test_lemma_index_terms(self, registry: LexiconRegistry, term: str):
         """
         Both O*NET and OSHA terms appear in the merged index.
         """
@@ -135,18 +135,12 @@ class TestLexiconRegistry:
         assert registry.normalize("") is None
 
     @mark.parametrize("term", ["Blueprint Reading", "Mathematics"])
-    def test_normalize_excludes_ksa_types(self, registry: LexiconRegistry, term: str):
+    def test_normalize_excludes_ksa(self, registry: LexiconRegistry, term: str):
         """
         Abstract KSA types are excluded from the normalization index,
         returning `None` even though they exist in the occupation profile.
         """
         assert registry.normalize(term) is None
-
-    def test_normalize_handles_plural(self, registry: LexiconRegistry):
-        """
-        Plural forms match their singular canonical entry via lemmatization.
-        """
-        assert registry.normalize("scaffoldings") == "scaffolding"
 
     @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
     def test_normalize_known_term(self, registry: LexiconRegistry, term: str):
@@ -172,13 +166,19 @@ class TestLexiconRegistry:
         # form wins.
         assert registry.normalize("welding") == "welding"
 
-    def test_normalize_unknown_returns_none(self, registry: LexiconRegistry):
+    def test_normalize_plural(self, registry: LexiconRegistry):
+        """
+        Plural forms match their singular canonical entry via lemmatization.
+        """
+        assert registry.normalize("scaffoldings") == "scaffolding"
+
+    def test_normalize_unknown(self, registry: LexiconRegistry):
         """
         An unrecognized term returns `None`.
         """
         assert registry.normalize("quantum computing") is None
 
-    def test_phrases_empty_skips_indexing(self):
+    def test_phrases_empty(self):
         """
         A decomposable entry with an empty `phrases` list indexes
         nothing rather than falling back to the full sentence.
@@ -199,7 +199,7 @@ class TestLexiconRegistry:
         )
         assert registry.normalize("Some task sentence") is None
 
-    def test_short_phrases_not_decomposed(self, registry: LexiconRegistry):
+    def test_short_phrases_intact(self, registry: LexiconRegistry):
         """
         Tool entries are indexed directly without decomposition.
         """
@@ -209,14 +209,14 @@ class TestLexiconRegistry:
     # Certification integration
     # -------------------------------------------------------------------------
 
-    def test_certification_acronym_resolves_to_name(self, registry: LexiconRegistry):
+    def test_certification_acronym(self, registry: LexiconRegistry):
         """
         Acronyms index as lookup keys pointing to the full
         certification name.
         """
         assert registry.normalize("CWI") == "Certified Welding Inspector"
 
-    def test_certification_name_normalizes(self, registry: LexiconRegistry):
+    def test_certification_name(self, registry: LexiconRegistry):
         """
         A certification name resolves via both lemmatized and
         lowercased lookup forms.
@@ -240,7 +240,7 @@ class TestLexiconRegistry:
         )
         assert registry.normalize("excavation") == "Excavation"
 
-    def test_certification_phrase_normalizes(self, registry: LexiconRegistry):
+    def test_certification_phrase(self, registry: LexiconRegistry):
         """
         Description sub-phrases from certification records are
         individually matchable.
@@ -276,7 +276,7 @@ class TestLexiconRegistry:
         assert registry.normalize("concrete finishing") == "Concrete finishing"
 
     @mark.parametrize("term", ["excavation", "rebar"])
-    def test_supplement_term_normalizes(self, registry: LexiconRegistry, term: str):
+    def test_supplement_term(self, registry: LexiconRegistry, term: str):
         """
         Terms present only in the supplement lexicon normalize to
         their canonical forms.
