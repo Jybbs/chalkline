@@ -8,6 +8,7 @@ and graceful handling of empty inputs using synthetic fixture data.
 from pytest import mark
 
 from chalkline.extraction.lexicons import LexiconRegistry
+from chalkline.extraction.schemas  import Certification, OnetOccupation, OnetSkill
 
 
 class TestLexiconRegistry:
@@ -15,47 +16,74 @@ class TestLexiconRegistry:
     Validate normalization priority, decomposition, and lemma index merging.
     """
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Decomposition
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    def test_decompose_dwa_yields_sub_phrases(self, registry: LexiconRegistry):
+    def test_decompose_filters_single_word_nouns(self, registry: LexiconRegistry):
         """
-        DWA entries are decomposed alongside tasks, yielding matchable noun
-        phrases from sentence-length descriptions.
+        Single-word nouns from coordinate structures are filtered by the
+        two-token minimum, preventing generic terms like "equipment" from
+        entering the index.
         """
-        # "Pour and spread concrete for building foundations"
-        # should decompose to include "building foundations"
-        assert registry.normalize("building foundations") is not None
+        assert registry.normalize("equipment") is None
 
-    def test_decompose_extracts_coordinate_nouns(self, registry: LexiconRegistry):
+    @mark.parametrize("phrase", [
+        "building foundations",
+        "electrical wiring",
+        "operate construction equipment",
+        "spread concrete"
+    ])
+    def test_decompose_sub_phrase_normalizes(
+        self,
+        phrase   : str,
+        registry : LexiconRegistry
+    ):
         """
-        Nouns within coordinate structures from decomposed Tasks are
-        individually matchable through the normalization index.
+        Sub-phrases from decomposed tasks and DWAs normalize to
+        themselves rather than the parent sentence, covering both
+        NP chunks and VP chunks.
         """
-        assert registry.normalize("equipment") is not None
+        assert registry.normalize(phrase) == phrase
 
-    def test_decompose_maps_to_parent(self, registry: LexiconRegistry):
+    def test_full_sentence_not_indexed(self, registry: LexiconRegistry):
         """
-        Sub-phrases from a decomposed task resolve to the parent canonical
-        entry through `normalize`.
+        The full text of decomposable entries is not indexed, preventing
+        sentence-length matches from inflating the skill vocabulary.
         """
-        assert (result := registry.normalize("electrical wiring")) is not None
-        assert "wiring" in result.lower()
+        assert registry.normalize(
+            "Install electrical wiring, equipment, and fixtures"
+        ) is None
 
-    # ---------------------------------------------------------
-    # Empty inputs
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Index construction
+    # -------------------------------------------------------------------------
 
     def test_empty_inputs_returns_none(self):
         """
         With no lexicon data, `normalize` returns `None`.
         """
-        assert LexiconRegistry([], []).normalize("anything") is None
+        assert LexiconRegistry(
+            occupations = [],
+            osha_terms  = []
+        ).normalize("anything") is None
 
-    # ---------------------------------------------------------
-    # Lemma index
-    # ---------------------------------------------------------
+    def test_explicit_none_supplement(
+        self,
+        occupations : list[OnetOccupation],
+        osha_terms  : list[str]
+    ):
+        """
+        Passing `None` for `supplement_terms` builds the index without
+        supplement data, equivalent to omitting the argument.
+        """
+        registry = LexiconRegistry(
+            occupations      = occupations,
+            osha_terms       = osha_terms,
+            supplement_terms = None
+        )
+        assert registry.normalize("fall protection") == "fall protection"
+        assert registry.normalize("rebar") is None
 
     @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
     def test_lemma_index_contains_terms(self, registry: LexiconRegistry, term: str):
@@ -64,19 +92,34 @@ class TestLexiconRegistry:
         """
         assert term in registry.lemma_index.values()
 
-    def test_lemma_index_osha_overwrites_onet(self, registry: LexiconRegistry):
+    def test_lemmatize_caches_words(self, registry: LexiconRegistry):
         """
-        When a lemmatized form exists in both indices, the `lemma_index`
-        resolves to the OSHA canonical form.
+        The word-level cache is populated after lemmatization so that
+        repeated tokens across postings skip the WordNet lookup.
         """
-        # "welding" is in both OSHA (as "welding") and O*NET
-        # (as technology "Welding"). The merged index should
-        # have the OSHA lowercase version.
-        assert registry.lemma_index[registry.lemmatize("welding")] == "welding"
+        registry.lemmatize("scaffoldings welding")
+        assert "scaffoldings" in registry.lemma_cache
+        assert "welding" in registry.lemma_cache
 
-    # ---------------------------------------------------------
+    def test_lemmatize_noun_default(self, registry: LexiconRegistry):
+        """
+        Noun-default lemmatization reduces plurals without POS tagging,
+        leaving verb forms like "installing" unchanged.
+        """
+        assert registry.lemmatize("scaffoldings") == "scaffolding"
+        assert registry.lemmatize("installing") == "installing"
+
+    def test_lemmatize_uses_cache(self, registry: LexiconRegistry):
+        """
+        A pre-populated cache entry is returned directly without
+        invoking the WordNet lemmatizer.
+        """
+        registry.lemma_cache["foo"] = "bar"
+        assert registry.lemmatize("foo") == "bar"
+
+    # -------------------------------------------------------------------------
     # Normalization
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def test_normalize_case_insensitive(self, registry: LexiconRegistry):
         """
@@ -85,13 +128,19 @@ class TestLexiconRegistry:
         """
         assert registry.normalize("FALL PROTECTION") == "fall protection"
 
-    def test_normalize_excludes_ksa_types(self, registry: LexiconRegistry):
+    def test_normalize_empty_string(self, registry: LexiconRegistry):
+        """
+        An empty string normalizes to `None`.
+        """
+        assert registry.normalize("") is None
+
+    @mark.parametrize("term", ["Blueprint Reading", "Mathematics"])
+    def test_normalize_excludes_ksa_types(self, registry: LexiconRegistry, term: str):
         """
         Abstract KSA types are excluded from the normalization index,
         returning `None` even though they exist in the occupation profile.
         """
-        assert registry.normalize("Blueprint Reading") is None
-        assert registry.normalize("Mathematics") is None
+        assert registry.normalize(term) is None
 
     def test_normalize_handles_plural(self, registry: LexiconRegistry):
         """
@@ -99,19 +148,20 @@ class TestLexiconRegistry:
         """
         assert registry.normalize("scaffoldings") == "scaffolding"
 
-    def test_normalize_onet_term(self, registry: LexiconRegistry):
+    @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
+    def test_normalize_known_term(self, registry: LexiconRegistry, term: str):
         """
-        An O*NET technology term normalizes to its canonical form.
+        Known O*NET and OSHA terms normalize to their canonical forms.
         """
-        assert registry.normalize("Autodesk AutoCAD") == "Autodesk AutoCAD"
+        assert registry.normalize(term) == term
 
-    def test_normalize_osha_exact_case(self, registry: LexiconRegistry):
+    @mark.parametrize("term", ["Asbestos", "asbestos"])
+    def test_normalize_osha_exact_case(self, registry: LexiconRegistry, term: str):
         """
         OSHA terms match via the lowercased-original index entry independent
         of any POS-based lemmatization ambiguity.
         """
-        assert registry.normalize("asbestos") == "asbestos"
-        assert registry.normalize("Asbestos") == "asbestos"
+        assert registry.normalize(term) == "asbestos"
 
     def test_normalize_osha_priority(self, registry: LexiconRegistry):
         """
@@ -122,20 +172,113 @@ class TestLexiconRegistry:
         # form wins.
         assert registry.normalize("welding") == "welding"
 
-    def test_normalize_osha_term(self, registry: LexiconRegistry):
-        """
-        An OSHA safety term normalizes to its canonical form.
-        """
-        assert registry.normalize("fall protection") == "fall protection"
-
     def test_normalize_unknown_returns_none(self, registry: LexiconRegistry):
         """
         An unrecognized term returns `None`.
         """
         assert registry.normalize("quantum computing") is None
 
+    def test_phrases_empty_skips_indexing(self):
+        """
+        A decomposable entry with an empty `phrases` list indexes
+        nothing rather than falling back to the full sentence.
+        """
+        registry = LexiconRegistry(
+            occupations = [OnetOccupation(
+                job_zone = 1,
+                sector   = "Test",
+                skills   = [OnetSkill(
+                    name    = "Some task sentence",
+                    phrases = [],
+                    type    = "task"
+                )],
+                soc_code = "99-0000.00",
+                title    = "Test"
+            )],
+            osha_terms  = []
+        )
+        assert registry.normalize("Some task sentence") is None
+
     def test_short_phrases_not_decomposed(self, registry: LexiconRegistry):
         """
         Tool entries are indexed directly without decomposition.
         """
-        assert registry.normalize("Laptop computers") is not None
+        assert registry.normalize("Laptop computers") == "Laptop computers"
+
+    # -------------------------------------------------------------------------
+    # Certification integration
+    # -------------------------------------------------------------------------
+
+    def test_certification_acronym_resolves_to_name(self, registry: LexiconRegistry):
+        """
+        Acronyms index as lookup keys pointing to the full
+        certification name.
+        """
+        assert registry.normalize("CWI") == "Certified Welding Inspector"
+
+    def test_certification_name_normalizes(self, registry: LexiconRegistry):
+        """
+        A certification name resolves via both lemmatized and
+        lowercased lookup forms.
+        """
+        assert registry.normalize("Rigging Qualification") == "Rigging Qualification"
+
+    def test_certification_overwrites_supplement(self):
+        """
+        A term in both certifications and supplement resolves to
+        the certification canonical form, confirming cert >
+        supplement priority.
+        """
+        registry = LexiconRegistry(
+            certifications   = [Certification(
+                name      = "Excavation",
+                soc_codes = ["47-2071.00"]
+            )],
+            occupations      = [],
+            osha_terms       = [],
+            supplement_terms = ["excavation"]
+        )
+        assert registry.normalize("excavation") == "Excavation"
+
+    def test_certification_phrase_normalizes(self, registry: LexiconRegistry):
+        """
+        Description sub-phrases from certification records are
+        individually matchable.
+        """
+        assert registry.normalize("rigging hardware") == "rigging hardware"
+
+    def test_onet_overwrites_certification(self, occupations: list[OnetOccupation]):
+        """
+        A term in both O*NET and certifications resolves to the
+        O*NET canonical form, confirming O*NET > cert priority.
+        """
+        assert LexiconRegistry(
+            certifications = [Certification(
+                name      = "AutoCAD Cert",
+                phrases   = ["autodesk autocad"],
+                soc_codes = ["47-2111.00"]
+            )],
+            occupations    = occupations,
+            osha_terms     = []
+        ).normalize("autodesk autocad") == "Autodesk AutoCAD"
+
+    # -------------------------------------------------------------------------
+    # Supplement integration
+    # -------------------------------------------------------------------------
+
+    def test_supplement_onet_overwrites_supplement(self, registry: LexiconRegistry):
+        """
+        A term in both supplement and O*NET resolves to the O*NET
+        canonical form, confirming O*NET > supplement priority.
+        """
+        # "concrete finishing" is both an O*NET technology on the
+        # paving operator and a supplement term. O*NET wins.
+        assert registry.normalize("concrete finishing") == "Concrete finishing"
+
+    @mark.parametrize("term", ["excavation", "rebar"])
+    def test_supplement_term_normalizes(self, registry: LexiconRegistry, term: str):
+        """
+        Terms present only in the supplement lexicon normalize to
+        their canonical forms.
+        """
+        assert registry.normalize(term) == term

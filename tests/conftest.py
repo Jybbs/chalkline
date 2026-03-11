@@ -8,12 +8,41 @@ from pytest  import fixture
 
 from chalkline.collection.schemas     import Posting
 from chalkline.extraction.lexicons    import LexiconRegistry
-from chalkline.extraction.loaders     import Occupations
+from chalkline.extraction.loaders     import load_certifications, load_onet
+from chalkline.extraction.loaders     import load_osha, load_supplement
 from chalkline.extraction.occupations import OccupationIndex
-from chalkline.extraction.schemas     import OnetOccupation
+from chalkline.extraction.schemas     import Certification, OnetOccupation
+from chalkline.extraction.skills      import SkillExtractor
+from chalkline.extraction.vectorize   import SkillVectorizer
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def _postings() -> list[Posting]:
+    """
+    Load posting fixtures from JSON.
+    """
+    return [
+        Posting(**p)
+        for p in loads((FIXTURES / "collection/postings.json").read_text())
+    ]
+
+
+@fixture
+def certifications() -> list[Certification]:
+    """
+    Load synthetic certifications from fixture data.
+    """
+    return load_certifications(FIXTURES / "extraction/certifications.json")
+
+
+@fixture
+def extractor(registry: LexiconRegistry) -> SkillExtractor:
+    """
+    Build a skill extractor from synthetic fixture data.
+    """
+    return SkillExtractor(registry)
 
 
 @fixture
@@ -21,13 +50,15 @@ def lexicon_dir(tmp_path: Path) -> Path:
     """
     Write synthetic lexicon files to a temporary directory.
     """
-    extraction = FIXTURES / "extraction"
-    (tmp_path / "osha.json").write_text(
-        (extraction / "osha_terms.json").read_text()
-    )
-    (tmp_path / "onet.json").write_text(
-        (extraction / "onet_occupations.json").read_text()
-    )
+    for src, dst in (
+        ("certifications.json",   "certifications.json"),
+        ("onet_occupations.json", "onet.json"),
+        ("osha_terms.json",       "osha.json"),
+        ("supplement_terms.json", "supplement.json")
+    ):
+        (tmp_path / dst).write_text(
+            (FIXTURES / "extraction" / src).read_text()
+        )
     return tmp_path
 
 
@@ -44,19 +75,32 @@ def occupations() -> list[OnetOccupation]:
     """
     Parse synthetic O*NET data into validated occupation records.
     """
-    return Occupations.validate_json(
-        (FIXTURES / "extraction/onet_occupations.json").read_bytes()
-    )
+    return load_onet(FIXTURES / "extraction/onet_occupations.json")
 
 
 @fixture
-def registry(occupations: list[OnetOccupation]) -> LexiconRegistry:
+def osha_terms() -> list[str]:
+    """
+    Load synthetic OSHA terms from fixture data.
+    """
+    return load_osha(FIXTURES / "extraction/osha_terms.json")
+
+
+@fixture
+def registry(
+    certifications   : list[Certification],
+    occupations      : list[OnetOccupation],
+    osha_terms       : list[str],
+    supplement_terms : list[str]
+) -> LexiconRegistry:
     """
     Build a registry from synthetic fixture data.
     """
     return LexiconRegistry(
-        occupations,
-        loads((FIXTURES / "extraction/osha_terms.json").read_text())
+        certifications   = certifications,
+        occupations      = occupations,
+        osha_terms       = osha_terms,
+        supplement_terms = supplement_terms
     )
 
 
@@ -76,19 +120,30 @@ def second_posting() -> Posting:
     return _postings()[1]
 
 
-@fixture(params=["47-2111.00", "47-2111"])
+@fixture
+def skill_vectorizer(extractor: SkillExtractor) -> SkillVectorizer:
+    """
+    Build a vectorizer from synthetic extraction results.
+    """
+    return SkillVectorizer(extractor.extract({
+        "posting-a" : "Fall protection and welding are required. "
+                      "Experience with Autodesk AutoCAD preferred.",
+        "posting-b" : "Electrical safety training and scaffolding "
+                      "inspection. Must know welding techniques."
+    }))
+
+
+@fixture(params=["47-2111", "47-2111.00"])
 def soc(request) -> str:
     """
-    Electrician SOC code in both suffixed and bare formats.
+    Electrician SOC code in both bare and suffixed formats.
     """
     return request.param
 
 
-def _postings() -> list[Posting]:
+@fixture
+def supplement_terms() -> list[str]:
     """
-    Load posting fixtures from JSON.
+    Load synthetic supplement terms from fixture data.
     """
-    return [
-        Posting(**p)
-        for p in loads((FIXTURES / "collection/postings.json").read_text())
-    ]
+    return load_supplement(FIXTURES / "extraction/supplement_terms.json")

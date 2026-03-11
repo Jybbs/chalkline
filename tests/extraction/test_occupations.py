@@ -56,7 +56,7 @@ class TestOccupationIndex:
         with raises(KeyError):
             occupation_index.get("99-9999.00")
 
-    @mark.parametrize("skills", [set(), {"quantum computing", "blockchain"}])
+    @mark.parametrize("skills", [set(), {"blockchain", "quantum computing"}])
     def test_nearest_degenerate_input(
         self,
         occupation_index : OccupationIndex,
@@ -71,16 +71,22 @@ class TestOccupationIndex:
             "47-2111.00"
         }
 
-    def test_nearest_mixed_overlap_paving(
-        self,
-        occupation_index: OccupationIndex
-    ):
+    def test_nearest_mixed_overlap_paving(self, occupation_index: OccupationIndex):
         """
         A skill set with majority paving operator overlap resolves to the
         paving operator SOC code even with shared terms.
         """
         assert occupation_index.nearest(
             {"Backhoes", "Concrete finishing", "Welding"}
+        ) == "47-2071.00"
+
+    def test_nearest_resolves_paving(self, occupation_index: OccupationIndex):
+        """
+        Skills unique to paving operators resolve to that occupation's SOC
+        code.
+        """
+        assert occupation_index.nearest(
+            {"Backhoes", "Concrete finishing"}
         ) == "47-2071.00"
 
     @mark.parametrize("skills", [
@@ -98,18 +104,6 @@ class TestOccupationIndex:
         electrician SOC code.
         """
         assert occupation_index.nearest(skills) == "47-2111.00"
-
-    def test_nearest_resolves_to_paving_operator(
-        self,
-        occupation_index: OccupationIndex
-    ):
-        """
-        Skills unique to paving operators resolve to that occupation's SOC
-        code.
-        """
-        assert occupation_index.nearest(
-            {"Backhoes", "Concrete finishing"}
-        ) == "47-2071.00"
 
     def test_sector(self, occupation_index: OccupationIndex, soc: str):
         """
@@ -129,3 +123,9 @@ class TestOccupationIndex:
         unique skill across all occupations.
         """
         assert occupation_index.soc_skill_matrix.shape == (2, 14)
+
+    def test_socs_sorted(self, occupation_index: OccupationIndex):
+        """
+        SOC codes are in alphabetical order for stable row indices.
+        """
+        assert occupation_index.socs == sorted(occupation_index.socs)

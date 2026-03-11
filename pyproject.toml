@@ -24,10 +24,11 @@ dependencies    = [
     "plotly",
     "pydantic",
     "python-jobspy",
-    "python-slugify>=8.0.4",
+    "python-slugify",
     "scikit-learn",
     "scipy",
     "seaborn",
+    "wordfreq",
 ]
 
 [tool.uv]

@@ -18,16 +18,18 @@
                 "type" : "alternate_title"
             },
             {
-                "name" : "Install electrical wiring, equipment, and fixtures",
-                "type" : "task"
+                "name"    : "Install electrical wiring, equipment, and fixtures",
+                "phrases" : ["electrical wiring"],
+                "type"    : "task"
             },
             {
                 "name" : "Laptop computers",
                 "type" : "tool"
             },
             {
-                "name" : "Maintain electrical systems",
-                "type" : "dwa"
+                "name"    : "Maintain electrical systems",
+                "phrases" : ["electrical systems"],
+                "type"    : "dwa"
             },
             {
                 "importance" : 3.0,
@@ -60,8 +62,9 @@
                 "type" : "alternate_title"
             },
             {
-                "name" : "Operate construction equipment",
-                "type" : "task"
+                "name"    : "Operate construction equipment",
+                "phrases" : ["operate construction equipment"],
+                "type"    : "task"
             },
             {
                 "importance" : 4.0,
@@ -70,8 +73,9 @@
                 "type"       : "ability"
             },
             {
-                "name" : "Pour and spread concrete for building foundations",
-                "type" : "dwa"
+                "name"    : "Pour and spread concrete for building foundations",
+                "phrases" : ["spread concrete", "building foundations"],
+                "type"    : "dwa"
             }
         ],
         "soc_code" : "47-2071.00",
