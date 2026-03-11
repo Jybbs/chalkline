@@ -1,10 +1,12 @@
 """
-Skill normalization against OSHA, O*NET, and supplement lexicons.
+Skill normalization against OSHA, O*NET, certification, and supplement
+lexicons.
 
-Builds lemmatized lookup indices with OSHA > O*NET > supplement
-priority from pre-decomposed O*NET sub-phrases, OSHA topic terms,
-and domain supplement terms so that Aho-Corasick matching can find
-fragments within posting text.
+Builds lemmatized lookup indices with OSHA > O*NET > certifications >
+supplement priority from pre-decomposed O*NET sub-phrases, certification
+names, acronyms, and description phrases, OSHA topic terms, and domain
+supplement terms so that Aho-Corasick matching can find fragments within
+posting text.
 """
 
 from functools import cache
@@ -12,7 +14,7 @@ from nltk      import download
 from nltk.data import find
 from nltk.stem import WordNetLemmatizer
 
-from chalkline.extraction.schemas import OnetOccupation
+from chalkline.extraction.schemas import Certification, OnetOccupation
 
 
 @cache
@@ -29,19 +31,22 @@ def _ensure_nltk_data():
 
 class LexiconRegistry:
     """
-    Normalization index merging OSHA, O*NET, and supplement lexicons.
+    Normalization index merging OSHA, O*NET, certification, and
+    supplement lexicons.
 
     Builds lemmatized lookup indices from all lexicon sources using
-    pre-decomposed sub-phrases for O*NET Tasks and DWAs, and exposes
-    a merged `lemma_index` with OSHA > O*NET > supplement priority
-    for pattern matching.
+    pre-decomposed sub-phrases for O*NET Tasks and DWAs, certification
+    names, acronyms, and description phrases, and exposes a merged
+    `lemma_index` with OSHA > O*NET > certifications > supplement
+    priority for pattern matching.
     """
 
     def __init__(
         self,
         occupations      : list[OnetOccupation],
         osha_terms       : list[str],
-        supplement_terms : list[str] | None = None
+        certifications   : list[Certification] | None = None,
+        supplement_terms : list[str] | None           = None
     ):
         """
         Build normalization indices from loaded lexicon data.
@@ -49,6 +54,8 @@ class LexiconRegistry:
         Args:
             occupations      : Validated O*NET occupation records.
             osha_terms       : Validated OSHA topic strings.
+            certifications   : Validated certification records, or
+                               `None` to skip.
             supplement_terms : Domain supplement terms at lowest
                                priority, or `None` to skip.
         """
@@ -56,30 +63,11 @@ class LexiconRegistry:
         self.lemma_cache = {}
         self.lemmatizer  = WordNetLemmatizer()
         self.lemma_index = (
-            self._build_lemma_index(supplement_terms or [])
+            self._index_terms(supplement_terms)
+            | self._index_terms(certifications)
             | self._build_onet_index(occupations)
-            | self._build_lemma_index(osha_terms)
+            | self._index_terms(osha_terms)
         )
-
-    def _build_lemma_index(self, terms: list[str]) -> dict[str, str]:
-        """
-        Build a mapping from lemmatized forms to canonical terms.
-
-        Each term is stored under both its lemmatized form and its
-        lowercased original for robust lookup when lemmatization
-        produces an unexpected variant.
-
-        Args:
-            terms: Canonical skill names to index.
-
-        Returns:
-            Mapping from lookup form to canonical form.
-        """
-        return {
-            key: term
-            for term in terms
-            for key  in (self.lemmatize(term), term.lower())
-        }
 
     def _build_onet_index(self, occupations: list[OnetOccupation]) -> dict[str, str]:
         """
@@ -106,6 +94,49 @@ class LexiconRegistry:
             )
         }
 
+    def _index_terms(
+        self,
+        terms: list[str] | list[Certification] | None
+    ) -> dict[str, str]:
+        """
+        Build a dual-key mapping from terms to their canonical forms.
+
+        Accepts either plain string terms or `Certification`
+        records. Each string term is stored under both its
+        lemmatized form and its lowercased original for robust
+        lookup when lemmatization produces an unexpected variant.
+        For certifications, names and description phrases are
+        dual-key indexed, and acronyms are mapped by lowercase
+        to the certification name.
+
+        Args:
+            terms: Canonical skill names or certification
+                   records to index.
+
+        Returns:
+            Mapping from lookup form to canonical form.
+        """
+        if not terms:
+            return {}
+        if isinstance(terms[0], str):
+            return {
+                key: term
+                for term in terms
+                for key  in (self.lemmatize(term), term.lower())
+            }
+        return {
+            key: term
+            for source in (
+                (phrase for cert in terms for phrase in (cert.phrases or [])),
+                (cert.name for cert in terms)
+            )
+            for term   in source
+            for key    in (self.lemmatize(term), term.lower())
+        } | {
+            cert.acronym.lower(): cert.name
+            for cert in terms if cert.acronym
+        }
+
     def lemmatize(self, text: str) -> str:
         """
         Lowercase and lemmatize a term using noun-default WordNet.
@@ -126,7 +157,7 @@ class LexiconRegistry:
         return " ".join(
             self.lemma_cache.get(word)
             or self.lemma_cache.setdefault(
-                word, self.lemmatizer.lemmatize(word, pos="n")
+                word, self.lemmatizer.lemmatize(word)
             )
             for word in text.lower().split()
         )

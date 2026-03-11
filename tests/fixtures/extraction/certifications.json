@@ -1,0 +1,15 @@
+[
+    {
+        "acronym" : "CWI",
+        "name"    : "Certified Welding Inspector",
+
+        "phrases"   : ["welding inspection", "weld quality"],
+        "soc_codes" : ["47-2111.00"]
+    },
+    {
+        "name": "Rigging Qualification",
+
+        "phrases"   : ["rigging hardware", "load charts"],
+        "soc_codes" : ["49-9041.00"]
+    }
+]

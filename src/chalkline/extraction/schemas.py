@@ -1,9 +1,10 @@
 """
 Schemas for lexicon validation, skill extraction, and corpus statistics.
 
-Defines confidence tiers for Aho-Corasick matching, corpus-level statistics
-computed after vectorization, and the O*NET element type taxonomy, skill
-entry structure, and occupation profile model that `onet.json` is validated
+Defines confidence tiers for Aho-Corasick matching, the certification
+model for CareerOneStop entries, corpus-level statistics computed after
+vectorization, and the O*NET element type taxonomy, skill entry
+structure, and occupation profile model that `onet.json` is validated
 against at load time.
 """
 
@@ -11,6 +12,25 @@ from enum     import StrEnum
 from pydantic import BaseModel, Field
 
 from chalkline import NonEmptyStr
+
+
+class Certification(BaseModel, extra="forbid"):
+    """
+    A CareerOneStop certification linked to stakeholder SOC codes.
+
+    Each certification contributes its name and acronym (when
+    present and non-ambiguous) as Aho-Corasick patterns.
+    Descriptions are decomposed into matchable sub-phrases via
+    POS-based NP/VP chunking at curation time.
+    """
+
+    name      : NonEmptyStr
+    soc_codes : list[str]
+
+    acronym      : str | None       = None
+    organization : str | None       = None
+    phrases      : list[str] | None = None
+    type         : str | None       = None
 
 
 class ConfidenceTier(StrEnum):

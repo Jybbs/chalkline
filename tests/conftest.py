@@ -8,9 +8,10 @@ from pytest  import fixture
 
 from chalkline.collection.schemas     import Posting
 from chalkline.extraction.lexicons    import LexiconRegistry
-from chalkline.extraction.loaders     import load_onet, load_osha, load_supplement
+from chalkline.extraction.loaders     import load_certifications, load_onet
+from chalkline.extraction.loaders     import load_osha, load_supplement
 from chalkline.extraction.occupations import OccupationIndex
-from chalkline.extraction.schemas     import OnetOccupation
+from chalkline.extraction.schemas     import Certification, OnetOccupation
 from chalkline.extraction.skills      import SkillExtractor
 from chalkline.extraction.vectorize   import SkillVectorizer
 
@@ -18,18 +19,46 @@ from chalkline.extraction.vectorize   import SkillVectorizer
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
+def _postings() -> list[Posting]:
+    """
+    Load posting fixtures from JSON.
+    """
+    return [
+        Posting(**p)
+        for p in loads((FIXTURES / "collection/postings.json").read_text())
+    ]
+
+
+@fixture
+def certifications() -> list[Certification]:
+    """
+    Load synthetic certifications from fixture data.
+    """
+    return load_certifications(FIXTURES / "extraction/certifications.json")
+
+
+@fixture
+def extractor(registry: LexiconRegistry) -> SkillExtractor:
+    """
+    Build a skill extractor from synthetic fixture data.
+    """
+    return SkillExtractor(registry)
+
+
 @fixture
 def lexicon_dir(tmp_path: Path) -> Path:
     """
     Write synthetic lexicon files to a temporary directory.
     """
-    extraction = FIXTURES / "extraction"
     for src, dst in (
+        ("certifications.json",   "certifications.json"),
         ("onet_occupations.json", "onet.json"),
         ("osha_terms.json",       "osha.json"),
         ("supplement_terms.json", "supplement.json")
     ):
-        (tmp_path / dst).write_text((extraction / src).read_text())
+        (tmp_path / dst).write_text(
+            (FIXTURES / "extraction" / src).read_text()
+        )
     return tmp_path
 
 
@@ -59,6 +88,7 @@ def osha_terms() -> list[str]:
 
 @fixture
 def registry(
+    certifications   : list[Certification],
     occupations      : list[OnetOccupation],
     osha_terms       : list[str],
     supplement_terms : list[str]
@@ -66,7 +96,12 @@ def registry(
     """
     Build a registry from synthetic fixture data.
     """
-    return LexiconRegistry(occupations, osha_terms, supplement_terms)
+    return LexiconRegistry(
+        certifications   = certifications,
+        occupations      = occupations,
+        osha_terms       = osha_terms,
+        supplement_terms = supplement_terms
+    )
 
 
 @fixture
@@ -83,14 +118,6 @@ def second_posting() -> Posting:
     A distinct-company posting for multi-posting tests.
     """
     return _postings()[1]
-
-
-@fixture
-def extractor(registry: LexiconRegistry) -> SkillExtractor:
-    """
-    Build a skill extractor from synthetic fixture data.
-    """
-    return SkillExtractor(registry)
 
 
 @fixture
@@ -120,13 +147,3 @@ def supplement_terms() -> list[str]:
     Load synthetic supplement terms from fixture data.
     """
     return load_supplement(FIXTURES / "extraction/supplement_terms.json")
-
-
-def _postings() -> list[Posting]:
-    """
-    Load posting fixtures from JSON.
-    """
-    return [
-        Posting(**p)
-        for p in loads((FIXTURES / "collection/postings.json").read_text())
-    ]

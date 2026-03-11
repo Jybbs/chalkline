@@ -1,5 +1,6 @@
 """
-Lexicon file loading for OSHA, O*NET, and supplement data.
+Lexicon file loading for certifications, OSHA, O*NET, and supplement
+data.
 
 Deserializes and validates JSON lexicon files, returning empty collections
 on missing files so that downstream normalization can proceed with whichever
@@ -11,9 +12,10 @@ from pathlib  import Path
 from pydantic import TypeAdapter
 
 from chalkline                    import NonEmptyStr
-from chalkline.extraction.schemas import OnetOccupation
+from chalkline.extraction.schemas import Certification, OnetOccupation
 
 
+Certifications  = TypeAdapter(list[Certification])
 Occupations     = TypeAdapter(list[OnetOccupation])
 OshaTerms       = TypeAdapter(list[NonEmptyStr])
 SupplementTerms = TypeAdapter(list[NonEmptyStr])
@@ -37,6 +39,13 @@ def _load(adapter: TypeAdapter, label: str, path: Path) -> list:
     except FileNotFoundError:
         logger.warning(f"{label} lexicon not found at {path}")
         return []
+
+
+def load_certifications(path: Path) -> list[Certification]:
+    """
+    Load and validate the certifications lexicon file.
+    """
+    return _load(Certifications, "Certifications", path)
 
 
 def load_onet(path: Path) -> list[OnetOccupation]:

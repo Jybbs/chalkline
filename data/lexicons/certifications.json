@@ -1,0 +1,4354 @@
+[
+  {
+    "acronym": null,
+    "name": "3-Phase Sequencing and Motor Rotation",
+    "organization": "Greenlee",
+    "phrases": [
+      "motors identify faulty",
+      "wiring indicate motor rotation",
+      "disconnected motors learn",
+      "digital clamp-on multimeter applications"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "A/D Director",
+    "organization": "Crane Institute of America",
+    "phrases": [
+      "meet osha",
+      "assembly/disassembly directors",
+      "includes assembling",
+      "disassembling cranes",
+      "identify safety hazards",
+      "safety hazards",
+      "a/d director certification"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "ACI Shotcrete Nozzleman (Dry-Mix Process)",
+    "organization": "American Concrete Institute International",
+    "phrases": [
+      "shotcrete nozzleman",
+      "place dry-mix shotcrete",
+      "dry-mix shotcrete"
+    ],
+    "soc_codes": [
+      "47-2071.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "ACI Shotcrete Nozzleman (Wet-Mix Process)",
+    "organization": "American Concrete Institute International",
+    "phrases": null,
+    "soc_codes": [
+      "47-2071.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "ACRP-PM",
+    "name": "ACRP Project Manager (ACRP-PM)",
+    "organization": "Association of Clinical Research Professionals",
+    "phrases": [
+      "acrp-pm subspecialty designation",
+      "other acrp certifications",
+      "cpi programs",
+      "demonstrate competence",
+      "seeking acrp-pm",
+      "certification exams",
+      "pass acrp-pm",
+      "earning acrp-pm subspecialty",
+      "acrp-pm subspecialty",
+      "earned flagship certification",
+      "flagship certification"
+    ],
+    "soc_codes": [
+      "13-1082.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Adhesive Anchor Installer",
+    "organization": "American Concrete Institute International",
+    "phrases": [
+      "adhesive anchor installer",
+      "execute instructions",
+      "properly install adhesive anchors",
+      "install adhesive anchors",
+      "assess ambient conditions",
+      "ambient conditions",
+      "installing adhesive anchors",
+      "adhesive anchors",
+      "adhesive anchor",
+      "supervisor/foreman/project engineer"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Advanced Conduit Bending",
+    "organization": "Greenlee",
+    "phrases": [
+      "powered conduit benders",
+      "conduit benders",
+      "apply bending theory",
+      "bending theory",
+      "shot conduit bends",
+      "operate pvc heater",
+      "pvc heater",
+      "bend pvc conduit",
+      "pvc conduit"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "AFO",
+    "name": "Aquatics Facility Operator",
+    "organization": "National Recreation and Park Association",
+    "phrases": [
+      "nrpa afo program",
+      "operating aquatic facilities",
+      "aquatic facilities",
+      "afo program",
+      "aquatic facility managers",
+      "aquatic facility operators"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "AHC",
+    "name": "Architectural Hardware Consultants",
+    "organization": "Door and Hardware Institute",
+    "phrases": [
+      "architectural hardware consultants",
+      "recognize builder",
+      "door openings",
+      "coordinate thousands",
+      "ensure door openings"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "AHC",
+    "name": "Architectural Hardware Consultants",
+    "organization": "Door and Hardware Institute",
+    "phrases": [
+      "s architectural hardware consultants",
+      "validated professionals",
+      "demonstrate mastery",
+      "professional specification writing"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Asphalt Paving",
+    "organization": "International Union of Operating Engineers",
+    "phrases": [
+      "iuoe job corps",
+      "paving programs",
+      "paving industry",
+      "asphalt construction equipment",
+      "advanced asphalt",
+      "paving program",
+      "completed basic iuoe heavy equipment operator program",
+      "basic iuoe heavy equipment operator program",
+      "iuoe basic asphalt paving program",
+      "deep familiarity",
+      "intricate operations",
+      "complete actual paving projects",
+      "actual paving projects",
+      "represent iuoe job corps program",
+      "iuoe job corps program"
+    ],
+    "soc_codes": [
+      "47-2071.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "ACA",
+    "name": "Autodesk Certified Associate in CAD for Mechanical Design",
+    "organization": "Autodesk, Inc.",
+    "phrases": null,
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Autodesk Certified Professional in AutoCAD for Design and Drafting",
+    "organization": "Autodesk, Inc.",
+    "phrases": null,
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Autodesk Certified Professional in Civil 3D for Infrastructure Design",
+    "organization": "Autodesk, Inc.",
+    "phrases": null,
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "ACP",
+    "name": "Autodesk Certified Professional in Inventor for Mechanical Design",
+    "organization": "Autodesk, Inc.",
+    "phrases": [
+      "autodesk credential",
+      "industry-recognized professional certification",
+      "inventor design skills",
+      "professional certification highlights"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "ACP",
+    "name": "Autodesk Certified Professional in Revit for Architectural Design",
+    "organization": "Autodesk, Inc.",
+    "phrases": [
+      "autodesk credential",
+      "industry-recognized professional certification",
+      "architectural design skills",
+      "professional certification highlights"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "ACP",
+    "name": "Autodesk Certified Professional in Revit for Structural Design",
+    "organization": "Autodesk, Inc.",
+    "phrases": [
+      "autodesk credential",
+      "industry-recognized professional certification",
+      "professional certification highlights"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "ACU",
+    "name": "Autodesk Certified User",
+    "organization": "Autodesk, Inc.",
+    "phrases": [
+      "validates important skills",
+      "use autocad software",
+      "autocad software",
+      "plotting drawings"
+    ],
+    "soc_codes": [
+      "11-9041.00",
+      "17-2051.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Backflow Prevention Assembly Repairer Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "seeking certification",
+      "backflow prevention assembly repairer",
+      "includes servicing",
+      "backflow prevention assemblies",
+      "discuss basics",
+      "backflow prevention",
+      "proper terminology"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "BPAT",
+    "name": "Backflow Prevention Assembly Tester",
+    "organization": "California-Nevada Section of the American Water Works Association",
+    "phrases": [
+      "backflow prevention assembly testers",
+      "backflow prevention assemblies",
+      "public water supplier"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Backflow Prevention Assembly Tester Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "testing backflow prevention assemblies",
+      "backflow prevention assemblies",
+      "protect potable water system",
+      "potable water system",
+      "tester certification examination",
+      "initial tester certification",
+      "initial certification candidate",
+      "pressure vacuum breaker assembly",
+      "spillresistant vacuum breaker assembly"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Backflow Prevention Cross-Connection Control Surveyor Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "seeking certification",
+      "cross-connection control surveyor",
+      "discuss basics",
+      "cross-connection control surveying",
+      "proper terminology",
+      "backflow prevention"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Backflow Prevention Program Specialist/Administrator Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "instructional course",
+      "seeking certification",
+      "backflow prevention program administrator",
+      "administrator/specialist culminating",
+      "backflow prevention",
+      "cross-connection control containment",
+      "plumbing codes"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Basic Conduit Bending",
+    "organization": "Greenlee",
+    "phrases": [
+      "learn bending characteristics",
+      "bending characteristics",
+      "various conduits",
+      "apply bending theory",
+      "bending theory",
+      "common bends",
+      "demonstrate proficiency",
+      "bending conduit",
+      "using hand benders",
+      "hand benders",
+      "ratchet mechanical benders",
+      "mechanical benders"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Basic Electrical Installation",
+    "organization": "Greenlee",
+    "phrases": [
+      "electrical terminology safety tool identification conductor preparation",
+      "termination switch",
+      "lighting installation basic conduit installation hands-on experience"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "C-201",
+    "name": "C-201 Electrical Systems 1",
+    "organization": "Smart Automation Certification Alliance",
+    "phrases": [
+      "prepares individuals",
+      "electrical circuits",
+      "manual switches",
+      "circuit breakers",
+      "reading electrical circuit diagrams",
+      "electrical circuit diagrams",
+      "applying ohm",
+      "using digital multimeters",
+      "digital multimeters",
+      "interpreting series/parallel circuits",
+      "series/parallel circuits",
+      "assessing power/circuit protection"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "CMI",
+    "name": "CMC RESIDENTIAL AND COMMERCIAL CALIFORNIA MECHANICAL INSPECTOR",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Carpentry",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "building highways",
+      "installing kitchen cabinets",
+      "kitchen cabinets",
+      "cabinet fabrication"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CDFO",
+    "name": "Certificate in Design Firm Operations",
+    "organization": "Society for Design Administration",
+    "phrases": [
+      "wit certification",
+      "credential enhances"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Asphalt",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "47-2071.00",
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Asphalt Level II",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Asphalt Level III",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Asphalt Level IV",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Concrete Level I",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "47-2071.00",
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Concrete Level II",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Concrete Level III",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certification in Construction Materials Testing - Concrete Level IV",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "laboratory technicians",
+      "testing specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Accessibility Technician",
+    "organization": "National Association of Elevator Contractors",
+    "phrases": [
+      "certified accessibility",
+      "technician program",
+      "certification program",
+      "accessibility industry",
+      "includes accountability",
+      "field verification",
+      "industry-based certification program"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CALT",
+    "name": "Certified Apprentice Lighting Technician",
+    "organization": "International Association of Lighting Management Companies",
+    "phrases": [
+      "offers home study certification program",
+      "home study certification program",
+      "certified apprentice lighting technician"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CACM",
+    "name": "Certified Associate Construction Manager",
+    "organization": "Construction Manager Certification Institute",
+    "phrases": [
+      "recognizes professionals",
+      "met prescribed criteria",
+      "prescribed criteria",
+      "construction management certification program"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Associate Constructor",
+    "organization": "American Institute of Constructors Constructor Certification Commission",
+    "phrases": [
+      "certified associate constructor",
+      "constructor certification program",
+      "cac exam",
+      "implementing process"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CBCP",
+    "name": "Certified Building Commissioning Professional",
+    "organization": "Association of Energy Engineers",
+    "phrases": [
+      "established certified building commissioning professional program",
+      "certified building commissioning professional program",
+      "commissioning field"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "11-9041.00",
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "BESA",
+    "name": "Certified Building Energy Simulation Analyst",
+    "organization": "Association of Energy Engineers",
+    "phrases": [
+      "building energy simulation analyst",
+      "professional certification",
+      "building energy simulation software",
+      "energy simulation software"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CBP-PM",
+    "name": "Certified Business Professional - Project Management",
+    "organization": "International Business Training Association",
+    "phrases": [
+      "computer technology specialist certification",
+      "equips business professional"
+    ],
+    "soc_codes": [
+      "13-1082.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "CxA",
+    "name": "Certified Commissioning Authority",
+    "organization": "AABC Commissioning Group",
+    "phrases": [
+      "cxa program",
+      "commissioning professionals",
+      "competent performance",
+      "certification scheme",
+      "acg certification council"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CCCA",
+    "name": "Certified Construction Contract Administrator",
+    "organization": "Construction Specifications Institute",
+    "phrases": [
+      "certification teaches",
+      "enforce construction documentation"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "17-2051.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CCIFP",
+    "name": "Certified Construction Industry Financial Professional",
+    "organization": "Construction Financial Management Association",
+    "phrases": [
+      "is mid-career level credential",
+      "mid-career level credential",
+      "earning ccifp",
+      "ccifp applicants",
+      "affirm iccifp code",
+      "iccifp code"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CCM",
+    "name": "Certified Construction Manager",
+    "organization": "Construction Manager Certification Institute",
+    "phrases": [
+      "met prescribed criteria",
+      "prescribed criteria",
+      "ccm program"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "17-2051.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Construction Quality Manager",
+    "organization": "American Society for Quality",
+    "phrases": [
+      "first certification specific",
+      "advancing safety"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CCS",
+    "name": "Certified Construction Specifier",
+    "organization": "Construction Specifications Institute",
+    "phrases": [
+      "ccs certification"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Craftsman",
+    "organization": "National Wood Flooring Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CEI-M",
+    "name": "Certified Electrical Inspector - Master",
+    "organization": "International Association of Electrical Inspectors",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CEI-R",
+    "name": "Certified Electrical Inspector - Residential",
+    "organization": "International Association of Electrical Inspectors",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CEIS",
+    "name": "Certified Elevator Inspection Supervisor",
+    "organization": "Qualified Elevator Inspector Training Fund",
+    "phrases": [
+      "qualified elevator inspector training fund",
+      "certified elevator inspection supervisor",
+      "is advanced-level credential",
+      "advanced-level credential",
+      "supervise examination",
+      "hold certified elevator inspector",
+      "certified elevator inspector",
+      "demonstrate aptitude"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CEI",
+    "name": "Certified Elevator Inspector",
+    "organization": "Qualified Elevator Inspector Training Fund",
+    "phrases": [
+      "qualified elevator inspector",
+      "cei certification",
+      "elevator inspector",
+      "elevator employees",
+      "satisfy goal",
+      "elevator inspector job",
+      "basing development",
+      "exam conforms",
+      "much fidelity",
+      "job analysis relies",
+      "defining job tasks",
+      "pre-existing job descriptions",
+      "interviewing experts",
+      "elevator inspection",
+      "inspection supervision",
+      "administering surveys",
+      "inspector supervisors",
+      "content outline"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CET",
+    "name": "Certified Elevator Technician",
+    "organization": "National Association of Elevator Contractors",
+    "phrases": [
+      "cet program",
+      "is formal educational certification program",
+      "formal educational certification program",
+      "escalator industry",
+      "includes accountability",
+      "field verification",
+      "industry-based certification program",
+      "elevator industry"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CEP",
+    "name": "Certified Energy Procurement Professional",
+    "organization": "Association of Energy Engineers",
+    "phrases": [
+      "certified energy procurement professional",
+      "obtaining cep credential",
+      "cep credential",
+      "restructured energy marketplace"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Entertainment Electrician",
+    "organization": "Professional Lighting and Sound Association",
+    "phrases": [
+      "arenas/stadiums/sporting events",
+      "touring concerts/theatre"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CEM",
+    "name": "Certified Equipment Manager",
+    "organization": "Association of Equipment Management Professionals",
+    "phrases": [
+      "judging qualifications",
+      "municipal/government fleets"
+    ],
+    "soc_codes": [
+      "47-2071.00",
+      "47-2073.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Flagger",
+    "organization": "American Traffic Safety Services Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Golf Course Builder",
+    "organization": "Golf Course Builders Association of America",
+    "phrases": [
+      "certification program",
+      "identify competent",
+      "experienced golf course builders"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "CGB",
+    "name": "Certified Graduate Builder",
+    "organization": "National Association of Home Builders",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00",
+      "47-2073.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CGP",
+    "name": "Certified Green Professional",
+    "organization": "National Association of Home Builders",
+    "phrases": [
+      "home builders",
+      "recognizes builders",
+      "incorporate green building principles"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CGWP",
+    "name": "Certified Ground Water Professional",
+    "organization": "National Ground Water Association",
+    "phrases": [
+      "ground water professional certification program",
+      "agwse members",
+      "uphold dignity"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Guardrail Installer",
+    "organization": "American Traffic Safety Services Association",
+    "phrases": [
+      "becoming atssa",
+      "leading certification",
+      "certification solutions",
+      "adding atssa certification designation",
+      "atssa certification designation"
+    ],
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CHD",
+    "name": "Certified HVAC Designer",
+    "organization": "American Society of Heating, Refrigerating and Air-Conditioning Engineers",
+    "phrases": [
+      "earning certified hvac designer",
+      "certified hvac designer"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CHC",
+    "name": "Certified Healthcare Constructor",
+    "organization": "American Hospital Association",
+    "phrases": [
+      "chc status",
+      "is premier credential",
+      "premier credential",
+      "competitive marketplace",
+      "chc program",
+      "-eligibility requirements",
+      "are blend",
+      "certification examination -a",
+      "115-item multiple-choice certification examination",
+      "competent practice -a renewal requirement",
+      "practice -a renewal requirement",
+      "passing certification examination",
+      "certification examination"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "17-2051.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CHFM",
+    "name": "Certified Healthcare Facility Manager",
+    "organization": "American Hospital Association",
+    "phrases": [
+      "chfm status",
+      "is premier credential",
+      "premier credential",
+      "competitive marketplace"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Installer",
+    "organization": "Polymeric Exterior Products Association",
+    "phrases": [
+      "certified installer",
+      "new installers",
+      "certified installer trainer"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Installer - Bronze",
+    "organization": "Polymeric Exterior Products Association",
+    "phrases": [
+      "skilled siding installers",
+      "siding installers",
+      "becoming vsi certified installer",
+      "vsi certified installer",
+      "siding installation",
+      "experienced installer",
+      "certification level",
+      "vsi logo"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Installer - Platinum",
+    "organization": "Polymeric Exterior Products Association",
+    "phrases": [
+      "vsi master trainer",
+      "vsi resources"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Installer - Silver",
+    "organization": "Polymeric Exterior Products Association",
+    "phrases": [
+      "certified installers",
+      "vsi education"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Installer and Sand & Finisher",
+    "organization": "National Wood Flooring Association",
+    "phrases": [
+      "finish certification",
+      "flooring installation",
+      "wood flooring sand",
+      "carpentry experience"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CKBR",
+    "name": "Certified Kitchen and Bath Remodeler",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": [
+      "remodeling contractor",
+      "certification program",
+      "offers assurance",
+      "professional remodeling contractors",
+      "nari certification"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "CLC",
+    "name": "Certified Lead Carpenter",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": [
+      "remodeling contractor",
+      "certification program",
+      "offers assurance",
+      "professional remodeling contractors",
+      "nari certification"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CLCP",
+    "name": "Certified Lighting Controls Professional",
+    "organization": "International Association of Lighting Management Companies",
+    "phrases": [
+      "provides assurance"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CLMC",
+    "name": "Certified Lighting Management Consultant",
+    "organization": "International Association of Lighting Management Companies",
+    "phrases": [
+      "recognizes members",
+      "obtaining clmc certification",
+      "clmc certification",
+      "nationally-recognized lighting certification program"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "11-9041.00",
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CLS",
+    "name": "Certified Lubrication Specialist",
+    "organization": "Society of Tribologists and Lubrication Engineers",
+    "phrases": [
+      "certified lubrication specialist",
+      "is only independent certification",
+      "only independent certification",
+      "lubrication professional",
+      "broad lubrication engineering knowledge",
+      "recognizes individuals",
+      "lubrication fundamentals",
+      "lubrication maintenance"
+    ],
+    "soc_codes": [
+      "11-9041.00",
+      "47-1011.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "MBB",
+    "name": "Certified Master Black Belt",
+    "organization": "American Society for Quality",
+    "phrases": [
+      "asq master black belt",
+      "master black belts"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CMC",
+    "name": "Certified Master Craftsman",
+    "organization": "National Wood Flooring Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CMVP",
+    "name": "Certified Measurement and Verification Professional",
+    "organization": "Association of Energy Engineers",
+    "phrases": [
+      "verification protocol",
+      "verification professional program",
+      "verification field"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CSP",
+    "name": "Certified New Home Sales Professional",
+    "organization": "National Association of Home Builders",
+    "phrases": [
+      "overcoming objections"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "AICP",
+    "name": "Certified Planner",
+    "organization": "American Planning Association",
+    "phrases": [
+      "aicp certification",
+      "independent verification",
+      "earn aicp certification",
+      "have academic qualifications",
+      "academic qualifications"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CPE",
+    "name": "Certified Planning Engineer",
+    "organization": "American Academy of Project Management",
+    "phrases": [
+      "aapm global board",
+      "cpe certified planning engineer",
+      "board certification",
+      "qualified applicants"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CPMM",
+    "name": "Certified Plant Maintenance Manager",
+    "organization": "Association for Facilities Engineering",
+    "phrases": [
+      "many facets",
+      "earning certified plant maintenance manager credential",
+      "certified plant maintenance manager credential",
+      "cpmm program",
+      "evolving techniques"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CPDT",
+    "name": "Certified Plumbing Design Technician",
+    "organization": "American Society of Plumbing Engineers",
+    "phrases": [
+      "certified plumbing design technician examination",
+      "plumbing engineers",
+      "plumbing systems",
+      "cpdt certification",
+      "plumbing design",
+      "cpd certification"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CPC",
+    "name": "Certified Professional Constructor",
+    "organization": "American Institute of Constructors",
+    "phrases": [
+      "certified professional constructor",
+      "professional constructor",
+      "cpc certification"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Professional Constructor",
+    "organization": "American Institute of Constructors Constructor Certification Commission",
+    "phrases": [
+      "certified professional constructor",
+      "constructor certification program",
+      "established constructors",
+      "project oversight experience",
+      "seek cpc designation",
+      "cpc designation",
+      "is cpc",
+      "verified experience",
+      "aic code"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CPII",
+    "name": "Certified Public Infrastructure Inspector",
+    "organization": "American Public Works Association",
+    "phrases": [
+      "public infrastructure inspector certification",
+      "advancing knowledge",
+      "certified public infrastructure inspector certification program",
+      "inspect construction"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CRA",
+    "name": "Certified Remodeler Associate",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": [
+      "remodeling industry",
+      "established certified remodeler",
+      "certified remodeler",
+      "remodeling professionals"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CRS",
+    "name": "Certified Remodeler Specialist",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": [
+      "nari certified remodelers",
+      "remodeling professionals",
+      "remodeling services",
+      "remodeling experts",
+      "remodeling project"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CRPM",
+    "name": "Certified Remodeling Project Manager",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CSHO",
+    "name": "Certified Safety and Health Official (Construction or General Industry)",
+    "organization": "Alliance Safety Council",
+    "phrases": null,
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CSLT",
+    "name": "Certified Senior Lighting Technician",
+    "organization": "International Association of Lighting Management Companies",
+    "phrases": [
+      "offers home study certification program",
+      "home study certification program",
+      "certified senior lighting technician"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CSPR-1",
+    "name": "Certified Signal Person and Rigger Level 1",
+    "organization": "National Elevator Industry Educational Program",
+    "phrases": [
+      "national elevator industry educational program",
+      "rigger level",
+      "promotes signal person competency",
+      "signal person competency",
+      "elevator constructors",
+      "iuec rigger",
+      "promotes development",
+      "require certification",
+      "rigging work",
+      "signaling practical exam",
+      "rigging scenarios"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CSPR-2",
+    "name": "Certified Signal Person and Rigger Level 2",
+    "organization": "National Elevator Industry Educational Program",
+    "phrases": [
+      "national elevator industry educational program",
+      "rigger level",
+      "promotes signal person competency",
+      "signal person competency",
+      "elevator constructors",
+      "iuec rigger",
+      "promotes development",
+      "require certification",
+      "rigging work",
+      "signaling practical exam",
+      "rigging scenarios"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CSSBB",
+    "name": "Certified Six Sigma Blackbelt",
+    "organization": "American Society for Quality",
+    "phrases": [
+      "certified six sigma black belt",
+      "explain six sigma philosophies",
+      "six sigma philosophies",
+      "assign team member roles",
+      "black belts",
+      "have thorough understanding",
+      "thorough understanding",
+      "dmaic model",
+      "six sigma principles"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CSI-HQS",
+    "name": "Certified Specialist of Inspection Housing Quality Standards",
+    "organization": "National Association of Housing and Redevelopment Officials",
+    "phrases": [
+      "achieving nahro",
+      "inspecting housing choice",
+      "inspection preparations",
+      "understands finer points",
+      "finer points",
+      "semap score"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "TMA",
+    "name": "Certified Truck-Mounted Attenuator Operator",
+    "organization": "American Traffic Safety Services Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CVS",
+    "name": "Certified Value Specialist",
+    "organization": "Society of American Value Engineers",
+    "phrases": [
+      "vm practitioners",
+      "vm academia",
+      "value methodology"
+    ],
+    "soc_codes": [
+      "11-9041.00",
+      "17-2051.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "CVE",
+    "name": "Certified Venue Executive",
+    "organization": "International Association of Venue Managers",
+    "phrases": null,
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CVP",
+    "name": "Certified Venue Professional",
+    "organization": "International Association of Venue Managers",
+    "phrases": [
+      "public assembly venues"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Certified Welding Supervisor",
+    "organization": "American Welding Society",
+    "phrases": [
+      "welding supervisors",
+      "important metrics",
+      "welding operations",
+      "> aws certified welding supervisor program",
+      "aws certified welding supervisor program",
+      "offer welding supervisors",
+      "put welding supervisor",
+      "welding supervisor",
+      "innovative program identifies",
+      "improve weld quality",
+      "weld quality",
+      "benefit welding supervisors"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CWD",
+    "name": "Certified Well Driller",
+    "organization": "National Ground Water Association",
+    "phrases": [
+      "ngwa well construction",
+      "pump installation certification program",
+      "is only national certification program",
+      "only national certification program",
+      "pump installers"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CPD",
+    "name": "Certified in Plumbing Design",
+    "organization": "American Society of Plumbing Engineers",
+    "phrases": [
+      "plumbing design",
+      "is international certification program",
+      "international certification program",
+      "plumbing systems",
+      "cpd program",
+      "examination confers",
+      "designation certified",
+      "certification program",
+      "plumbing industry",
+      "comprehensive qualification",
+      "professional competence"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Commercial Carpenter",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "journey-level commercial carpenter",
+      "preparing takeoffs",
+      "framing wood",
+      "interior/exterior finishes",
+      "concrete formwork",
+      "ironworking/reinforcing steel",
+      "including doors/frames/hardware"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Commercial Electrician",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CMI",
+    "name": "Commercial Mechanical Inspector",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CPI",
+    "name": "Commercial Plumbing Inspector",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Concrete Construction Special Inspector",
+    "organization": "American Concrete Institute International",
+    "phrases": [
+      "job specifications"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CDT",
+    "name": "Construction Documents Technologist",
+    "organization": "Construction Specifications Institute",
+    "phrases": [
+      "putting csi credentials",
+      "csi credentials"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00",
+      "47-2073.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Foreman",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "certified construction foreman",
+      "demonstrates strong commitment",
+      "prioritizing well-being",
+      "integrates safety",
+      "reduces costs",
+      "enhances performance",
+      "skilled foreman displays leadership",
+      "guiding teams",
+      "managing emergencies",
+      "embodying values",
+      "convey project details",
+      "minimizing confusion",
+      "boosts client satisfaction",
+      "strengthens company"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CHST",
+    "name": "Construction Health and Safety Technician (CHST)",
+    "organization": "Board of Certified Safety Professionals",
+    "phrases": [
+      "certification programs",
+      "health practitioners",
+      "demonstrate competence",
+      "occupational health",
+      "improve company profitability",
+      "company profitability"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Materials Testing: Soil - Level I",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "construction materials testing soils certification program",
+      "laboratory technicians",
+      "testing specifications",
+      "tthe construction materials testing soils exam",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Materials Testing: Soil - Level II",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "construction materials testing soils certification program",
+      "laboratory technicians",
+      "testing specifications",
+      "tthe construction materials testing soils exam",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Materials Testing: Soil - Level III",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "construction materials testing soils certification program",
+      "laboratory technicians",
+      "testing specifications",
+      "tthe construction materials testing soils exam",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Materials Testing: Soil - Level IV",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "construction materials testing soils certification program",
+      "laboratory technicians",
+      "testing specifications",
+      "tthe construction materials testing soils exam",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CSSS",
+    "name": "Construction Site Safety Supervisor",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "nccer construction site safety training program",
+      "prepare trainees",
+      "recognized safety certifications",
+      "safety certifications",
+      "safety technician",
+      "safety trained supervisor construction",
+      "instill safety-first philosophy"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Superintendant Certification",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "oversee operations"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Construction Workforce Development Professional",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "cwfd professional",
+      "evaluates business plans",
+      "cwfd program",
+      "conducts analyses",
+      "determine cwfd needs",
+      "cwfd needs",
+      "administers cwfd program",
+      "ensures compliance",
+      "oversees cwfd operations",
+      "cwfd operations",
+      "maintains budgets",
+      "promotes cwfd program",
+      "builds relationships"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Corrosion Specialist",
+    "organization": "The Association for Materials Protection and Performance",
+    "phrases": [
+      "nace institute",
+      "corrosion specialist certification",
+      "geared towards",
+      "experienced corrosion control personnel",
+      "corrosion control"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Craft Instructor",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "completed instructor certification training program",
+      "instructor certification training program",
+      "nccer master trainer",
+      "current credentials",
+      "teach nccer curriculum",
+      "nccer curriculum"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Designated Design-Build Professional Certification",
+    "organization": "Design-Build Institute of America",
+    "phrases": [
+      "knowledgeable practitioners",
+      "quantified level"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "D.GE",
+    "name": "Diplomate, Geotechnical Engineering",
+    "organization": "Academy of Geo-Professionals",
+    "phrases": [
+      "professional certification",
+      "geotechnical engineers",
+      "granted diplomate",
+      "geotechnical engineering"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "D.NE",
+    "name": "Diplomate, Navigation Engineering",
+    "organization": "Academy of Coastal, Ocean, Port & Navigation Engineers",
+    "phrases": [
+      "sustainable navigable waterways",
+      "waterborne vessels"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "D.OE",
+    "name": "Diplomate, Ocean Engineering",
+    "organization": "Academy of Coastal, Ocean, Port & Navigation Engineers",
+    "phrases": [
+      "oceanic environment"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "D.PE",
+    "name": "Diplomate, Port Engineering",
+    "organization": "Academy of Coastal, Ocean, Port & Navigation Engineers",
+    "phrases": null,
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "DGCP",
+    "name": "Distributed Generation Certified Professional",
+    "organization": "Association of Energy Engineers",
+    "phrases": [
+      "designation dgcp identifies individuals"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "DHC",
+    "name": "Door + Hardware Consultant",
+    "organization": "Door and Hardware Institute",
+    "phrases": [
+      "certificate distinguishes individuals",
+      "dhc certificants",
+      "showcase proficiency",
+      "intricate projects",
+      "various project phases"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "DHIA",
+    "name": "Door + Hardware Industry Associate",
+    "organization": "Door and Hardware Institute",
+    "phrases": [
+      "displaying competence",
+      "occupancy type"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "DHIA",
+    "name": "Door + Hardware Industry Associate - Level I",
+    "organization": "Door and Hardware Institute",
+    "phrases": [
+      "seeking foundational understanding",
+      "foundational understanding",
+      "architectural doors",
+      "equips participants",
+      "structured curriculum",
+      "encompassing cor101",
+      "learn intricacies",
+      "regulatory frameworks",
+      "awarded dhia certificate",
+      "dhia certificate"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Drywall Mechanic",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "journey-level drywall mechanic",
+      "calculating areas",
+      "interpret commercial drawings",
+      "drawing specifications",
+      "wall openings",
+      "expansion joints",
+      "installing shaftwall",
+      "thermal moisture",
+      "rigid installation",
+      "hanging sheetrock",
+      "cutting sheetrock",
+      "determining proper spacing",
+      "proper spacing",
+      "applying right caulk",
+      "right caulk"
+    ],
+    "soc_codes": [
+      "47-2081.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "ETT Certified Assistant Technician Level II",
+    "organization": "InterNational Electrical Testing Association",
+    "phrases": [
+      "ett assistant level ii performs",
+      "requiring direct supervision",
+      "direct supervision",
+      "assuring safety",
+      "lockout/tagout procedures",
+      "shock hazard analyses",
+      "other facets",
+      "hazardous electrical energy control procedures",
+      "ett assistant level ii",
+      "requires direct supervision",
+      "level iii ett certified technician",
+      "level iv senior certified technician"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "ETT Certified Senior Technician Level 4",
+    "organization": "InterNational Electrical Testing Association",
+    "phrases": [
+      "ett senior certified level iv",
+      "supervises large projects",
+      "multiple crews",
+      "individual performs"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "ETT Trainee Level I",
+    "organization": "InterNational Electrical Testing Association",
+    "phrases": [
+      "ett trainee level",
+      "entry-level gateway",
+      "higher-level technicians",
+      "direct supervision",
+      "ett level",
+      "certified technicians",
+      "require supervision",
+      "ett certified technician",
+      "senior certified technician"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "EVITP",
+    "name": "Electric Vehicle Infrastructure Training Program Certified",
+    "organization": "Electric Vehicle Infrastructure Training Program",
+    "phrases": [
+      "has rigorous instruction",
+      "rigorous instruction",
+      "ensure strong comprehension",
+      "strong comprehension",
+      "certified electrician",
+      "certify electricians",
+      "provide documentation",
+      "certification check",
+      "website homepage"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Electrical Certification",
+    "organization": "ESCO Group",
+    "phrases": [
+      "hvac excellence",
+      "offers employment ready certifications",
+      "employment ready certifications",
+      "entry level technicians",
+      "ready certifications",
+      "measure participant",
+      "provide remedial training",
+      "remedial training",
+      "timely matter"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Electrical Code Specialist",
+    "organization": "International Code Council",
+    "phrases": [
+      "exam id prerequisite exam/certification",
+      "e1 residential electrical inspector e2 commercial electrical inspector e3 electrical plans examiner cs code specialist module"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Electrical General (2B)",
+    "organization": "International Association of Electrical Inspectors",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Electrical Inspector One- and Two-Family Dwellings",
+    "organization": "International Association of Electrical Inspectors",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Electrical Plan Review",
+    "organization": "International Association of Electrical Inspectors",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "EPE",
+    "name": "Electrical Plans Examiner",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "C-206",
+    "name": "Electrical System Installation 1",
+    "organization": "Smart Automation Certification Alliance",
+    "phrases": [
+      "prepares individuals",
+      "control cabinet enclosures",
+      "reversing magnetic motor starters",
+      "magnetic motor starters",
+      "control relays",
+      "timer relays",
+      "pushbutton switches",
+      "selector switches",
+      "limit switches",
+      "pressure switches",
+      "electro-pneumatic solenoid valves",
+      "safety disconnect switches",
+      "using proper ppe",
+      "proper ppe",
+      "reading electrical wiring installation diagrams",
+      "electrical wiring installation diagrams",
+      "sizing circuit protection",
+      "installing components",
+      "din rails",
+      "wiring motors",
+      "terminal strips"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Electrical Wire Termination",
+    "organization": "Greenlee",
+    "phrases": [
+      "crimping electrical wire",
+      "electrical wire termination tools",
+      "crimping electrical connectors",
+      "electrical connectors"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "EHC",
+    "name": "Electrified Hardware Consultant",
+    "organization": "Door and Hardware Institute",
+    "phrases": [
+      "electrified hardware consultants",
+      "architectural door openings",
+      "interfacing electrified architectural hardware products",
+      "electrified architectural hardware products"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Electronics in Traffic Signal Technician",
+    "organization": "International Municipal Signal Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "FMP",
+    "name": "Facility Management Professional",
+    "organization": "International Facility Management Association",
+    "phrases": [
+      "fmp designation",
+      "is knowledge-based credential",
+      "knowledge-based credential",
+      "demonstrating proven comprehension",
+      "proven comprehension",
+      "obtaining certification",
+      "fmp candidates",
+      "learning formats",
+      "on-site seminars",
+      "ifma recognized programs"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Fenestration Associate",
+    "organization": "Fenestration and Glazing Industry Alliance",
+    "phrases": null,
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "FenestrationMaster",
+    "organization": "Fenestration and Glazing Industry Alliance",
+    "phrases": [
+      "fenestration master",
+      "design considerations",
+      "skylight performance standards"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Fiber Optic Technician for ITS, Traffic, Fire Alarm, and Communication Systems",
+    "organization": "International Municipal Signal Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Fishing Conduits/Raceways and Cable Pulling",
+    "organization": "Greenlee",
+    "phrases": [
+      "fishing raceways",
+      "intended pathways",
+      "power fishing systems proficient",
+      "selecting appropriate tools",
+      "pioneering raceways"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Flagger Instructor Training",
+    "organization": "American Traffic Safety Services Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CFPC&C",
+    "name": "Fluid Power Connector and Conductor",
+    "organization": "International Fluid Power Society",
+    "phrases": [
+      "tube assemblies",
+      "all connector",
+      "conductor certifications"
+    ],
+    "soc_codes": [
+      "17-2051.00",
+      "47-2151.00",
+      "47-2152.00",
+      "47-4021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CFPIHT",
+    "name": "Fluid Power Industrial Hydraulic Technician",
+    "organization": "International Fluid Power Society",
+    "phrases": [
+      "troubleshoot operational industrial hydraulic systems",
+      "operational industrial hydraulic systems",
+      "industrial application schematics",
+      "does basic cylinder",
+      "basic cylinder",
+      "hydraulic motor calculations",
+      "industrial hydraulic technician",
+      "supervise system installations",
+      "system installations"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "CFPMHT",
+    "name": "Fluid Power Mobile Hydraulic Technician",
+    "organization": "International Fluid Power Society",
+    "phrases": [
+      "troubleshoot operational mobile hydraulic systems",
+      "operational mobile hydraulic systems",
+      "mobile hydraulic technician",
+      "reads mobile schematics",
+      "mobile schematics",
+      "basic cylinder",
+      "hydraulic motor calculations",
+      "supervise system installations",
+      "system installations"
+    ],
+    "soc_codes": [
+      "47-1011.00",
+      "47-2071.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Forklift Inspector & Operator",
+    "organization": "Crane Institute of America",
+    "phrases": [
+      "rough-terrain forklifts",
+      "learn osha",
+      "ansi inspection requirements",
+      "properly document inspections",
+      "document inspections"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Forklift Operator",
+    "organization": "National Safety Council",
+    "phrases": [
+      "forklift safety course training",
+      "satisfies osha requirements",
+      "osha requirements",
+      "forklift operators",
+      "are necessity",
+      "forklift drivers",
+      "retraining employees",
+      "forklift safety rules",
+      "forklift operations",
+      "forklift trucks"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Fundamentals of Electricity - AC/DC",
+    "organization": "Festo",
+    "phrases": [
+      "decrease production downtime",
+      "recognized certifications",
+      "troubleshoot ac/dc circuits",
+      "examine operating voltages",
+      "operating voltages"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "FE-CVL",
+    "name": "Fundamentals of Engineering - Civil",
+    "organization": "National Council of Examiners for Engineering and Surveying",
+    "phrases": [
+      "finishing undergraduate engineering degree",
+      "undergraduate engineering degree",
+      "eac/abet-accredited program",
+      "administered year-round",
+      "ncees-approved pearson vue test centers"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "GACA",
+    "name": "GA - Certified Associate",
+    "organization": "Green Advantage",
+    "phrases": [
+      "green advantage certified practitioners",
+      "green advantage certification",
+      "helps builders",
+      "win bids",
+      "allows building occupants",
+      "building occupants"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "GACP",
+    "name": "GA Certified Practitioner",
+    "organization": "Green Advantage",
+    "phrases": [
+      "green advantage certified practitioners",
+      "green advantage certification",
+      "helps builders",
+      "win bids",
+      "allows building occupants",
+      "building occupants"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "GDTP (Y14.5) Geometric Dimensioning & Tolerancing Professional Certification - 1994 Senior Level",
+    "organization": "American Society of Mechanical Engineers International",
+    "phrases": [
+      "geometric controls"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "GDTP (Y14.5) Geometric Dimensioning & Tolerancing Professional Certification - 1994 Technologist Level",
+    "organization": "American Society of Mechanical Engineers International",
+    "phrases": [
+      "technologist level"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "GDTP (Y14.5) Geometric Dimensioning & Tolerancing Professional Certification - 2009 Senior Level",
+    "organization": "American Society of Mechanical Engineers International",
+    "phrases": [
+      "geometric controls"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "GDTP (Y14.5) Geometric Dimensioning & Tolerancing Professional Certification - 2009 Technologist Level",
+    "organization": "American Society of Mechanical Engineers International",
+    "phrases": [
+      "technologist level",
+      "y14.5-2009 standard"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "GDTP",
+    "name": "Geometric Dimensioning & Tolerancing Professional - Technologist",
+    "organization": "American Society of Mechanical Engineers International",
+    "phrases": [
+      "asme gdtp certification",
+      "recognize proficiency",
+      "geometric dimensioning",
+      "asme y14.5 standard"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "GMB",
+    "name": "Graduate Master Builder",
+    "organization": "National Association of Home Builders",
+    "phrases": [
+      "graduate master builder",
+      "beginning gmb designation process",
+      "gmb designation process",
+      "have cgb designation",
+      "cgb designation",
+      "cgr designation",
+      "cgb/cgr courses"
+    ],
+    "soc_codes": [
+      "47-1011.00",
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "GMR",
+    "name": "Graduate Master Remodeler",
+    "organization": "National Association of Home Builders",
+    "phrases": [
+      "allows cgrs",
+      "attain further recognition",
+      "remodeling industry"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Hand Bending",
+    "organization": "Greenlee",
+    "phrases": [
+      "demonstrate proficiency",
+      "bending conduit",
+      "using hand benders",
+      "hand benders",
+      "saddle bends",
+      "common bends",
+      "learn bending characteristics",
+      "bending characteristics",
+      "various conduits",
+      "conduit installation"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Hazard Awareness For Suspended Scaffold And Operator Safety Training",
+    "organization": "Scaffold & Access Industry Association",
+    "phrases": [
+      "suspended scaffold",
+      "emphasizes safety system",
+      "operating suspended scaffold",
+      "suspended scaffold support systems",
+      "scaffold support systems"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Heavy Equipment Operator - Compaction Equipment Roller",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "compaction equipment operator masters",
+      "compaction equipment",
+      "includes basic daily preventive maintenance",
+      "basic daily preventive maintenance",
+      "uses compaction equipment"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Heavy Equipment Operator: Dozer",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "dozer operator masters",
+      "includes basic daily preventive maintenance",
+      "basic daily preventive maintenance",
+      "identifies attachments",
+      "uses dozer"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Heavy Equipment Operator: Loader",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "loader operator masters",
+      "includes basic daily preventive maintenance",
+      "basic daily preventive maintenance",
+      "identifies attachments",
+      "uses loader"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Heavy Equipment Operator: Motor Grader",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "motor grader operator masters",
+      "motor graders",
+      "includes basic daily preventive maintenance",
+      "basic daily preventive maintenance",
+      "identifies main attachments",
+      "main attachments",
+      "uses motor grader",
+      "motor grader"
+    ],
+    "soc_codes": [
+      "47-2073.00",
+      "47-4051.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Heavy Equipment Operator: Scraper",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "scraper operator masters",
+      "includes basic daily preventive maintenance",
+      "basic daily preventive maintenance",
+      "uses scraper"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "Heavy Equipment Operator: Skid Steer",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "skid steer operator masters",
+      "skid steers",
+      "includes basic daily preventive maintenance",
+      "basic daily preventive maintenance",
+      "identifies main attachments",
+      "main attachments",
+      "uses skid steer",
+      "skid steer"
+    ],
+    "soc_codes": [
+      "47-2073.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "High Performance Insulation Professional - Entry",
+    "organization": "High Performance Insulation Professionals",
+    "phrases": [
+      "energy movement high performance insulation systems thermal bypass checklist insulation installation standards installation professional"
+    ],
+    "soc_codes": [
+      "47-2132.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "High Performance Insulation Professional - Intermediate",
+    "organization": "High Performance Insulation Professionals",
+    "phrases": [
+      "energy movement high performance insulation systems thermal bypass checklist insulation installation standards installation professional"
+    ],
+    "soc_codes": [
+      "47-2132.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Highway Construction Inspection",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "certification program",
+      "engineering technicians",
+      "construction surveying",
+      "supervisory techniques"
+    ],
+    "soc_codes": [
+      "17-2051.01",
+      "47-1011.00",
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "ASSE",
+    "name": "Hydronic Heating and Cooling Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "are seasoned veteran",
+      "seasoned veteran",
+      "maintaining hydronic-based heating",
+      "hydronic-based heating"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "IAPMO - UPC Residential and Commercial Plumbing Inspector",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "IBM Certified Specialist - Rhapsody for Systems V8",
+    "organization": "IBM Corporation",
+    "phrases": [
+      "architectural analysis"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "IPC-A-600 Acceptability of Printed Circuit Boards",
+    "organization": "Global Electronics Association",
+    "phrases": [
+      "ipc-a-600 training",
+      "certification program",
+      "helps segments",
+      "electronics interconnection industry",
+      "enhances communication",
+      "pcb manufacturers",
+      "provides valuable portable credential",
+      "valuable portable credential"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "IPC-A-610 Acceptability of Electronic Assemblies",
+    "organization": "Global Electronics Association",
+    "phrases": [
+      "be ipc-a-610 certified ipc trainers",
+      "ipc-a-610 certified ipc trainers",
+      "ipc-a-610 training",
+      "provides certified ipc trainers",
+      "certified ipc trainers",
+      "detailed instructional plans",
+      "training application specialists",
+      "application specialists"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "IPC/WHMA-A-620 Requirements & Acceptance for Cable & Wire Harness Assemblies",
+    "organization": "Global Electronics Association",
+    "phrases": [
+      "wire harness assemblies",
+      "wire harness fabrication",
+      "process indicator",
+      "defect conditions",
+      "visual quality acceptability requirements"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Industrial Carpenter",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "industrial carpenter erects",
+      "large formwork",
+      "interprets construction drawings"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Industrial Carpenter",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "industrial carpenter erects",
+      "large formwork",
+      "interprets construction drawings"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Industrial Insulator Assessment",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "industrial electrician",
+      "interpret job specifications",
+      "job specifications",
+      "interpret industrial drawings",
+      "troubleshoot power distribution",
+      "install raceway",
+      "connect transformers",
+      "connect medium voltage splices",
+      "recognize electrical hazards",
+      "electrical hazards"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Industrial Ironworker",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "recognizes safety-related issues",
+      "recognizes various structural shapes",
+      "various structural shapes",
+      "wide-flange beam sections",
+      "fastening materials",
+      "construction cranes",
+      "develops complex rigging plans",
+      "complex rigging plans",
+      "heavy structural steel lifts",
+      "hoisting operations",
+      "aligns steel structures",
+      "aisc code",
+      "welds structural members",
+      "interprets wide variety",
+      "blueprint components",
+      "calculates weights",
+      "structural shapes",
+      "recognizes functions",
+      "hoisting equipment",
+      "welding processes"
+    ],
+    "soc_codes": [
+      "47-2171.00",
+      "47-2221.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Infection Control & Water Quality Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "keep building occupants",
+      "building occupants",
+      "hazardous environments"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "InstallationMasters",
+    "organization": "Fenestration and Glazing Industry Alliance",
+    "phrases": [
+      "installationmasters training program"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Insulation & Ground Rod Resistance Testing",
+    "organization": "Greenlee",
+    "phrases": [
+      "insulation resistance",
+      "ground rod resistance testers measure insulation resistance",
+      "motor windings measure ground rod resistance",
+      "clamp-on style ground",
+      "rod resistance tester interpret category ratings",
+      "resistance tester interpret category ratings",
+      "calculate resistance understand"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Internal Corrosion Technologist",
+    "organization": "The Association for Materials Protection and Performance",
+    "phrases": [
+      "internal corrosion technologist certification",
+      "thorough understanding",
+      "corrosion principles",
+      "monitor internal corrosion control program",
+      "internal corrosion control program",
+      "determine corrective action",
+      "corrective action",
+      "intermediate-level internal corrosion problems",
+      "select mitigation method suitable",
+      "mitigation method suitable",
+      "considering applicable variables",
+      "applicable variables",
+      "internal corrosion integrity management program",
+      "internal corrosion",
+      "introduces fundamentals",
+      "maintaining internal corrosion control program",
+      "is introductory level course",
+      "introductory level course",
+      "natural gas pipelines"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "IICBRC",
+    "name": "Ironworker Rigger & Signal Person Certification Program",
+    "organization": "International Association Of Bridge, Structural, Ornamental And Reinforcing Iron Workers",
+    "phrases": [
+      "ironworker rigger",
+      "signal person certification program",
+      "obtain certification",
+      "signaling competence",
+      "competent ironworkers",
+      "complete rigging",
+      "signaling tasks",
+      "ironworkers international certification board",
+      "efficient jobsite"
+    ],
+    "soc_codes": [
+      "47-2221.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Journey Level Pipefitter-Steamfitter",
+    "organization": "National Inspection, Testing and Certification Corporation",
+    "phrases": [
+      "nitc journey level",
+      "pipefitting/steamfitting certification",
+      "test journey level pipefitter/steamfitter",
+      "journey level pipefitter/steamfitter",
+      "piping mathematics knowledge",
+      "a/c refrigeration"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "LEED AP Neighborhood Development",
+    "organization": "Green Business Certification Inc.",
+    "phrases": [
+      "leed ap neighborhood development exam",
+      "understanding leed rating system",
+      "leed rating system",
+      "facilitate project certification process",
+      "project certification process"
+    ],
+    "soc_codes": [
+      "17-2051.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "LEED AP Operations + Maintenance",
+    "organization": "Green Business Certification Inc.",
+    "phrases": [
+      "leed ap operations + maintenance exam",
+      "understanding leed rating system",
+      "leed rating system",
+      "facilitate project certification process",
+      "project certification process"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": "LEED",
+    "name": "LEED Green Associate",
+    "organization": "Green Business Certification Inc.",
+    "phrases": [
+      "leed green associate credential",
+      "leed green associate",
+      "demonstrates solid understanding"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2031.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Lift Director",
+    "organization": "Crane Institute of America",
+    "phrases": [
+      "covers asme lift director responsibilities",
+      "asme lift director responsibilities",
+      "osha inspection guidelines",
+      "inspecting job site",
+      "ensuring crane",
+      "crane operations",
+      "affect crane operations",
+      "executing lift plan working cranes",
+      "lift plan working cranes",
+      "power lines appointing",
+      "qualified personnel hoisting personnel",
+      "personnel hoisting personnel"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Lift Planner Certification",
+    "organization": "Crane Institute of America",
+    "phrases": [
+      "following asme p30.1",
+      "asme p30.1",
+      "selecting rigging equipment",
+      "rigging equipment",
+      "lift planner certification"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Lighting Associate",
+    "organization": "American Lighting Association",
+    "phrases": [
+      "covers basics"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Managing Crane Safety",
+    "organization": "Crane Institute of America",
+    "phrases": [
+      "fast-paced program",
+      "manage crane safety",
+      "crane safety",
+      "limiting liability exposure",
+      "vortex mobile crane simulator"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Masonry Field Testing Technician",
+    "organization": "American Concrete Institute International",
+    "phrases": [
+      "masonry field testing technician",
+      "structural clay tile",
+      "concrete masonry units"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "CETma",
+    "name": "Master Certified Electronics Technician",
+    "organization": "ETA International",
+    "phrases": [
+      "eta master certified electronics technician",
+      "master certification",
+      "showcase technicians",
+      "demonstrate proficiency",
+      "associate level certification",
+      "other certifications"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Master Certified Green Professional",
+    "organization": "National Association of Home Builders",
+    "phrases": [
+      "seek educational designation",
+      "educational designation",
+      "master cgp"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "MCR",
+    "name": "Master Certified Remodeler",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": [
+      "nari master certified remodelers",
+      "bath remodelers",
+      "are veteran certified remodelers",
+      "veteran certified remodelers",
+      "remodeling industry",
+      "shown dedication",
+      "local nari chapter"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "MGWC",
+    "name": "Master Ground Water Contractor",
+    "organization": "National Ground Water Association",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Master Trainer",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "instructor certification training program",
+      "master trainers",
+      "train craft instructors",
+      "craft instructors"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "ISO 13485",
+    "name": "Medical Devices - Quality Management Systems",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "acknowledged iso",
+      "customizes iso"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Mobile Crane Operator",
+    "organization": "National Commission for the Certification of Crane Operators",
+    "phrases": [
+      "mobile crane operator",
+      "crane operation",
+      "crane specialty examinations"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Mobile Crane Operator Certification",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "develop crane operator certification program",
+      "crane operator certification program",
+      "written assessments",
+      "exceed current asme/ansi b30.5 consensus safety standards",
+      "current asme/ansi b30.5 consensus safety standards",
+      "mobile crane operators",
+      "locator tool",
+      "\u00ff thirteen-equipment specific certifications",
+      "thirteen-equipment specific certifications",
+      "industrial / all purpose crane",
+      "crawler mount crane",
+      "lattice boom",
+      "hydraulic machinery",
+      "friction machinery",
+      "rubber tire truck mount crane",
+      "rough terrain/all terrain crane",
+      "rotating controls",
+      "rough terrain/ all terrain crane",
+      "telescopic boom",
+      "all terrain",
+      "articulating boom"
+    ],
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "OMA",
+    "name": "Oil Monitoring Analyst I",
+    "organization": "Society of Tribologists and Lubrication Engineers",
+    "phrases": [
+      "oil monitoring analyst certification",
+      "analyzing oil properties",
+      "competency assurance"
+    ],
+    "soc_codes": [
+      "11-9041.00",
+      "47-1011.00",
+      "47-2073.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Oracle Responsys Marketing Platform 2024 Implementation Professional",
+    "organization": "Oracle Corporation",
+    "phrases": null,
+    "soc_codes": [
+      "17-2051.01"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "PMI-PMR",
+    "name": "PMI Project Management Ready",
+    "organization": "Project Management Institute",
+    "phrases": [
+      "pmi project management ready certification",
+      "familiarize students",
+      "fills need",
+      "industry-recognized certification",
+      "career clusters"
+    ],
+    "soc_codes": [
+      "13-1082.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "PMT",
+    "name": "Pavement Marking Technician",
+    "organization": "American Traffic Safety Services Association",
+    "phrases": null,
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Pipeline Field and Control Center Operations",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "liquid pipelines",
+      "product batch",
+      "scada communications",
+      "operational qualifications",
+      "career pathway",
+      "nccer pipeline operations technician credential"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Pipeline Maintenance",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "mechanical career pathway",
+      "nccer pipeline mechanical technician credential"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Pipeline Mechanical",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "mechanical career pathway",
+      "nccer pipeline mechanical technician credential"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Plumber Assessment",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "finding angles",
+      "calculating simple",
+      "rolling offsets",
+      "carbon steel pipes",
+      "corrugated stainless",
+      "steel tubing",
+      "dwv piping",
+      "structural penetrations",
+      "water heaters",
+      "backflow preventers",
+      "water pressure boosters",
+      "recirculation systems",
+      "sewage pumps",
+      "sump pumps",
+      "basic rigging"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Plumbing",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "unclog drain",
+      "install appliance",
+      "other systems dispose",
+      "supply air conditioning",
+      "air conditioning",
+      "huge turbines",
+      "plumbing tools",
+      "potable water treatment"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "PPE",
+    "name": "Plumbing Plans Examiner",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Pre-Engineered Industrial Fire Extinguishing System Technician",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Pre-Engineering Certification",
+    "organization": "Robotics Education and Competition Foundation",
+    "phrases": [
+      "pre-engineering certification",
+      "robotics clubs",
+      "earn certification",
+      "pass fundamentals",
+      "engineering modules",
+      "include aerospace",
+      "foundational knowledge",
+      "helping themstand",
+      "earn robotics certification",
+      "robotics certification",
+      "receive pre-engineering certification",
+      "specific modules"
+    ],
+    "soc_codes": [
+      "17-2051.00",
+      "17-2051.01"
+    ],
+    "type": "Skill"
+  },
+  {
+    "acronym": "PE-Civ",
+    "name": "Principles and Practice of Engineering - Civil",
+    "organization": "National Council of Examiners for Engineering and Surveying",
+    "phrases": [
+      "administered year-round",
+      "ncees-approved pearson vue test center"
+    ],
+    "soc_codes": [
+      "17-2051.00",
+      "17-2051.01"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "PE-S",
+    "name": "Principles and Practice of Engineering - Structural",
+    "organization": "National Council of Examiners for Engineering and Surveying",
+    "phrases": [
+      "pencil-and-paper exam",
+      "lateral components",
+      "high seismicity",
+      "licensing board",
+      "licensure requirements"
+    ],
+    "soc_codes": [
+      "47-2221.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "PTOE",
+    "name": "Professional Traffic Operations Engineer",
+    "organization": "Transportation Professional Certification Board, Inc.",
+    "phrases": [
+      "requisite knowledge",
+      "certification process builds"
+    ],
+    "soc_codes": [
+      "17-2051.01"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "PME",
+    "name": "Project Manager Ebusiness",
+    "organization": "American Academy of Project Management",
+    "phrases": [
+      "aapm global board",
+      "project manager ebusiness",
+      "board certification",
+      "qualified applicants"
+    ],
+    "soc_codes": [
+      "13-1082.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "QRO",
+    "name": "QRO - Certification for Municipal Solid Waste Combustion Facilities Operator - Combustion System Operator",
+    "organization": "American Society of Mechanical Engineers International",
+    "phrases": [
+      "combustion system operator certification",
+      "combust municipal solid waste",
+      "attain combustion system operator certification",
+      "meet eligibility requirements",
+      "eligibility requirements",
+      "combustion examination",
+      "other qro certification"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "QEI",
+    "name": "Qualified Elevator Inspector",
+    "organization": "NAESA International",
+    "phrases": [
+      "qualified elevator inspector certification",
+      "safeguard public",
+      "confirming elevators",
+      "other conveyances",
+      "are code compliant",
+      "code compliant"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "QEI",
+    "name": "Qualified Elevator Inspector",
+    "organization": "National Association of Elevator Contractors",
+    "phrases": [
+      "elevator contractors",
+      "qualified elevator inspector",
+      "elevator inspector",
+      "ensure inspectors",
+      "safeguard public",
+      "confirming elevators",
+      "other conveyances",
+      "are code compliant",
+      "code compliant"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "QEI",
+    "name": "Qualified Elevator Inspector Supervisor",
+    "organization": "NAESA International",
+    "phrases": [
+      "qualified elevator inspector supervisor certification",
+      "ensure inspector supervisors",
+      "inspector supervisors",
+      "demonstrated aptitude",
+      "assist inspector supervisor",
+      "inspector supervisor",
+      "training inspectors",
+      "safeguard public",
+      "confirming elevators",
+      "other conveyances",
+      "are code compliant",
+      "code compliant"
+    ],
+    "soc_codes": [
+      "47-4021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "QEP",
+    "name": "Qualified Environmental Professional",
+    "organization": "Board for Global EHS Credentialing",
+    "phrases": [
+      "fully-accredited credential",
+      "qep examination",
+      "evaluates environmental practitioners",
+      "environmental practitioners",
+      "new practitioners"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Rain Screen Systems",
+    "organization": "International Masonry Institute",
+    "phrases": [
+      "rainscreen walls",
+      "popular building enclosure choices today",
+      "investigates building science",
+      "masonry wall",
+      "cavity walls",
+      "non-pressurized rain",
+      "common terra cotta",
+      "composite panel systems",
+      "constructible details",
+      "demonstrate prep work",
+      "prep work",
+      "vapor barriers",
+      "receive binder",
+      "successful attendees"
+    ],
+    "soc_codes": [
+      "47-2031.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Rainwater Catchment Systems Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "industrial rainwater",
+      "stormwater systems",
+      "rainwater catchment",
+      "stormwater harvesting professionals",
+      "knowledgeable professionals"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Registered Environmental Professional",
+    "organization": "National Registry of Environmental Professionals",
+    "phrases": null,
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "RRC",
+    "name": "Registered Roof Consultant",
+    "organization": "International Institute of Building Enclosure Consultants",
+    "phrases": [
+      "include verifiable levels",
+      "verifiable levels",
+      "satisfactory score"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "RRO",
+    "name": "Registered Roof Observer",
+    "organization": "International Institute of Building Enclosure Consultants",
+    "phrases": [
+      "become registered roof observers",
+      "registered roof observers",
+      "fulfill certain requirements",
+      "rci code",
+      "earning satisfactory score",
+      "satisfactory score"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "RWC",
+    "name": "Registered Waterproofing Consultant",
+    "organization": "International Institute of Building Enclosure Consultants",
+    "phrases": [
+      "become registered waterproofing consultants",
+      "registered waterproofing consultants",
+      "include verifiable levels",
+      "verifiable levels",
+      "satisfactory score"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "RCSI",
+    "name": "Reinforced Concrete Special Inspector",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "47-2171.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Reinforcing Iron and Rebar Worker Assessment",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "journey-level reinforcement ironworker",
+      "rod buster",
+      "performs standard rebar ties",
+      "standard rebar ties",
+      "knows basics",
+      "rebar support",
+      "identify rebar sizes",
+      "rebar sizes",
+      "interpret cut sheets",
+      "rebar worker",
+      "basic rigging"
+    ],
+    "soc_codes": [
+      "47-2171.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "REI",
+    "name": "Residential Electrical Inspector",
+    "organization": "International Code Council",
+    "phrases": null,
+    "soc_codes": [
+      "47-1011.00",
+      "47-2111.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "ASSE",
+    "name": "Residential Potable Water Fire Protection Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "residential potable water fire protection grow",
+      "asse residential potable water fire protection certification",
+      "asse certification",
+      "residential fire sprinkler system installation",
+      "recognized credentials",
+      "inspect life-saving fire protection systems",
+      "certified installer",
+      "knowledgeable professionals"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Residential and Commercial Electrical Inspector",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "MPE",
+    "name": "Residential and Commercial Mechanical Plans Examiner",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "C_DBADM",
+    "name": "SAP Certified Associate - Database Administrator - SAP HANA",
+    "organization": "SAP America, Inc.",
+    "phrases": [
+      "sap hana cloud",
+      "sap hana",
+      "sap hana database administrator",
+      "related sap hana database administration",
+      "learning journeys"
+    ],
+    "soc_codes": [
+      "13-1082.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": "C_TS412",
+    "name": "SAP Certified Associate - SAP S/4HANA Project Systems",
+    "organization": "SAP America, Inc.",
+    "phrases": [
+      "sap certified application associate",
+      "sap s/4hana portfolio",
+      "certification exam",
+      "sap s/4hana ppm implementation consultant profile",
+      "mentored role",
+      "entry level qualification"
+    ],
+    "soc_codes": [
+      "13-1082.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "SFMA Turfgrass Science Certification",
+    "organization": "Sports Field Management Association",
+    "phrases": [
+      "sfma turfgrass science certification verifies individuals",
+      "obtained foundational knowledge",
+      "foundational knowledge",
+      "turfgrass science",
+      "turfgrass industry"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Product/Equipment"
+  },
+  {
+    "acronym": null,
+    "name": "STAR Fire SprinklerFitter Mastery",
+    "organization": "National Inspection, Testing and Certification Corporation",
+    "phrases": null,
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "STAR Plumber Mastery",
+    "organization": "National Inspection, Testing and Certification Corporation",
+    "phrases": [
+      "star plumbing mastery certification candidate",
+      "demonstrate mastery",
+      "repairing water systems",
+      "vent systems",
+      "specialty systems",
+      "utilizing knowledge",
+      "local plumbing codes"
+    ],
+    "soc_codes": [
+      "47-2151.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "STAR Steamfitting-Pipefitting Mastery",
+    "organization": "National Inspection, Testing and Certification Corporation",
+    "phrases": [
+      "star pipefitting mastery certification candidate",
+      "demonstrate mastery",
+      "installing pipes",
+      "standard pipefitting practices",
+      "jurisdictional codes"
+    ],
+    "soc_codes": [
+      "47-2151.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "STS",
+    "name": "Safety Trained Supervisor (STS)",
+    "organization": "Board of Certified Safety Professionals",
+    "phrases": [
+      "sts certification",
+      "verify first-line supervisors",
+      "first-line supervisors",
+      "requires applicants"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CETsr",
+    "name": "Senior Certified Electronics Technician",
+    "organization": "ETA International",
+    "phrases": [
+      "senior level certification",
+      "be senior certified electronics technician",
+      "senior certified electronics technician",
+      "entire certification exam",
+      "specialized journeyman options",
+      "electronics specialty"
+    ],
+    "soc_codes": [
+      "11-9041.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Service Plumbing Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "letting service plumber",
+      "service plumber",
+      "is competent",
+      "service plumber certification"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "CMC-2016",
+    "name": "State of California Mechanical Inspector",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Structural Steel and Bolting Special Inspector",
+    "organization": "International Code Council",
+    "phrases": [
+      "exam content outline",
+      "material sampling",
+      "high-strength bolting",
+      "steel framing observation"
+    ],
+    "soc_codes": [
+      "47-2221.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Supervisor Assessment",
+    "organization": "National Center for Construction Education and Research",
+    "phrases": [
+      "evaluates plans",
+      "coordinates work",
+      "manages budget",
+      "coordinates material quantities",
+      "material quantities"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "SCP",
+    "name": "Supervisor Certification",
+    "organization": "International Masonry Institute",
+    "phrases": [
+      "day-to-day supervision",
+      "masonry construction",
+      "supervisor certification program",
+      "potential supervisory personnel",
+      "signatory bac masonry contractors"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "SFP",
+    "name": "Sustainability Facility Professional",
+    "organization": "International Facility Management Association",
+    "phrases": [
+      "delivering specialty credential",
+      "specialty credential",
+      "sfp credential"
+    ],
+    "soc_codes": [
+      "11-3013.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Tilt-Up Supervisor & Technician",
+    "organization": "American Concrete Institute International",
+    "phrases": null,
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Traffic Signal Design/Engineering Technician Level II",
+    "organization": "International Municipal Signal Association",
+    "phrases": [
+      "traffic signal design/engineering level ii certification",
+      "has well-rounded background",
+      "well-rounded background",
+      "level ii engineering certification",
+      "indicates technician"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Traffic Signal Field Technician Level II",
+    "organization": "International Municipal Signal Association",
+    "phrases": [
+      "traffic signal field level ii certification",
+      "has well-rounded background",
+      "well-rounded background",
+      "level ii field certification",
+      "indicates technician"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Traffic Signal Inspector Level I",
+    "organization": "International Municipal Signal Association",
+    "phrases": [
+      "imsa traffic signal inspector level",
+      "certification program",
+      "signal installations",
+      "paramount importance"
+    ],
+    "soc_codes": [
+      "47-1011.00",
+      "47-2111.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "TSOS",
+    "name": "Traffic Signal Operations Specialist",
+    "organization": "Transportation Professional Certification Board, Inc.",
+    "phrases": [
+      "certification program",
+      "tsos certification examination"
+    ],
+    "soc_codes": [
+      "47-4051.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Transportation: Highway Construction Inspection - Level II",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "highway construction inspection certification program",
+      "engineering technicians",
+      "supervisory functions",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "17-2051.01"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "Transportation: Highway Construction Inspection - Level III",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "highway construction inspection certification program",
+      "engineering technicians",
+      "supervisory functions",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "17-2051.01"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Transportation: Highway Construction Inspection - Level IV",
+    "organization": "National Institute for Certification in Engineering Technologies",
+    "phrases": [
+      "highway construction inspection certification program",
+      "engineering technicians",
+      "supervisory functions",
+      "pearson vue testing centers",
+      "allows nicet",
+      "immediate scheduling"
+    ],
+    "soc_codes": [
+      "17-2051.01"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "UMC RESIDENTIAL AND COMMERCIAL MECHANICAL INSPECTOR",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "UMC Residential and Commercial Inspector",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": [
+      "national personnel certification program",
+      "assesses knowledge",
+      "technical disciplines",
+      "certification renewal program"
+    ],
+    "soc_codes": [
+      "11-9021.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "UPC Journeyman Plumber",
+    "organization": "National Inspection, Testing and Certification Corporation",
+    "phrases": [
+      "journey level plumber",
+      "uniform plumbing code",
+      "nitc journey level plumber certification",
+      "ansi accredidation",
+      "fuel gas piping"
+    ],
+    "soc_codes": [
+      "47-2152.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": null,
+    "name": "UPC RESIDENTIAL AND COMMERCIAL PLUMBING INSPECTOR",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "PPE",
+    "name": "UPC RESIDENTIAL AND COMMERCIAL PLUMBING PLANS EXAMINER",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": "UDCP",
+    "name": "Universal Design Certified Professional",
+    "organization": "National Association of the Remodeling Industry",
+    "phrases": [
+      "nari universal design certified professionals",
+      "experienced remodelers",
+      "udcp program",
+      "residential remodeling",
+      "needs assessments universal design applications",
+      "assessments universal design applications",
+      "remodeling construction techniques",
+      "remodeling project plumbing",
+      "disabilities act"
+    ],
+    "soc_codes": [
+      "47-1011.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "VMA",
+    "name": "Value Methodology Associate Certification",
+    "organization": "Society of American Value Engineers",
+    "phrases": [
+      "value methodology associate certification",
+      "value methodology"
+    ],
+    "soc_codes": [
+      "11-9041.00",
+      "17-2051.00"
+    ],
+    "type": "Core"
+  },
+  {
+    "acronym": "WSO-CSM",
+    "name": "WSO - Certified Safety Manager (Construction)",
+    "organization": "World Safety Organization",
+    "phrases": [
+      "regular wso-csm",
+      "accumulated years"
+    ],
+    "soc_codes": [
+      "11-9021.00",
+      "47-1011.00"
+    ],
+    "type": "Specialty"
+  },
+  {
+    "acronym": null,
+    "name": "Water-Based Fire Protection Certification",
+    "organization": "International Association of Plumbing and Mechanical Officials",
+    "phrases": null,
+    "soc_codes": [
+      "11-9021.00",
+      "47-2152.00"
+    ],
+    "type": "Advanced"
+  },
+  {
+    "acronym": null,
+    "name": "Wire Pathways",
+    "organization": "Greenlee",
+    "phrases": [
+      "creating pathways",
+      "residential framing materials",
+      "professional wire pathway"
+    ],
+    "soc_codes": [
+      "47-2111.00"
+    ],
+    "type": "Core"
+  }
+]

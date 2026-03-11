@@ -2,7 +2,7 @@
 Tests for lexicon file loading.
 
 Validates graceful handling of missing files and successful loading of valid
-OSHA and O*NET lexicon data.
+certifications, OSHA, and O*NET lexicon data.
 """
 
 from collections.abc import Callable
@@ -10,13 +10,24 @@ from logging         import WARNING
 from pathlib         import Path
 from pytest          import LogCaptureFixture, mark
 
-from chalkline.extraction.loaders import load_onet, load_osha, load_supplement
+from chalkline.extraction.loaders import load_certifications, load_onet
+from chalkline.extraction.loaders import load_osha, load_supplement
 
 
 class TestLoaders:
     """
     Validate lexicon file loading and missing-file handling.
     """
+
+    def test_load_certifications_valid(self, lexicon_dir: Path):
+        """
+        Valid certifications JSON deserializes into certification
+        records.
+        """
+        assert len(certs := load_certifications(
+            lexicon_dir / "certifications.json"
+        )) == 2
+        assert certs[0].name == "Certified Welding Inspector"
 
     def test_load_onet_valid(self, lexicon_dir: Path):
         """
@@ -40,9 +51,10 @@ class TestLoaders:
         assert "rebar" in terms
 
     @mark.parametrize(("loader", "label"), [
-        (load_onet,       "O*NET"),
-        (load_osha,       "OSHA"),
-        (load_supplement, "Supplement")
+        (load_certifications, "Certifications"),
+        (load_onet,           "O*NET"),
+        (load_osha,           "OSHA"),
+        (load_supplement,     "Supplement")
     ])
     def test_missing_file_logs_warning(
         self,
