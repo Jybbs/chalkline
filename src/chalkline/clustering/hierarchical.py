@@ -1,12 +1,12 @@
 """
-Ward-linkage hierarchical agglomerative clustering with cophenetic
+Average-linkage hierarchical agglomerative clustering with cophenetic
 validation and TF-IDF centroid labeling.
 
-Fits Ward linkage on PCA-reduced coordinates, selects a flat partition
-via the merge-height acceleration criterion, and exposes cophenetic
-comparison and internal validity metrics as on-demand methods. Cluster
-labels are derived from TF-IDF centroid terms when explicitly requested
-via `labels()`.
+Fits average linkage on PCA-reduced coordinates, selects a flat
+partition via the merge-height acceleration criterion, and exposes
+cophenetic comparison and internal validity metrics as on-demand
+methods. Cluster labels are derived from TF-IDF centroid terms when
+explicitly requested via `labels()`.
 """
 
 import numpy as np
@@ -56,9 +56,9 @@ def compute_sector_labels(
 
 class HierarchicalClusterer:
     """
-    Ward-linkage HAC with multi-method cophenetic validation.
+    Average-linkage HAC with multi-method cophenetic validation.
 
-    Computes the Ward linkage matrix with optimal leaf ordering and
+    Computes the average linkage matrix with optimal leaf ordering and
     selects a flat partition via the merge-height acceleration
     criterion. Cophenetic comparison and internal validity metrics
     are computed on demand via `cophenetic_comparison()` and
@@ -90,7 +90,7 @@ class HierarchicalClusterer:
 
         self.linkage = linkage(
             coordinates,
-            method           = "ward",
+            method           = "average",
             optimal_ordering = True
         )
 
@@ -141,9 +141,9 @@ class HierarchicalClusterer:
                 method      = method
             )
             for method, z in [
-                ("average",  linkage(self.coordinates, method = "average")),
+                ("average",  self.linkage),
                 ("complete", linkage(self.coordinates, method = "complete")),
-                ("ward",     self.linkage)
+                ("ward",     linkage(self.coordinates, method = "ward"))
             ]
         ]
 
