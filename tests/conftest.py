@@ -5,6 +5,8 @@ Fixtures form a pipeline chain where each step's output is
 independently tappable by any test module:
 
     corpus → extracted_skills → skill_vectorizer → pca_reducer
+           ↘                                       ↓
+            sector_labels ← occupation_index    clustering
 
 Lexicon fixtures feed the extractor via the registry:
 
@@ -16,17 +18,20 @@ Lexicon fixtures feed the extractor via the registry:
 
 from json    import loads
 from pathlib import Path
-from pytest  import fixture
+from pytest  import fixture, FixtureRequest
 
-from chalkline.collection.schemas     import Posting
-from chalkline.extraction.lexicons    import LexiconRegistry
-from chalkline.extraction.loaders     import load_certifications, load_onet
-from chalkline.extraction.loaders     import load_osha, load_supplement
-from chalkline.extraction.occupations import OccupationIndex
-from chalkline.extraction.schemas     import Certification, OnetOccupation
-from chalkline.extraction.skills      import SkillExtractor
-from chalkline.extraction.vectorize   import SkillVectorizer
-from chalkline.reduction.pca          import PcaReducer
+from chalkline.clustering.comparison   import ClusterComparison
+from chalkline.clustering.hierarchical import compute_sector_labels
+from chalkline.clustering.hierarchical import HierarchicalClusterer
+from chalkline.collection.schemas      import Posting
+from chalkline.extraction.lexicons     import LexiconRegistry
+from chalkline.extraction.loaders      import load_certifications, load_onet
+from chalkline.extraction.loaders      import load_osha, load_supplement
+from chalkline.extraction.occupations  import OccupationIndex
+from chalkline.extraction.schemas      import Certification, OnetOccupation
+from chalkline.extraction.skills       import SkillExtractor
+from chalkline.extraction.vectorize    import SkillVectorizer
+from chalkline.reduction.pca           import PcaReducer
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -37,8 +42,8 @@ def _postings() -> list[Posting]:
     Load posting fixtures from JSON.
     """
     return [
-        Posting(**p)
-        for p in loads((FIXTURES / "collection/postings.json").read_text())
+        Posting(**raw)
+        for raw in loads((FIXTURES / "collection/postings.json").read_text())
     ]
 
 
@@ -102,11 +107,12 @@ def supplement_terms() -> list[str]:
 @fixture
 def corpus() -> dict[str, str]:
     """
-    Ten synthetic posting texts covering the fixture vocabulary.
+    Twenty synthetic posting texts covering the fixture vocabulary.
 
     Each posting targets a different skill cluster so downstream
     matrices have enough rank for `TruncatedSVD` and enough
-    variation for meaningful clustering and PMI.
+    variation for meaningful clustering, PMI, and DBSCAN density
+    estimation.
     """
     return {
         "posting-01" : "Fall protection and welding are required. "
@@ -128,7 +134,32 @@ def corpus() -> dict[str, str]:
         "posting-09" : "Electrician with laptop computers for "
                        "electrical wiring and electrical systems.",
         "posting-10" : "Equipment operators for concrete finishing "
-                       "and scaffolding. Fall protection certified."
+                       "and scaffolding. Fall protection certified.",
+        "posting-11" : "Blueprint reading and electrical wiring for "
+                       "commercial projects. Autodesk AutoCAD drafting.",
+        "posting-12" : "Electrical safety and electrical systems "
+                       "troubleshooting. Laptop computers for "
+                       "diagnostics and welding certification.",
+        "posting-13" : "Electrical wiring and scaffolding erection. "
+                       "Autodesk AutoCAD layouts and fall protection.",
+        "posting-14" : "Backhoe and excavation for site preparation. "
+                       "Operate construction equipment and building "
+                       "foundations.",
+        "posting-15" : "Concrete finishing and rebar placement. "
+                       "Spread concrete for foundations and "
+                       "excavation grading.",
+        "posting-16" : "Operate construction equipment for building "
+                       "foundations. Concrete finishing and spread "
+                       "concrete required.",
+        "posting-17" : "Welding inspection and weld quality control. "
+                       "Rigging hardware and fall protection on site.",
+        "posting-18" : "Asbestos abatement and electrical safety "
+                       "compliance. Scaffolding and fall protection.",
+        "posting-19" : "Load charts and rigging hardware for crane "
+                       "operations. Welding and scaffolding required.",
+        "posting-20" : "Concrete finishing and fall protection. "
+                       "Scaffolding and operate construction "
+                       "equipment on highway projects."
     }
 
 
@@ -201,8 +232,8 @@ def second_posting() -> Posting:
     return _postings()[1]
 
 
-@fixture(params=["47-2111", "47-2111.00"])
-def soc(request) -> str:
+@fixture(params = ["47-2111", "47-2111.00"])
+def soc(request: FixtureRequest) -> str:
     """
     Electrician SOC code in both bare and suffixed formats.
     """
@@ -234,3 +265,65 @@ def skill_vectorizer(extracted_skills: dict[str, list[str]]) -> SkillVectorizer:
     Build a vectorizer from extracted skill lists.
     """
     return SkillVectorizer(extracted_skills)
+
+
+# ---------------------------------------------------------------------
+# Clustering
+# ---------------------------------------------------------------------
+
+@fixture
+def comparison(pca_reducer: PcaReducer) -> ClusterComparison:
+    """
+    Build a comparison runner without sector labels.
+    """
+    return ClusterComparison(
+        coordinates = pca_reducer.coordinates,
+        random_seed = 42
+    )
+
+
+@fixture
+def comparison_with_sectors(
+    pca_reducer   : PcaReducer,
+    sector_labels : list[str]
+) -> ClusterComparison:
+    """
+    Build a comparison runner with sector labels for ARI.
+    """
+    return ClusterComparison(
+        coordinates   = pca_reducer.coordinates,
+        random_seed   = 42,
+        sector_labels = sector_labels
+    )
+
+
+@fixture
+def clusterer(
+    pca_reducer      : PcaReducer,
+    skill_vectorizer : SkillVectorizer
+) -> HierarchicalClusterer:
+    """
+    Build a hierarchical clusterer from the shared PCA reducer.
+    """
+    return HierarchicalClusterer(
+        coordinates   = pca_reducer.coordinates,
+        document_ids  = pca_reducer.document_ids,
+        feature_names = skill_vectorizer.feature_names,
+        tfidf_matrix  = skill_vectorizer.tfidf_matrix
+    )
+
+
+@fixture
+def sector_labels(
+    extracted_skills : dict[str, list[str]],
+    occupation_index : OccupationIndex,
+    pca_reducer      : PcaReducer
+) -> list[str]:
+    """
+    Sector labels aligned with PCA reducer document order.
+    """
+    return compute_sector_labels(
+        document_ids     = pca_reducer.document_ids,
+        extracted_skills = extracted_skills,
+        occupation_index = occupation_index
+    )
