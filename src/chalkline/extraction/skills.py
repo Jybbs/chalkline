@@ -8,12 +8,13 @@ phrase masking. The output is a mapping from document identifiers to
 deduplicated, sorted canonical skill names.
 """
 
-from ahocorasick_rs                  import AhoCorasick, MatchKind
-from logging                         import getLogger
-from nltk.stem                       import PorterStemmer
-from re                              import sub
-from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
-from typing                          import NamedTuple
+from ahocorasick_rs import AhoCorasick, MatchKind
+from html           import unescape
+from logging        import getLogger
+from nltk.stem      import PorterStemmer
+from re             import sub
+from typing         import NamedTuple
+from wordfreq       import word_frequency
 
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
@@ -127,7 +128,8 @@ class SkillExtractor:
         )
 
         patterns, self.metadata = self._build_patterns()
-        self.automaton = AhoCorasick(
+        self.pattern_chars      = frozenset(c for p in patterns for c in p)
+        self.automaton          = AhoCorasick(
             patterns, MatchKind.LeftmostLongest
         )
 
@@ -167,9 +169,12 @@ class SkillExtractor:
             canonical_to_lemmas.setdefault(canonical, set()).add(lemma)
 
         for canonical, lemmas in sorted(canonical_to_lemmas.items()):
-            forms = {canonical.lower(), self._stem(canonical)} | lemmas
+            canon = canonical.lower().replace("/", " ").strip()
+            forms = {canon, self._stem(canon)} | {
+                f.replace("/", " ").strip() for f in lemmas
+            }
 
-            if len(words := canonical.lower().split()) == 2:
+            if len(words := canon.split()) == 2:
                 forms.add(f"{words[1]} {words[0]}")
 
             forms -= seen | {""}
@@ -204,6 +209,10 @@ class SkillExtractor:
         """
         Check whether a match span falls on word boundaries.
 
+        After preprocessing, all non-pattern characters have been
+        replaced with spaces, so a valid boundary is simply a space
+        or string edge.
+
         Args:
             end   : End position (exclusive) of the match.
             start : Start position of the match.
@@ -213,8 +222,8 @@ class SkillExtractor:
             `True` if both boundaries are valid.
         """
         return (
-            (start == 0 or not text[start - 1].isalnum())
-            and (end == len(text) or not text[end].isalnum())
+            (start == 0 or text[start - 1] == " ")
+            and (end == len(text) or text[end] == " ")
         )
 
     def _match(self, text: str) -> list[str]:
@@ -248,10 +257,12 @@ class SkillExtractor:
         """
         Normalize raw posting text and mask filler phrases.
 
-        Converts bullet characters and semicolons to periods, splits
-        camelCase terms into separate words, collapses whitespace,
-        lowercases, and blanks filler phrase spans with whitespace
-        before skill matching.
+        Splits camelCase terms into separate words, lowercases, strips
+        all characters that do not appear in any lexicon pattern,
+        collapses whitespace, and blanks filler phrase spans before
+        skill matching. The allowed character set is derived at init
+        time from the automaton patterns themselves, so the filter
+        is always consistent with whatever the lexicons contain.
 
         Args:
             text: Raw posting description.
@@ -259,10 +270,12 @@ class SkillExtractor:
         Returns:
             Cleaned, lowercased text with fillers replaced by spaces.
         """
-        text = sub(r"[•●■◦▪–—;]", ". ", text)
+        text = sub(r"<[^>]+>", " ", text)
+        text = unescape(text)
         text = sub(r"([a-z])([A-Z])", r"\1 \2", text)
-        text = sub(r"\s+", " ", text)
         text = text.lower().strip()
+        text = "".join(c if c in self.pattern_chars else " " for c in text)
+        text = sub(r"\s+", " ", text)
 
         chars = list(text)
         for _, start, end in self.filler_automaton.find_matches_as_indexes(text):
@@ -320,7 +333,7 @@ class SkillExtractor:
 
             corpus_tokens.update(
                 t for t in lemmatized.split()
-                if len(t) >= 3 and t not in ENGLISH_STOP_WORDS
+                if len(t) >= 3 and word_frequency(t, "en") < 1e-4
             )
             matched_tokens.update(
                 t for s in skills for t in s.lower().split()

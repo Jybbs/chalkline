@@ -23,6 +23,7 @@ from pytest  import fixture, FixtureRequest
 from chalkline.clustering.comparison   import ClusterComparison
 from chalkline.clustering.hierarchical import compute_sector_labels
 from chalkline.clustering.hierarchical import HierarchicalClusterer
+from chalkline.clustering.schemas      import ClusterLabel
 from chalkline.collection.schemas      import Posting
 from chalkline.extraction.lexicons     import LexiconRegistry
 from chalkline.extraction.loaders      import load_certifications, load_onet
@@ -232,7 +233,10 @@ def second_posting() -> Posting:
     return _postings()[1]
 
 
-@fixture(params = ["47-2111", "47-2111.00"])
+@fixture(params = [
+    "47-2111",
+    "47-2111.00"
+])
 def soc(request: FixtureRequest) -> str:
     """
     Electrician SOC code in both bare and suffixed formats.
@@ -298,18 +302,27 @@ def comparison_with_sectors(
 
 
 @fixture
-def clusterer(
-    pca_reducer      : PcaReducer,
+def cluster_labels(
+    clusterer        : HierarchicalClusterer,
     skill_vectorizer : SkillVectorizer
-) -> HierarchicalClusterer:
+) -> list[ClusterLabel]:
+    """
+    Cluster labels from TF-IDF centroid terms, shared across label tests.
+    """
+    return clusterer.labels(
+        feature_names = skill_vectorizer.feature_names,
+        tfidf_matrix  = skill_vectorizer.tfidf_matrix
+    )
+
+
+@fixture
+def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
     """
     Build a hierarchical clusterer from the shared PCA reducer.
     """
     return HierarchicalClusterer(
-        coordinates   = pca_reducer.coordinates,
-        document_ids  = pca_reducer.document_ids,
-        feature_names = skill_vectorizer.feature_names,
-        tfidf_matrix  = skill_vectorizer.tfidf_matrix
+        coordinates  = pca_reducer.coordinates,
+        document_ids = pca_reducer.document_ids
     )
 
 

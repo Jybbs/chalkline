@@ -12,6 +12,8 @@ import numpy as np
 from pytest import mark
 
 from chalkline.clustering.hierarchical import HierarchicalClusterer
+from chalkline.clustering.schemas      import ClusterLabel
+from chalkline.extraction.vectorize    import SkillVectorizer
 
 
 class TestComputeSectorLabels:
@@ -51,7 +53,7 @@ class TestHierarchicalClusterer:
         """
         Cophenetic correlations fall within [-1, 1].
         """
-        for result in clusterer.cophenetic:
+        for result in clusterer.cophenetic_comparison():
             assert -1 <= result.correlation <= 1
 
     def test_cophenetic_count(self, clusterer: HierarchicalClusterer):
@@ -59,13 +61,13 @@ class TestHierarchicalClusterer:
         Three cophenetic results for ward, complete, and average
         linkage methods.
         """
-        assert len(clusterer.cophenetic) == 3
+        assert len(clusterer.cophenetic_comparison()) == 3
 
     def test_cophenetic_methods(self, clusterer: HierarchicalClusterer):
         """
         Cophenetic results cover all three linkage methods.
         """
-        methods = {result.method for result in clusterer.cophenetic}
+        methods = {result.method for result in clusterer.cophenetic_comparison()}
         assert methods == {"average", "complete", "ward"}
 
     def test_linkage_shape(self, clusterer: HierarchicalClusterer):
@@ -112,42 +114,57 @@ class TestHierarchicalClusterer:
     # Labels
     # ---------------------------------------------------------
 
-    def test_labels_aligned(self, clusterer: HierarchicalClusterer):
+    def test_labels_aligned(self, cluster_labels: list[ClusterLabel]):
         """
         Each label has matching term and weight counts.
         """
-        for label in clusterer.labels():
+        for label in cluster_labels:
             assert len(label.terms) == len(label.weights)
 
-    def test_labels_count(self, clusterer: HierarchicalClusterer):
+    def test_labels_count(
+        self,
+        cluster_labels : list[ClusterLabel],
+        clusterer      : HierarchicalClusterer
+    ):
         """
         One label per unique cluster.
         """
-        assert len(clusterer.labels()) == clusterer.k
+        assert len(cluster_labels) == clusterer.k
 
-    def test_labels_readable(self, clusterer: HierarchicalClusterer):
+    def test_labels_readable(self, cluster_labels: list[ClusterLabel]):
         """
         Cluster label terms are human-readable strings, not
         numeric indices.
         """
-        for label in clusterer.labels():
+        for label in cluster_labels:
             assert all(isinstance(t, str) for t in label.terms)
             assert all(not t.isdigit() for t in label.terms)
 
-    def test_labels_size_sums(self, clusterer: HierarchicalClusterer):
+    def test_labels_size_sums(
+        self,
+        cluster_labels : list[ClusterLabel],
+        clusterer      : HierarchicalClusterer
+    ):
         """
         Cluster sizes sum to the total number of postings.
         """
-        assert sum(
-            label.size for label in clusterer.labels()
-        ) == len(clusterer.document_ids)
+        total = sum(label.size for label in cluster_labels)
+        assert total == len(clusterer.document_ids)
 
-    def test_labels_top_n(self, clusterer: HierarchicalClusterer):
+    def test_labels_top_n(
+        self,
+        clusterer        : HierarchicalClusterer,
+        skill_vectorizer : SkillVectorizer
+    ):
         """
         Requesting fewer top terms limits the returned list
         length.
         """
-        for label in clusterer.labels(top_n = 2):
+        for label in clusterer.labels(
+            feature_names = skill_vectorizer.feature_names,
+            tfidf_matrix  = skill_vectorizer.tfidf_matrix,
+            top_n         = 2
+        ):
             assert len(label.terms) <= 2
 
     # ---------------------------------------------------------
@@ -173,7 +190,7 @@ class TestHierarchicalClusterer:
         Title map substitutes document identifiers in leaf labels.
         """
         title_map = {doc: f"Title {i}" for i, doc in enumerate(clusterer.document_ids)}
-        data      = clusterer.dendrogram_data(title_map = title_map)
+        data = clusterer.dendrogram_data(title_map = title_map)
         assert all(label.startswith("Title ") for label in data["ivl"])
 
     # ---------------------------------------------------------
@@ -195,24 +212,28 @@ class TestHierarchicalClusterer:
         Per-posting silhouette array has one entry per posting.
         """
         n = len(clusterer.document_ids)
-        assert len(clusterer.silhouette_samples_) == n
+        assert len(clusterer.validation_metrics().silhouette_samples) == n
 
     def test_validity_metrics_populated(self, clusterer: HierarchicalClusterer):
         """
         Internal validity metrics are non-None when k >= 2.
         """
-        assert clusterer.calinski_harabasz is not None
-        assert clusterer.calinski_harabasz > 0
-        assert clusterer.davies_bouldin is not None
-        assert clusterer.davies_bouldin >= 0
-        assert clusterer.silhouette is not None
-        assert -1 <= clusterer.silhouette <= 1
+        metrics = clusterer.validation_metrics()
+        assert metrics.calinski_harabasz is not None
+        assert metrics.calinski_harabasz > 0
+        assert metrics.davies_bouldin is not None
+        assert metrics.davies_bouldin >= 0
+        assert metrics.silhouette is not None
+        assert -1 <= metrics.silhouette <= 1
 
     # ---------------------------------------------------------
     # Validate at K
     # ---------------------------------------------------------
 
-    @mark.parametrize("k", [2, 3])
+    @mark.parametrize("k", [
+        2,
+        3
+    ])
     def test_validate_at_k(self, clusterer: HierarchicalClusterer, k: int):
         """
         Assignments at a given K cover all postings and produce

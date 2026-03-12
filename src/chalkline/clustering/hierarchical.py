@@ -2,11 +2,11 @@
 Ward-linkage hierarchical agglomerative clustering with cophenetic
 validation and TF-IDF centroid labeling.
 
-Fits Ward, complete, and average linkage matrices on PCA-reduced
-coordinates, selects a flat partition via the inconsistency method,
-and derives human-readable cluster labels from the top TF-IDF terms
-of each cluster's centroid vector. The complete and average linkage
-matrices exist only for cophenetic comparison and are not stored.
+Fits Ward linkage on PCA-reduced coordinates, selects a flat partition
+via the merge-height acceleration criterion, and exposes cophenetic
+comparison and internal validity metrics as on-demand methods. Cluster
+labels are derived from TF-IDF centroid terms when explicitly requested
+via `labels()`.
 """
 
 import numpy as np
@@ -20,7 +20,8 @@ from sklearn.metrics         import calinski_harabasz_score
 from sklearn.metrics         import davies_bouldin_score
 from sklearn.metrics         import silhouette_samples, silhouette_score
 
-from chalkline.clustering.schemas     import ClusterLabel, CopheneticResult
+from chalkline.clustering.schemas     import ClusterLabel
+from chalkline.clustering.schemas     import CopheneticResult, ValidationMetrics
 from chalkline.extraction.occupations import OccupationIndex
 
 
@@ -30,12 +31,13 @@ def compute_sector_labels(
     occupation_index : OccupationIndex
 ) -> list[str]:
     """
-    Map postings to sector labels via Jaccard-nearest SOC code.
+    Map postings to SOC codes via Jaccard-nearest occupation.
 
     For each document in row order, finds the O*NET occupation
     whose skill profile has maximum Jaccard overlap with the
     posting's canonical skill set, then returns that occupation's
-    sector field.
+    SOC code, giving 21 distinct ground-truth classes for ARI
+    evaluation rather than 3 broad sectors.
 
     Args:
         document_ids     : Posting identifiers in matrix row order.
@@ -47,7 +49,7 @@ def compute_sector_labels(
     return [
         occupation_index.get(
             occupation_index.nearest(set(extracted_skills[doc]))
-        ).sector
+        ).soc_code
         for doc in document_ids
     ]
 
@@ -56,41 +58,33 @@ class HierarchicalClusterer:
     """
     Ward-linkage HAC with multi-method cophenetic validation.
 
-    Computes the Ward linkage matrix with optimal leaf ordering,
-    selects a flat partition via the inconsistency method, and
-    derives cluster labels from the top TF-IDF centroid terms.
-    Complete and average linkage matrices are computed for
-    cophenetic comparison but not retained.
+    Computes the Ward linkage matrix with optimal leaf ordering and
+    selects a flat partition via the merge-height acceleration
+    criterion. Cophenetic comparison and internal validity metrics
+    are computed on demand via `cophenetic_comparison()` and
+    `validation_metrics()`. Cluster labels are derived from TF-IDF
+    centroid terms when explicitly requested via `labels()`.
 
     Requirement coverage: linkage (1), cophenetic (2, 7),
-    dendrogram (3), inconsistency cut (4), cut_tree (5),
+    dendrogram (3), acceleration cut (4), cut_tree (5),
     validate_at_k (6), cluster labels (8), ARI (9).
     """
 
     def __init__(
         self,
-        coordinates   : np.ndarray,
-        document_ids  : list[str],
-        feature_names : list[str],
-        tfidf_matrix  : spmatrix,
-        depth         : int   = 2,
-        threshold     : float = 1.0
+        coordinates  : np.ndarray,
+        document_ids : list[str]
     ):
         """
         Fit Ward-linkage HAC and derive cluster assignments.
 
         Args:
-            coordinates   : PCA output of shape
-                            `(n_postings, n_selected)`.
-            document_ids  : Posting identifiers in row order.
-            feature_names : TF-IDF vocabulary in column order.
-            tfidf_matrix  : Sparse TF-IDF matrix for cluster
-                            centroid labeling.
-            depth         : Inconsistency calculation depth.
-            threshold     : Inconsistency cut threshold.
+            coordinates  : PCA output of shape
+                           `(n_postings, n_selected)`.
+            document_ids : Posting identifiers in row order.
         """
-        self.document_ids  = document_ids
-        self.feature_names = feature_names
+        self.coordinates  = coordinates
+        self.document_ids = document_ids
 
         n = len(coordinates)
 
@@ -100,52 +94,22 @@ class HierarchicalClusterer:
             optimal_ordering = True
         )
 
-        distances = pdist(coordinates)
-        self.cophenetic = [
-            CopheneticResult(
-                correlation = float(cophenet(z, distances)[0]),
-                method      = method
-            )
-            for method, z in [
-                ("average",  linkage(coordinates, method = "average")),
-                ("complete", linkage(coordinates, method = "complete")),
-                ("ward",     self.linkage)
-            ]
-        ]
+        heights = self.linkage[:, 2]
+        if n <= 3:
+            k = 2
+        else:
+            acceleration = np.diff(heights, n = 2)
+            k            = int(acceleration[::-1].argmax()) + 2
+        self.cut_height  = float(heights[-k])
+        self.assignments = fcluster(self.linkage, criterion = "maxclust", t = k)
+        self.k           = len(np.unique(self.assignments))
 
-        self.cut_height  = threshold
-        self.assignments = fcluster(
-            self.linkage,
-            criterion = "inconsistent",
-            depth     = depth,
-            t         = threshold
+        max_k         = min(n - 1, 20)
+        self.cut_tree = (
+            cut_tree(self.linkage, n_clusters = range(2, max_k + 1))
+            if max_k >= 2
+            else np.empty((n, 0), dtype = int)
         )
-        self.k = len(np.unique(self.assignments))
-
-        max_k = min(n - 1, 20)
-        if max_k >= 2:
-            self.cut_tree = cut_tree(
-                self.linkage,
-                n_clusters = range(2, max_k + 1)
-            )
-        else:
-            self.cut_tree = np.empty((n, 0), dtype = int)
-
-        self.tfidf_dense = tfidf_matrix.toarray()
-        leader_nodes, leader_labels = leaders(self.linkage, self.assignments)
-        self.leader_map = dict(zip(leader_labels, leader_nodes))
-
-        if 2 <= self.k < n:
-            args = (coordinates, self.assignments)
-            self.calinski_harabasz   = float(calinski_harabasz_score(*args))
-            self.davies_bouldin      = float(davies_bouldin_score(*args))
-            self.silhouette          = float(silhouette_score(*args))
-            self.silhouette_samples_ = silhouette_samples(*args)
-        else:
-            self.calinski_harabasz   = None
-            self.davies_bouldin      = None
-            self.silhouette          = None
-            self.silhouette_samples_ = np.zeros(n)
 
     # -----------------------------------------------------------------
     # Public methods
@@ -161,6 +125,27 @@ class HierarchicalClusterer:
                            `document_ids` row order.
         """
         return float(adjusted_rand_score(sector_labels, self.assignments))
+
+    def cophenetic_comparison(self) -> list[CopheneticResult]:
+        """
+        Cophenetic correlations for Ward, complete, and average
+        linkage on the same coordinates.
+
+        Computes `pdist` and two additional linkage matrices on
+        demand. Results are not cached, so repeated calls refit.
+        """
+        distances = pdist(self.coordinates)
+        return [
+            CopheneticResult(
+                correlation = float(cophenet(z, distances)[0]),
+                method      = method
+            )
+            for method, z in [
+                ("average",  linkage(self.coordinates, method = "average")),
+                ("complete", linkage(self.coordinates, method = "complete")),
+                ("ward",     self.linkage)
+            ]
+        ]
 
     def dendrogram_data(self, title_map: dict[str, str] | None = None) -> dict:
         """
@@ -183,27 +168,39 @@ class HierarchicalClusterer:
             no_plot = True
         )
 
-    def labels(self, top_n: int = 5) -> list[ClusterLabel]:
+    def labels(
+        self,
+        feature_names : list[str],
+        tfidf_matrix  : spmatrix,
+        top_n         : int = 5
+    ) -> list[ClusterLabel]:
         """
         Human-readable labels from top TF-IDF centroid terms.
 
-        Averages the original TF-IDF vectors of each cluster's
-        members and extracts the `top_n` highest-weighted terms.
+        Averages the TF-IDF vectors of each cluster's members and
+        extracts the `top_n` highest-weighted terms. The dense
+        conversion of `tfidf_matrix` is scoped to this call.
 
         Args:
-            top_n: Number of top terms per cluster label.
+            feature_names : TF-IDF vocabulary in column order.
+            tfidf_matrix  : Sparse TF-IDF matrix for centroid
+                            computation, aligned with `document_ids`.
+            top_n         : Number of top terms per cluster label.
         """
+        tfidf_dense                 = tfidf_matrix.toarray()
+        leader_nodes, leader_labels = leaders(self.linkage, self.assignments)
+        leader_map                  = dict(zip(leader_labels, leader_nodes))
         return [
             ClusterLabel(
                 cluster_id     = int(cluster_id),
-                leader_node_id = int(self.leader_map[cluster_id]),
+                leader_node_id = int(leader_map[cluster_id]),
                 size           = int(mask.sum()),
-                terms          = [self.feature_names[j] for j in indices],
+                terms          = [feature_names[j] for j in indices],
                 weights        = [float(centroid[j]) for j in indices]
             )
             for cluster_id in np.unique(self.assignments)
             for mask     in [self.assignments == cluster_id]
-            for centroid in [self.tfidf_dense[mask].mean(0)]
+            for centroid in [tfidf_dense[mask].mean(0)]
             for indices  in [np.argsort(centroid)[::-1][:top_n]]
         ]
 
@@ -219,3 +216,23 @@ class HierarchicalClusterer:
             k: Target number of clusters.
         """
         return fcluster(self.linkage, criterion = "maxclust", t = k)
+
+    def validation_metrics(self) -> ValidationMetrics:
+        """
+        Internal validity metrics for the current flat partition.
+
+        Computes silhouette, Calinski-Harabasz, and Davies-Bouldin
+        scores on demand. Returns a `ValidationMetrics` instance
+        with all fields set to `None` when the partition is
+        degenerate (fewer than 2 clusters).
+        """
+        n = len(self.coordinates)
+        if not (2 <= self.k < n):
+            return ValidationMetrics()
+        args = (self.coordinates, self.assignments)
+        return ValidationMetrics(
+            calinski_harabasz  = float(calinski_harabasz_score(*args)),
+            davies_bouldin     = float(davies_bouldin_score(*args)),
+            silhouette         = float(silhouette_score(*args)),
+            silhouette_samples = silhouette_samples(*args).tolist()
+        )
