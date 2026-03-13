@@ -12,7 +12,7 @@ from ahocorasick_rs import AhoCorasick, MatchKind
 from html           import unescape
 from logging        import getLogger
 from nltk.stem      import PorterStemmer
-from re             import MULTILINE, search, sub
+from re             import IGNORECASE, MULTILINE, search, sub
 from typing         import NamedTuple
 from wordfreq       import word_frequency
 
@@ -197,7 +197,8 @@ class SkillExtractor:
         """
         Normalize raw posting text for skill matching.
 
-        Drops preamble text before the first structural marker,
+        Drops preamble text before the first structural marker and
+        EEO boilerplate after the first equal-opportunity marker,
         strips HTML tags, splits camelCase terms, lowercases, removes
         characters absent from lexicon patterns, and collapses
         whitespace. The allowed character set is derived at init time
@@ -212,6 +213,16 @@ class SkillExtractor:
         """
         if m := search(r"^[ \t]*(?:\*[\s*]|#{1,4}\s)", text, MULTILINE):
             text = text[m.start():]
+        if (
+            (m := search(
+                r"equal\s+(?:opportunity|employment\s+opportunity)\s+employer|"
+                r"without\s+regard\s+to\s+race",
+                text,
+                IGNORECASE,
+            ))
+            and m.start() > len(text) // 2
+        ):
+            text = text[:m.start()]
         text = sub(r"<[^>]+>", " ", text)
         text = unescape(text)
         text = sub(r"([a-z])([A-Z])", r"\1 \2", text)
