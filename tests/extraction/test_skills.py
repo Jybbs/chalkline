@@ -83,12 +83,12 @@ class TestSkillExtractor:
     # Logging
     # ---------------------------------------------------------
 
-    def test_high_unmatched_rate_warns(self, extractor: SkillExtractor, caplog):
+    def test_high_unmatched_rate_warns(self, caplog, extractor: SkillExtractor):
         """
         A corpus with mostly unrecognized terms triggers a warning when the
         unmatched rate exceeds the 25% threshold.
         """
-        with caplog.at_level("WARNING", logger="chalkline.extraction.skills"):
+        with caplog.at_level("WARNING", logger = "chalkline.extraction.skills"):
             extractor.extract({
                 "a": "quantum computing blockchain artificial intelligence "
                      "machine learning deep neural networks cryptocurrency "
@@ -96,11 +96,11 @@ class TestSkillExtractor:
             })
         assert any("unmatched" in r.message.lower() for r in caplog.records)
 
-    def test_unmatched_terms_logged(self, extractor: SkillExtractor, caplog):
+    def test_unmatched_terms_logged(self, caplog, extractor: SkillExtractor):
         """
         Unmatched term diagnostics are logged at debug level.
         """
-        with caplog.at_level("DEBUG", logger="chalkline.extraction.skills"):
+        with caplog.at_level("DEBUG", logger = "chalkline.extraction.skills"):
             extractor.extract({
                 "a": "Fall protection and quantum computing required"
             })
@@ -158,9 +158,10 @@ class TestSkillExtractor:
         Filler phrases are blanked before matching so that terms within
         them do not produce false positives.
         """
-        assert "a" not in (result := extractor.extract({
+        result = extractor.extract({
             "a": "Must have years of experience with safety procedures"
-        })) or "experience" not in result.get("a", [])
+        })
+        assert "a" not in result or "experience" not in result.get("a", [])
 
     def test_semicolon_normalization(self, extractor: SkillExtractor):
         """
@@ -182,9 +183,7 @@ class TestSkillExtractor:
         assert "fall protection" in extractor.vocabulary
         assert "welding" in extractor.vocabulary
 
-    def test_vocabulary_supplement(
-        self, extractor: SkillExtractor
-    ):
+    def test_vocabulary_supplement(self, extractor: SkillExtractor):
         """
         Supplement lexicon terms appear in the extractor's vocabulary
         alongside OSHA and O*NET terms.
@@ -197,10 +196,10 @@ class TestSkillExtractor:
 
     def test_boundary_digit(self, extractor: SkillExtractor):
         """
-        Digits are alphanumeric, so a match abutting a digit is
-        rejected because `isalnum()` treats digits as word characters.
+        Digits not appearing in any lexicon pattern are treated as
+        separators, so a match abutting such a digit is valid.
         """
-        assert "welding" not in extractor.extract(
+        assert "welding" in extractor.extract(
             {"a": "3welding required on site"}
         ).get("a", [])
 

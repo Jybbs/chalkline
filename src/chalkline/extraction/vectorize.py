@@ -39,6 +39,7 @@ class SkillVectorizer:
                     skill names, as returned by `SkillExtractor.extract`.
         """
         self.document_ids = sorted(skills)
+
         self._dicts = [
             dict.fromkeys(skills[doc], 1)
             for doc in self.document_ids
@@ -46,7 +47,7 @@ class SkillVectorizer:
 
         self.pipeline = Pipeline([
             ("vec",   DictVectorizer()),
-            ("tfidf", TfidfTransformer(norm=None)),
+            ("tfidf", TfidfTransformer(norm = None)),
             ("norm",  Normalizer())
         ])
 
