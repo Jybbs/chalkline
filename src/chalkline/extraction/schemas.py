@@ -50,7 +50,7 @@ class ConfidenceTier(StrEnum):
 
 class CorpusStatistics(BaseModel, extra="forbid"):
     """
-    Aggregate statistics computed after TF-IDF vectorization.
+    Aggregate statistics computed after IDF-weighted vectorization.
 
     Captures vocabulary coverage, matrix density, and per-posting skill
     counts for downstream diagnostics and threshold tuning.

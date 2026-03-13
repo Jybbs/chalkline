@@ -102,9 +102,11 @@ class AprioriComparison:
         """
         Jaccard overlap between Apriori and PPMI positive pairs.
 
-        Computes the Jaccard index between skill pairs with
-        lift > 1.0 from Apriori and pairs with positive PPMI
-        values from the co-occurrence network.
+            J = |P_apriori ∩ P_ppmi| / |P_apriori ∪ P_ppmi|
+
+        where P_apriori is the set of skill pairs with lift > 1.0
+        and P_ppmi is the set of pairs with positive PPMI from the
+        co-occurrence network.
 
         Args:
             ppmi_pairs: Set of (skill_a, skill_b) tuples with

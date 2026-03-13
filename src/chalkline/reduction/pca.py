@@ -5,9 +5,11 @@ component selection.
 Fits an initial TruncatedSVD at `max_components` to profile the
 explained variance spectrum, selects the effective rank by cumulative
 variance threshold, then refits a production `Pipeline` at the
-selected rank. A `StandardScaler(with_mean=False)` is applied so
-each component has unit variance, making Euclidean distance equivalent
-to standardized Euclidean in downstream matching.
+selected rank.
+
+A `StandardScaler(with_mean=False)` is applied so each component has
+unit variance, making Euclidean distance equivalent to standardized
+Euclidean in downstream matching.
 """
 
 import numpy as np
@@ -24,12 +26,18 @@ class PcaReducer:
     """
     TruncatedSVD reduction with automatic component selection.
 
-    Performs two SVD fits against the input TF-IDF matrix. The
-    first fit at `max_components` produces the full explained
+    Performs two SVD fits against the input IDF-weighted matrix.
+    The first fit at `max_components` produces the full explained
     variance profile for scree analysis. The second fit at the
-    selected rank feeds a production `Pipeline` whose output
-    has exactly `n_selected` columns with unit variance per
-    component.
+    selected rank feeds a production `Pipeline` whose output has
+    exactly `n_selected` columns with unit variance per component.
+
+    Component selection finds the smallest k where cumulative
+    explained variance exceeds the threshold:
+
+        k = argmin{Σᵢ₌₁ᵏ λᵢ / Σλ ≥ τ}
+
+    where λᵢ are the singular values and τ is `variance_threshold`.
     """
 
     def __init__(

@@ -37,12 +37,13 @@ class CooccurrenceNetwork:
     Receives the binary skill matrix from `SkillVectorizer`, computes
     the thresholded co-occurrence matrix eagerly, and exposes PMI
     variants, graph construction, and Louvain community detection as
-    cached properties and on-demand methods. When `min_cooccurrence`
-    is `"auto"`, the threshold is selected by finding the knee of the
-    modularity-vs-threshold curve via `kneed`, which identifies the
-    point where community quality begins to degrade. The floor of 3
-    protects PMI stability at small corpus sizes where a single
-    observation can shift a pair's score by 25%.
+    cached properties and on-demand methods.
+
+    When `min_cooccurrence` is `"auto"`, the threshold is selected by
+    finding the knee of the modularity-vs-threshold curve via `kneed`,
+    identifying the point where community quality begins to degrade.
+    The floor of 3 protects PMI stability at small corpus sizes where
+    a single observation can shift a pair's score by 25%.
     """
 
     def __init__(
@@ -95,9 +96,13 @@ class CooccurrenceNetwork:
         """
         Dunning's G-test statistics for all thresholded pairs.
 
-        Computes 2x2 contingency tables from document frequency
-        marginals across all upper-triangle pairs via vectorized
-        array operations. The result is symmetric.
+            G = 2 · Σᵢ Oᵢ · ln(Oᵢ / Eᵢ)
+
+        where O and E are the observed and expected counts from the
+        2x2 contingency table [C_xy, df_x - C_xy; df_y - C_xy,
+        n - df_x - df_y + C_xy]. Computed via vectorized array
+        operations across all upper-triangle pairs. The result is
+        symmetric.
         """
         C  = triu(self.cooccurrence, format = "coo")
         n  = float(self.n_docs)
@@ -137,11 +142,15 @@ class CooccurrenceNetwork:
         Normalized pointwise mutual information with positive
         clipping.
 
+            NPMI(x, y) = PMI(x, y) / -log(C_xy / n)
+
         Divides PMI by the negative log joint probability for each
         pair, bounding values to [-1, 1]. Pairs where both skills
         appear in every posting are capped at 1.0 rather than
-        dividing by zero. Negative values are clipped to zero
-        (NPMI+) for graph construction.
+        dividing by zero.
+
+        Negative values are clipped to zero (NPMI+) for graph
+        construction.
         """
         pmi   = self.pmi_matrix.copy()
         denom = np.log(self.n_docs / self.cooccurrence.data.astype(float))
@@ -156,9 +165,12 @@ class CooccurrenceNetwork:
         """
         Pointwise mutual information as sparse matrix algebra.
 
-        Constructs diagonal normalization matrices from document
-        frequencies and applies log directly to the sparse data
-        attribute to avoid densifying the matrix.
+            PMI(x, y) = log(n · C_xy / (df_x · df_y))
+
+        where `C_xy` is the co-occurrence count, `df_x` and `df_y`
+        are document frequencies, and `n` is the corpus size. Applies
+        log directly to the sparse data attribute to avoid densifying
+        the matrix.
         """
         n  = self.n_docs
         df = self.doc_freq.astype(float)
@@ -174,6 +186,8 @@ class CooccurrenceNetwork:
     def ppmi_matrix(self) -> csr_array:
         """
         Positive pointwise mutual information.
+
+            PPMI(x, y) = max(0, PMI(x, y))
 
         Clips negative PMI values to zero and eliminates the
         resulting structural zeros.
@@ -194,12 +208,13 @@ class CooccurrenceNetwork:
         Sweeps integer thresholds from the floor of 3 up to the point
         where the graph has no edges, computes Louvain modularity at
         each level, and returns the knee of the modularity-vs-threshold
-        curve. The knee is the point where community quality transitions
-        from stable to rapidly degrading, balancing graph density against
-        community structure.
+        curve via `kneed.KneeLocator`.
 
-        Falls back to the floor of 3 when the sweep produces fewer than
-        3 candidate thresholds or `kneed` cannot locate a knee.
+        The knee is the point where community quality transitions from
+        stable to rapidly degrading, balancing graph density against
+        community structure. Falls back to the floor of 3 when the
+        sweep produces fewer than 3 candidate thresholds or `kneed`
+        cannot locate a knee.
 
         Args:
             C: Pre-computed co-occurrence matrix with diagonal zeroed

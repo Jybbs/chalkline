@@ -120,16 +120,15 @@ class OccupationIndex:
         """
         Return the SOC code with maximum Jaccard overlap.
 
-        Converts the input skill set into a binary row vector and computes
-        Jaccard distance against all SOC codes via `cdist`. Because `cdist`
-        returns distance rather than similarity, `argmin` gives the most
-        similar occupation.
+            J(A, B) = |A ∩ B| / |A ∪ B|
+
+        Converts the input skill set into a binary row vector and
+        computes Jaccard distance against all SOC codes via `cdist`.
+        Because `cdist` returns distance (1 - J) rather than
+        similarity, `argmin` gives the most similar occupation.
 
         Args:
             posting_skills: Normalized skill names from a posting.
-
-        Returns:
-            The SOC code string of the best-matching occupation.
         """
         vector = np.zeros((1, len(self.skill_to_col)), dtype=np.uint8)
         vector[0, [
