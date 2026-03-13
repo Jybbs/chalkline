@@ -190,13 +190,14 @@ class HierarchicalClusterer:
         tfidf_dense                 = tfidf_matrix.toarray()
         leader_nodes, leader_labels = leaders(self.linkage, self.assignments)
         leader_map                  = dict(zip(leader_labels, leader_nodes))
+        names = np.array(feature_names)
         return [
             ClusterLabel(
                 cluster_id     = int(cluster_id),
                 leader_node_id = int(leader_map[cluster_id]),
                 size           = int(mask.sum()),
-                terms          = [feature_names[j] for j in indices],
-                weights        = [float(centroid[j]) for j in indices]
+                terms          = names[indices].tolist(),
+                weights        = centroid[indices].tolist()
             )
             for cluster_id in np.unique(self.assignments)
             for mask     in [self.assignments == cluster_id]

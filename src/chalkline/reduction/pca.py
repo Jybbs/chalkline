@@ -99,12 +99,13 @@ class PcaReducer:
         Args:
             top_n: Number of top terms per component.
         """
+        names = np.array(self.feature_names)
         return [
             ComponentLoading(
                 index          = i,
-                terms          = [self.feature_names[j] for j in indices],
+                terms          = names[indices].tolist(),
                 variance_ratio = float(self.explained_variance_ratio[i]),
-                weights        = [float(row[j]) for j in indices]
+                weights        = row[indices].tolist()
             )
             for i, row in enumerate(
                 self.pipeline.named_steps["svd"].components_

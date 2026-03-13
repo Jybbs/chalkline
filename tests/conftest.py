@@ -4,9 +4,9 @@ Shared test fixtures for the Chalkline test suite.
 Fixtures form a pipeline chain where each step's output is
 independently tappable by any test module:
 
-    corpus → extracted_skills → skill_vectorizer → pca_reducer
-           ↘                                       ↓
-            sector_labels ← occupation_index    clustering
+    corpus → extracted_skills → vectorizer → pca_reducer
+           ↘                    ↓                   ↓
+            sector_labels    network             clustering
 
 Lexicon fixtures feed the extractor via the registry:
 
@@ -20,19 +20,21 @@ from json    import loads
 from pathlib import Path
 from pytest  import fixture, FixtureRequest
 
-from chalkline.clustering.comparison   import ClusterComparison
-from chalkline.clustering.hierarchical import compute_sector_labels
-from chalkline.clustering.hierarchical import HierarchicalClusterer
-from chalkline.clustering.schemas      import ClusterLabel
-from chalkline.collection.schemas      import Posting
-from chalkline.extraction.lexicons     import LexiconRegistry
-from chalkline.extraction.loaders      import load_certifications, load_onet
-from chalkline.extraction.loaders      import load_osha, load_supplement
-from chalkline.extraction.occupations  import OccupationIndex
-from chalkline.extraction.schemas      import Certification, OnetOccupation
-from chalkline.extraction.skills       import SkillExtractor
-from chalkline.extraction.vectorize    import SkillVectorizer
-from chalkline.reduction.pca           import PcaReducer
+from chalkline.association.apriori       import AprioriComparison
+from chalkline.association.cooccurrence  import CooccurrenceNetwork
+from chalkline.clustering.comparison     import ClusterComparison
+from chalkline.clustering.hierarchical   import compute_sector_labels
+from chalkline.clustering.hierarchical   import HierarchicalClusterer
+from chalkline.clustering.schemas        import ClusterLabel
+from chalkline.collection.schemas        import Posting
+from chalkline.extraction.lexicons       import LexiconRegistry
+from chalkline.extraction.loaders        import load_certifications, load_onet
+from chalkline.extraction.loaders        import load_osha, load_supplement
+from chalkline.extraction.occupations    import OccupationIndex
+from chalkline.extraction.schemas        import Certification, OnetOccupation
+from chalkline.extraction.skills         import SkillExtractor
+from chalkline.extraction.vectorize      import SkillVectorizer
+from chalkline.reduction.pca             import PcaReducer
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -249,26 +251,54 @@ def soc(request: FixtureRequest) -> str:
 # ---------------------------------------------------------------------
 
 @fixture
-def pca_reducer(skill_vectorizer: SkillVectorizer) -> PcaReducer:
+def pca_reducer(vectorizer: SkillVectorizer) -> PcaReducer:
     """
     Build a PCA reducer from the shared skill vectorizer.
     """
     return PcaReducer(
-        document_ids       = skill_vectorizer.document_ids,
-        feature_names      = skill_vectorizer.feature_names,
+        document_ids       = vectorizer.document_ids,
+        feature_names      = vectorizer.feature_names,
         max_components     = 4,
         random_seed        = 42,
-        tfidf_matrix       = skill_vectorizer.tfidf_matrix,
+        tfidf_matrix       = vectorizer.tfidf_matrix,
         variance_threshold = 0.85
     )
 
 
 @fixture
-def skill_vectorizer(extracted_skills: dict[str, list[str]]) -> SkillVectorizer:
+def vectorizer(extracted_skills: dict[str, list[str]]) -> SkillVectorizer:
     """
     Build a vectorizer from extracted skill lists.
     """
     return SkillVectorizer(extracted_skills)
+
+
+# ---------------------------------------------------------------------
+# Association
+# ---------------------------------------------------------------------
+
+@fixture
+def apriori(vectorizer: SkillVectorizer) -> AprioriComparison:
+    """
+    Build an Apriori comparison from the shared skill vectorizer.
+    """
+    return AprioriComparison(
+        binary_matrix = vectorizer.binary_matrix,
+        feature_names = vectorizer.feature_names
+    )
+
+
+@fixture
+def network(vectorizer: SkillVectorizer) -> CooccurrenceNetwork:
+    """
+    Build a co-occurrence network from the shared skill vectorizer.
+    """
+    return CooccurrenceNetwork(
+        binary_matrix    = vectorizer.binary_matrix,
+        feature_names    = vectorizer.feature_names,
+        min_cooccurrence = 0.05,
+        random_seed      = 42
+    )
 
 
 # ---------------------------------------------------------------------
@@ -303,15 +333,15 @@ def comparison_with_sectors(
 
 @fixture
 def cluster_labels(
-    clusterer        : HierarchicalClusterer,
-    skill_vectorizer : SkillVectorizer
+    clusterer  : HierarchicalClusterer,
+    vectorizer : SkillVectorizer
 ) -> list[ClusterLabel]:
     """
     Cluster labels from TF-IDF centroid terms, shared across label tests.
     """
     return clusterer.labels(
-        feature_names = skill_vectorizer.feature_names,
-        tfidf_matrix  = skill_vectorizer.tfidf_matrix
+        feature_names = vectorizer.feature_names,
+        tfidf_matrix  = vectorizer.tfidf_matrix
     )
 
 
