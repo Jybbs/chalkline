@@ -186,8 +186,7 @@ class OnetCurator:
         10,000 words in modern English, sitting above domain terms
         like "rebar" (2.57) while catching general words like
         "level" (4.84) and "iron" (4.27) that would produce false
-        Aho-Corasick matches. Terms with 2 or fewer characters are
-        always ambiguous because single letters match too broadly.
+        Aho-Corasick matches.
 
         Args:
             name: The O*NET entry name to test.
@@ -195,10 +194,7 @@ class OnetCurator:
         Returns:
             `True` if the term should be excluded from the lexicon.
         """
-        return " " not in name and (
-            len(name) <= 2
-            or zipf_frequency(name.lower(), "en") >= 4.0
-        )
+        return " " not in name and zipf_frequency(name, "en") >= 4.0
 
     def _merge(self, raw: dict) -> tuple[dict, set]:
         """
@@ -281,7 +277,7 @@ class OnetCurator:
         if excluded:
             print(f"  Excluded {len(excluded)} ambiguous tool/tech entries:")
             for name in sorted(excluded):
-                print(f"    {name:20s}  zipf={zipf_frequency(name.lower(), "en"):.2f}")
+                print(f"    {name:20s}  zipf={zipf_frequency(name, "en"):.2f}")
 
         job_zones = (
             raw["job_zones"]
