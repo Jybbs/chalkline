@@ -4,11 +4,11 @@ Curate the O*NET occupation-skill mapping for Chalkline's 21 SOC codes.
 Downloads element-type files from the O*NET 30.0 database, filters
 to the stakeholder-curated SOC codes, merges Skills, Knowledge,
 Abilities, Tasks, Emerging Tasks, Technology Skills, Detailed Work
-Activities, Tools Used, Alternate Titles, and Sample of Reported
-Titles into a structured `skills` array, decomposes Task and DWA
-entries into matchable sub-phrases via POS-based chunking, filters
-ambiguous single-word tool and technology entries using wordfreq
-Zipf frequency, and writes `data/lexicons/onet.json`.
+Activities, and Tools Used into a structured `skills` array,
+decomposes Task and DWA entries into matchable sub-phrases via
+POS-based chunking, filters ambiguous single-word tool and
+technology entries using wordfreq Zipf frequency, and writes
+`data/lexicons/onet.json`.
 
 Run from the worktree root:
 
@@ -98,18 +98,16 @@ class OnetCurator:
             Mapping from internal key to filtered `DataFrame`.
         """
         files = {
-            "abilities"       : "Abilities.txt",
-            "alt_titles"      : "Alternate Titles.txt",
-            "dwa_reference"   : "DWA Reference.txt",
-            "emerging_tasks"  : "Emerging Tasks.txt",
-            "job_zones"       : "Job Zones.txt",
-            "knowledge"       : "Knowledge.txt",
-            "reported_titles" : "Sample of Reported Titles.txt",
-            "skills"          : "Skills.txt",
-            "tasks"           : "Task Statements.txt",
-            "tasks_to_dwas"   : "Tasks to DWAs.txt",
-            "tech_skills"     : "Technology Skills.txt",
-            "tools_used"      : "Tools Used.txt"
+            "abilities"      : "Abilities.txt",
+            "dwa_reference"  : "DWA Reference.txt",
+            "emerging_tasks" : "Emerging Tasks.txt",
+            "job_zones"      : "Job Zones.txt",
+            "knowledge"      : "Knowledge.txt",
+            "skills"         : "Skills.txt",
+            "tasks"          : "Task Statements.txt",
+            "tasks_to_dwas"  : "Tasks to DWAs.txt",
+            "tech_skills"    : "Technology Skills.txt",
+            "tools_used"     : "Tools Used.txt"
         }
 
         print("Downloading O*NET 30.0 database files...")
@@ -243,13 +241,11 @@ class OnetCurator:
 
         excluded = set()
         for source_key, name_column, type_label in (
-            ("alt_titles",      "Alternate Title",    "alternate_title"),
-            ("dwas",            "DWA Title",          "dwa"),
-            ("emerging_tasks",  "Task",               "task"),
-            ("reported_titles", "Reported Job Title", "reported_title"),
-            ("tasks",           "Task",               "task"),
-            ("tech_skills",     "Example",            "technology"),
-            ("tools_used",      "Example",            "tool")
+            ("dwas",           "DWA Title", "dwa"),
+            ("emerging_tasks", "Task",      "task"),
+            ("tasks",          "Task",      "task"),
+            ("tech_skills",    "Example",   "technology"),
+            ("tools_used",     "Example",   "tool")
         ):
             for soc, group in (
                 raw[source_key]

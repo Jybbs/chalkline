@@ -33,9 +33,9 @@ class TestOnetSchemas:
 
     def test_concrete_types_count(self):
         """
-        Exactly six element types feed the normalization index.
+        Exactly four element types feed the normalization index.
         """
-        assert sum(m.is_concrete for m in OnetSkillType) == 6
+        assert sum(m.is_concrete for m in OnetSkillType) == 4
 
     def test_confidence_tier_members(self):
         """
@@ -106,9 +106,9 @@ class TestOnetSchemas:
 
     def test_skill_type_members(self):
         """
-        All nine O*NET element types are defined.
+        All seven O*NET element types are defined.
         """
-        assert len(OnetSkillType) == 9
+        assert len(OnetSkillType) == 7
 
     def test_skill_valid_with_ratings(self):
         """

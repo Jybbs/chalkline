@@ -66,22 +66,19 @@ class OnetSkillType(StrEnum):
     """
     O*NET element types across the 21 stakeholder SOC codes.
 
-    Concrete types (`ALTERNATE_TITLE`, `DWA`, `REPORTED_TITLE`,
-    `TASK`, `TECHNOLOGY`, `TOOL`) feed the normalization index.
-    Abstract KSA types (`ABILITY`, `KNOWLEDGE`, `SKILL`) are
-    excluded from normalization but remain available for
-    occupation-level Jaccard matching.
+    Concrete types (`DWA`, `TASK`, `TECHNOLOGY`, `TOOL`) feed the
+    normalization index. Abstract KSA types (`ABILITY`, `KNOWLEDGE`,
+    `SKILL`) are excluded from normalization but remain available
+    for occupation-level Jaccard matching.
     """
 
-    ABILITY         = "ability"
-    ALTERNATE_TITLE = "alternate_title"
-    DWA             = "dwa"
-    KNOWLEDGE       = "knowledge"
-    REPORTED_TITLE  = "reported_title"
-    SKILL           = "skill"
-    TASK            = "task"
-    TECHNOLOGY      = "technology"
-    TOOL            = "tool"
+    ABILITY    = "ability"
+    DWA        = "dwa"
+    KNOWLEDGE  = "knowledge"
+    SKILL      = "skill"
+    TASK       = "task"
+    TECHNOLOGY = "technology"
+    TOOL       = "tool"
 
     @property
     def is_concrete(self) -> bool:
@@ -89,8 +86,8 @@ class OnetSkillType(StrEnum):
         Whether this type feeds the normalization index.
 
         Concrete types carry matchable text that appears in posting
-        descriptions. Abstract KSA types are excluded from normalization but
-        remain available for Jaccard matching.
+        descriptions. Abstract KSA types are excluded from
+        normalization but remain available for Jaccard matching.
         """
         return self not in {
             OnetSkillType.ABILITY,
