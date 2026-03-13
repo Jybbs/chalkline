@@ -3,16 +3,16 @@ Skill extraction from job posting text via Aho-Corasick matching.
 
 Builds surface form variants for each lexicon term, loads them into an
 `ahocorasick_rs` automaton with `LeftmostLongest` semantics, and runs a
-single-pass match per posting with word boundary enforcement and filler
-phrase masking. The output is a mapping from document identifiers to
-deduplicated, sorted canonical skill names.
+single-pass match per posting with word boundary enforcement. The
+output is a mapping from document identifiers to deduplicated, sorted
+canonical skill names.
 """
 
 from ahocorasick_rs import AhoCorasick, MatchKind
 from html           import unescape
 from logging        import getLogger
 from nltk.stem      import PorterStemmer
-from re             import sub
+from re             import MULTILINE, search, sub
 from typing         import NamedTuple
 from wordfreq       import word_frequency
 
@@ -26,54 +26,6 @@ logger = getLogger(__name__)
 # -------------------------------------------------------------------------
 # Default filler phrases
 # -------------------------------------------------------------------------
-
-FILLER_PHRASES = (
-    "ability to",
-    "and or",
-    "applicants must",
-    "as needed",
-    "as required",
-    "at least",
-    "candidates must",
-    "candidates should",
-    "demonstrated ability",
-    "demonstrated experience",
-    "equal opportunity employer",
-    "experience in",
-    "experience with",
-    "familiarity with",
-    "hands on experience",
-    "ideal candidate",
-    "in accordance with",
-    "in addition to",
-    "job description",
-    "job duties",
-    "job requirements",
-    "knowledge of",
-    "minimum qualifications",
-    "minimum requirements",
-    "must be able to",
-    "must be willing to",
-    "must have",
-    "or equivalent",
-    "or more years",
-    "preferred qualifications",
-    "prior experience",
-    "proficiency in",
-    "proficient in",
-    "proven ability",
-    "proven track record",
-    "required qualifications",
-    "required to",
-    "responsible for",
-    "skilled in",
-    "strong understanding of",
-    "understanding of",
-    "willing to",
-    "working knowledge of",
-    "years of experience"
-)
-
 
 # -------------------------------------------------------------------------
 # Pattern metadata
@@ -106,32 +58,20 @@ class SkillExtractor:
     deduplicated canonical skill names per document.
     """
 
-    def __init__(
-        self,
-        registry       : LexiconRegistry,
-        filler_phrases : tuple[str, ...] = FILLER_PHRASES
-    ):
+    def __init__(self, registry: LexiconRegistry):
         """
-        Build filler and skill automatons from registry data.
+        Build skill automaton from registry data.
 
         Args:
-            registry       : Lexicon registry with merged `lemma_index`
-                             and `lemmatize` method.
-            filler_phrases : Phrases to blank before skill matching.
+            registry: Lexicon registry with merged `lemma_index`
+                      and `lemmatize` method.
         """
         self.registry = registry
         self.stemmer  = PorterStemmer()
 
-        self.filler_automaton = AhoCorasick(
-            [p.lower() for p in filler_phrases],
-            MatchKind.LeftmostLongest
-        )
-
         patterns, self.metadata = self._build_patterns()
         self.pattern_chars      = frozenset(c for p in patterns for c in p)
-        self.automaton          = AhoCorasick(
-            patterns, MatchKind.LeftmostLongest
-        )
+        self.automaton          = AhoCorasick(patterns, MatchKind.LeftmostLongest)
 
     # -----------------------------------------------------------------
     # Properties
@@ -255,33 +195,29 @@ class SkillExtractor:
 
     def _preprocess(self, text: str) -> str:
         """
-        Normalize raw posting text and mask filler phrases.
+        Normalize raw posting text for skill matching.
 
-        Splits camelCase terms into separate words, lowercases, strips
-        all characters that do not appear in any lexicon pattern,
-        collapses whitespace, and blanks filler phrase spans before
-        skill matching. The allowed character set is derived at init
-        time from the automaton patterns themselves, so the filter
-        is always consistent with whatever the lexicons contain.
+        Drops preamble text before the first structural marker,
+        strips HTML tags, splits camelCase terms, lowercases, removes
+        characters absent from lexicon patterns, and collapses
+        whitespace. The allowed character set is derived at init time
+        from the automaton patterns themselves, so the filter is
+        always consistent with whatever the lexicons contain.
 
         Args:
             text: Raw posting description.
 
         Returns:
-            Cleaned, lowercased text with fillers replaced by spaces.
+            Cleaned, lowercased text ready for matching.
         """
+        if m := search(r"^[ \t]*(?:\*[\s*]|#{1,4}\s)", text, MULTILINE):
+            text = text[m.start():]
         text = sub(r"<[^>]+>", " ", text)
         text = unescape(text)
         text = sub(r"([a-z])([A-Z])", r"\1 \2", text)
         text = text.lower().strip()
         text = "".join(c if c in self.pattern_chars else " " for c in text)
-        text = sub(r"\s+", " ", text)
-
-        chars = list(text)
-        for _, start, end in self.filler_automaton.find_matches_as_indexes(text):
-            if self._is_word_boundary(end, start, text):
-                chars[start:end] = " " * (end - start)
-        return "".join(chars)
+        return sub(r"\s+", " ", text)
 
     def _stem(self, text: str) -> str:
         """

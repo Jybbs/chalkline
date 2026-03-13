@@ -1,9 +1,9 @@
 """
 Tests for Aho-Corasick skill extraction and surface form matching.
 
-Validates multi-word extraction, case insensitivity, filler masking, word
-boundary enforcement, OSHA priority, zero-skill exclusion, and unmatched
-term logging using synthetic fixture data.
+Validates multi-word extraction, case insensitivity, preamble stripping,
+word boundary enforcement, OSHA priority, zero-skill exclusion, and
+unmatched term logging using synthetic fixture data.
 """
 
 from chalkline.extraction.skills import SkillExtractor
@@ -153,15 +153,18 @@ class TestSkillExtractor:
             "a": "fallProtection is required"
         })["a"]
 
-    def test_filler_no_false_match(self, extractor: SkillExtractor):
+    def test_preamble_strip(self, extractor: SkillExtractor):
         """
-        Filler phrases are blanked before matching so that terms within
-        them do not produce false positives.
+        Introductory prose before the first structural marker is
+        dropped so that company narrative does not produce matches.
         """
-        result = extractor.extract({
-            "a": "Must have years of experience with safety procedures"
-        })
-        assert "a" not in result or "experience" not in result.get("a", [])
+        text = (
+            "We are a leading construction firm.\n"
+            "* Fall protection required\n"
+            "* Welding certification"
+        )
+        result = extractor.extract({"a": text})
+        assert "fall protection" in result.get("a", [])
 
     def test_semicolon_normalization(self, extractor: SkillExtractor):
         """
@@ -231,10 +234,9 @@ class TestSkillExtractor:
         """
         assert extractor.extract({}) == {}
 
-    def test_filler_only_excluded(self, extractor: SkillExtractor):
+    def test_no_skills_excluded(self, extractor: SkillExtractor):
         """
-        A posting consisting entirely of filler phrases produces zero
-        skills and is excluded from output.
+        A posting with no matching skills is excluded from output.
         """
         assert extractor.extract({
             "a": "Must have experience with knowledge of"
