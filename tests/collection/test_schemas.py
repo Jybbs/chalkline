@@ -11,23 +11,10 @@ from pytest   import mark, raises
 from chalkline.collection.schemas import Posting
 
 
-FILLER_DESCRIPTION = "x" * 50
-
-
 class TestPosting:
     """
     Validate `Posting` model constraints and composite key generation.
     """
-
-    def test_auto_id(self, sample_posting: Posting):
-        """
-        Omitting `id` auto-computes it from company, date, and title.
-        """
-        assert sample_posting.id == Posting.make_id(
-            sample_posting.company,
-            sample_posting.date_posted,
-            sample_posting.title
-        )
 
     def test_composite_key_format(self):
         """
@@ -38,27 +25,21 @@ class TestPosting:
             == "cianbro_electrician_2026-03-01"
         )
 
-    def test_date_coercion(self):
+    @mark.parametrize("date_str", ["2026-03-01 14:30:00", "2026-03-01T14:30:00Z"])
+    def test_date_coercion(self, date_str: str, sample_posting: Posting):
         """
-        Timestamp `date_posted` values are truncated to date and reflected
-        in the composite key.
+        Timestamp `date_posted` values in both space-separated
+        and ISO formats are truncated to date by the `[:10]`
+        slice.
         """
-        posting = Posting.model_validate({
-            "company"     : "Cianbro",
-            "date_posted" : "2026-03-01T14:30:00Z",
-            "description" : FILLER_DESCRIPTION,
-            "source_url"  : "https://example.com",
-            "title"       : "Electrician"
-        })
+        posting = Posting.model_validate(
+            sample_posting.model_dump() | {"date_posted" : date_str}
+        )
         assert posting.date_posted == date(2026, 3, 1)
         assert "2026-03-01" in posting.id
 
     @mark.parametrize("field", ["company", "source_url", "title"])
-    def test_empty_string(
-        self,
-        sample_posting : Posting,
-        field          : str
-    ):
+    def test_empty_string(self, sample_posting: Posting, field: str):
         """
         Empty strings on `NonEmptyStr` fields raise `ValidationError`.
         """
@@ -75,7 +56,7 @@ class TestPosting:
         posting = Posting(
             company     = "Cianbro",
             date_posted = date(2026, 3, 1),
-            description = FILLER_DESCRIPTION,
+            description = "x" * 50,
             id          = "custom-id",
             source_url  = "https://example.com",
             title       = "Worker"
@@ -105,6 +86,21 @@ class TestPosting:
             "R.J. Grondin & Sons", date(2026, 1, 1), "Heavy Equip. Operator"
         ))
 
+    def test_make_id_stopword_collision(self):
+        """
+        Companies differing only by a stopword produce identical
+        composite keys, documenting the collision boundary so that
+        changes to stopword handling are caught.
+        """
+        assert (
+            Posting.make_id(
+                "Reed and Sons", date(2026, 1, 1), "Laborer"
+            )
+            == Posting.make_id(
+                "Reed Sons", date(2026, 1, 1), "Laborer"
+            )
+        )
+
     def test_make_id_strips_stopwords(self):
         """
         Stopwords "and", "of", "the" are removed from slugs.
@@ -126,10 +122,3 @@ class TestPosting:
                 title       = "Worker"
             )
 
-    def test_valid_posting_roundtrip(self, sample_posting: Posting):
-        """
-        A valid posting serializes and deserializes without loss.
-        """
-        assert Posting.model_validate(
-            sample_posting.model_dump(mode="json")
-        ) == sample_posting

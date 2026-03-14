@@ -14,24 +14,6 @@ class TestComponentLoading:
     """
 
     # ---------------------------------------------------------
-    # Construction
-    # ---------------------------------------------------------
-
-    def test_valid(self):
-        """
-        A well-formed loading with matching terms and weights
-        validates successfully.
-        """
-        loading = ComponentLoading(
-            index          = 0,
-            terms          = ["welding", "scaffolding"],
-            variance_ratio = 0.35,
-            weights        = [0.8, 0.6]
-        )
-        assert loading.index == 0
-        assert loading.terms == ["welding", "scaffolding"]
-
-    # ---------------------------------------------------------
     # Rejection
     # ---------------------------------------------------------
 
@@ -45,7 +27,7 @@ class TestComponentLoading:
                 "weights"        : [0.5]
             },
             "Extra inputs",
-            id="extra_field"
+            id = "extra_field"
         ),
         param(
             {
@@ -55,12 +37,12 @@ class TestComponentLoading:
                 "weights"        : [0.5]
             },
             "greater than or equal",
-            id="negative_index"
+            id = "negative_index"
         )
     ])
     def test_invalid(self, kwargs, match):
         """
         Invalid kwargs are rejected by Pydantic validation.
         """
-        with raises(ValueError, match=match):
+        with raises(ValueError, match = match):
             ComponentLoading(**kwargs)

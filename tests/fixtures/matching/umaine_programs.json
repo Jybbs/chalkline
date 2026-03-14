@@ -1,0 +1,16 @@
+[
+  {
+    "campus"   : "UMaine",
+    "category" : "Construction",
+    "degree"   : "B.S.",
+    "program"  : "Construction Engineering Technology",
+    "url"      : "https://example.com/cet"
+  },
+  {
+    "campus"   : "UMaine",
+    "category" : "Engineering",
+    "degree"   : "B.S.",
+    "program"  : "Electrical and Computer Engineering",
+    "url"      : "https://example.com/ece"
+  }
+]

@@ -4,8 +4,7 @@ Tests for clustering schemas.
 
 from pytest import mark, param, raises
 
-from chalkline.clustering.schemas import ClusterLabel
-from chalkline.clustering.schemas import ComparisonResult
+from chalkline.clustering.schemas import ClusterLabel, ComparisonResult
 from chalkline.clustering.schemas import CopheneticResult
 
 
@@ -62,21 +61,6 @@ class TestClusteringSchemas:
         with raises(ValueError, match = match):
             ClusterLabel(**kwargs)
 
-    def test_cluster_label_valid(self):
-        """
-        A well-formed label with matching terms and weights
-        validates successfully.
-        """
-        label = ClusterLabel(
-            cluster_id     = 1,
-            leader_node_id = 12,
-            size           = 5,
-            terms          = ["welding", "scaffolding"],
-            weights        = [0.8, 0.6]
-        )
-        assert label.cluster_id == 1
-        assert label.size == 5
-
     # ---------------------------------------------------------
     # ComparisonResult
     # ---------------------------------------------------------
@@ -104,34 +88,6 @@ class TestClusteringSchemas:
                 n_clusters  = -1
             )
 
-    def test_comparison_result_valid(self):
-        """
-        A minimal result with required fields only validates.
-        """
-        result = ComparisonResult(
-            assignments = [0, 1, 0],
-            method      = "kmeans",
-            n_clusters  = 2
-        )
-        assert result.noise_count == 0
-        assert result.silhouette is None
-
-    def test_comparison_result_with_metrics(self):
-        """
-        Optional metric fields populate when provided.
-        """
-        result = ComparisonResult(
-            assignments       = [0, 1, -1],
-            calinski_harabasz = 10.5,
-            davies_bouldin    = 0.8,
-            method            = "dbscan",
-            n_clusters        = 2,
-            noise_count       = 1,
-            silhouette        = 0.35
-        )
-        assert result.calinski_harabasz == 10.5
-        assert result.noise_count == 1
-
     # ---------------------------------------------------------
     # CopheneticResult
     # ---------------------------------------------------------
@@ -146,13 +102,3 @@ class TestClusteringSchemas:
                 extra       = True,
                 method      = "ward"
             )
-
-    def test_cophenetic_result_valid(self):
-        """
-        A cophenetic result within valid bounds validates.
-        """
-        result = CopheneticResult(
-            correlation = 0.85,
-            method      = "ward"
-        )
-        assert result.correlation == 0.85

@@ -1,9 +1,9 @@
 """
-Pipeline configuration with validated parameters.
+Pipeline configuration and shared reference data schemas.
 
-Centralizes directory paths, thresholds, and hyperparameters that propagate
-through every pipeline step. The `extra="forbid"` policy surfaces typos and
-stale fields immediately.
+Centralizes pipeline hyperparameters alongside shared data models for
+apprenticeship and educational program reference data consumed across
+matching, pathways, and report generation modules.
 """
 
 from enum     import StrEnum
@@ -11,6 +11,19 @@ from pathlib  import Path
 from pydantic import BaseModel
 
 from chalkline import UnitInterval
+
+
+class ApprenticeshipContext(BaseModel, extra="forbid"):
+    """
+    AGC-registered apprenticeship program linked to a skill gap.
+
+    Maps a gap skill to a RAPIDS-coded trade with term hours,
+    providing a concrete training timeline for skill acquisition.
+    """
+
+    rapids_code : str
+    term_hours  : str
+    trade       : str
 
 
 class DistanceMetric(StrEnum):
@@ -48,3 +61,19 @@ class PipelineConfig(BaseModel, extra="forbid"):
     reference_dir      : Path           = Path("data/stakeholder/reference")
     top_k_gaps         : int            = 10
     variance_threshold : UnitInterval   = 0.85
+
+
+class ProgramRecommendation(BaseModel, extra="forbid"):
+    """
+    Normalized educational program recommendation.
+
+    Unifies community college programs (where the institution field
+    is `college` and credential is `credential`) and university
+    programs (where institution is `campus` and credential is
+    `degree`) into a consistent schema.
+    """
+
+    credential  : str
+    institution : str
+    program     : str
+    url         : str

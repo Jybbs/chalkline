@@ -16,15 +16,11 @@ from functools                import cached_property
 from kneed                    import KneeLocator
 from logging                  import getLogger
 from math                     import ceil
-from scipy.sparse             import csc_array, csr_array, triu
+from scipy.sparse             import csc_array, csr_array, spmatrix, triu
 from scipy.special            import xlogy
-from typing                   import TYPE_CHECKING
 
 from chalkline.association.schemas import CommunityLabel
 from chalkline.association.schemas import GraphDiagnostics, MeasureComparison
-
-if TYPE_CHECKING:
-    from scipy.sparse import spmatrix
 
 
 logger = getLogger(__name__)
@@ -48,23 +44,23 @@ class CooccurrenceNetwork:
 
     def __init__(
         self,
-        binary_matrix   : "spmatrix",
-        feature_names   : list[str],
-        min_cooccurrence: float | str = "auto",
-        random_seed     : int         = 42
+        binary_matrix    : spmatrix,
+        feature_names    : list[str],
+        min_cooccurrence : float | str = "auto",
+        random_seed      : int         = 42
     ):
         """
         Compute the thresholded co-occurrence matrix.
 
         Args:
-            binary_matrix   : CSR binary presence/absence matrix from
-                              `SkillVectorizer.binary_matrix`.
-            feature_names   : Vocabulary in column order, matching
-                              matrix column indices.
-            min_cooccurrence: Either `"auto"` to select the threshold
-                              via modularity knee detection, or a float
-                              fraction of corpus size floored at 3.
-            random_seed     : Seed for Louvain reproducibility.
+            binary_matrix    : CSR binary presence/absence matrix from
+                               `SkillVectorizer.binary_matrix`.
+            feature_names    : Vocabulary in column order, matching
+                               matrix column indices.
+            min_cooccurrence : Either `"auto"` to select the threshold
+                               via modularity knee detection, or a float
+                               fraction of corpus size floored at 3.
+            random_seed      : Seed for Louvain reproducibility.
         """
         self.feature_names = feature_names
         self.n_docs        = binary_matrix.shape[0]
@@ -270,7 +266,7 @@ class CooccurrenceNetwork:
 
     def communities(
         self,
-        matrix: "spmatrix | None" = None
+        matrix: spmatrix | None = None
     ) -> list[CommunityLabel]:
         """
         Louvain community detection with weighted-degree labeling.
@@ -285,25 +281,22 @@ class CooccurrenceNetwork:
         """
         G = self.graph(matrix = matrix)
 
-        labels = []
-        for idx, members in enumerate(
-            sorted(
-                self._louvain(G),
-                key     = len,
-                reverse = True
-            )
-        ):
-            degrees = dict(G.subgraph(members).degree(weight = "weight"))
-            labels.append(CommunityLabel(
+        return [
+            CommunityLabel(
                 community_id        = idx,
                 size                = len(members),
                 top_skills          = sorted(
                     degrees, key = degrees.get, reverse = True
                 )[:3],
                 weighted_degree_sum = sum(degrees.values())
-            ))
-
-        return labels
+            )
+            for idx, members in enumerate(
+                sorted(self._louvain(G), key = len, reverse = True)
+            )
+            for degrees in [
+                dict(G.subgraph(members).degree(weight = "weight"))
+            ]
+        ]
 
     def compare_measures(self) -> list[MeasureComparison]:
         """
@@ -312,23 +305,22 @@ class CooccurrenceNetwork:
         Builds graphs from PPMI, NPMI, and G-test matrices and
         reports edge count, density, and community count for each.
         """
-        results = []
-        for name, matrix in [
-            ("ppmi",   self.ppmi_matrix),
-            ("npmi",   self.npmi_matrix),
-            ("g-test", self.gtest_matrix)
-        ]:
-            G = self.graph(matrix = matrix)
-            results.append(MeasureComparison(
+        return [
+            MeasureComparison(
                 density       = nx.density(G),
                 edge_count    = G.number_of_edges(),
                 measure       = name,
                 n_communities = len(
                     self._louvain(G)
                 ) if G.number_of_edges() > 0 else 0
-            ))
-
-        return results
+            )
+            for name, matrix in [
+                ("ppmi",   self.ppmi_matrix),
+                ("npmi",   self.npmi_matrix),
+                ("g-test", self.gtest_matrix)
+            ]
+            for G in [self.graph(matrix = matrix)]
+        ]
 
     def diagnostics(
         self,
@@ -348,8 +340,8 @@ class CooccurrenceNetwork:
         """
         G = graph or self.graph()
 
-        components = list(nx.connected_components(G))
-        isolates   = list(nx.isolates(G))
+        components    = list(nx.connected_components(G))
+        isolate_count = sum(1 for c in components if len(c) == 1)
 
         modularity  = None
         coverage    = 0.0
@@ -365,18 +357,18 @@ class CooccurrenceNetwork:
             )
 
         if G.number_of_nodes() > 0 and (
-            isolate_rate := len(isolates) / G.number_of_nodes()
+            isolate_rate := isolate_count / G.number_of_nodes()
         ) > 0.30:
             logger.warning(
                 f"{isolate_rate:.0%} of skills are isolate nodes "
-                f"({len(isolates)} of {G.number_of_nodes()})"
+                f"({isolate_count} of {G.number_of_nodes()})"
             )
 
         return GraphDiagnostics(
             connected_components = len(components),
             coverage             = coverage,
             edge_count           = G.number_of_edges(),
-            isolate_count        = len(isolates),
+            isolate_count        = isolate_count,
             largest_component    = max(
                 (len(c) for c in components), default = 0
             ),
@@ -387,7 +379,7 @@ class CooccurrenceNetwork:
 
     def graph(
         self,
-        matrix: "spmatrix | None" = None
+        matrix: spmatrix | None = None
     ) -> nx.Graph:
         """
         Build a NetworkX graph from a sparse weight matrix.
@@ -399,11 +391,13 @@ class CooccurrenceNetwork:
             matrix: Optional sparse weight matrix to override the
                     default NPMI matrix.
         """
-        G = nx.from_scipy_sparse_array(
-            matrix if matrix is not None else self.npmi_matrix,
-            edge_attribute = "weight"
+        return nx.relabel_nodes(
+            nx.from_scipy_sparse_array(
+                matrix if matrix is not None else self.npmi_matrix,
+                edge_attribute = "weight"
+            ),
+            dict(enumerate(self.feature_names))
         )
-        return nx.relabel_nodes(G, dict(enumerate(self.feature_names)))
 
     def pmi_dataframe(self) -> pd.DataFrame:
         """

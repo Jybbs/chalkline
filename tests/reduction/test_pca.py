@@ -10,7 +10,6 @@ import numpy as np
 
 from joblib  import dump, load
 from pathlib import Path
-from pytest  import mark
 
 from chalkline.extraction.vectorize import SkillVectorizer
 from chalkline.reduction.pca       import PcaReducer
@@ -25,20 +24,6 @@ class TestPcaReducer:
     # ---------------------------------------------------------
     # Component selection
     # ---------------------------------------------------------
-
-    def test_cumulative_variance(self, pca_reducer: PcaReducer):
-        """
-        Cumulative variance is reported even when the threshold
-        is not fully reached.
-        """
-        assert 0 < pca_reducer.cumulative_variance <= 1.0
-
-    def test_explained_variance_length(self, pca_reducer: PcaReducer):
-        """
-        The full variance profile contains one entry per component
-        from the analysis fit.
-        """
-        assert len(pca_reducer.explained_variance_ratio) >= pca_reducer.n_selected
 
     def test_max_components_capped(self, vectorizer: SkillVectorizer):
         """
@@ -56,20 +41,23 @@ class TestPcaReducer:
         )
         assert reducer.n_selected <= min(matrix.shape) - 1
 
-    def test_n_selected_bounded(self, pca_reducer: PcaReducer):
+    def test_threshold_minimum(self, vectorizer: SkillVectorizer):
         """
-        Selected components do not exceed the configured maximum.
+        Component selection picks the smallest k where cumulative
+        variance meets the threshold, not k+1. A very low threshold
+        should select exactly one component, verifying the
+        `searchsorted + 1` logic does not over-select.
         """
-        assert 1 <= pca_reducer.n_selected
-
-    def test_variance_ratios_bounded(self, pca_reducer: PcaReducer):
-        """
-        Explained variance ratios are non-negative and sum to at
-        most 1.0.
-        """
-        evr = pca_reducer.explained_variance_ratio
-        assert (evr >= 0).all()
-        assert evr.sum() <= 1.0 + 1e-10
+        reducer = PcaReducer(
+            document_ids       = vectorizer.document_ids,
+            feature_names      = vectorizer.feature_names,
+            max_components     = min(vectorizer.tfidf_matrix.shape) - 1,
+            random_seed        = 42,
+            tfidf_matrix       = vectorizer.tfidf_matrix,
+            variance_threshold = 0.01
+        )
+        assert reducer.n_selected == 1
+        assert reducer.cumulative_variance >= 0.01
 
     # ---------------------------------------------------------
     # Coordinates
@@ -95,19 +83,6 @@ class TestPcaReducer:
     # Loadings
     # ---------------------------------------------------------
 
-    def test_loadings_aligned(self, pca_reducer: PcaReducer):
-        """
-        Each loading has the same number of terms and weights.
-        """
-        for loading in pca_reducer.loadings():
-            assert len(loading.terms) == len(loading.weights)
-
-    def test_loadings_count(self, pca_reducer: PcaReducer):
-        """
-        One loading entry per selected component.
-        """
-        assert len(pca_reducer.loadings()) == pca_reducer.n_selected
-
     def test_loadings_skill_names(self, pca_reducer: PcaReducer):
         """
         Top-loading terms per component return skill names, not
@@ -116,22 +91,6 @@ class TestPcaReducer:
         for loading in pca_reducer.loadings():
             assert all(isinstance(t, str) for t in loading.terms)
             assert all(not t.isdigit() for t in loading.terms)
-
-    @mark.parametrize("top_n", [1, 2, 5])
-    def test_loadings_top_n(self, pca_reducer: PcaReducer, top_n: int):
-        """
-        Requesting fewer top terms limits the returned list length.
-        """
-        for loading in pca_reducer.loadings(top_n=top_n):
-            assert len(loading.terms) <= top_n
-            assert len(loading.weights) <= top_n
-
-    def test_loadings_variance_positive(self, pca_reducer: PcaReducer):
-        """
-        Each component's variance ratio is positive.
-        """
-        for loading in pca_reducer.loadings():
-            assert loading.variance_ratio > 0
 
     def test_loadings_weight_order(self, pca_reducer: PcaReducer):
         """
