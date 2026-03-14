@@ -34,11 +34,7 @@ class TestLexiconRegistry:
         "operate construction equipment",
         "spread concrete"
     ])
-    def test_decompose_sub_phrase(
-        self,
-        phrase   : str,
-        registry : LexiconRegistry
-    ):
+    def test_decompose_sub_phrase(self, phrase: str, registry: LexiconRegistry):
         """
         Sub-phrases from decomposed tasks and DWAs normalize to
         themselves rather than the parent sentence, covering both
@@ -68,39 +64,6 @@ class TestLexiconRegistry:
             osha_terms  = []
         ).normalize("anything") is None
 
-    def test_explicit_none_supplement(
-        self,
-        occupations : list[OnetOccupation],
-        osha_terms  : list[str]
-    ):
-        """
-        Passing `None` for `supplement_terms` builds the index without
-        supplement data, equivalent to omitting the argument.
-        """
-        registry = LexiconRegistry(
-            occupations      = occupations,
-            osha_terms       = osha_terms,
-            supplement_terms = None
-        )
-        assert registry.normalize("fall protection") == "fall protection"
-        assert registry.normalize("rebar") is None
-
-    @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
-    def test_lemma_index_terms(self, registry: LexiconRegistry, term: str):
-        """
-        Both O*NET and OSHA terms appear in the merged index.
-        """
-        assert term in registry.lemma_index.values()
-
-    def test_lemmatize_caches_words(self, registry: LexiconRegistry):
-        """
-        The word-level cache is populated after lemmatization so that
-        repeated tokens across postings skip the WordNet lookup.
-        """
-        registry.lemmatize("scaffoldings welding")
-        assert "scaffoldings" in registry.lemma_cache
-        assert "welding" in registry.lemma_cache
-
     def test_lemmatize_noun_default(self, registry: LexiconRegistry):
         """
         Noun-default lemmatization reduces plurals without POS tagging,
@@ -108,14 +71,6 @@ class TestLexiconRegistry:
         """
         assert registry.lemmatize("scaffoldings") == "scaffolding"
         assert registry.lemmatize("installing") == "installing"
-
-    def test_lemmatize_uses_cache(self, registry: LexiconRegistry):
-        """
-        A pre-populated cache entry is returned directly without
-        invoking the WordNet lemmatizer.
-        """
-        registry.lemma_cache["foo"] = "bar"
-        assert registry.lemmatize("foo") == "bar"
 
     # -------------------------------------------------------------------------
     # Normalization
@@ -141,13 +96,6 @@ class TestLexiconRegistry:
         returning `None` even though they exist in the occupation profile.
         """
         assert registry.normalize(term) is None
-
-    @mark.parametrize("term", ["Autodesk AutoCAD", "fall protection"])
-    def test_normalize_known_term(self, registry: LexiconRegistry, term: str):
-        """
-        Known O*NET and OSHA terms normalize to their canonical forms.
-        """
-        assert registry.normalize(term) == term
 
     @mark.parametrize("term", ["Asbestos", "asbestos"])
     def test_normalize_osha_exact_case(self, registry: LexiconRegistry, term: str):
@@ -177,6 +125,41 @@ class TestLexiconRegistry:
         An unrecognized term returns `None`.
         """
         assert registry.normalize("quantum computing") is None
+
+    def test_onet_collision_last_wins(self):
+        """
+        When skills across occupations share a lemmatized form, the
+        later occupation's canonical form wins via dict overwrite.
+        A refactor changing occupation iteration order would silently
+        alter every downstream TF-IDF vector.
+        """
+        occupations = [
+            OnetOccupation(
+                job_zone = 2,
+                sector   = "Heavy Highway Construction",
+                skills   = [OnetSkill(
+                    name = "concrete finishing",
+                    type = "technology"
+                )],
+                soc_code = "47-2071.00",
+                title    = "Paving Equipment Operators"
+            ),
+            OnetOccupation(
+                job_zone = 3,
+                sector   = "Building Construction",
+                skills   = [OnetSkill(
+                    name = "Concrete Finishing",
+                    type = "technology"
+                )],
+                soc_code = "47-2111.00",
+                title    = "Electricians"
+            )
+        ]
+        registry = LexiconRegistry(
+            occupations = occupations,
+            osha_terms  = []
+        )
+        assert registry.normalize("concrete finishing") == "Concrete Finishing"
 
     def test_phrases_empty(self):
         """

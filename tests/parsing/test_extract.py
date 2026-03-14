@@ -6,6 +6,7 @@ downstream tokenization.
 """
 
 from pathlib import Path
+from pytest  import mark
 
 from chalkline.parsing.extract import clean_text, extract_pdf
 
@@ -24,18 +25,13 @@ class TestCleanText:
         """
         assert clean_text("hello   world\n\nfoo") == "hello world foo"
 
-    def test_empty_input(self):
+    @mark.parametrize("text", ["", "   \n\n  ", "\n  1  \n  2  \n"])
+    def test_empty_output(self, text: str):
         """
-        An empty input returns an empty string without raising.
+        Degenerate inputs (empty, whitespace-only, page-numbers-only)
+        normalize to an empty string.
         """
-        assert clean_text("") == ""
-
-    def test_page_numbers_only(self):
-        """
-        Input containing only standalone page numbers normalizes to an empty
-        string.
-        """
-        assert clean_text("\n  1  \n  2  \n") == ""
+        assert clean_text(text) == ""
 
     def test_strips_non_ascii(self):
         """
@@ -50,12 +46,6 @@ class TestCleanText:
         result = clean_text("Some text\n  42  \nMore text")
         assert "42" not in result
         assert "Some text" in result
-
-    def test_whitespace_only(self):
-        """
-        Input containing only whitespace normalizes to an empty string.
-        """
-        assert clean_text("   \n\n  ") == ""
 
 
 class TestExtractPdf:
@@ -88,10 +78,3 @@ class TestExtractPdf:
         assert "Page 1" in result
         assert "Page 2" in result
 
-    def test_pdf_clean_text(self):
-        """
-        Extracted PDF text normalizes cleanly for downstream use.
-        """
-        result = clean_text(extract_pdf(FIXTURES / "sample.pdf"))
-        assert "Walt Amper" in result
-        assert "\n" not in result

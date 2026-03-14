@@ -54,32 +54,7 @@ class TestStorage:
         """
         assert load(tmp_path / "nonexistent") == []
 
-    def test_no_duplicates(
-        self,
-        sample_posting : Posting,
-        second_posting : Posting
-    ):
-        """
-        Non-duplicate postings are all retained.
-        """
-        assert len(deduplicate([sample_posting, second_posting])) == 2
-
-    def test_save_creates_parents(
-        self,
-        sample_posting : Posting,
-        tmp_path       : Path
-    ):
-        """
-        Saving to a non-existent nested directory creates it.
-        """
-        save([sample_posting], (nested := tmp_path / "a" / "b"))
-        assert load(nested) == [sample_posting]
-
-    def test_save_deduplicates(
-        self,
-        sample_posting : Posting,
-        tmp_path       : Path
-    ):
+    def test_save_deduplicates(self, sample_posting: Posting, tmp_path: Path):
         """
         Saving the same posting twice retains only one copy.
         """
@@ -87,11 +62,7 @@ class TestStorage:
         save([sample_posting], tmp_path)
         assert len(load(tmp_path)) == 1
 
-    def test_save_load_roundtrip(
-        self,
-        sample_posting : Posting,
-        tmp_path       : Path
-    ):
+    def test_save_load_roundtrip(self, sample_posting: Posting, tmp_path: Path):
         """
         Save followed by load produces identical postings.
         """

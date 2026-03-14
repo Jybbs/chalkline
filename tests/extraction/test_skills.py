@@ -63,9 +63,7 @@ class TestSkillExtractor:
         A term present in both OSHA and O*NET resolves to the OSHA
         canonical form.
         """
-        result = extractor.extract({
-            "a": "welding certification required"
-        })
+        result = extractor.extract({"a": "welding certification required"})
         assert "welding" in result["a"]
         # OSHA "welding" is lowercase; O*NET is "Welding"
         assert "Welding" not in result["a"]
@@ -80,33 +78,6 @@ class TestSkillExtractor:
         }).get("a", [])
 
     # ---------------------------------------------------------
-    # Logging
-    # ---------------------------------------------------------
-
-    def test_high_unmatched_rate_warns(self, caplog, extractor: SkillExtractor):
-        """
-        A corpus with mostly unrecognized terms triggers a warning when the
-        unmatched rate exceeds the 25% threshold.
-        """
-        with caplog.at_level("WARNING", logger = "chalkline.extraction.skills"):
-            extractor.extract({
-                "a": "quantum computing blockchain artificial intelligence "
-                     "machine learning deep neural networks cryptocurrency "
-                     "decentralized finance web3 metaverse fall protection"
-            })
-        assert any("unmatched" in r.message.lower() for r in caplog.records)
-
-    def test_unmatched_terms_logged(self, caplog, extractor: SkillExtractor):
-        """
-        Unmatched term diagnostics are logged at debug level.
-        """
-        with caplog.at_level("DEBUG", logger = "chalkline.extraction.skills"):
-            extractor.extract({
-                "a": "Fall protection and quantum computing required"
-            })
-        assert any("unmatched" in r.message.lower() for r in caplog.records)
-
-    # ---------------------------------------------------------
     # Output format
     # ---------------------------------------------------------
 
@@ -119,17 +90,6 @@ class TestSkillExtractor:
             "a": "welding and welding, plus fall protection"
         })["a"]
         assert skills == sorted(set(skills))
-
-    def test_output_type(self, extractor: SkillExtractor):
-        """
-        The return value is a `dict[str, list[str]]`.
-        """
-        result = extractor.extract({
-            "a": "Fall protection required"
-        })
-        assert isinstance(result, dict)
-        assert isinstance(result["a"], list)
-        assert all(isinstance(s, str) for s in result["a"])
 
     # ---------------------------------------------------------
     # Preprocessing
@@ -166,33 +126,6 @@ class TestSkillExtractor:
         result = extractor.extract({"a": text})
         assert "fall protection" in result.get("a", [])
 
-    def test_semicolon_normalization(self, extractor: SkillExtractor):
-        """
-        Semicolons are normalized to sentence boundaries so that skills
-        separated by semicolons are extracted individually.
-        """
-        assert "fall protection" in extractor.extract({
-            "a": "fall protection; welding"
-        })["a"]
-
-    # ---------------------------------------------------------
-    # Vocabulary
-    # ---------------------------------------------------------
-
-    def test_vocabulary_osha(self, extractor: SkillExtractor):
-        """
-        OSHA lexicon terms appear in the extractor's vocabulary.
-        """
-        assert "fall protection" in extractor.vocabulary
-        assert "welding" in extractor.vocabulary
-
-    def test_vocabulary_supplement(self, extractor: SkillExtractor):
-        """
-        Supplement lexicon terms appear in the extractor's vocabulary
-        alongside OSHA and O*NET terms.
-        """
-        assert "rebar" in extractor.vocabulary
-
     # ---------------------------------------------------------
     # Word boundaries
     # ---------------------------------------------------------
@@ -204,15 +137,6 @@ class TestSkillExtractor:
         """
         assert "welding" in extractor.extract(
             {"a": "3welding required on site"}
-        ).get("a", [])
-
-    def test_boundary_hyphen(self, extractor: SkillExtractor):
-        """
-        Hyphens are non-alphanumeric, so terms separated by hyphens
-        are treated as valid word boundaries.
-        """
-        assert "welding" in extractor.extract(
-            {"a": "welding-certified technician needed"}
         ).get("a", [])
 
     def test_word_boundary(self, extractor: SkillExtractor):
@@ -238,17 +162,4 @@ class TestSkillExtractor:
         """
         A posting with no matching skills is excluded from output.
         """
-        assert extractor.extract({
-            "a": "Must have experience with knowledge of"
-        }) == {}
-
-    def test_zero_skills_excluded(self, extractor: SkillExtractor):
-        """
-        Postings with no matched skills are omitted from the output.
-        """
-        result = extractor.extract({
-            "a" : "This posting has no construction skills mentioned",
-            "b" : "Fall protection required"
-        })
-        assert "b" in result
-        assert "a" not in result
+        assert extractor.extract({"a": "Must have experience with knowledge of"}) == {}

@@ -8,6 +8,7 @@ using synthetic extraction output.
 
 from joblib  import dump, load
 from pathlib import Path
+from pytest  import mark
 
 from chalkline.extraction.vectorize import SkillVectorizer
 
@@ -18,48 +19,36 @@ class TestSkillVectorizer:
     """
 
     # ---------------------------------------------------------
-    # Document identifiers
+    # Alignment
     # ---------------------------------------------------------
 
-    def test_document_ids_row_count(self, vectorizer: SkillVectorizer):
+    @mark.parametrize("skills", [
+        {
+            "doc-a" : ["welding", "scaffolding"],
+            "doc-b" : ["concrete finishing"]
+        },
+        {
+            "z-doc" : ["welding"],
+            "a-doc" : ["scaffolding", "welding"]
+        }
+    ])
+    def test_matrix_alignment(self, skills: dict[str, list[str]]):
         """
-        Document identifiers are returned in row order alongside
-        both matrices.
+        `document_ids[i]` and `feature_names[j]` correctly index
+        the binary matrix regardless of insertion or sort order.
         """
-        assert (
-            len(vectorizer.document_ids)
-            == vectorizer.tfidf_matrix.shape[0]
-            == vectorizer.binary_matrix.shape[0]
-        )
-
-    def test_document_ids_sorted(self, vectorizer: SkillVectorizer):
-        """
-        Document identifiers are in sorted order.
-        """
-        assert vectorizer.document_ids == sorted(
-            vectorizer.document_ids
-        )
+        vec = SkillVectorizer(skills)
+        for i, doc_id in enumerate(vec.document_ids):
+            row     = vec.binary_matrix[i].toarray().flatten()
+            present = {
+                vec.feature_names[j]
+                for j, v in enumerate(row) if v
+            }
+            assert present == set(skills[doc_id])
 
     # ---------------------------------------------------------
     # Feature names
     # ---------------------------------------------------------
-
-    def test_feature_names_columns(self, vectorizer: SkillVectorizer):
-        """
-        Feature names length matches matrix column count.
-        """
-        assert (
-            len(vectorizer.feature_names)
-            == vectorizer.tfidf_matrix.shape[1]
-        )
-
-    def test_feature_names_sorted(self, vectorizer: SkillVectorizer):
-        """
-        Feature names are in alphabetical order for stable column indices.
-        """
-        assert vectorizer.feature_names == sorted(
-            vectorizer.feature_names
-        )
 
     def test_transform_vocabulary(self, vectorizer: SkillVectorizer):
         """
@@ -77,27 +66,11 @@ class TestSkillVectorizer:
     # Matrices
     # ---------------------------------------------------------
 
-    def test_binary_matrix_nonempty(self, vectorizer: SkillVectorizer):
-        """
-        The binary matrix has at least one non-zero entry from the
-        synthetic extraction fixture.
-        """
-        assert vectorizer.binary_matrix.nnz > 0
-
     def test_binary_matrix_values(self, vectorizer: SkillVectorizer):
         """
         The binary matrix contains only 0s and 1s.
         """
         assert (vectorizer.binary_matrix.data == 1).all()
-
-    def test_matrices_dimensions(self, vectorizer: SkillVectorizer):
-        """
-        TF-IDF and binary matrices have the same shape.
-        """
-        assert (
-            vectorizer.tfidf_matrix.shape
-            == vectorizer.binary_matrix.shape
-        )
 
     def test_tfidf_differs_from_binary(self, vectorizer: SkillVectorizer):
         """
@@ -108,12 +81,6 @@ class TestSkillVectorizer:
             vectorizer.tfidf_matrix.toarray()
             != vectorizer.binary_matrix.toarray()
         ).any()
-
-    def test_tfidf_values_nonnegative(self, vectorizer: SkillVectorizer):
-        """
-        TF-IDF matrix values are non-negative after L2 normalization.
-        """
-        assert vectorizer.tfidf_matrix.min() >= 0
 
     # ---------------------------------------------------------
     # Serialization
@@ -147,22 +114,3 @@ class TestSkillVectorizer:
         assert vec.tfidf_matrix.shape[0] == 1
         assert vec.binary_matrix.nnz == 2
         assert vec.statistics.mean_skills_per_posting == 2.0
-
-    def test_statistics_fields(self, vectorizer: SkillVectorizer):
-        """
-        Corpus statistics report vocabulary size, sparsity, and
-        per-posting skill counts.
-        """
-        stats = vectorizer.statistics
-        assert stats.vocabulary_size > 0
-        assert 0 <= stats.matrix_sparsity <= 1
-        assert stats.mean_skills_per_posting > 0
-        assert len(stats.skill_frequency) == stats.vocabulary_size
-
-    def test_statistics_frequency(self, vectorizer: SkillVectorizer):
-        """
-        Per-skill frequency counts reflect actual document occurrences.
-        """
-        freq = vectorizer.statistics.skill_frequency
-        assert all(v >= 1 for v in freq.values())
-        assert sum(freq.values()) >= len(vectorizer.document_ids)

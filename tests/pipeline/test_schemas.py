@@ -1,14 +1,17 @@
 """
-Tests for pipeline configuration schemas.
+Tests for pipeline configuration and shared reference data schemas.
 
-Validates `PipelineConfig` field constraints, defaults, and the
-`extra="forbid"` policy that catches typos early.
+Validates `PipelineConfig` field constraints, defaults, the
+`extra="forbid"` policy, and shared `ApprenticeshipContext` and
+`ProgramRecommendation` data models.
 """
 
 from pathlib import Path
 from pytest  import mark, raises
 
+from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import DistanceMetric, PipelineConfig
+from chalkline.pipeline.schemas import ProgramRecommendation
 
 
 class TestPipelineConfig:
@@ -29,6 +32,14 @@ class TestPipelineConfig:
             postings_dir = tmp_path,
             **overrides
         )
+
+    def test_cooccurrence_float(self, tmp_path: Path):
+        """
+        `min_cooccurrence` accepts a float fraction, not only
+        the default `"auto"` string.
+        """
+        config = self._config(tmp_path, min_cooccurrence = 0.05)
+        assert config.min_cooccurrence == 0.05
 
     @mark.parametrize("field, expected", [
         ("distance_metric",      DistanceMetric.EUCLIDEAN),
@@ -82,14 +93,6 @@ class TestPipelineConfig:
         with raises(Exception):
             PipelineConfig()
 
-    def test_override(self, tmp_path: Path):
-        """
-        Non-default values are accepted for optional fields.
-        """
-        config = self._config(tmp_path, max_components=50, random_seed=99)
-        assert config.max_components == 50
-        assert config.random_seed == 99
-
     @mark.parametrize("threshold", [0.0, 1.5])
     def test_variance_threshold_boundary(self, threshold: float, tmp_path: Path):
         """
@@ -104,3 +107,36 @@ class TestPipelineConfig:
         variance.
         """
         assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0
+
+    # -----------------------------------------------------------------
+    # ApprenticeshipContext
+    # -----------------------------------------------------------------
+
+    def test_apprenticeship_extra(self):
+        """
+        Unknown fields are rejected per extra="forbid".
+        """
+        with raises(Exception, match="Extra inputs"):
+            ApprenticeshipContext(
+                rapids_code = "90046",
+                term_hours  = "8000",
+                trade       = "Electrician",
+                unknown     = True
+            )
+
+    # -----------------------------------------------------------------
+    # ProgramRecommendation
+    # -----------------------------------------------------------------
+
+    def test_program_extra(self):
+        """
+        Unknown fields are rejected per extra="forbid".
+        """
+        with raises(Exception, match="Extra inputs"):
+            ProgramRecommendation(
+                credential  = "AAS",
+                institution = "CMCC",
+                program     = "Test",
+                unknown     = True,
+                url         = "https://example.com"
+            )

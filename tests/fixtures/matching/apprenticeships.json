@@ -1,0 +1,22 @@
+[
+  {
+    "rapids_code" : "90046",
+    "term_hours"  : "8000",
+    "title"       : "Electrician"
+  },
+  {
+    "rapids_code" : "90884",
+    "term_hours"  : "6000",
+    "title"       : "Welder"
+  },
+  {
+    "rapids_code" : "90048",
+    "term_hours"  : "4000",
+    "title"       : "Scaffold Builder"
+  },
+  {
+    "rapids_code" : "90050",
+    "term_hours"  : "6000",
+    "title"       : "Construction Equipment Operator"
+  }
+]

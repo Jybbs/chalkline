@@ -5,8 +5,8 @@ Fixtures form a pipeline chain where each step's output is
 independently tappable by any test module:
 
     corpus → extracted_skills → vectorizer → pca_reducer
-           ↘                    ↓                   ↓
-            sector_labels    network             clustering
+           ↘                        ↓            ↓
+             sector_labels       network     clusterer → matcher
 
 Lexicon fixtures feed the extractor via the registry:
 
@@ -16,25 +16,32 @@ Lexicon fixtures feed the extractor via the registry:
     supplement_terms┘
 """
 
-from json    import loads
-from pathlib import Path
-from pytest  import fixture, FixtureRequest
+import pandas as pd
 
-from chalkline.association.apriori       import AprioriComparison
-from chalkline.association.cooccurrence  import CooccurrenceNetwork
-from chalkline.clustering.comparison     import ClusterComparison
-from chalkline.clustering.hierarchical   import compute_sector_labels
-from chalkline.clustering.hierarchical   import HierarchicalClusterer
-from chalkline.clustering.schemas        import ClusterLabel
-from chalkline.collection.schemas        import Posting
-from chalkline.extraction.lexicons       import LexiconRegistry
-from chalkline.extraction.loaders        import load_certifications, load_onet
-from chalkline.extraction.loaders        import load_osha, load_supplement
-from chalkline.extraction.occupations    import OccupationIndex
-from chalkline.extraction.schemas        import Certification, OnetOccupation
-from chalkline.extraction.skills         import SkillExtractor
-from chalkline.extraction.vectorize      import SkillVectorizer
-from chalkline.reduction.pca             import PcaReducer
+from json             import loads
+from pathlib          import Path
+from pytest           import fixture, FixtureRequest
+from sklearn.pipeline import Pipeline
+
+from chalkline.association.apriori      import AprioriComparison
+from chalkline.association.cooccurrence import CooccurrenceNetwork
+from chalkline.clustering.comparison    import ClusterComparison
+from chalkline.clustering.hierarchical  import compute_sector_labels
+from chalkline.clustering.hierarchical  import HierarchicalClusterer
+from chalkline.clustering.schemas       import ClusterLabel
+from chalkline.collection.schemas       import Posting
+from chalkline.extraction.lexicons      import LexiconRegistry
+from chalkline.extraction.loaders       import load_certifications, load_onet
+from chalkline.extraction.loaders       import load_osha, load_supplement
+from chalkline.extraction.occupations   import OccupationIndex
+from chalkline.extraction.schemas       import Certification, OnetOccupation
+from chalkline.extraction.skills        import SkillExtractor
+from chalkline.extraction.vectorize     import SkillVectorizer
+from chalkline.matching.matcher         import ResumeMatcher
+from chalkline.matching.schemas         import MatchResult
+from chalkline.pipeline.programs        import load_programs
+from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
+from chalkline.reduction.pca            import PcaReducer
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -235,10 +242,7 @@ def second_posting() -> Posting:
     return _postings()[1]
 
 
-@fixture(params = [
-    "47-2111",
-    "47-2111.00"
-])
+@fixture(params = ["47-2111", "47-2111.00"])
 def soc(request: FixtureRequest) -> str:
     """
     Electrician SOC code in both bare and suffixed formats.
@@ -306,6 +310,31 @@ def network(vectorizer: SkillVectorizer) -> CooccurrenceNetwork:
 # ---------------------------------------------------------------------
 
 @fixture
+def cluster_labels(
+    clusterer  : HierarchicalClusterer,
+    vectorizer : SkillVectorizer
+) -> list[ClusterLabel]:
+    """
+    Cluster labels from TF-IDF centroid terms, shared across label tests.
+    """
+    return clusterer.labels(
+        feature_names = vectorizer.feature_names,
+        tfidf_matrix  = vectorizer.tfidf_matrix
+    )
+
+
+@fixture
+def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
+    """
+    Build a hierarchical clusterer from the shared PCA reducer.
+    """
+    return HierarchicalClusterer(
+        coordinates  = pca_reducer.coordinates,
+        document_ids = pca_reducer.document_ids
+    )
+
+
+@fixture
 def comparison(pca_reducer: PcaReducer) -> ClusterComparison:
     """
     Build a comparison runner without sector labels.
@@ -332,31 +361,6 @@ def comparison_with_sectors(
 
 
 @fixture
-def cluster_labels(
-    clusterer  : HierarchicalClusterer,
-    vectorizer : SkillVectorizer
-) -> list[ClusterLabel]:
-    """
-    Cluster labels from TF-IDF centroid terms, shared across label tests.
-    """
-    return clusterer.labels(
-        feature_names = vectorizer.feature_names,
-        tfidf_matrix  = vectorizer.tfidf_matrix
-    )
-
-
-@fixture
-def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
-    """
-    Build a hierarchical clusterer from the shared PCA reducer.
-    """
-    return HierarchicalClusterer(
-        coordinates  = pca_reducer.coordinates,
-        document_ids = pca_reducer.document_ids
-    )
-
-
-@fixture
 def sector_labels(
     extracted_skills : dict[str, list[str]],
     occupation_index : OccupationIndex,
@@ -370,3 +374,101 @@ def sector_labels(
         extracted_skills = extracted_skills,
         occupation_index = occupation_index
     )
+
+
+# ---------------------------------------------------------------------
+# Matching
+# ---------------------------------------------------------------------
+
+@fixture
+def apprenticeships() -> list[dict]:
+    """
+    Synthetic apprenticeship reference data for matching tests.
+    """
+    return loads((FIXTURES / "matching/apprenticeships.json").read_text())
+
+
+@fixture
+def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> Pipeline:
+    """
+    Combined geometry pipeline from vectorization through scaling.
+
+    Chains the fitted steps from `SkillVectorizer.pipeline` and
+    `PcaReducer.pipeline` into a single `Pipeline` whose
+    `transform([skill_dict])` projects a resume directly into
+    PCA-scaled coordinates.
+    """
+    vec_steps = vectorizer.pipeline.named_steps
+    pca_steps = pca_reducer.pipeline.named_steps
+    return Pipeline([
+        ("vec",    vec_steps["vec"]),
+        ("tfidf",  vec_steps["tfidf"]),
+        ("norm",   vec_steps["norm"]),
+        ("svd",    pca_steps["svd"]),
+        ("scaler", pca_steps["scaler"])
+    ])
+
+
+@fixture
+def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResult:
+    """
+    Default match result from the partial resume skill set.
+    """
+    return matcher.match(resume_skills)
+
+
+@fixture
+def matcher(
+    apprenticeships   : list[dict],
+    clusterer         : HierarchicalClusterer,
+    extracted_skills  : dict[str, list[str]],
+    geometry_pipeline : Pipeline,
+    network           : CooccurrenceNetwork,
+    programs          : list[ProgramRecommendation],
+    vectorizer        : SkillVectorizer
+) -> ResumeMatcher:
+    """
+    Build a resume matcher from the full fixture pipeline.
+    """
+    cluster_labels_50 = clusterer.labels(
+        feature_names = vectorizer.feature_names,
+        tfidf_matrix  = vectorizer.tfidf_matrix,
+        top_n         = 50
+    )
+    ppmi_df = pd.DataFrame(
+        network.ppmi_matrix.toarray(),
+        columns = network.feature_names,
+        index   = network.feature_names
+    )
+    return ResumeMatcher(
+        apprenticeships   = apprenticeships,
+        assignments       = clusterer.assignments,
+        cluster_labels    = cluster_labels_50,
+        coordinates       = clusterer.coordinates,
+        distance_metric   = DistanceMetric.EUCLIDEAN,
+        document_ids      = clusterer.document_ids,
+        extracted_skills  = extracted_skills,
+        geometry_pipeline = geometry_pipeline,
+        ppmi_df           = ppmi_df,
+        programs          = programs,
+        top_k_gaps        = 10
+    )
+
+
+@fixture
+def programs(tmp_path: Path) -> list[ProgramRecommendation]:
+    """
+    Load and normalize synthetic educational program fixtures.
+    """
+    for name in ("cc_programs.json", "umaine_programs.json"):
+        (tmp_path / name).write_text((FIXTURES / "matching" / name).read_text())
+    return load_programs(tmp_path)
+
+
+@fixture
+def resume_skills() -> list[str]:
+    """
+    A partial resume skill set that will produce gaps against
+    the fixture corpus.
+    """
+    return ["electrical wiring", "fall protection", "scaffolding"]

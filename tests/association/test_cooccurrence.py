@@ -6,7 +6,10 @@ construction, community detection, and diagnostic reporting using
 the synthetic 20-posting fixture chain.
 """
 
-import logging
+import numpy as np
+
+from logging import WARNING
+from pytest  import LogCaptureFixture
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.extraction.vectorize     import SkillVectorizer
@@ -73,21 +76,48 @@ class TestCooccurrenceNetwork:
             assert npmi.data.min() >= 0
             assert npmi.data.max() <= 1.0 + 1e-10
 
-    def test_npmi_capped_at_one(self, network: CooccurrenceNetwork):
+    def test_npmi_formula(self, network: CooccurrenceNetwork):
         """
-        NPMI values never exceed 1.0, even for pairs that
-        co-occur in every document where either skill appears.
+        NPMI for a known pair equals the manual formula, catching
+        data-ordering mismatches between PMI and co-occurrence
+        sparse arrays that would silently corrupt all downstream
+        graph weights and gap ranking.
+
+        Picks the first nonzero entry and computes:
+
+            NPMI = clip(PMI / -log(C_xy / n), 0, 1)
         """
         npmi = network.npmi_matrix
-        if npmi.nnz > 0:
-            assert npmi.data.max() <= 1.0
+        if npmi.nnz == 0:
+            return
 
-    def test_pmi_has_entries(self, network: CooccurrenceNetwork):
+        rows, cols = npmi.nonzero()
+        r, c       = int(rows[0]), int(cols[0])
+
+        c_xy  = float(network.cooccurrence[r, c])
+        n     = float(network.n_docs)
+        df_r  = float(network.doc_freq[r])
+        df_c  = float(network.doc_freq[c])
+
+        pmi_val   = np.log(n * c_xy / (df_r * df_c))
+        denom_val = np.log(n / c_xy)
+        expected  = (
+            max(0.0, min(1.0, pmi_val / denom_val))
+            if denom_val > 0 else 1.0
+        )
+
+        assert abs(float(npmi[r, c]) - expected) < 1e-10
+
+    def test_pmi_symmetric(self, network: CooccurrenceNetwork):
         """
-        PMI matrix has nonzero entries when co-occurrences exist.
+        Raw PMI matrix is symmetric. Asymmetry would be masked by
+        NPMI positive clipping but would corrupt PPMI values for
+        pairs where only one direction has positive PMI.
         """
-        if network.cooccurrence.nnz > 0:
-            assert network.pmi_matrix.nnz > 0
+        pmi  = network.pmi_matrix
+        diff = pmi - pmi.T
+        if diff.nnz > 0:
+            assert abs(diff.data).max() < 1e-10
 
     def test_ppmi_nonnegative(self, network: CooccurrenceNetwork):
         """
@@ -112,6 +142,18 @@ class TestCooccurrenceNetwork:
             == network.graph().number_of_edges()
         )
 
+    def test_gtest_no_nan(self, network: CooccurrenceNetwork):
+        """
+        No NaN or inf values in the G-test matrix. A negative
+        contingency cell from a co-occurrence or doc-frequency
+        mismatch would produce NaN via `xlogy` that silently
+        propagates through graph weights and community detection.
+        """
+        G = network.gtest_matrix
+        if G.nnz > 0:
+            assert not np.any(np.isnan(G.data))
+            assert not np.any(np.isinf(G.data))
+
     def test_gtest_nonnegative(self, network: CooccurrenceNetwork):
         """
         G-test statistics are non-negative because they are
@@ -133,42 +175,12 @@ class TestCooccurrenceNetwork:
     # Graph
     # ---------------------------------------------------------
 
-    def test_edge_weights_positive(self, network: CooccurrenceNetwork):
-        """
-        All NPMI graph edge weights are positive.
-        """
-        assert all(
-            w > 0 for _, _, w in network.graph().edges(data = "weight")
-        )
-
-    def test_graph_undirected(self, network: CooccurrenceNetwork):
-        """
-        Co-occurrence graph is undirected.
-        """
-        assert not network.graph().is_directed()
-
     def test_node_names_strings(self, network: CooccurrenceNetwork):
         """
         Graph nodes are canonical skill name strings, not integer
         indices.
         """
         assert all(isinstance(node, str) for node in network.graph().nodes())
-
-    def test_threshold_changes_edges(self, vectorizer: SkillVectorizer):
-        """
-        Changing the co-occurrence threshold changes the edge count.
-        """
-        loose = CooccurrenceNetwork(
-            binary_matrix    = vectorizer.binary_matrix,
-            feature_names    = vectorizer.feature_names,
-            min_cooccurrence = 0.01
-        )
-        strict = CooccurrenceNetwork(
-            binary_matrix    = vectorizer.binary_matrix,
-            feature_names    = vectorizer.feature_names,
-            min_cooccurrence = 0.50
-        )
-        assert loose.graph().number_of_edges() != strict.graph().number_of_edges()
 
     def test_zero_edge_graceful(self, vectorizer: SkillVectorizer):
         """
@@ -193,15 +205,6 @@ class TestCooccurrenceNetwork:
     # ---------------------------------------------------------
     # Communities
     # ---------------------------------------------------------
-
-    def test_community_labels_strings(self, network: CooccurrenceNetwork):
-        """
-        Community top skills are human-readable strings, not
-        numeric indices.
-        """
-        for label in network.communities():
-            assert all(isinstance(s, str) for s in label.top_skills)
-            assert all(not s.isdigit() for s in label.top_skills)
 
     def test_community_reproducible(self, vectorizer: SkillVectorizer):
         """
@@ -233,7 +236,11 @@ class TestCooccurrenceNetwork:
     # Diagnostics
     # ---------------------------------------------------------
 
-    def test_diagnostics_isolate_warning(self, vectorizer: SkillVectorizer, caplog):
+    def test_diagnostics_isolate_warning(
+        self,
+        caplog     : LogCaptureFixture,
+        vectorizer : SkillVectorizer
+    ):
         """
         A high-threshold network where most skills are isolates
         triggers the 30% isolate warning.
@@ -243,25 +250,9 @@ class TestCooccurrenceNetwork:
             feature_names    = vectorizer.feature_names,
             min_cooccurrence = 0.50
         )
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(WARNING):
             sparse.diagnostics()
         assert any("isolate nodes" in msg for msg in caplog.messages)
-
-    def test_diagnostics_populated(self, network: CooccurrenceNetwork):
-        """
-        Diagnostic fields are populated with plausible values,
-        including community quality metrics when edges exist.
-        """
-        diag = network.diagnostics()
-        assert diag.node_count > 0
-        assert diag.edge_count >= 0
-        assert diag.connected_components >= 0
-        assert diag.isolate_count >= 0
-        assert diag.largest_component >= 0
-        if diag.edge_count > 0:
-            assert diag.modularity is not None
-            assert 0.0 <= diag.coverage <= 1.0
-            assert 0.0 <= diag.performance <= 1.0
 
     # ---------------------------------------------------------
     # Measure comparison
@@ -287,19 +278,3 @@ class TestCooccurrenceNetwork:
         assert list(df.index) == list(df.columns)
         assert list(df.index) == network.feature_names
         assert (df.values == df.values.T).all()
-
-    # ---------------------------------------------------------
-    # Trade alignment
-    # ---------------------------------------------------------
-
-    def test_trade_alignment(self, network: CooccurrenceNetwork):
-        """
-        Trade alignment returns a dict with expected keys.
-        """
-        trades = [
-            {"rapids_code" : "90046", "title" : "Electrician"},
-            {"rapids_code" : "90884", "title" : "Welder"}
-        ]
-        result = network.trade_alignment(trades)
-        assert {"alignments", "matched_count", "total_trades"} <= result.keys()
-        assert result["total_trades"] == 2

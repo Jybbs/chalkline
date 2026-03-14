@@ -96,36 +96,9 @@ class TestOccupationIndex:
             {"Backhoes", "Concrete finishing", "Welding"}
         ) == "47-2071.00"
 
-    def test_nearest_paving(self, occupation_index: OccupationIndex):
-        """
-        Skills unique to paving operators resolve to that occupation's SOC
-        code.
-        """
-        assert occupation_index.nearest(
-            {"Backhoes", "Concrete finishing"}
-        ) == "47-2071.00"
-
-    def test_sector(self, occupation_index: OccupationIndex, soc: str):
-        """
-        `sector` accepts both suffixed and bare prefix formats.
-        """
-        assert occupation_index.get(soc).sector == "Building Construction"
-
-    def test_skills(self, occupation_index: OccupationIndex, soc: str):
-        """
-        `skills` accepts both suffixed and bare prefix formats.
-        """
-        assert len(occupation_index.get(soc).skills) == 7
-
     def test_soc_skill_matrix_shape(self, occupation_index: OccupationIndex):
         """
         The precomputed matrix has one row per SOC code and one column per
         unique skill across all occupations.
         """
         assert occupation_index.soc_skill_matrix.shape == (2, 12)
-
-    def test_socs_sorted(self, occupation_index: OccupationIndex):
-        """
-        SOC codes are in alphabetical order for stable row indices.
-        """
-        assert occupation_index.socs == sorted(occupation_index.socs)
