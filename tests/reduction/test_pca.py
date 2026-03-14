@@ -40,17 +40,15 @@ class TestPcaReducer:
         """
         assert len(pca_reducer.explained_variance_ratio) >= pca_reducer.n_selected
 
-    def test_max_components_capped(
-        self, skill_vectorizer: SkillVectorizer
-    ):
+    def test_max_components_capped(self, vectorizer: SkillVectorizer):
         """
         Requesting more components than the matrix rank caps to
         `min(n_samples, n_features) - 1` without error.
         """
-        matrix  = skill_vectorizer.tfidf_matrix
+        matrix  = vectorizer.tfidf_matrix
         reducer = PcaReducer(
-            document_ids       = skill_vectorizer.document_ids,
-            feature_names      = skill_vectorizer.feature_names,
+            document_ids       = vectorizer.document_ids,
+            feature_names      = vectorizer.feature_names,
             max_components     = 999,
             random_seed        = 42,
             tfidf_matrix       = matrix,
@@ -177,7 +175,6 @@ class TestPcaReducer:
         `pipeline.transform(new_vector)` returns the same number
         of columns without refitting.
         """
-        result = pca_reducer.pipeline.transform(
+        assert pca_reducer.pipeline.transform(
             np.ones((1, pca_reducer.pipeline.n_features_in_))
-        )
-        assert result.shape == (1, pca_reducer.n_selected)
+        ).shape == (1, pca_reducer.n_selected)

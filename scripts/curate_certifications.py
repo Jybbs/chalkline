@@ -143,10 +143,8 @@ class CertificationCurator:
         Test whether a single-word term collides with common
         English.
 
-        Uses the same Zipf threshold as `curate_onet.py` for
-        consistency. Terms with 2 or fewer characters are always
-        ambiguous because single letters match too broadly in
-        Aho-Corasick.
+        Uses wordfreq Zipf frequency with the same 4.0 threshold
+        as `curate_onet.py` for consistency.
 
         Args:
             term: Acronym or short certification name.
@@ -154,10 +152,7 @@ class CertificationCurator:
         Returns:
             `True` if the term should be excluded.
         """
-        return " " not in term and (
-            len(term) <= 2
-            or zipf_frequency(term.lower(), "en") >= 4.0
-        )
+        return " " not in term and zipf_frequency(term, "en") >= 4.0
 
     # -------------------------------------------------------------------------
     # Entry point

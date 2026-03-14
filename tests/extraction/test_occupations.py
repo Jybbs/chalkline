@@ -115,14 +115,14 @@ class TestOccupationIndex:
         """
         `skills` accepts both suffixed and bare prefix formats.
         """
-        assert len(occupation_index.get(soc).skills) == 8
+        assert len(occupation_index.get(soc).skills) == 7
 
     def test_soc_skill_matrix_shape(self, occupation_index: OccupationIndex):
         """
         The precomputed matrix has one row per SOC code and one column per
         unique skill across all occupations.
         """
-        assert occupation_index.soc_skill_matrix.shape == (2, 14)
+        assert occupation_index.soc_skill_matrix.shape == (2, 12)
 
     def test_socs_sorted(self, occupation_index: OccupationIndex):
         """

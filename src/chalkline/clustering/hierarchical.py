@@ -36,7 +36,9 @@ def compute_sector_labels(
     For each document in row order, finds the O*NET occupation
     whose skill profile has maximum Jaccard overlap with the
     posting's canonical skill set, then returns that occupation's
-    SOC code, giving 21 distinct ground-truth classes for ARI
+    SOC code.
+
+    This produces 21 distinct ground-truth classes for ARI
     evaluation rather than 3 broad sectors.
 
     Args:
@@ -60,14 +62,16 @@ class HierarchicalClusterer:
 
     Computes the average linkage matrix with optimal leaf ordering and
     selects a flat partition via the merge-height acceleration
-    criterion. Cophenetic comparison and internal validity metrics
+    criterion, which finds the largest second derivative of the
+    merge height sequence:
+
+        k = argmax{Δ²hᵢ} + 2
+
+    where Δ²hᵢ = hᵢ₊₂ - 2hᵢ₊₁ + hᵢ and k is the number of
+    clusters. Cophenetic comparison and internal validity metrics
     are computed on demand via `cophenetic_comparison()` and
     `validation_metrics()`. Cluster labels are derived from TF-IDF
     centroid terms when explicitly requested via `labels()`.
-
-    Requirement coverage: linkage (1), cophenetic (2, 7),
-    dendrogram (3), acceleration cut (4), cut_tree (5),
-    validate_at_k (6), cluster labels (8), ARI (9).
     """
 
     def __init__(
@@ -131,8 +135,12 @@ class HierarchicalClusterer:
         Cophenetic correlations for Ward, complete, and average
         linkage on the same coordinates.
 
-        Computes `pdist` and two additional linkage matrices on
-        demand. Results are not cached, so repeated calls refit.
+            r = corr(Z_coph, pdist(X))
+
+        where `Z_coph` is the cophenetic distance matrix derived
+        from each linkage. Computes `pdist` and two additional
+        linkage matrices on demand. Results are not cached, so
+        repeated calls refit.
         """
         distances = pdist(self.coordinates)
         return [
@@ -190,13 +198,14 @@ class HierarchicalClusterer:
         tfidf_dense                 = tfidf_matrix.toarray()
         leader_nodes, leader_labels = leaders(self.linkage, self.assignments)
         leader_map                  = dict(zip(leader_labels, leader_nodes))
+        names = np.array(feature_names)
         return [
             ClusterLabel(
                 cluster_id     = int(cluster_id),
                 leader_node_id = int(leader_map[cluster_id]),
                 size           = int(mask.sum()),
-                terms          = [feature_names[j] for j in indices],
-                weights        = [float(centroid[j]) for j in indices]
+                terms          = names[indices].tolist(),
+                weights        = centroid[indices].tolist()
             )
             for cluster_id in np.unique(self.assignments)
             for mask     in [self.assignments == cluster_id]

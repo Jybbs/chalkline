@@ -33,7 +33,7 @@ class TestPipelineConfig:
     @mark.parametrize("field, expected", [
         ("distance_metric",      DistanceMetric.EUCLIDEAN),
         ("max_components",       20),
-        ("min_cooccurrence_pct", 0.05),
+        ("min_cooccurrence",     "auto"),
         ("random_seed",          42),
         ("reference_dir",        Path("data/stakeholder/reference")),
         ("top_k_gaps",           10),
@@ -91,11 +91,7 @@ class TestPipelineConfig:
         assert config.random_seed == 99
 
     @mark.parametrize("threshold", [0.0, 1.5])
-    def test_variance_threshold_boundary(
-        self,
-        threshold : float,
-        tmp_path  : Path
-    ):
+    def test_variance_threshold_boundary(self, threshold: float, tmp_path: Path):
         """
         Values at or beyond `UnitInterval` bounds are rejected.
         """

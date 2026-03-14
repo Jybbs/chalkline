@@ -4,9 +4,9 @@ lexicons.
 
 Builds lemmatized lookup indices with OSHA > O*NET > certifications >
 supplement priority from pre-decomposed O*NET sub-phrases, certification
-names, acronyms, and description phrases, OSHA topic terms, and domain
-supplement terms so that Aho-Corasick matching can find fragments within
-posting text.
+names, acronyms, and description phrases, OSHA topic terms, and
+domain supplement terms so that Aho-Corasick matching can find
+fragments within posting text.
 """
 
 from functools import cache
@@ -35,10 +35,10 @@ class LexiconRegistry:
     supplement lexicons.
 
     Builds lemmatized lookup indices from all lexicon sources using
-    pre-decomposed sub-phrases for O*NET Tasks and DWAs, certification
-    names, acronyms, and description phrases, and exposes a merged
-    `lemma_index` with OSHA > O*NET > certifications > supplement
-    priority for pattern matching.
+    pre-decomposed sub-phrases for O*NET Tasks and DWAs,
+    certification names, acronyms, and description phrases, and
+    exposes a merged `lemma_index` with OSHA > O*NET >
+    certifications > supplement priority for pattern matching.
     """
 
     def __init__(
@@ -51,13 +51,13 @@ class LexiconRegistry:
         """
         Build normalization indices from loaded lexicon data.
 
+        Optional lexicons passed as `None` are skipped.
+
         Args:
             occupations      : Validated O*NET occupation records.
             osha_terms       : Validated OSHA topic strings.
-            certifications   : Validated certification records, or
-                               `None` to skip.
-            supplement_terms : Domain supplement terms at lowest
-                               priority, or `None` to skip.
+            certifications   : Validated certification records.
+            supplement_terms : Domain supplement terms.
         """
         _ensure_nltk_data()
         self.lemma_cache = {}

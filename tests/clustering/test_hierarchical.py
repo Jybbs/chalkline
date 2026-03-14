@@ -153,16 +153,16 @@ class TestHierarchicalClusterer:
 
     def test_labels_top_n(
         self,
-        clusterer        : HierarchicalClusterer,
-        skill_vectorizer : SkillVectorizer
+        clusterer  : HierarchicalClusterer,
+        vectorizer : SkillVectorizer
     ):
         """
         Requesting fewer top terms limits the returned list
         length.
         """
         for label in clusterer.labels(
-            feature_names = skill_vectorizer.feature_names,
-            tfidf_matrix  = skill_vectorizer.tfidf_matrix,
+            feature_names = vectorizer.feature_names,
+            tfidf_matrix  = vectorizer.tfidf_matrix,
             top_n         = 2
         ):
             assert len(label.terms) <= 2
@@ -189,7 +189,10 @@ class TestHierarchicalClusterer:
         """
         Title map substitutes document identifiers in leaf labels.
         """
-        title_map = {doc: f"Title {i}" for i, doc in enumerate(clusterer.document_ids)}
+        title_map = {
+            doc: f"Title {i}"
+            for i, doc in enumerate(clusterer.document_ids)
+        }
         data = clusterer.dendrogram_data(title_map = title_map)
         assert all(label.startswith("Title ") for label in data["ivl"])
 

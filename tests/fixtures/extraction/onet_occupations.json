@@ -14,10 +14,6 @@
                 "type"       : "skill"
             },
             {
-                "name" : "Electricians",
-                "type" : "alternate_title"
-            },
-            {
                 "name"    : "Install electrical wiring, equipment, and fixtures",
                 "phrases" : ["electrical wiring"],
                 "type"    : "task"
@@ -56,10 +52,6 @@
             {
                 "name" : "Concrete finishing",
                 "type" : "technology"
-            },
-            {
-                "name" : "Equipment Operators",
-                "type" : "alternate_title"
             },
             {
                 "name"    : "Operate construction equipment",

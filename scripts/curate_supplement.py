@@ -18,7 +18,6 @@ Run from the worktree root:
 from collections import Counter, defaultdict
 from json        import dumps, loads
 from nltk        import download, pos_tag, word_tokenize
-from nltk.corpus import wordnet
 from nltk.stem   import WordNetLemmatizer
 from pathlib     import Path
 from re          import sub
@@ -127,8 +126,8 @@ class SupplementCurator:
         Clean, lemmatize, and Zipf-filter words from a title string.
 
         Splits on whitespace after normalizing slashes and hyphens,
-        strips non-alpha characters, and retains 4+ character words
-        with Zipf frequency below the ambiguity threshold.
+        strips non-alpha characters, and retains words with Zipf
+        frequency below the ambiguity threshold.
 
         Args:
             text: A program name, trade title, or similar label.
@@ -139,28 +138,12 @@ class SupplementCurator:
         return [
             lemma
             for word in sub(r"[/\-]", " ", text.lower()).split()
-            if len(clean := sub(r"[^a-z]", "", word)) >= 4
+            if (clean := sub(r"[^a-z]", "", word))
             and zipf_frequency(
                 lemma := self.lemmatizer.lemmatize(clean, pos="n"),
                 "en"
             ) < 4.0
         ]
-
-    def _is_primarily_verb(self, word: str) -> bool:
-        """
-        Test whether a word has more verb senses than noun senses
-        in WordNet, filtering mistagged imperative verbs.
-
-        Args:
-            word: Lemmatized noun candidate.
-
-        Returns:
-            `True` if the word is primarily a verb.
-        """
-        return (
-            len(wordnet.synsets(word, pos=wordnet.VERB))
-            > len(wordnet.synsets(word, pos=wordnet.NOUN)) * 2
-        )
 
     # -----------------------------------------------------------------
     # Mining sources
@@ -190,7 +173,7 @@ class SupplementCurator:
             for word in skill["name"].split()
             if (clean := sub(r"[^A-Za-z0-9]", "", word)).isupper()
             and 4 <= len(clean) <= 6
-            and zipf_frequency(clean.lower(), "en") < 4.0
+            and zipf_frequency(clean, "en") < 4.0
         })
 
     def _mine_onet_nouns(self) -> list[tuple[str, int, int]]:
@@ -231,7 +214,6 @@ class SupplementCurator:
             )
             if len(noun_socs[noun]) >= 3
             and zipf_frequency(noun, "en") < 4.0
-            and not self._is_primarily_verb(noun)
         ]
 
     def _mine_posting_titles(self) -> list[tuple[str, int]]:
@@ -240,9 +222,7 @@ class SupplementCurator:
 
         Tokenizes each posting title, lemmatizes words to noun form,
         and retains terms appearing in 3+ postings with Zipf
-        frequency below the ambiguity threshold. Only alphabetic
-        tokens of 4+ characters are considered, and the verb filter
-        excludes words that are primarily verbs in WordNet.
+        frequency below the ambiguity threshold.
 
         Returns:
             List of (term, posting_count) tuples sorted by descending
@@ -259,7 +239,6 @@ class SupplementCurator:
             (word, count)
             for word, count in counts.most_common()
             if count >= 3
-            and not self._is_primarily_verb(word)
         ]
 
     def _mine_program_words(self) -> list[str]:
