@@ -498,8 +498,9 @@ def pathway_graph(
     """
     Build a career pathway graph from the full fixture pipeline.
 
-    Pre-computes `ClusterProfile` records from upstream fixtures
-    before passing them to the graph constructor.
+    Pre-computes fully enriched `ClusterProfile` records (including
+    apprenticeship and program matches via prefix overlap) before
+    passing them to the graph constructor.
     """
     cluster_skills: dict[int, set[str]] = defaultdict(set)
     for doc, cid in zip(clusterer.document_ids, clusterer.assignments):
@@ -511,24 +512,43 @@ def pathway_graph(
             occupation_index.get(soc).sector
         )
 
-    size_map = {cl.cluster_id: cl.size for cl in cluster_labels}
+    size_map  = {cl.cluster_id: cl.size for cl in cluster_labels}
+    terms_map = {cl.cluster_id: cl.terms for cl in cluster_labels}
 
-    profiles = {
-        cid: ClusterProfile(
-            job_zone = occupation_index.job_zone_for_skills(
-                {s.lower() for s in skills}
-            ),
-            sector   = Counter(by_cluster[cid]).most_common(1)[0][0],
-            size     = size_map[cid],
-            skills   = skills
-        )
-        for cid, skills in cluster_skills.items()
+    prefix = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
+    trade_pf = {a.rapids_code: prefix(a.title) for a in apprenticeships}
+    prog_pf  = {
+        (p.institution, p.program): prefix(p.program) for p in programs
     }
 
+    profiles: dict[int, ClusterProfile] = {}
+    for cid, skills in cluster_skills.items():
+        terms   = terms_map.get(cid, [])
+        node_pf = {p for text in (*terms, *skills) for p in prefix(text)}
+
+        matched = next(
+            (a for a in apprenticeships if node_pf & trade_pf[a.rapids_code]),
+            None
+        )
+
+        profiles[cid] = ClusterProfile(
+            cluster_id = cid,
+            job_zone   = occupation_index.job_zone_for_skills(
+                {s.lower() for s in skills}
+            ),
+            sector     = Counter(by_cluster[cid]).most_common(1)[0][0],
+            size       = size_map[cid],
+            skills     = skills,
+            terms      = terms,
+
+            apprenticeship = matched,
+            programs       = [
+                p for p in programs
+                if node_pf & prog_pf[p.institution, p.program]
+            ]
+        )
+
     return CareerPathwayGraph(
-        apprenticeships = apprenticeships,
-        cluster_labels  = cluster_labels,
-        network         = network,
-        profiles        = profiles,
-        programs        = programs
+        network  = network,
+        profiles = profiles
     )

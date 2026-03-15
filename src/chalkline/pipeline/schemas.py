@@ -6,9 +6,10 @@ apprenticeship and educational program reference data consumed across
 matching, pathways, and report generation modules.
 """
 
-from enum     import StrEnum
-from pathlib  import Path
-from pydantic import BaseModel, Field, field_validator
+from enum      import StrEnum
+from functools import cached_property
+from pathlib   import Path
+from pydantic  import BaseModel, Field, field_validator
 
 from chalkline import UnitInterval
 
@@ -38,10 +39,25 @@ class ClusterProfile(BaseModel, extra="forbid"):
     and by the career report for cluster display.
     """
 
-    job_zone : int       = Field(ge=1, le=5)
-    sector   : str
-    size     : int       = Field(ge=1)
-    skills   : list[str]
+    cluster_id : int       = Field(ge=0)
+    job_zone   : int       = Field(ge=1, le=5)
+    sector     : str
+    size       : int       = Field(ge=1)
+    skills     : list[str]
+    terms      : list[str] = Field(default_factory=list)
+
+    apprenticeship : ApprenticeshipContext | None       = None
+    programs       : list[ProgramRecommendation]        = Field(default_factory=list)
+
+    @cached_property
+    def rank(self) -> tuple[int, int]:
+        """
+        Sort key for edge direction: (Job Zone, cluster ID).
+
+        Lower rank is the edge source in the career DAG, ensuring
+        edges flow from entry-level to advanced roles.
+        """
+        return (self.job_zone, self.cluster_id)
 
     @field_validator("skills", mode="before")
     @classmethod
