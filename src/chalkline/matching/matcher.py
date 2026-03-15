@@ -81,7 +81,7 @@ class ResumeMatcher:
 
     def __init__(
         self,
-        apprenticeships   : list[dict],
+        apprenticeships   : list[ApprenticeshipContext],
         assignments       : np.ndarray,
         cluster_labels    : list[ClusterLabel],
         coordinates       : np.ndarray,
@@ -103,10 +103,9 @@ class ResumeMatcher:
         shared PCA space without refitting.
 
         Args:
-            apprenticeships   : Raw dicts from
-                                `apprenticeships.json` with
-                                `title`, `rapids_code`, and
-                                `term_hours` keys.
+            apprenticeships   : Validated apprenticeship program
+                                records from the stakeholder
+                                reference data.
             assignments       : Cluster ID per posting from
                                 `HierarchicalClusterer.assignments`.
             cluster_labels    : TF-IDF centroid labels with terms
@@ -161,18 +160,11 @@ class ResumeMatcher:
             for label in cluster_labels
         }
 
-        self.apprenticeship_models = [
-            ApprenticeshipContext(
-                rapids_code = a["rapids_code"],
-                term_hours  = a["term_hours"],
-                trade       = a["title"]
-            )
-            for a in apprenticeships
-        ]
+        self.apprenticeships = apprenticeships
 
         self.trade_prefixes = {
-            a.rapids_code: _prefix_set(a.trade)
-            for a in self.apprenticeship_models
+            a.rapids_code: _prefix_set(a.title)
+            for a in self.apprenticeships
         }
         self.program_prefixes = {
             (p.institution, p.program): _prefix_set(p.program)
@@ -197,7 +189,7 @@ class ResumeMatcher:
         """
         prefixes = _prefix_set(skill)
         return [
-            a for a in self.apprenticeship_models
+            a for a in self.apprenticeships
             if prefixes & self.trade_prefixes[a.rapids_code]
         ]
 

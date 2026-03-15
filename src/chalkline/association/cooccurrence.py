@@ -88,6 +88,16 @@ class CooccurrenceNetwork:
     # -----------------------------------------------------------------
 
     @cached_property
+    def feature_index(self) -> dict[str, int]:
+        """
+        Reverse lookup from skill name to column position.
+
+        Returns:
+            Mapping from feature name to zero-based column index.
+        """
+        return {n: i for i, n in enumerate(self.feature_names)}
+
+    @cached_property
     def gtest_matrix(self) -> csr_array:
         """
         Dunning's G-test statistics for all thresholded pairs.

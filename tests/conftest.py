@@ -20,8 +20,9 @@ Lexicon fixtures feed the extractor via the registry:
 
 import pandas as pd
 
-from json             import loads
-from pathlib          import Path
+from collections     import Counter, defaultdict
+from json            import loads
+from pathlib         import Path
 from pytest           import fixture, FixtureRequest
 from sklearn.pipeline import Pipeline
 
@@ -43,6 +44,7 @@ from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.matching.schemas         import MatchResult
 from chalkline.pathways.graph           import CareerPathwayGraph
 from chalkline.pipeline.programs        import load_programs
+from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
 from chalkline.reduction.pca            import PcaReducer
 
@@ -382,11 +384,14 @@ def sector_labels(
 # ---------------------------------------------------------------------
 
 @fixture
-def apprenticeships() -> list[dict]:
+def apprenticeships() -> list[ApprenticeshipContext]:
     """
     Synthetic apprenticeship reference data for matching tests.
     """
-    return loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
+    return [
+        ApprenticeshipContext(**raw)
+        for raw in loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
+    ]
 
 
 @fixture
@@ -481,7 +486,7 @@ def resume_skills() -> list[str]:
 
 @fixture
 def pathway_graph(
-    apprenticeships  : list[dict],
+    apprenticeships  : list[ApprenticeshipContext],
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
     extracted_skills : dict[str, list[str]],
@@ -493,17 +498,37 @@ def pathway_graph(
     """
     Build a career pathway graph from the full fixture pipeline.
 
-    Passes pre-computed `sector_labels` to avoid redundant per-posting
-    nearest-SOC computation via `cdist`.
+    Pre-computes `ClusterProfile` records from upstream fixtures
+    before passing them to the graph constructor.
     """
+    cluster_skills: dict[int, set[str]] = defaultdict(set)
+    for doc, cid in zip(clusterer.document_ids, clusterer.assignments):
+        cluster_skills[int(cid)].update(extracted_skills.get(doc, []))
+
+    by_cluster: dict[int, list[str]] = defaultdict(list)
+    for soc, cid in zip(sector_labels, clusterer.assignments):
+        by_cluster[int(cid)].append(
+            occupation_index.get(soc).sector
+        )
+
+    size_map = {cl.cluster_id: cl.size for cl in cluster_labels}
+
+    profiles = {
+        cid: ClusterProfile(
+            job_zone = occupation_index.job_zone_for_skills(
+                {s.lower() for s in skills}
+            ),
+            sector   = Counter(by_cluster[cid]).most_common(1)[0][0],
+            size     = size_map[cid],
+            skills   = skills
+        )
+        for cid, skills in cluster_skills.items()
+    }
+
     return CareerPathwayGraph(
-        apprenticeships  = apprenticeships,
-        assignments      = clusterer.assignments,
-        cluster_labels   = cluster_labels,
-        document_ids     = clusterer.document_ids,
-        extracted_skills = extracted_skills,
-        network          = network,
-        occupation_index = occupation_index,
-        programs         = programs,
-        sector_labels    = sector_labels
+        apprenticeships = apprenticeships,
+        cluster_labels  = cluster_labels,
+        network         = network,
+        profiles        = profiles,
+        programs        = programs
     )

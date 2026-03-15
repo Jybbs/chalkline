@@ -8,22 +8,49 @@ matching, pathways, and report generation modules.
 
 from enum     import StrEnum
 from pathlib  import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from chalkline import UnitInterval
 
 
 class ApprenticeshipContext(BaseModel, extra="forbid"):
     """
-    AGC-registered apprenticeship program linked to a skill gap.
+    AGC-registered apprenticeship program from the stakeholder
+    reference data.
 
-    Maps a gap skill to a RAPIDS-coded trade with term hours, providing
-    a concrete training timeline for skill acquisition.
+    Each record represents a RAPIDS-coded trade with its required
+    term hours. Used by the pathway graph for node enrichment and
+    by the resume matcher for gap-to-trade linking.
     """
 
     rapids_code : str
     term_hours  : str
-    trade       : str
+    title       : str
+
+
+class ClusterProfile(BaseModel, extra="forbid"):
+    """
+    Domain characteristics of a single career cluster.
+
+    Aggregates the Job Zone, sector, posting count, and union skill
+    set for a cluster identified by hierarchical agglomerative
+    clustering. Consumed by the pathway graph for node construction
+    and by the career report for cluster display.
+    """
+
+    job_zone : int       = Field(ge=1, le=5)
+    sector   : str
+    size     : int       = Field(ge=1)
+    skills   : list[str]
+
+    @field_validator("skills", mode="before")
+    @classmethod
+    def sort_skills(cls, v: set[str] | list[str]) -> list[str]:
+        """
+        Accept a set or list and store as a sorted list for
+        stable node attribute output.
+        """
+        return sorted(v)
 
 
 class DistanceMetric(StrEnum):

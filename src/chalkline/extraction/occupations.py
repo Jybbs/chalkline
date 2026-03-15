@@ -11,6 +11,7 @@ import numpy as np
 from collections            import Counter
 from functools              import cached_property
 from scipy.spatial.distance import cdist
+from statistics             import median
 
 from chalkline.extraction.schemas import OnetOccupation
 
@@ -54,6 +55,28 @@ class OccupationIndex:
             prefix: code for code in self.occupation_map
             if counts[prefix := code.split(".")[0]] == 1
         }
+
+    @cached_property
+    def concrete_profiles(self) -> list[tuple[set[str], int]]:
+        """
+        Pre-computed concrete skill sets and Job Zones for overlap
+        matching.
+
+        Filters each occupation's skills to concrete types (Tasks,
+        Technology Skills, Tools, DWAs) and lowercases the names
+        for case-insensitive overlap computation against cluster
+        skill sets.
+
+        Returns:
+            Tuples of (lowercased concrete skill names, Job Zone).
+        """
+        return [
+            (
+                {s.name.lower() for s in occ.skills if s.type.is_concrete},
+                occ.job_zone
+            )
+            for occ in self.occupation_map.values()
+        ]
 
     @cached_property
     def skill_to_col(self) -> dict[str, int]:
@@ -127,6 +150,41 @@ class OccupationIndex:
             return self.occupation_map[full]
 
         raise KeyError(f"Unknown or ambiguous SOC code: {soc!r}")
+
+    def job_zone_for_skills(self, skills: set[str]) -> int:
+        """
+        Assign a Job Zone via overlap coefficient against concrete
+        O*NET skill profiles.
+
+        Computes |A & B| / min(|A|, |B|) between the input skill
+        set and each occupation's concrete skills, then returns the
+        integer median of the top-3 matches. Returns 2 (entry-level
+        default) when the input set is empty or no profiles overlap.
+
+        Args:
+            skills: Lowercased canonical skill names from a cluster.
+
+        Returns:
+            Job Zone integer in [1, 5].
+        """
+        if not skills:
+            return 2
+
+        matches = sorted(
+            [
+                (
+                    len(skills & profile) / min(len(skills), len(profile)),
+                    zone
+                )
+                for profile, zone in self.concrete_profiles
+                if profile
+            ],
+            reverse=True
+        )
+
+        return int(median(
+            jz for _, jz in matches[:3]
+        )) if matches else 2
 
     def nearest(self, posting_skills: set[str]) -> str:
         """
