@@ -61,7 +61,7 @@ class CareerPathwayGraph:
         career pathway navigation.
 
         Args:
-            network           : PPMI matrix, vocabulary, and
+            network           : NPMI matrix, vocabulary, and
                                 Louvain partition.
             profiles          : Enriched cluster characteristics from the
                                 orchestrator.

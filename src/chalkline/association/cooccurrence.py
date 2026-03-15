@@ -478,7 +478,7 @@ class CooccurrenceNetwork:
 
     def indices_for(self, skills: list[str]) -> list[int]:
         """
-        Map skill names to PPMI matrix column positions.
+        Map skill names to matrix column positions.
 
         Args:
             skills: Canonical skill names to resolve.
