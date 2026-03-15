@@ -1,9 +1,9 @@
 """
 Tests for skill vectorization into TF-IDF and binary matrices.
 
-Validates matrix dimensions, binary constraints, vocabulary consistency,
-joblib serialization, corpus statistics, and document identifier ordering
-using synthetic extraction output.
+Validates matrix dimensions, binary constraints, vocabulary
+consistency, joblib serialization, corpus statistics, and document
+identifier ordering using synthetic extraction output.
 """
 
 from joblib  import dump, load
@@ -34,8 +34,8 @@ class TestSkillVectorizer:
     ])
     def test_matrix_alignment(self, skills: dict[str, list[str]]):
         """
-        `document_ids[i]` and `feature_names[j]` correctly index
-        the binary matrix regardless of insertion or sort order.
+        `document_ids[i]` and `feature_names[j]` correctly index the
+        binary matrix regardless of insertion or sort order.
         """
         vec = SkillVectorizer(skills)
         for i, doc_id in enumerate(vec.document_ids):
@@ -52,8 +52,8 @@ class TestSkillVectorizer:
 
     def test_transform_vocabulary(self, vectorizer: SkillVectorizer):
         """
-        `DictVectorizer.transform(new_doc)` produces a vector with the
-        same number of columns as `fit_transform()`.
+        `DictVectorizer.transform(new_doc)` produces a vector with
+        the same number of columns as `fit_transform()`.
         """
         assert vectorizer.pipeline.named_steps["vec"].transform(
             [{
@@ -74,8 +74,8 @@ class TestSkillVectorizer:
 
     def test_tfidf_differs_from_binary(self, vectorizer: SkillVectorizer):
         """
-        TF-IDF weighting and L2 normalization produce values distinct
-        from the raw binary presence/absence matrix.
+        TF-IDF weighting and L2 normalization produce values distinct from
+        the raw binary presence/absence matrix.
         """
         assert (
             vectorizer.tfidf_matrix.toarray()
@@ -88,8 +88,8 @@ class TestSkillVectorizer:
 
     def test_pipeline_persist(self, vectorizer: SkillVectorizer, tmp_path: Path):
         """
-        The fitted pipeline serializes and restores via `joblib`,
-        producing identical output on the same input.
+        The fitted pipeline serializes and restores via `joblib`, producing
+        identical output on the same input.
         """
         dump(vectorizer.pipeline, path := tmp_path / "pipeline.joblib")
         test_dict = [{

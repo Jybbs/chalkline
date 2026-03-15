@@ -11,8 +11,8 @@ from chalkline.pipeline.programs import load_programs
 
 class TestLoadPrograms:
     """
-    Verify field normalization and loading from both community
-    college and university reference files.
+    Verify field normalization and loading from both community college
+    and university reference files.
     """
 
     def test_cc_normalization(self, tmp_path: Path):
@@ -69,9 +69,8 @@ class TestLoadPrograms:
 
     def test_initiative_normalization(self, tmp_path: Path):
         """
-        Workforce initiatives map `initiative` to `program`,
-        `best_for` to `credential`, and set institution to
-        `"Statewide"`.
+        Workforce initiatives map `initiative` to `program`, `best_for`
+        to `credential`, and set institution to `"Statewide"`.
         """
         (tmp_path / "cc_programs.json").write_text(dumps({
             "degrees": [],
@@ -90,8 +89,8 @@ class TestLoadPrograms:
 
     def test_malformed_entry(self, tmp_path: Path):
         """
-        A record missing a required key raises `KeyError` rather
-        than silently producing a corrupt program.
+        A record missing a required key raises `KeyError` rather than
+        silently producing a corrupt program.
         """
         (tmp_path / "cc_programs.json").write_text(dumps({
             "degrees" : [{"college" : "CMCC"}]
@@ -107,8 +106,8 @@ class TestLoadPrograms:
 
     def test_umaine_normalization(self, tmp_path: Path):
         """
-        University `campus` maps to `institution` and `degree`
-        maps to `credential`.
+        University `campus` maps to `institution` and `degree` maps to
+        `credential`.
         """
         (tmp_path / "umaine_programs.json").write_text(dumps([{
             "campus"   : "UMaine",

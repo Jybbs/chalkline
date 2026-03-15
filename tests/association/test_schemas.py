@@ -1,5 +1,9 @@
 """
 Tests for association schemas.
+
+Validates field constraints and extra-field rejection across
+`AprioriResult`, `CommunityLabel`, `GraphDiagnostics`, and
+`MeasureComparison`.
 """
 
 from pytest import mark, param, raises
@@ -10,8 +14,8 @@ from chalkline.association.schemas import GraphDiagnostics, MeasureComparison
 
 class TestAssociationSchemas:
     """
-    Validate field constraints and extra-field rejection across
-    association schema models.
+    Validate field constraints and extra-field rejection across association
+    schema models.
     """
 
     # ---------------------------------------------------------

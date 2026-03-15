@@ -3,9 +3,9 @@ Skill extraction from job posting text via Aho-Corasick matching.
 
 Builds surface form variants for each lexicon term, loads them into an
 `ahocorasick_rs` automaton with `LeftmostLongest` semantics, and runs a
-single-pass match per posting with word boundary enforcement. The
-output is a mapping from document identifiers to deduplicated, sorted
-canonical skill names.
+single-pass match per posting with word boundary enforcement. The output
+is a mapping from document identifiers to deduplicated, sorted canonical
+skill names.
 """
 
 from ahocorasick_rs import AhoCorasick, MatchKind
@@ -14,7 +14,6 @@ from logging        import getLogger
 from nltk.stem      import PorterStemmer
 from re             import IGNORECASE, MULTILINE, search, sub
 from typing         import NamedTuple
-from wordfreq       import word_frequency
 
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
@@ -35,8 +34,8 @@ class PatternMeta(NamedTuple):
     """
     Metadata for a single surface form pattern in the automaton.
 
-    Tracks which canonical skill name a pattern resolves to and its
-    confidence tier for conflict resolution.
+    Tracks which canonical skill name a pattern resolves to and
+    its confidence tier for conflict resolution.
     """
 
     canonical : str
@@ -51,11 +50,12 @@ class SkillExtractor:
     """
     Aho-Corasick skill extractor with surface form augmentation.
 
-    Generates lowercased, lemmatized, stemmed, and inverted bigram variants
-    for each lexicon term, loads them into a `LeftmostLongest` automaton,
-    and provides a single `extract()` method that preprocesses posting text,
-    lemmatizes, matches with word boundary enforcement, and returns
-    deduplicated canonical skill names per document.
+    Generates lowercased, lemmatized, stemmed, and inverted bigram
+    variants for each lexicon term, loads them into a
+    `LeftmostLongest` automaton, and provides a single `extract()`
+    method that preprocesses posting text, lemmatizes, matches with
+    word boundary enforcement, and returns deduplicated canonical
+    skill names per document.
     """
 
     def __init__(self, registry: LexiconRegistry):
@@ -80,7 +80,11 @@ class SkillExtractor:
     @property
     def vocabulary(self) -> set[str]:
         """
-        The set of all canonical skill names loadable by this extractor.
+        The set of all canonical skill names loadable by this
+        extractor.
+
+        Returns:
+            Unique canonical names across all loaded patterns.
         """
         return {m.canonical for m in self.metadata}
 
@@ -92,13 +96,15 @@ class SkillExtractor:
         """
         Generate augmented surface forms with parallel metadata.
 
-        For each unique canonical name in the registry's `lemma_index`,
-        produces lowercased canonical, all lemmatized keys, Porter-stemmed
-        variants, and inverted bigrams for two-word skills. Each pattern
-        gets metadata tracking its canonical name and confidence tier.
+        For each unique canonical name in the registry's
+        `lemma_index`, produces lowercased canonical, all
+        lemmatized keys, Porter-stemmed variants, and inverted
+        bigrams for two-word skills. Each pattern gets metadata
+        tracking its canonical name and confidence tier.
 
         Returns:
-            A parallel pair of pattern strings and their metadata.
+            A parallel pair of pattern strings and their
+            metadata.
         """
         patterns = []
         metadata = []
@@ -150,8 +156,8 @@ class SkillExtractor:
         Check whether a match span falls on word boundaries.
 
         After preprocessing, all non-pattern characters have been
-        replaced with spaces, so a valid boundary is simply a space
-        or string edge.
+        replaced with spaces, so a valid boundary is simply a
+        space or string edge.
 
         Args:
             end   : End position (exclusive) of the match.
@@ -168,13 +174,13 @@ class SkillExtractor:
 
     def _match(self, text: str) -> list[str]:
         """
-        Run the skill automaton and return deduplicated canonical names.
+        Run the automaton and return deduplicated canonical names.
 
-        Matches are filtered for word boundaries and then deduplicated by
-        canonical name. When multiple surface forms of the same canonical
-        name match, the highest-confidence tier wins, though
-        `LeftmostLongest` already prefers longer multi-word matches at
-        each position.
+        Matches are filtered for word boundaries and then
+        deduplicated by canonical name. When multiple surface
+        forms of the same canonical name match, the highest-
+        confidence tier wins, though `LeftmostLongest` already
+        prefers longer multi-word matches at each position.
 
         Args:
             text: Lemmatized posting text.
@@ -199,11 +205,12 @@ class SkillExtractor:
 
         Drops preamble text before the first structural marker and
         EEO boilerplate after the first equal-opportunity marker,
-        strips HTML tags, splits camelCase terms, lowercases, removes
-        characters absent from lexicon patterns, and collapses
-        whitespace. The allowed character set is derived at init time
-        from the automaton patterns themselves, so the filter is
-        always consistent with whatever the lexicons contain.
+        strips HTML tags, splits camelCase terms, lowercases,
+        removes characters absent from lexicon patterns, and
+        collapses whitespace. The allowed character set is derived
+        at init time from the automaton patterns themselves, so the
+        filter is always consistent with whatever the lexicons
+        contain.
 
         Args:
             text: Raw posting description.
@@ -251,60 +258,31 @@ class SkillExtractor:
 
     def extract(self, postings: dict[str, str]) -> dict[str, list[str]]:
         """
-        Extract canonical skill names from a corpus of posting texts.
+        Extract canonical skill names from a corpus of posting
+        texts.
 
-        Each posting is preprocessed, lemmatized, and matched against the
-        skill automaton. Postings with zero matched skills are excluded
-        from the output. Unmatched term frequencies are logged for lexicon
-        coverage diagnostics.
+        Each posting is preprocessed, lemmatized, and matched
+        against the skill automaton. Postings with zero matched
+        skills are excluded from the output.
 
         Args:
             postings: Mapping from document identifier to raw text.
 
         Returns:
-            Mapping from document identifier to sorted canonical skill
-            names, excluding documents with no matches.
+            Mapping from document identifier to sorted canonical
+            skill names, excluding documents with no matches.
         """
-        results        = {}
-        corpus_tokens  = set()
-        matched_tokens = set()
+        results = {}
 
         for doc_id in sorted(postings):
-            lemmatized = self.registry.lemmatize(
-                self._preprocess(postings[doc_id])
-            )
-            skills = self._match(lemmatized)
-
-            if skills:
+            lemmatized = self.registry.lemmatize(self._preprocess(postings[doc_id]))
+            if skills := self._match(lemmatized):
                 results[doc_id] = skills
 
-            corpus_tokens.update(
-                t for t in lemmatized.split()
-                if len(t) >= 3 and word_frequency(t, "en") < 1e-4
-            )
-            matched_tokens.update(
-                t for s in skills for t in s.lower().split()
-            )
-
-        excluded  = len(postings) - len(results)
-        unmatched = corpus_tokens - matched_tokens
-
+        excluded = len(postings) - len(results)
         if excluded:
-            logger.info(
-                f"Excluded {excluded} posting(s) with zero matched skills"
-            )
+            logger.info(f"Excluded {excluded} posting(s) with zero matched skills")
 
-        if corpus_tokens and (rate := len(unmatched) / len(corpus_tokens)) > 0.15:
-            logger.warning(
-                f"Unmatched term rate {rate:.1%} exceeds "
-                f"threshold. Top unmatched: "
-                f"{sorted(unmatched)[:20]}"
-            )
-
-        logger.debug(
-            f"Extracted skills from {len(results)} posting(s), "
-            f"{excluded} excluded, "
-            f"{len(unmatched)} unique unmatched terms"
-        )
+        logger.debug(f"Extracted skills from {len(results)} posting(s)")
 
         return results

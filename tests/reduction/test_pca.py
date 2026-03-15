@@ -12,7 +12,7 @@ from joblib  import dump, load
 from pathlib import Path
 
 from chalkline.extraction.vectorize import SkillVectorizer
-from chalkline.reduction.pca       import PcaReducer
+from chalkline.reduction.pca        import PcaReducer
 
 
 class TestPcaReducer:
@@ -107,11 +107,10 @@ class TestPcaReducer:
 
     def test_unit_variance(self, pca_reducer: PcaReducer):
         """
-        PCA output columns have unit variance after scaling,
-        verified by `np.allclose(std, 1.0)`. Skipped when only
-        one component is selected because std is always 1.0
-        trivially in that case and the real invariant is that
-        `StandardScaler` was applied.
+        PCA output columns have unit variance after scaling, verified
+        by `np.allclose(std, 1.0)`. Skipped when only one component
+        is selected because std is always 1.0 trivially in that case
+        and the real invariant is that `StandardScaler` was applied.
         """
         if pca_reducer.coordinates.shape[0] < 3:
             return
@@ -131,8 +130,8 @@ class TestPcaReducer:
 
     def test_transform_dimensions(self, pca_reducer: PcaReducer):
         """
-        `pipeline.transform(new_vector)` returns the same number
-        of columns without refitting.
+        `pipeline.transform(new_vector)` returns the same number of
+        columns without refitting.
         """
         assert pca_reducer.pipeline.transform(
             np.ones((1, pca_reducer.pipeline.n_features_in_))

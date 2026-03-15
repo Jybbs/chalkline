@@ -1,11 +1,10 @@
 """
 Shared educational program loader with field normalization.
 
-Loads community college degree programs, statewide workforce
-initiatives, and university programs from stakeholder reference data,
-normalizing all three into a consistent `ProgramRecommendation`
-schema. Consumed by resume matching, career pathway construction,
-and report generation.
+Loads community college degree programs, statewide workforce initiatives,
+and university programs from stakeholder reference data, normalizing all
+three into a consistent `ProgramRecommendation` schema. Consumed by resume
+matching, career pathway construction, and report generation.
 """
 
 from json    import loads
@@ -16,8 +15,7 @@ from chalkline.pipeline.schemas import ProgramRecommendation
 
 def load_programs(reference_dir: Path) -> list[ProgramRecommendation]:
     """
-    Load and normalize educational programs from stakeholder
-    reference data.
+    Load and normalize educational programs from stakeholder reference data.
 
     Reads three source types from `cc_programs.json` and
     `umaine_programs.json`, normalizing each into the unified
@@ -25,17 +23,21 @@ def load_programs(reference_dir: Path) -> list[ProgramRecommendation]:
 
     - CC degree programs (`college` to `institution`, `credential`
       kept as-is)
-    - CC workforce initiatives (`initiative` to `program`,
-      `best_for` to `credential`, institution set to `"Statewide"`)
+    - CC workforce initiatives (`initiative` to `program`, `best_for`
+      to `credential`, institution set to `"Statewide"`)
     - UMaine system programs (`campus` to `institution`, `degree`
       to `credential`)
 
-    Initiatives without a URL are included with an empty string
-    because they still carry actionable program descriptions in
-    the `best_for` field.
+    Initiatives without a URL are included with an empty string because
+    they still carry actionable program descriptions in the `best_for`
+    field.
 
     Args:
         reference_dir: Path to `data/stakeholder/reference/`.
+
+    Returns:
+        Combined list of `ProgramRecommendation` instances from all
+        source types that exist on disk.
     """
     programs: list[ProgramRecommendation] = []
 

@@ -1,12 +1,14 @@
 """
 Shared test fixtures for the Chalkline test suite.
 
-Fixtures form a pipeline chain where each step's output is
-independently tappable by any test module:
+Fixtures form a pipeline chain where each step's output is independently
+tappable by any test module:
 
     corpus → extracted_skills → vectorizer → pca_reducer
            ↘                        ↓            ↓
              sector_labels       network     clusterer → matcher
+                                    ↓            ↓
+                                 pathway_graph ←─┘
 
 Lexicon fixtures feed the extractor via the registry:
 
@@ -18,6 +20,7 @@ Lexicon fixtures feed the extractor via the registry:
 
 import pandas as pd
 
+from collections      import Counter, defaultdict
 from json             import loads
 from pathlib          import Path
 from pytest           import fixture, FixtureRequest
@@ -39,7 +42,9 @@ from chalkline.extraction.skills        import SkillExtractor
 from chalkline.extraction.vectorize     import SkillVectorizer
 from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.matching.schemas         import MatchResult
+from chalkline.pathways.graph           import CareerPathwayGraph
 from chalkline.pipeline.programs        import load_programs
+from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
 from chalkline.reduction.pca            import PcaReducer
 
@@ -53,7 +58,7 @@ def _postings() -> list[Posting]:
     """
     return [
         Posting(**raw)
-        for raw in loads((FIXTURES / "collection/postings.json").read_text())
+        for raw in loads((FIXTURES / "collection" / "postings.json").read_text())
     ]
 
 
@@ -66,7 +71,7 @@ def certifications() -> list[Certification]:
     """
     Load synthetic certifications from fixture data.
     """
-    return load_certifications(FIXTURES / "extraction/certifications.json")
+    return load_certifications(FIXTURES / "extraction" / "certifications.json")
 
 
 @fixture
@@ -91,7 +96,7 @@ def occupations() -> list[OnetOccupation]:
     """
     Parse synthetic O*NET data into validated occupation records.
     """
-    return load_onet(FIXTURES / "extraction/onet_occupations.json")
+    return load_onet(FIXTURES / "extraction" / "onet_occupations.json")
 
 
 @fixture
@@ -99,7 +104,7 @@ def osha_terms() -> list[str]:
     """
     Load synthetic OSHA terms from fixture data.
     """
-    return load_osha(FIXTURES / "extraction/osha_terms.json")
+    return load_osha(FIXTURES / "extraction" / "osha_terms.json")
 
 
 @fixture
@@ -107,7 +112,7 @@ def supplement_terms() -> list[str]:
     """
     Load synthetic supplement terms from fixture data.
     """
-    return load_supplement(FIXTURES / "extraction/supplement_terms.json")
+    return load_supplement(FIXTURES / "extraction" / "supplement_terms.json")
 
 
 # ---------------------------------------------------------------------
@@ -119,10 +124,9 @@ def corpus() -> dict[str, str]:
     """
     Twenty synthetic posting texts covering the fixture vocabulary.
 
-    Each posting targets a different skill cluster so downstream
-    matrices have enough rank for `TruncatedSVD` and enough
-    variation for meaningful clustering, PMI, and DBSCAN density
-    estimation.
+    Each posting targets a different skill cluster so downstream matrices
+    have enough rank for `TruncatedSVD` and enough variation for meaningful
+    clustering, PMI, and DBSCAN density estimation.
     """
     return {
         "posting-01" : "Fall protection and welding are required. "
@@ -181,9 +185,8 @@ def extracted_skills(
     """
     Canonical skill lists extracted from the synthetic corpus.
 
-    Mapping from document identifier to sorted, deduplicated
-    skill names. Tappable by tests that need skill lists without
-    vectorization overhead.
+    Mapping from document identifier to sorted, deduplicated skill names.
+    Tappable by tests that need skill lists without vectorization overhead.
     """
     return extractor.extract(corpus)
 
@@ -381,11 +384,14 @@ def sector_labels(
 # ---------------------------------------------------------------------
 
 @fixture
-def apprenticeships() -> list[dict]:
+def apprenticeships() -> list[ApprenticeshipContext]:
     """
     Synthetic apprenticeship reference data for matching tests.
     """
-    return loads((FIXTURES / "matching/apprenticeships.json").read_text())
+    return [
+        ApprenticeshipContext(**raw)
+        for raw in loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
+    ]
 
 
 @fixture
@@ -395,8 +401,8 @@ def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> P
 
     Chains the fitted steps from `SkillVectorizer.pipeline` and
     `PcaReducer.pipeline` into a single `Pipeline` whose
-    `transform([skill_dict])` projects a resume directly into
-    PCA-scaled coordinates.
+    `transform([skill_dict])` projects a resume directly into PCA-scaled
+    coordinates.
     """
     vec_steps = vectorizer.pipeline.named_steps
     pca_steps = pca_reducer.pipeline.named_steps
@@ -419,7 +425,7 @@ def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResul
 
 @fixture
 def matcher(
-    apprenticeships   : list[dict],
+    apprenticeships   : list[ApprenticeshipContext],
     clusterer         : HierarchicalClusterer,
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,
@@ -468,7 +474,81 @@ def programs(tmp_path: Path) -> list[ProgramRecommendation]:
 @fixture
 def resume_skills() -> list[str]:
     """
-    A partial resume skill set that will produce gaps against
-    the fixture corpus.
+    A partial resume skill set that will produce gaps against the fixture
+    corpus.
     """
     return ["electrical wiring", "fall protection", "scaffolding"]
+
+
+# ---------------------------------------------------------------------
+# Pathways
+# ---------------------------------------------------------------------
+
+@fixture
+def pathway_graph(
+    apprenticeships  : list[ApprenticeshipContext],
+    cluster_labels   : list[ClusterLabel],
+    clusterer        : HierarchicalClusterer,
+    extracted_skills : dict[str, list[str]],
+    network          : CooccurrenceNetwork,
+    occupation_index : OccupationIndex,
+    programs         : list[ProgramRecommendation],
+    sector_labels    : list[str]
+) -> CareerPathwayGraph:
+    """
+    Build a career pathway graph from the full fixture pipeline.
+
+    Pre-computes fully enriched `ClusterProfile` records (including
+    apprenticeship and program matches via prefix overlap) before
+    passing them to the graph constructor.
+    """
+    cluster_skills: dict[int, set[str]] = defaultdict(set)
+    for doc, cid in zip(clusterer.document_ids, clusterer.assignments):
+        cluster_skills[int(cid)].update(extracted_skills.get(doc, []))
+
+    by_cluster: dict[int, list[str]] = defaultdict(list)
+    for soc, cid in zip(sector_labels, clusterer.assignments):
+        by_cluster[int(cid)].append(
+            occupation_index.get(soc).sector
+        )
+
+    size_map  = {cl.cluster_id: cl.size for cl in cluster_labels}
+    terms_map = {cl.cluster_id: cl.terms for cl in cluster_labels}
+
+    prefix = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
+    trade_pf = {a.rapids_code: prefix(a.title) for a in apprenticeships}
+    prog_pf  = {
+        (p.institution, p.program): prefix(p.program) for p in programs
+    }
+
+    profiles: dict[int, ClusterProfile] = {}
+    for cid, skills in cluster_skills.items():
+        terms   = terms_map.get(cid, [])
+        node_pf = {p for text in (*terms, *skills) for p in prefix(text)}
+
+        matched = next(
+            (a for a in apprenticeships if node_pf & trade_pf[a.rapids_code]),
+            None
+        )
+
+        profiles[cid] = ClusterProfile(
+            cluster_id = cid,
+            job_zone   = occupation_index.job_zone_for_skills(
+                {s.lower() for s in skills}
+            ),
+            sector     = Counter(by_cluster[cid]).most_common(1)[0][0],
+            size       = size_map[cid],
+            skills     = skills,
+            terms      = terms,
+
+            apprenticeship = matched,
+            programs       = [
+                p for p in programs
+                if node_pf & prog_pf[p.institution, p.program]
+            ]
+        )
+
+    return CareerPathwayGraph(
+        network  = network,
+        profiles = profiles
+    )

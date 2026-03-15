@@ -10,8 +10,8 @@ from chalkline.clustering.schemas import CopheneticResult
 
 class TestClusteringSchemas:
     """
-    Validate field constraints and extra-field rejection across
-    clustering schema models.
+    Validate field constraints and extra-field rejection across clustering
+    schema models.
     """
 
     # ---------------------------------------------------------

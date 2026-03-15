@@ -37,8 +37,10 @@ class Posting(BaseModel, extra="forbid"):
     @model_validator(mode="after")
     def _auto_id(self) -> Self:
         """
-        Derive `id` from `company`, `date_posted`, and `title` when
-        absent.
+        Derive `id` from `company`, `date_posted`, and `title` when absent.
+
+        Returns:
+            The model instance with `id` populated.
         """
         self.id = self.id or self.make_id(self.company, self.date_posted, self.title)
         return self

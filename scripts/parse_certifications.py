@@ -3,9 +3,8 @@ Parse the CareerOneStop certifications flat file into structured JSON.
 
 Reads the manually downloaded Excel file from
 `data/certifications/raw/careeronestop.xlsx`, extracts certification
-records with names, acronyms, organizations, types, and
-descriptions, and writes structured JSON to
-`data/certifications/careeronestop.json`.
+records with names, acronyms, organizations, types, and descriptions,
+and writes structured JSON to `data/certifications/careeronestop.json`.
 
 Run from the worktree root:
 
@@ -19,14 +18,13 @@ from pathlib import Path
 
 class CertificationParser:
     """
-    Extract structured certification records from the CareerOneStop
-    Excel flat file.
+    Extract structured certification records from the CareerOneStop Excel
+    flat file.
 
-    Reads the single-sheet workbook and transforms each row into a
-    clean dictionary with consistent field names and null handling.
-    The output preserves all 6,444 certifications without filtering,
-    leaving SOC-code scoping and description mining to the downstream
-    curation script.
+    Reads the single-sheet workbook and transforms each row into a clean
+    dictionary with consistent field names and null handling. The output
+    preserves all 6,444 certifications without filtering, leaving SOC-code
+    scoping and description mining to the downstream curation script.
     """
 
     def __init__(self, root: Path):
@@ -43,9 +41,9 @@ class CertificationParser:
         """
         Read the Excel file and extract certification records.
 
-        Each row becomes a dict with `acronym`, `description`, `id`,
-        `name`, `organization`, `type`, and `url` keys. Fields with
-        missing or whitespace-only values are set to `None`.
+        Each row becomes a dict with `acronym`, `description`, `id`, `name`,
+        `organization`, `type`, and `url` keys. Fields with missing or
+        whitespace-only values are set to `None`.
 
         Returns:
             Sorted list of certification dicts.
@@ -73,8 +71,8 @@ class CertificationParser:
 
     def run_all(self):
         """
-        Parse the flat file and write
-        `data/certifications/careeronestop.json`.
+        Parse the flat file and write the
+        `data/certifications/careeronestop.json` output.
         """
         records = self.extract()
 
@@ -92,6 +90,4 @@ class CertificationParser:
 
 if __name__ == "__main__":
 
-    CertificationParser(
-        Path(__file__).resolve().parent.parent
-    ).run_all()
+    CertificationParser(Path(__file__).resolve().parents[1]).run_all()

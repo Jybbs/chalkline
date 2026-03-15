@@ -1,11 +1,11 @@
 """
 Apriori frequent itemset mining for DS5230 comparison.
 
-Converts the binary skill matrix to a boolean DataFrame, mines
-frequent itemsets via mlxtend's Apriori implementation, and generates
-association rules with support, confidence, and lift metrics. This
-module exists for the DS5230 class deliverable only and is excluded
-from the production pipeline.
+Converts the binary skill matrix to a boolean DataFrame, mines frequent
+itemsets via mlxtend's Apriori implementation, and generates association
+rules with support, confidence, and lift metrics. This module exists for
+the DS5230 class deliverable only and is excluded from the production
+pipeline.
 """
 
 import pandas as pd
@@ -22,8 +22,8 @@ class AprioriComparison:
 
     Receives the same binary matrix consumed by `CooccurrenceNetwork`
     and produces association rules with support, confidence, and lift.
-    The overlap between Apriori lift > 1.0 pairs and PPMI positive
-    pairs is the primary comparison metric.
+    The overlap between Apriori lift > 1.0 pairs and PPMI positive pairs
+    is the primary comparison metric.
     """
 
     def __init__(
@@ -32,13 +32,14 @@ class AprioriComparison:
         feature_names : list[str]
     ):
         """
-        Convert the binary matrix to a boolean DataFrame.
+        Convert the binary presence/absence matrix from
+        `SkillVectorizer.binary_matrix` to a boolean DataFrame,
+        using the feature vocabulary as column headers to
+        preserve the matrix-to-skill-name alignment.
 
         Args:
-            binary_matrix : CSR binary presence/absence matrix
-                            from `SkillVectorizer.binary_matrix`.
-            feature_names : Vocabulary in column order, matching
-                            matrix column indices.
+            binary_matrix : CSR binary presence/absence matrix.
+            feature_names : Vocabulary in column order.
         """
         self.boolean_df = pd.DataFrame(
             binary_matrix.toarray().astype(bool),
@@ -54,12 +55,16 @@ class AprioriComparison:
         Mine frequent itemsets and generate association rules.
 
         If no rules are produced at the initial support threshold,
-        iteratively halves the support down to a floor of 0.01.
-        Rules are filtered to lift > 1.0 and confidence >= 0.3.
+        iteratively halves the support down to a floor of 0.01. Rules
+        are filtered to lift > 1.0 and confidence >= 0.3.
 
         Args:
             min_support: Minimum support threshold for frequent
                          itemsets.
+
+        Returns:
+            `AprioriResult` with the final support threshold, itemset
+            and rule counts, and a summary of the top 20 rules.
         """
         support  = min_support
         itemsets = pd.DataFrame()
@@ -104,13 +109,17 @@ class AprioriComparison:
 
             J = |P_apriori ∩ P_ppmi| / |P_apriori ∪ P_ppmi|
 
-        where P_apriori is the set of skill pairs with lift > 1.0
-        and P_ppmi is the set of pairs with positive PPMI from the
+        where P_apriori is the set of skill pairs with lift > 1.0 and
+        P_ppmi is the set of pairs with positive PPMI from the
         co-occurrence network.
 
         Args:
-            ppmi_pairs: Set of (skill_a, skill_b) tuples with
-                        positive PPMI, canonically ordered.
+            ppmi_pairs: Canonically ordered (skill_a, skill_b) tuples
+                        with positive PPMI.
+
+        Returns:
+            Jaccard similarity coefficient in [0, 1], or 0.0 when both
+            pair sets are empty.
         """
         apriori_pairs = {
             tuple(sorted([ant, con]))

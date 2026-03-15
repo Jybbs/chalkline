@@ -1,1 +1,3 @@
-"""Tests for the document parsing module."""
+"""
+Tests for the document parsing module.
+"""

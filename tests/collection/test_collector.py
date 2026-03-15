@@ -46,6 +46,7 @@ class TestParseRecord:
             "location"    : float("nan"),
             "title"       : "Electrician"
         })
+        assert result is not None
         assert result.date_posted is None
         assert result.location is None
 

@@ -28,14 +28,14 @@ class TestPosting:
     @mark.parametrize("date_str", ["2026-03-01 14:30:00", "2026-03-01T14:30:00Z"])
     def test_date_coercion(self, date_str: str, sample_posting: Posting):
         """
-        Timestamp `date_posted` values in both space-separated
-        and ISO formats are truncated to date by the `[:10]`
-        slice.
+        Timestamp `date_posted` values in both space-separated and
+        ISO formats are truncated to date by the `[:10]` slice.
         """
         posting = Posting.model_validate(
             sample_posting.model_dump() | {"date_posted" : date_str}
         )
         assert posting.date_posted == date(2026, 3, 1)
+        assert posting.id is not None
         assert "2026-03-01" in posting.id
 
     @mark.parametrize("field", ["company", "source_url", "title"])
@@ -44,14 +44,11 @@ class TestPosting:
         Empty strings on `NonEmptyStr` fields raise `ValidationError`.
         """
         with raises(Exception, match="at least 1 character"):
-            Posting.model_validate(
-                sample_posting.model_dump() | {field: ""}
-            )
+            Posting.model_validate(sample_posting.model_dump() | {field: ""})
 
     def test_explicit_id(self):
         """
-        An explicitly provided `id` is not overwritten by
-        auto-generation.
+        An explicitly provided `id` is not overwritten by auto-generation.
         """
         posting = Posting(
             company     = "Cianbro",
@@ -68,9 +65,7 @@ class TestPosting:
         Unknown fields raise `ValidationError` per `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
-            Posting.model_validate(
-                sample_posting.model_dump() | {"salary": 50000}
-            )
+            Posting.model_validate(sample_posting.model_dump() | {"salary": 50000})
 
     def test_make_id_none_date(self):
         """
@@ -88,9 +83,9 @@ class TestPosting:
 
     def test_make_id_stopword_collision(self):
         """
-        Companies differing only by a stopword produce identical
-        composite keys, documenting the collision boundary so that
-        changes to stopword handling are caught.
+        Companies differing only by a stopword produce identical composite
+        keys, documenting the collision boundary so that changes to
+        stopword handling are caught.
         """
         assert (
             Posting.make_id(

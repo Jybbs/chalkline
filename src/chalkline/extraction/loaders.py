@@ -2,9 +2,9 @@
 Lexicon file loading for certifications, OSHA, O*NET, and supplement
 data.
 
-Deserializes and validates JSON lexicon files, returning empty collections
-on missing files so that downstream normalization can proceed with whichever
-lexicons are available.
+Deserializes and validates JSON lexicon files, returning empty
+collections on missing files so that downstream normalization can
+proceed with whichever lexicons are available.
 """
 
 from logging  import getLogger
@@ -44,6 +44,12 @@ def _load(adapter: TypeAdapter, label: str, path: Path) -> list:
 def load_certifications(path: Path) -> list[Certification]:
     """
     Load and validate the certifications lexicon file.
+
+    Args:
+        path: Path to the certifications JSON file.
+
+    Returns:
+        Validated certification records, or empty list if missing.
     """
     return _load(Certifications, "Certifications", path)
 
@@ -51,6 +57,12 @@ def load_certifications(path: Path) -> list[Certification]:
 def load_onet(path: Path) -> list[OnetOccupation]:
     """
     Load and validate the O*NET lexicon file.
+
+    Args:
+        path: Path to the O*NET JSON file.
+
+    Returns:
+        Validated occupation records, or empty list if missing.
     """
     return _load(Occupations, "O*NET", path)
 
@@ -58,6 +70,12 @@ def load_onet(path: Path) -> list[OnetOccupation]:
 def load_osha(path: Path) -> list[str]:
     """
     Load and validate the OSHA lexicon file.
+
+    Args:
+        path: Path to the OSHA JSON file.
+
+    Returns:
+        Validated OSHA term strings, or empty list if missing.
     """
     return _load(OshaTerms, "OSHA", path)
 
@@ -65,5 +83,11 @@ def load_osha(path: Path) -> list[str]:
 def load_supplement(path: Path) -> list[str]:
     """
     Load and validate the supplement lexicon file.
+
+    Args:
+        path: Path to the supplement JSON file.
+
+    Returns:
+        Validated supplement terms, or empty list if missing.
     """
     return _load(SupplementTerms, "Supplement", path)

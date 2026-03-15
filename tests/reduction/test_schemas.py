@@ -9,7 +9,7 @@ from chalkline.reduction.schemas import ComponentLoading
 
 class TestComponentLoading:
     """
-    Validate ComponentLoading field constraints and extra-field
+    Validate `ComponentLoading` field constraints and extra-field
     rejection.
     """
 

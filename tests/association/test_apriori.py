@@ -20,8 +20,8 @@ class TestAprioriComparison:
     def test_rules_are_pairs(self, apriori: AprioriComparison):
         """
         Every rule involves at least two distinct skills, meaning
-        single-item antecedent-consequent pairs are excluded by
-        the confidence and lift filters.
+        single-item antecedent-consequent pairs are excluded by the
+        confidence and lift filters.
         """
         result = apriori.mine()
         for rule in result.rules_summary:
@@ -31,8 +31,8 @@ class TestAprioriComparison:
 
     def test_support_monotonic(self, apriori: AprioriComparison):
         """
-        Lowering the support threshold increases or maintains the
-        number of itemsets.
+        Lowering the support threshold increases or maintains the number
+        of itemsets.
         """
         high = apriori.mine(min_support = 0.30)
         low  = apriori.mine(min_support = 0.05)
