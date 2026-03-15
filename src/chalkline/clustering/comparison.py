@@ -1,11 +1,10 @@
 """
 DS5230 comparison clustering methods.
 
-Fits K-Means, DBSCAN, Mean Shift, and HDBSCAN on PCA-reduced
-coordinates with automatic parameter selection via KneeLocator.
-Each method returns a `ComparisonResult` with cluster assignments
-and optional internal validity metrics. This module is excluded
-from the production pipeline.
+Fits K-Means, DBSCAN, Mean Shift, and HDBSCAN on PCA-reduced coordinates
+with automatic parameter selection via KneeLocator. Each method returns a
+`ComparisonResult` with cluster assignments and optional internal validity
+metrics. This module is excluded from the production pipeline.
 """
 
 import numpy as np
@@ -27,9 +26,9 @@ class ClusterComparison:
     """
     Comparison clustering methods for DS5230 evaluation.
 
-    Stores PCA coordinates and provides methods that fit each
-    algorithm with corpus-scaled parameter selection, returning
-    structured results with validity metrics.
+    Stores PCA coordinates and provides methods that fit each algorithm
+    with corpus-scaled parameter selection, returning structured results
+    with validity metrics.
     """
 
     def __init__(
@@ -42,10 +41,11 @@ class ClusterComparison:
         Store coordinates and derive matrix dimensions.
 
         Args:
-            coordinates   : PCA output of shape `(n_postings, n_selected)`.
+            coordinates   : PCA output of shape
+                            `(n_postings, n_selected)`.
             random_seed   : Reproducibility seed for K-Means.
-            sector_labels : Optional sector strings for ARI computation
-                            across all methods.
+            sector_labels : Optional sector strings for ARI
+                            computation across all methods.
         """
         self.coordinates   = coordinates
         self.random_seed   = random_seed
@@ -65,9 +65,18 @@ class ClusterComparison:
         """
         Wrap assignments and validity metrics into a structured result.
 
-        Masks noise labels before computing ARI and internal validity
-        scores, returning None for metrics when fewer than 2 non-noise
-        clusters exist.
+        Masks noise labels before computing ARI and internal validity scores,
+        returning `None` for metrics when fewer than 2 non-noise clusters
+        exist.
+
+        Args:
+            assignments : Cluster label per observation.
+            method      : Algorithm name for the result record.
+            noise_count : Number of observations assigned to noise.
+
+        Returns:
+            Structured result with cluster assignments, validity metrics,
+            and optional ARI against sector labels.
         """
         mask       = assignments >= 0
         n_clusters = len(np.unique(assignments[mask]))
@@ -96,12 +105,16 @@ class ClusterComparison:
         """
         Compute internal validity metrics for non-degenerate clusterings.
 
-        Returns None for each metric when fewer than 2 non-noise
-        clusters exist, because sklearn's scoring functions require
-        at least 2 distinct labels.
+        Returns `None` for each metric when fewer than 2 non-noise clusters
+        exist, because sklearn's scoring functions require at least 2
+        distinct labels.
 
         Args:
             assignments: Cluster label per observation.
+
+        Returns:
+            Dictionary mapping metric names to scores, with `None` values
+            for degenerate clusterings.
         """
         mask   = assignments >= 0
         coords = self.coordinates[mask]
@@ -129,10 +142,13 @@ class ClusterComparison:
         """
         DBSCAN with KneeLocator epsilon from k-distance graph.
 
-        Computes `min_samples` from PCA dimensionality and corpus
-        size, builds the k-distance graph via `NearestNeighbors`,
-        and selects epsilon at the knee of the sorted distances.
-        Falls back to the median k-distance when no knee is found.
+        Computes `min_samples` from PCA dimensionality and corpus size,
+        builds the k-distance graph via `NearestNeighbors`, and selects
+        epsilon at the knee of the sorted distances. Falls back to the
+        median k-distance when no knee is found.
+
+        Returns:
+            Structured result with cluster assignments and noise count.
         """
         min_samples = max(2, min(floor(0.1 * self.n), 2 * self.d))
 
@@ -171,6 +187,9 @@ class ClusterComparison:
     def hdbscan(self) -> ComparisonResult:
         """
         HDBSCAN with corpus-scaled minimum cluster size.
+
+        Returns:
+            Structured result with cluster assignments and noise count.
         """
         assignments = HDBSCAN(
             copy             = False,
@@ -187,9 +206,11 @@ class ClusterComparison:
         """
         K-Means with KneeLocator K from inertia curve.
 
-        Fits K-Means across a range of cluster counts and selects
-        the elbow via KneeLocator. Falls back to K=3 when no knee
-        is found.
+        Fits K-Means across a range of cluster counts and selects the
+        elbow via KneeLocator. Falls back to K=3 when no knee is found.
+
+        Returns:
+            Structured result with cluster assignments and zero noise.
         """
         ks = range(2, min(self.n, 11))
 
@@ -223,6 +244,9 @@ class ClusterComparison:
     def mean_shift(self) -> ComparisonResult:
         """
         Mean Shift with bandwidth estimated at quantile 0.3.
+
+        Returns:
+            Structured result with cluster assignments and zero noise.
         """
         assignments = MeanShift(
             bandwidth = estimate_bandwidth(self.coordinates, quantile = 0.3) or None
@@ -241,12 +265,15 @@ class ClusterComparison:
         """
         Per-posting silhouette coefficients.
 
-        Returns an array of length `n_postings` with silhouette
-        scores in [-1, 1]. For degenerate clusterings (fewer than
-        2 labels), returns zeros.
+        Returns an array of length `n_postings` with silhouette scores in
+        [-1, 1]. For degenerate clusterings (fewer than 2 labels), returns
+        zeros.
 
         Args:
             assignments: Cluster label per observation.
+
+        Returns:
+            Array of per-posting silhouette scores, zeros when degenerate.
         """
         mask = assignments >= 0
         if len(np.unique(assignments[mask])) < 2:

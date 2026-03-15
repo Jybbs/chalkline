@@ -1,11 +1,12 @@
 """
-Schemas for lexicon validation, skill extraction, and corpus statistics.
+Schemas for lexicon validation, skill extraction, and corpus
+statistics.
 
 Defines confidence tiers for Aho-Corasick matching, the certification
 model for CareerOneStop entries, corpus-level statistics computed after
-vectorization, and the O*NET element type taxonomy, skill entry
-structure, and occupation profile model that `onet.json` is validated
-against at load time.
+vectorization, and the O*NET element type taxonomy, skill entry structure,
+and occupation profile model that `onet.json` is validated against at load
+time.
 """
 
 from enum     import StrEnum
@@ -18,10 +19,10 @@ class Certification(BaseModel, extra="forbid"):
     """
     A CareerOneStop certification linked to stakeholder SOC codes.
 
-    Each certification contributes its name and acronym (when
-    present and non-ambiguous) as Aho-Corasick patterns.
-    Descriptions are decomposed into matchable sub-phrases via
-    POS-based NP/VP chunking at curation time.
+    Each certification contributes its name and acronym (when present
+    and non-ambiguous) as Aho-Corasick patterns. Descriptions are
+    decomposed into matchable sub-phrases via POS-based NP/VP
+    chunking at curation time.
     """
 
     name      : NonEmptyStr
@@ -37,10 +38,10 @@ class ConfidenceTier(StrEnum):
     """
     Match confidence for Aho-Corasick surface form hits.
 
-    Multi-word matches are the most specific, abbreviation matches carry
-    moderate confidence, and single-word matches are the most ambiguous.
-    When two matches conflict at the same position, the higher-confidence
-    tier wins.
+    Multi-word matches are the most specific, abbreviation matches
+    carry moderate confidence, and single-word matches are the most
+    ambiguous. When two matches conflict at the same position, the
+    higher-confidence tier wins.
     """
 
     ABBREVIATION = "abbreviation"
@@ -52,8 +53,8 @@ class CorpusStatistics(BaseModel, extra="forbid"):
     """
     Aggregate statistics computed after IDF-weighted vectorization.
 
-    Captures vocabulary coverage, matrix density, and per-posting skill
-    counts for downstream diagnostics and threshold tuning.
+    Captures vocabulary coverage, matrix density, and per-posting
+    skill counts for downstream diagnostics and threshold tuning.
     """
 
     matrix_sparsity         : float
@@ -68,8 +69,8 @@ class OnetSkillType(StrEnum):
 
     Concrete types (`DWA`, `TASK`, `TECHNOLOGY`, `TOOL`) feed the
     normalization index. Abstract KSA types (`ABILITY`, `KNOWLEDGE`,
-    `SKILL`) are excluded from normalization but remain available
-    for occupation-level Jaccard matching.
+    `SKILL`) are excluded from normalization but remain available for
+    occupation-level Jaccard matching.
     """
 
     ABILITY    = "ability"
@@ -86,8 +87,11 @@ class OnetSkillType(StrEnum):
         Whether this type feeds the normalization index.
 
         Concrete types carry matchable text that appears in posting
-        descriptions. Abstract KSA types are excluded from
-        normalization but remain available for Jaccard matching.
+        descriptions. Abstract KSA types are excluded from normalization
+        but remain available for Jaccard matching.
+
+        Returns:
+            `True` if this type is concrete, `False` for KSA types.
         """
         return self not in {
             OnetSkillType.ABILITY,
@@ -101,9 +105,9 @@ class OnetSkill(BaseModel, extra="forbid"):
     A single skill entry within an O*NET occupation.
 
     Concrete element types carry `None` for `importance` and `level`,
-    whereas abstract KSA types populate both fields with numeric ratings.
-    Decomposable types (Tasks, DWAs) carry pre-computed sub-phrases
-    from POS-based chunking performed at curation time.
+    whereas abstract KSA types populate both fields with numeric
+    ratings. Decomposable types (Tasks, DWAs) carry pre-computed
+    sub-phrases from POS-based chunking performed at curation time.
     """
 
     name : NonEmptyStr
@@ -118,8 +122,8 @@ class OnetOccupation(BaseModel, extra="forbid"):
     """
     An O*NET occupation with its full skill profile.
 
-    Each of the 21 stakeholder SOC codes maps to one occupation containing
-    skills across all 8 element types.
+    Each of the 21 stakeholder SOC codes maps to one occupation
+    containing skills across all 8 element types.
     """
 
     job_zone : int = Field(ge=1, le=5)

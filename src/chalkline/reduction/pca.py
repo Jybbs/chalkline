@@ -35,9 +35,10 @@ class PcaReducer:
     Component selection finds the smallest k where cumulative
     explained variance exceeds the threshold:
 
-        k = argmin{Σᵢ₌₁ᵏ λᵢ / Σλ ≥ τ}
+        k = argmin{sum_i=1..k lambda_i / sum lambda >= tau}
 
-    where λᵢ are the singular values and τ is `variance_threshold`.
+    where lambda_i are the singular values and tau is
+    `variance_threshold`.
     """
 
     def __init__(
@@ -100,12 +101,16 @@ class PcaReducer:
         """
         Top loading terms for each selected component.
 
-        Extracts the `top_n` terms with the highest absolute
-        weights from each component's loading vector, returning
-        skill names rather than column indices.
+        Extracts the `top_n` terms with the highest absolute weights
+        from each component's loading vector, returning skill names
+        rather than column indices.
 
         Args:
             top_n: Number of top terms per component.
+
+        Returns:
+            One `ComponentLoading` per selected component with terms,
+            weights, and variance ratio.
         """
         names = np.array(self.feature_names)
         return [

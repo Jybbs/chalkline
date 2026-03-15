@@ -1,1 +1,3 @@
-"""Chalkline test suite."""
+"""
+Chalkline test suite.
+"""

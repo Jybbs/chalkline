@@ -36,6 +36,15 @@ class Collector:
         results_wanted : int       = 10000,
         sites          : list[str] = ["indeed"]
     ):
+        """
+        Initialize the collector with target directory and search config.
+
+        Args:
+            postings_dir   : Directory where `corpus.json` is persisted.
+            search_terms   : Job title queries sent to the aggregator.
+            results_wanted : Maximum results requested per search term.
+            sites          : Job board identifiers passed to JobSpy.
+        """
         self.postings_dir   = postings_dir
         self.results_wanted = results_wanted
         self.search_terms   = search_terms
@@ -48,6 +57,12 @@ class Collector:
 
         Returns `None` when validation fails because aggregator results
         occasionally include stub listings.
+
+        Args:
+            record: Dictionary from a JobSpy DataFrame row.
+
+        Returns:
+            A validated `Posting`, or `None` if the row is invalid.
         """
         clean = lambda v: v if pd.notna(v) else None
 
@@ -71,6 +86,9 @@ class Collector:
 
         Returns an empty DataFrame when every term fails, allowing
         downstream code to iterate without guarding.
+
+        Returns:
+            Concatenated DataFrame of all search term results.
         """
         frames = []
         for term in self.search_terms:

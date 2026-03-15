@@ -21,8 +21,7 @@ class TestLoaders:
 
     def test_load_certifications(self, lexicon_dir: Path):
         """
-        Valid certifications JSON deserializes into certification
-        records.
+        Valid certifications JSON deserializes into certification records.
         """
         assert len(certs := load_certifications(
             lexicon_dir / "certifications.json"
@@ -64,7 +63,8 @@ class TestLoaders:
         tmp_path : Path
     ):
         """
-        A missing lexicon file logs a warning and returns an empty list.
+        A missing lexicon file logs a warning and returns an empty
+        list.
         """
         with caplog.at_level(WARNING):
             assert loader(tmp_path / "missing.json") == []

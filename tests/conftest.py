@@ -1,12 +1,14 @@
 """
 Shared test fixtures for the Chalkline test suite.
 
-Fixtures form a pipeline chain where each step's output is
-independently tappable by any test module:
+Fixtures form a pipeline chain where each step's output is independently
+tappable by any test module:
 
     corpus → extracted_skills → vectorizer → pca_reducer
            ↘                        ↓            ↓
              sector_labels       network     clusterer → matcher
+                                    ↓            ↓
+                                 pathway_graph ←─┘
 
 Lexicon fixtures feed the extractor via the registry:
 
@@ -39,6 +41,7 @@ from chalkline.extraction.skills        import SkillExtractor
 from chalkline.extraction.vectorize     import SkillVectorizer
 from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.matching.schemas         import MatchResult
+from chalkline.pathways.graph           import CareerPathwayGraph
 from chalkline.pipeline.programs        import load_programs
 from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
 from chalkline.reduction.pca            import PcaReducer
@@ -119,10 +122,9 @@ def corpus() -> dict[str, str]:
     """
     Twenty synthetic posting texts covering the fixture vocabulary.
 
-    Each posting targets a different skill cluster so downstream
-    matrices have enough rank for `TruncatedSVD` and enough
-    variation for meaningful clustering, PMI, and DBSCAN density
-    estimation.
+    Each posting targets a different skill cluster so downstream matrices
+    have enough rank for `TruncatedSVD` and enough variation for meaningful
+    clustering, PMI, and DBSCAN density estimation.
     """
     return {
         "posting-01" : "Fall protection and welding are required. "
@@ -181,9 +183,8 @@ def extracted_skills(
     """
     Canonical skill lists extracted from the synthetic corpus.
 
-    Mapping from document identifier to sorted, deduplicated
-    skill names. Tappable by tests that need skill lists without
-    vectorization overhead.
+    Mapping from document identifier to sorted, deduplicated skill names.
+    Tappable by tests that need skill lists without vectorization overhead.
     """
     return extractor.extract(corpus)
 
@@ -395,8 +396,8 @@ def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> P
 
     Chains the fitted steps from `SkillVectorizer.pipeline` and
     `PcaReducer.pipeline` into a single `Pipeline` whose
-    `transform([skill_dict])` projects a resume directly into
-    PCA-scaled coordinates.
+    `transform([skill_dict])` projects a resume directly into PCA-scaled
+    coordinates.
     """
     vec_steps = vectorizer.pipeline.named_steps
     pca_steps = pca_reducer.pipeline.named_steps
@@ -468,7 +469,41 @@ def programs(tmp_path: Path) -> list[ProgramRecommendation]:
 @fixture
 def resume_skills() -> list[str]:
     """
-    A partial resume skill set that will produce gaps against
-    the fixture corpus.
+    A partial resume skill set that will produce gaps against the fixture
+    corpus.
     """
     return ["electrical wiring", "fall protection", "scaffolding"]
+
+
+# ---------------------------------------------------------------------
+# Pathways
+# ---------------------------------------------------------------------
+
+@fixture
+def pathway_graph(
+    apprenticeships  : list[dict],
+    cluster_labels   : list[ClusterLabel],
+    clusterer        : HierarchicalClusterer,
+    extracted_skills : dict[str, list[str]],
+    network          : CooccurrenceNetwork,
+    occupation_index : OccupationIndex,
+    programs         : list[ProgramRecommendation],
+    sector_labels    : list[str]
+) -> CareerPathwayGraph:
+    """
+    Build a career pathway graph from the full fixture pipeline.
+
+    Passes pre-computed `sector_labels` to avoid redundant per-posting
+    nearest-SOC computation via `cdist`.
+    """
+    return CareerPathwayGraph(
+        apprenticeships  = apprenticeships,
+        assignments      = clusterer.assignments,
+        cluster_labels   = cluster_labels,
+        document_ids     = clusterer.document_ids,
+        extracted_skills = extracted_skills,
+        network          = network,
+        occupation_index = occupation_index,
+        programs         = programs,
+        sector_labels    = sector_labels
+    )

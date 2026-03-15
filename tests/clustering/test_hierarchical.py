@@ -1,10 +1,10 @@
 """
 Tests for Ward-linkage hierarchical agglomerative clustering.
 
-Validates linkage structure, cophenetic correlations, cluster
-assignments, label derivation, dendrogram output, ARI computation,
-and post-hoc validation at arbitrary K values using the synthetic
-20-posting fixture chain.
+Validates linkage structure, cophenetic correlations, cluster assignments,
+label derivation, dendrogram output, ARI computation, and post-hoc
+validation at arbitrary K values using the synthetic 20-posting fixture
+chain.
 """
 
 import numpy as np
@@ -18,7 +18,7 @@ from chalkline.extraction.vectorize    import SkillVectorizer
 
 class TestComputeSectorLabels:
     """
-    Validate sector label derivation from Jaccard nearest SOC.
+    Validate sector label derivation from Jaccard-nearest SOC code.
     """
 
     def test_length_matches_documents(
@@ -27,16 +27,15 @@ class TestComputeSectorLabels:
         sector_labels    : list[str]
     ):
         """
-        One sector label per document in the PCA reducer's row
-        order.
+        One sector label per document in the PCA reducer's row order.
         """
         assert len(sector_labels) == len(extracted_skills)
 
 
 class TestHierarchicalClusterer:
     """
-    Validate linkage, assignments, labels, dendrogram, and
-    validity metrics from the Ward-linkage HAC fit.
+    Validate linkage, assignments, labels, dendrogram, and validity
+    metrics from the Ward-linkage HAC fit.
     """
 
     # ---------------------------------------------------------
@@ -45,15 +44,15 @@ class TestHierarchicalClusterer:
 
     def test_cophenetic_count(self, clusterer: HierarchicalClusterer):
         """
-        Three cophenetic results for ward, complete, and average
-        linkage methods.
+        Three cophenetic results for ward, complete, and average linkage
+        methods.
         """
         assert len(clusterer.cophenetic_comparison()) == 3
 
     def test_linkage_shape(self, clusterer: HierarchicalClusterer):
         """
-        Ward linkage matrix has shape `(n - 1, 4)` where `n` is
-        the number of postings.
+        Ward linkage matrix has shape `(n - 1, 4)` where `n` is the
+        number of postings.
         """
         n = len(clusterer.document_ids)
         assert clusterer.linkage.shape == (n - 1, 4)
@@ -64,8 +63,8 @@ class TestHierarchicalClusterer:
 
     def test_every_posting_assigned(self, clusterer: HierarchicalClusterer):
         """
-        Every posting receives exactly one cluster assignment with
-        no unassigned labels.
+        Every posting receives exactly one cluster assignment with no
+        unassigned labels.
         """
         n = len(clusterer.document_ids)
         assert len(clusterer.assignments) == n
@@ -109,8 +108,7 @@ class TestHierarchicalClusterer:
         vectorizer : SkillVectorizer
     ):
         """
-        Requesting fewer top terms limits the returned list
-        length.
+        Requesting fewer top terms limits the returned list length.
         """
         for label in clusterer.labels(
             feature_names = vectorizer.feature_names,
@@ -148,8 +146,8 @@ class TestHierarchicalClusterer:
     @mark.parametrize("k", [2, 3])
     def test_validate_at_k(self, clusterer: HierarchicalClusterer, k: int):
         """
-        Assignments at a given K cover all postings and produce
-        exactly K unique clusters.
+        Assignments at a given K cover all postings and produce exactly
+        K unique clusters.
         """
         result = clusterer.validate_at_k(k = k)
         assert len(result) == len(clusterer.document_ids)

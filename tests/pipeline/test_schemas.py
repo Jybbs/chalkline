@@ -1,9 +1,9 @@
 """
 Tests for pipeline configuration and shared reference data schemas.
 
-Validates `PipelineConfig` field constraints, defaults, the
-`extra="forbid"` policy, and shared `ApprenticeshipContext` and
-`ProgramRecommendation` data models.
+Validates `PipelineConfig` field constraints, defaults, the `extra="forbid"`
+policy, and shared `ApprenticeshipContext` and `ProgramRecommendation` data
+models.
 """
 
 from pathlib import Path
@@ -35,8 +35,8 @@ class TestPipelineConfig:
 
     def test_cooccurrence_float(self, tmp_path: Path):
         """
-        `min_cooccurrence` accepts a float fraction, not only
-        the default `"auto"` string.
+        `min_cooccurrence` accepts a float fraction, not only the
+        default `"auto"` string.
         """
         config = self._config(tmp_path, min_cooccurrence = 0.05)
         assert config.min_cooccurrence == 0.05

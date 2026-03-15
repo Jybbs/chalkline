@@ -2,8 +2,8 @@
 Tests for extraction schemas.
 
 Validates `ConfidenceTier` membership, `CorpusStatistics` extra-field
-rejection, `OnetSkillType` enum members, `OnetSkill` field constraints,
-and `OnetOccupation` model structure.
+rejection, `OnetSkillType` enum members, `OnetSkill` field
+constraints, and `OnetOccupation` model structure.
 """
 
 from pytest import mark, raises
@@ -39,8 +39,8 @@ class TestOnetSchemas:
 
     def test_confidence_tier_ordering(self):
         """
-        Tier values sort so that higher-confidence tiers compare lower,
-        matching the `_match` priority logic.
+        Tier values sort so that higher-confidence tiers compare
+        lower, matching the `_match` priority logic.
         """
         assert (
             ConfidenceTier.ABBREVIATION.value
@@ -60,7 +60,8 @@ class TestOnetSchemas:
     ])
     def test_extra_fields(self, cls: type, kwargs: dict):
         """
-        Unknown fields raise `ValidationError` per `extra="forbid"`.
+        Unknown fields raise `ValidationError` per
+        `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
             cls(**kwargs, unknown="value")

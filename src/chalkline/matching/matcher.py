@@ -30,10 +30,15 @@ def _prefix_set(text: str) -> set[str]:
     """
     Extract 4-character word prefixes from text.
 
-    Filters to words of 4+ characters and truncates to 4-char
-    prefixes, catching inflectional variants across the
-    construction domain (welding/welder, electrical/electrician,
-    scaffolding/scaffold).
+    Filters to words of 4+ characters and truncates to 4-char prefixes,
+    catching inflectional variants across the construction domain
+    (welding/welder, electrical/electrician, scaffolding/scaffold).
+
+    Args:
+        text: Raw text to extract prefixes from.
+
+    Returns:
+        Set of lowercased 4-character prefixes.
     """
     return {w[:4] for w in text.lower().split() if len(w) >= 4}
 
@@ -44,8 +49,15 @@ def jaccard(a: set[str], b: set[str]) -> float:
 
         J(A, B) = |A ∩ B| / |A ∪ B|
 
-    Returns 0.0 when both sets are empty to guard against
-    division by zero.
+    Returns 0.0 when both sets are empty to guard against division
+    by zero.
+
+    Args:
+        a : First skill set.
+        b : Second skill set.
+
+    Returns:
+        Jaccard index in [0.0, 1.0].
     """
     union = a | b
     return len(a & b) / len(union) if union else 0.0
@@ -91,14 +103,15 @@ class ResumeMatcher:
         shared PCA space without refitting.
 
         Args:
-            apprenticeships   : Raw dicts from `apprenticeships.json`
-                                with `title`, `rapids_code`, and
+            apprenticeships   : Raw dicts from
+                                `apprenticeships.json` with
+                                `title`, `rapids_code`, and
                                 `term_hours` keys.
             assignments       : Cluster ID per posting from
                                 `HierarchicalClusterer.assignments`.
-            cluster_labels    : TF-IDF centroid labels with terms per
-                                cluster for PPMI scoping (top-50
-                                recommended).
+            cluster_labels    : TF-IDF centroid labels with terms
+                                per cluster for PPMI scoping
+                                (top-50 recommended).
             coordinates       : PCA-scaled posting coordinates of
                                 shape `(n_postings, n_selected)`.
             distance_metric   : Distance function for neighbor
@@ -111,8 +124,8 @@ class ResumeMatcher:
                                 vectorization through scaling.
             ppmi_df           : Symmetric PPMI DataFrame indexed by
                                 canonical skill names.
-            programs          : Normalized educational program records
-                                from `load_programs`.
+            programs          : Normalized educational program
+                                records from `load_programs`.
             top_k_gaps        : Default number of ranked gaps to
                                 return.
         """
@@ -174,6 +187,13 @@ class ResumeMatcher:
         """
         Find apprenticeship trades matching a skill via word-root
         overlap.
+
+        Args:
+            skill: Canonical skill name to match against.
+
+        Returns:
+            Apprenticeships whose trade name shares a 4-char prefix
+            with the skill.
         """
         prefixes = _prefix_set(skill)
         return [
@@ -185,6 +205,13 @@ class ResumeMatcher:
         """
         Find educational programs matching a skill via word-root
         overlap with the program name.
+
+        Args:
+            skill: Canonical skill name to match against.
+
+        Returns:
+            Programs whose name shares a 4-char prefix with the
+            skill.
         """
         prefixes = _prefix_set(skill)
         return [
@@ -206,11 +233,21 @@ class ResumeMatcher:
         When the assigned cluster has 5+ postings, neighbors are
         found by PCA-space distance within the family. When the
         cluster is smaller, PCA distances are unreliable because
-        the sparse feature space concentrates all postings near
-        the origin, so the search falls back to Jaccard similarity
-        on discrete skill sets across the full corpus. This
-        produces skill-relevant neighbors even when the geometric
+        the sparse feature space concentrates all postings near the
+        origin, so the search falls back to Jaccard similarity on
+        discrete skill sets across the full corpus. This produces
+        skill-relevant neighbors even when the geometric
         representation lacks discriminative power.
+
+        Args:
+            cluster_id : Assigned cluster to search within.
+            coords     : Resume PCA coordinates of shape
+                         `(1, n_selected)`.
+            resume_set : Resume skill names as a set.
+
+        Returns:
+            Up to 5 nearest neighbors with distances and Jaccard
+            scores.
         """
         indices = np.nonzero(self.assignments == cluster_id)[0]
 
@@ -265,7 +302,7 @@ class ResumeMatcher:
         """
         Rank skill gaps by centroid-scoped mean PPMI relevance.
 
-            relevance(g) = (1 / |S_r|) · Σ PPMI(g, s)  for s ∈ S_r
+            relevance(g) = (1/|S_r|) * sum PPMI(g,s) for s in S_r
 
         where S_r is the resume's existing skills restricted to the
         cluster's centroid scope. Skills outside the centroid scope
@@ -277,14 +314,18 @@ class ResumeMatcher:
         operations across two groups (centroid-scoped and unscoped)
         rather than per-gap label lookups. Enrichment with
         apprenticeship and program annotations is deferred until
-        after the top-k selection to avoid wasted lookups on
-        gaps that will be discarded.
+        after the top-k selection to avoid wasted lookups on gaps
+        that will be discarded.
 
         Args:
             cluster_id : Assigned cluster for centroid scoping.
             resume_set : Resume skill names as a set.
             skill_gaps : Sorted list of gap skill names.
             top_k      : Maximum number of ranked gaps to return.
+
+        Returns:
+            Tuple of (ranked gaps with enrichment, sorted list of
+            unrankable skill names).
         """
         centroid_scope = self._centroid_scope.get(cluster_id, set())
         all_ref        = resume_set & set(self.ppmi_df.columns)
@@ -359,6 +400,10 @@ class ResumeMatcher:
                             `SkillExtractor.extract()`.
             top_k         : Override for the default `top_k_gaps`.
                             Returns at most this many ranked gaps.
+
+        Returns:
+            Full `MatchResult` with cluster assignment, neighbors,
+            gaps, and recommendations.
         """
         coords = self.geometry_pipeline.transform(
             [dict.fromkeys(resume_skills, 1)]

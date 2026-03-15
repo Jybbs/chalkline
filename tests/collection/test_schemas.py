@@ -28,9 +28,8 @@ class TestPosting:
     @mark.parametrize("date_str", ["2026-03-01 14:30:00", "2026-03-01T14:30:00Z"])
     def test_date_coercion(self, date_str: str, sample_posting: Posting):
         """
-        Timestamp `date_posted` values in both space-separated
-        and ISO formats are truncated to date by the `[:10]`
-        slice.
+        Timestamp `date_posted` values in both space-separated and
+        ISO formats are truncated to date by the `[:10]` slice.
         """
         posting = Posting.model_validate(
             sample_posting.model_dump() | {"date_posted" : date_str}
@@ -50,8 +49,7 @@ class TestPosting:
 
     def test_explicit_id(self):
         """
-        An explicitly provided `id` is not overwritten by
-        auto-generation.
+        An explicitly provided `id` is not overwritten by auto-generation.
         """
         posting = Posting(
             company     = "Cianbro",
@@ -88,9 +86,9 @@ class TestPosting:
 
     def test_make_id_stopword_collision(self):
         """
-        Companies differing only by a stopword produce identical
-        composite keys, documenting the collision boundary so that
-        changes to stopword handling are caught.
+        Companies differing only by a stopword produce identical composite
+        keys, documenting the collision boundary so that changes to
+        stopword handling are caught.
         """
         assert (
             Posting.make_id(

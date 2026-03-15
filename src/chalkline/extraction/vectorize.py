@@ -1,9 +1,9 @@
 """
 Skill vectorization into IDF-weighted and binary matrices.
 
-Chains `DictVectorizer`, `TfidfTransformer`, and `Normalizer` in an sklearn
-`Pipeline` that fits on extracted skill lists and produces both an
-IDF-weighted matrix for the geometry track (PCA) and a binary
+Chains `DictVectorizer`, `TfidfTransformer`, and `Normalizer` in an
+sklearn `Pipeline` that fits on extracted skill lists and produces both
+an IDF-weighted matrix for the geometry track (PCA) and a binary
 presence/absence matrix for the co-occurrence track (PMI).
 
 Term frequency is always 1 because `SkillExtractor.extract()` returns
@@ -27,16 +27,18 @@ from chalkline.extraction.schemas import CorpusStatistics
 
 class SkillVectorizer:
     """
-    IDF-weighted and binary matrix builder from extracted skill lists.
+    IDF-weighted and binary matrix builder from extracted skill
+    lists.
 
-    Receives the output of `SkillExtractor.extract()`, fits a three-stage
-    sklearn `Pipeline`, and exposes both matrices alongside corpus-level
-    statistics. Document identifiers are maintained in sorted order so
-    that matrix rows map back to posting identities for downstream
-    labeling and matching.
+    Receives the output of `SkillExtractor.extract()`, fits a
+    three-stage sklearn `Pipeline`, and exposes both matrices
+    alongside corpus-level statistics. Document identifiers are
+    maintained in sorted order so that matrix rows map back to
+    posting identities for downstream labeling and matching.
 
     Because the extractor deduplicates skills per posting, all term
-    frequencies are 1 and `TfidfTransformer` applies only IDF weighting.
+    frequencies are 1 and `TfidfTransformer` applies only IDF
+    weighting.
     """
 
     def __init__(self, skills: dict[str, list[str]]):
@@ -44,8 +46,9 @@ class SkillVectorizer:
         Fit the vectorization pipeline on extracted skill lists.
 
         Args:
-            skills: Mapping from document identifier to sorted canonical
-                    skill names, as returned by `SkillExtractor.extract`.
+            skills: Mapping from document identifier to sorted
+                    canonical skill names, as returned by
+                    `SkillExtractor.extract`.
         """
         self.document_ids = sorted(skills)
 
@@ -71,8 +74,12 @@ class SkillVectorizer:
         """
         Binary presence/absence matrix for PMI computation.
 
-        Uses only the `DictVectorizer` step, bypassing TF-IDF weighting
-        and L2 normalization. Values are strictly 0 or 1.
+        Uses only the `DictVectorizer` step, bypassing TF-IDF
+        weighting and L2 normalization. Values are strictly 0 or
+        1.
+
+        Returns:
+            Sparse matrix with binary skill presence per document.
         """
         return self.pipeline.named_steps["vec"].transform(self._dicts)
 
@@ -80,6 +87,9 @@ class SkillVectorizer:
     def feature_names(self) -> list[str]:
         """
         Vocabulary in column order, matching matrix column indices.
+
+        Returns:
+            Skill names ordered by their column position.
         """
         return self.pipeline.named_steps["vec"].get_feature_names_out().tolist()
 
@@ -88,8 +98,11 @@ class SkillVectorizer:
         """
         Aggregate corpus statistics from the fitted vectorization.
 
-        Reports vocabulary size, matrix sparsity, mean skills per posting,
-        and per-skill frequency counts across the corpus.
+        Reports vocabulary size, matrix sparsity, mean skills per
+        posting, and per-skill frequency counts across the corpus.
+
+        Returns:
+            Populated `CorpusStatistics` model instance.
         """
         binary     = self.binary_matrix
         rows, cols = binary.shape

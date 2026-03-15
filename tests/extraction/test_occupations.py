@@ -1,8 +1,8 @@
 """
 Tests for occupation-level queries and SOC matching.
 
-Validates Job Zone lookups, sector queries, skill retrieval, bare-prefix SOC
-resolution, and vectorized Jaccard matching against the synthetic
+Validates Job Zone lookups, sector queries, skill retrieval, bare-prefix
+SOC resolution, and vectorized Jaccard matching against the synthetic
 two-occupation fixture.
 """
 
@@ -14,13 +14,14 @@ from chalkline.extraction.schemas     import OnetOccupation
 
 class TestOccupationIndex:
     """
-    Validate occupation lookups, SOC resolution, and Jaccard matching.
+    Validate occupation lookups, SOC resolution, and Jaccard
+    matching.
     """
 
     def test_ambiguous_prefix(self):
         """
-        A bare prefix with multiple suffixes raises `KeyError` because the
-        resolver cannot disambiguate.
+        A bare prefix with multiple suffixes raises `KeyError`
+        because the resolver cannot disambiguate.
         """
         with raises(KeyError):
             OccupationIndex([
@@ -63,8 +64,8 @@ class TestOccupationIndex:
         skills           : set[str]
     ):
         """
-        Empty or fully unknown skill sets return a valid SOC code without
-        raising.
+        Empty or fully unknown skill sets return a valid SOC code
+        without raising.
         """
         assert occupation_index.nearest(skills) in {
             "47-2071.00",
@@ -89,8 +90,8 @@ class TestOccupationIndex:
 
     def test_nearest_mixed_overlap(self, occupation_index: OccupationIndex):
         """
-        A skill set with majority paving operator overlap resolves to the
-        paving operator SOC code even with shared terms.
+        A skill set with majority paving operator overlap resolves
+        to the paving operator SOC code even with shared terms.
         """
         assert occupation_index.nearest(
             {"Backhoes", "Concrete finishing", "Welding"}
@@ -98,7 +99,7 @@ class TestOccupationIndex:
 
     def test_soc_skill_matrix_shape(self, occupation_index: OccupationIndex):
         """
-        The precomputed matrix has one row per SOC code and one column per
-        unique skill across all occupations.
+        The precomputed matrix has one row per SOC code and one
+        column per unique skill across all occupations.
         """
         assert occupation_index.soc_skill_matrix.shape == (2, 12)

@@ -1,13 +1,12 @@
 """
 Curate the O*NET occupation-skill mapping for Chalkline's 21 SOC codes.
 
-Downloads element-type files from the O*NET 30.0 database, filters
-to the stakeholder-curated SOC codes, merges Skills, Knowledge,
-Abilities, Tasks, Emerging Tasks, Technology Skills, Detailed Work
-Activities, and Tools Used into a structured `skills` array,
-decomposes Task and DWA entries into matchable sub-phrases via
-POS-based chunking, filters ambiguous single-word tool and
-technology entries using wordfreq Zipf frequency, and writes
+Downloads element-type files from the O*NET 30.0 database, filters to the
+stakeholder-curated SOC codes, merges Skills, Knowledge, Abilities, Tasks,
+Emerging Tasks, Technology Skills, Detailed Work Activities, and Tools Used
+into a structured `skills` array, decomposes Task and DWA entries into
+matchable sub-phrases via POS-based chunking, filters ambiguous single-word
+tool and technology entries using wordfreq Zipf frequency, and writes
 `data/lexicons/onet.json`.
 
 Run from the worktree root:
@@ -31,17 +30,16 @@ class OnetCurator:
     Fetch, filter, and merge O*NET element files into a structured
     occupation-skill lexicon for Aho-Corasick extraction.
 
-    Downloads tab-delimited files from the O*NET 30.0 database,
-    filters to stakeholder SOC codes, merges element types with
-    POS-based phrase decomposition for Tasks and DWAs, and excludes
-    ambiguous single-word tools and technologies via wordfreq Zipf
-    frequency.
+    Downloads tab-delimited files from the O*NET 30.0 database, filters
+    to stakeholder SOC codes, merges element types with POS-based phrase
+    decomposition for Tasks and DWAs, and excludes ambiguous single-word
+    tools and technologies via wordfreq Zipf frequency.
     """
 
     def __init__(self, root: Path):
         """
-        Download NLTK data, compile the chunk parser, and load
-        stakeholder SOC codes.
+        Download NLTK data, compile the chunk parser, and load stakeholder
+        SOC codes.
 
         Args:
             root: Worktree root containing `data/` directories.
@@ -64,11 +62,10 @@ class OnetCurator:
         """
         Extract matchable sub-phrases from a sentence-length entry.
 
-        Uses the compiled `RegexpParser` with NP and VP grammar rules
-        to chunk POS-tagged tokens. Determiners are stripped from
-        chunks and only phrases with at least two tokens are retained,
-        filtering out generic single-word nouns like "equipment" and
-        "materials."
+        Uses the compiled `RegexpParser` with NP and VP grammar rules to
+        chunk POS-tagged tokens. Determiners are stripped from chunks and
+        only phrases with at least two tokens are retained, filtering out
+        generic single-word nouns like "equipment" and "materials."
 
         Args:
             text: A sentence-length O*NET Task or DWA.
@@ -91,8 +88,8 @@ class OnetCurator:
         """
         Download and filter the ten O*NET database files.
 
-        Fetches each file in parallel via `ThreadPoolExecutor` and
-        filters to stakeholder SOC codes where applicable.
+        Fetches each file in parallel via `ThreadPoolExecutor` and filters
+        to stakeholder SOC codes where applicable.
 
         Returns:
             Mapping from internal key to filtered `DataFrame`.
@@ -135,8 +132,8 @@ class OnetCurator:
             level      : LV scale value for KSA entries.
 
         Returns:
-            Skill entry dict with `importance`, `level`, `name`,
-            `phrases`, and `type` keys.
+            Skill entry dict with `importance`, `level`, `name`, `phrases`,
+            and `type` keys.
         """
         return {
             "importance" : importance,
@@ -153,8 +150,8 @@ class OnetCurator:
         """
         Fetch a single O*NET file and filter to stakeholder codes.
 
-        Designed as a `ThreadPoolExecutor.map` target where each
-        item is a `(key, filename)` pair from the files dict.
+        Designed as a `ThreadPoolExecutor.map` target where each item is
+        a `(key, filename)` pair from the files dict.
 
         Args:
             pair: Internal key and O*NET filename.
@@ -176,15 +173,14 @@ class OnetCurator:
 
     def _is_ambiguous(self, name: str) -> bool:
         """
-        Test whether a single-word tool or technology name collides
-        with common English.
+        Test whether a single-word tool or technology name collides with
+        common English.
 
         Uses wordfreq Zipf frequency as the ambiguity signal. The
-        threshold of 4.0 corresponds to roughly one occurrence per
-        10,000 words in modern English, sitting above domain terms
-        like "rebar" (2.57) while catching general words like
-        "level" (4.84) and "iron" (4.27) that would produce false
-        Aho-Corasick matches.
+        threshold of 4.0 corresponds to roughly one occurrence per 10,000
+        words in modern English, sitting above domain terms like "rebar"
+        (2.57) while catching general words like "level" (4.84) and
+        "iron" (4.27) that would produce false Aho-Corasick matches.
 
         Args:
             name: The O*NET entry name to test.
@@ -198,9 +194,9 @@ class OnetCurator:
         """
         Merge all element types into per-occupation skill lists.
 
-        Processes KSA entries with importance/level scales first,
-        then simple entry types with ambiguity filtering for tools
-        and technologies.
+        Processes KSA entries with importance/level scales first, then
+        simple entry types with ambiguity filtering for tools and
+        technologies.
 
         Args:
             raw: Downloaded O*NET data keyed by element type.

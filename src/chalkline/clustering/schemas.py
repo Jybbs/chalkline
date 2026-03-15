@@ -1,5 +1,9 @@
 """
 Schemas for clustering results and validity metrics.
+
+Defines Pydantic models for cluster labels, comparison method output,
+cophenetic correlations, and internal validity scores used across the
+hierarchical and comparison clustering modules.
 """
 
 from pydantic import BaseModel, Field
@@ -13,8 +17,8 @@ class ClusterLabel(BaseModel, extra="forbid"):
     centroid terms.
 
     The `leader_node_id` maps to the linkage node serving as the
-    subtree root for this cluster, enabling direct annotation of
-    dendrogram branches with cluster labels.
+    subtree root for this cluster, enabling direct annotation of dendrogram
+    branches with cluster labels.
     """
 
     cluster_id     : int = Field(ge = 0)
@@ -28,9 +32,8 @@ class ComparisonResult(BaseModel, extra="forbid"):
     """
     Output from a single comparison clustering method.
 
-    Metric fields are optional because degenerate clusterings
-    (fewer than 2 non-noise clusters) cannot produce internal
-    validity scores.
+    Metric fields are optional because degenerate clusterings (fewer
+    than 2 non-noise clusters) cannot produce internal validity scores.
     """
 
     assignments : list[int]
@@ -48,8 +51,8 @@ class CopheneticResult(BaseModel, extra="forbid"):
     """
     Cophenetic correlation for a single linkage method.
 
-    Measures how faithfully the dendrogram preserves pairwise
-    distances from the original coordinate space.
+    Measures how faithfully the dendrogram preserves pairwise distances
+    from the original coordinate space.
     """
 
     correlation : float
@@ -60,8 +63,8 @@ class ValidationMetrics(BaseModel, extra="forbid"):
     """
     Internal validity metrics for a hierarchical cluster partition.
 
-    All metric fields are optional because degenerate clusterings
-    (fewer than 2 clusters) cannot produce internal validity scores.
+    All metric fields are optional because degenerate clusterings (fewer
+    than 2 clusters) cannot produce internal validity scores.
     `silhouette_samples` is an empty list in the degenerate case.
     """
 

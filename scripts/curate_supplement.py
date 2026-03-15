@@ -1,14 +1,13 @@
 """
 Curate a domain supplement lexicon from multiple mechanized sources.
 
-Mines six sources for construction vocabulary absent from the
-OSHA/O*NET index, namely cross-SOC nouns from O*NET Task and DWA
-text, apprenticeship trade titles and their decomposed words,
-community college and university program name words, technical
-abbreviations from O*NET tool and technology entries, and
-high-frequency words from job posting titles. All sources apply
-wordfreq Zipf frequency filtering to exclude common English.
-Writes a sorted JSON array to `data/lexicons/supplement.json`.
+Mines six sources for construction vocabulary absent from the OSHA/O*NET
+index, namely cross-SOC nouns from O*NET Task and DWA text, apprenticeship
+trade titles and their decomposed words, community college and university
+program name words, technical abbreviations from O*NET tool and technology
+entries, and high-frequency words from job posting titles. All sources
+apply wordfreq Zipf frequency filtering to exclude common English. Writes
+a sorted JSON array to `data/lexicons/supplement.json`.
 
 Run from the worktree root:
 
@@ -26,17 +25,16 @@ from wordfreq    import zipf_frequency
 
 class SupplementCurator:
     """
-    Mine construction vocabulary from multiple mechanized sources
-    for supplement lexicon generation.
+    Mine construction vocabulary from multiple mechanized sources for
+    supplement lexicon generation.
 
-    Six sources are mined in priority order, namely cross-SOC nouns
-    from O*NET task text, apprenticeship trade titles and their
-    decomposed individual words, community college and university
-    program name words, technical abbreviations from O*NET tool and
-    technology entries, and high-frequency words from job posting
-    titles. All sources filter against wordfreq Zipf frequency and
-    the existing OSHA/O*NET index to avoid duplicates and common
-    English false positives.
+    Six sources are mined in priority order, namely cross-SOC nouns from
+    O*NET task text, apprenticeship trade titles and their decomposed
+    individual words, community college and university program name words,
+    technical abbreviations from O*NET tool and technology entries, and
+    high-frequency words from job posting titles. All sources filter
+    against wordfreq Zipf frequency and the existing OSHA/O*NET index to
+    avoid duplicates and common English false positives.
     """
 
     def __init__(self, root: Path):
@@ -70,8 +68,8 @@ class SupplementCurator:
 
     def _build_existing_index(self) -> set[str]:
         """
-        Load the current OSHA and O*NET lexicons and collect all
-        indexed terms for deduplication.
+        Load the current OSHA and O*NET lexicons and collect all indexed
+        terms for deduplication.
 
         Returns:
             Set of lowercased terms already in the extraction index.
@@ -125,9 +123,9 @@ class SupplementCurator:
         """
         Clean, lemmatize, and Zipf-filter words from a title string.
 
-        Splits on whitespace after normalizing slashes and hyphens,
-        strips non-alpha characters, and retains words with Zipf
-        frequency below the ambiguity threshold.
+        Splits on whitespace after normalizing slashes and hyphens, strips
+        non-alpha characters, and retains words with Zipf frequency below
+        the ambiguity threshold.
 
         Args:
             text: A program name, trade title, or similar label.
@@ -151,16 +149,16 @@ class SupplementCurator:
 
     def _mine_onet_abbreviations(self) -> list[str]:
         """
-        Extract technical abbreviations from O*NET tool and
-        technology entry names.
+        Extract technical abbreviations from O*NET tool and technology
+        entry names.
 
         Scans each tool and technology entry for all-uppercase tokens
-        between 4 and 6 characters, capturing domain abbreviations
-        like SCADA, HCSS, and LIDAR that appear as individual words
-        within multi-word entry names. The 4-character minimum avoids
-        3-letter abbreviations that produce substring false positives
-        in Aho-Corasick matching because they appear inside common
-        English words ("gis" in "logistics", "mis" in "commission").
+        between 4 and 6 characters, capturing domain abbreviations like
+        SCADA, HCSS, and LIDAR that appear as individual words within
+        multi-word entry names. The 4-character minimum avoids 3-letter
+        abbreviations that produce substring false positives in
+        Aho-Corasick matching because they appear inside common English
+        words ("gis" in "logistics", "mis" in "commission").
 
         Returns:
             Sorted list of unique abbreviation strings, lowercased.
@@ -178,17 +176,16 @@ class SupplementCurator:
 
     def _mine_onet_nouns(self) -> list[tuple[str, int, int]]:
         """
-        Extract nouns from O*NET Task and DWA text that appear
-        across multiple SOC codes.
+        Extract nouns from O*NET Task and DWA text that appear across
+        multiple SOC codes.
 
-        Tokenizes and POS-tags each task/DWA entry, collects nouns
-        with 3+ characters, lemmatizes to noun form, and filters to
-        terms appearing in 3+ SOC codes with Zipf frequency below
-        the ambiguity threshold.
+        Tokenizes and POS-tags each task/DWA entry, collects nouns with 3+
+        characters, lemmatizes to noun form, and filters to terms appearing
+        in 3+ SOC codes with Zipf frequency below the ambiguity threshold.
 
         Returns:
-            List of (term, soc_count, task_count) tuples sorted by
-            descending SOC coverage.
+            List of (term, soc_count, task_count) tuples sorted
+            by descending SOC coverage.
         """
         noun_socs  = defaultdict(set)
         noun_tasks = defaultdict(int)
@@ -220,9 +217,9 @@ class SupplementCurator:
         """
         Extract high-frequency words from job posting titles.
 
-        Tokenizes each posting title, lemmatizes words to noun form,
-        and retains terms appearing in 3+ postings with Zipf
-        frequency below the ambiguity threshold.
+        Tokenizes each posting title, lemmatizes words to noun form, and
+        retains terms appearing in 3+ postings with Zipf frequency below
+        the ambiguity threshold.
 
         Returns:
             List of (term, posting_count) tuples sorted by descending
@@ -243,8 +240,8 @@ class SupplementCurator:
 
     def _mine_program_words(self) -> list[str]:
         """
-        Extract domain words from community college and university
-        program names.
+        Extract domain words from community college and university program
+        names.
 
         Returns:
             Sorted list of unique program name words.
@@ -278,8 +275,8 @@ class SupplementCurator:
 
     def _novel(self, existing: set[str], term: str, terms: set[str]) -> bool:
         """
-        Test whether a term is absent from both the existing index
-        and the accumulating term set.
+        Test whether a term is absent from both the existing index and
+        the accumulating term set.
 
         Args:
             existing : Lowercased terms from the OSHA/O*NET index.
@@ -302,8 +299,8 @@ class SupplementCurator:
 
     def run_all(self):
         """
-        Mine terms from all sources and write
-        `data/lexicons/supplement.json`.
+        Mine terms from all sources and write the
+        `data/lexicons/supplement.json` lexicon file.
         """
         existing = self._build_existing_index()
         terms    = set()

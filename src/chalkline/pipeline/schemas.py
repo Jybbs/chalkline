@@ -17,8 +17,8 @@ class ApprenticeshipContext(BaseModel, extra="forbid"):
     """
     AGC-registered apprenticeship program linked to a skill gap.
 
-    Maps a gap skill to a RAPIDS-coded trade with term hours,
-    providing a concrete training timeline for skill acquisition.
+    Maps a gap skill to a RAPIDS-coded trade with term hours, providing
+    a concrete training timeline for skill acquisition.
     """
 
     rapids_code : str
@@ -30,10 +30,11 @@ class DistanceMetric(StrEnum):
     """
     Distance functions for resume matching and clustering comparison.
 
-    `EUCLIDEAN` is the default because `StandardScaler(with_mean=False)` is
-    always applied after PCA, making Euclidean on scaled coordinates
-    equivalent to standardized Euclidean on raw PCA output. `COSINE` and
-    `STANDARDIZED_EUCLIDEAN` exist for comparison experiments in CL-08.
+    `EUCLIDEAN` is the default because `StandardScaler(with_mean=False)`
+    is always applied after PCA, making Euclidean on scaled coordinates
+    equivalent to standardized Euclidean on raw PCA output. `COSINE`
+    and `STANDARDIZED_EUCLIDEAN` exist for comparison experiments in
+    CL-08.
     """
 
     COSINE                 = "cosine"
@@ -45,9 +46,9 @@ class PipelineConfig(BaseModel, extra="forbid"):
     """
     End-to-end configuration for the Chalkline pipeline.
 
-    Required path fields locate the corpus, lexicons, and output
-    directories. Optional fields control hyperparameters with defaults tuned
-    for the 922-posting Maine construction corpus.
+    Required path fields locate the corpus, lexicons, and output directories.
+    Optional fields control hyperparameters with defaults tuned for the
+    922-posting Maine construction corpus.
     """
 
     lexicon_dir  : Path
@@ -67,10 +68,10 @@ class ProgramRecommendation(BaseModel, extra="forbid"):
     """
     Normalized educational program recommendation.
 
-    Unifies community college programs (where the institution field
-    is `college` and credential is `credential`) and university
-    programs (where institution is `campus` and credential is
-    `degree`) into a consistent schema.
+    Unifies community college programs (where the institution field is
+    `college` and credential is `credential`) and university programs
+    (where institution is `campus` and credential is `degree`) into a
+    consistent schema.
     """
 
     credential  : str

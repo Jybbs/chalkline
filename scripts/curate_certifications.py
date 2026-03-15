@@ -1,13 +1,12 @@
 """
-Curate the CareerOneStop certification lexicon for Chalkline's
-SOC codes.
+Curate the CareerOneStop certification lexicon for Chalkline's SOC codes.
 
 Reads parsed certification records from
 `data/certifications/careeronestop.json`, fetches O*NET OnLine
-certification listing pages for each stakeholder SOC code to
-establish the certification-to-occupation mapping, filters to
-construction-relevant certifications, decomposes descriptions
-into matchable sub-phrases via POS-based chunking, and writes
+certification listing pages for each stakeholder SOC code to establish
+the certification-to-occupation mapping, filters to
+construction-relevant certifications, decomposes descriptions into
+matchable sub-phrases via POS-based chunking, and writes
 `data/lexicons/certifications.json`.
 
 Run from the worktree root:
@@ -27,16 +26,16 @@ from wordfreq           import zipf_frequency
 
 class CertificationCurator:
     """
-    Filter CareerOneStop certifications to stakeholder SOC codes
-    and decompose descriptions into matchable sub-phrases.
+    Filter CareerOneStop certifications to stakeholder SOC codes and
+    decompose descriptions into matchable sub-phrases.
 
-    Fetches O*NET OnLine certification listing pages for each SOC
-    code to establish which certifications map to which occupations,
-    then joins against the parsed CareerOneStop flat file for
-    acronyms and description text. Descriptions are decomposed via
-    the same NP/VP chunking grammar used by `curate_onet.py`,
-    producing multi-word phrases that feed the Aho-Corasick
-    automaton alongside the certification names and acronyms.
+    Fetches O*NET OnLine certification listing pages for each SOC code
+    to establish which certifications map to which occupations, then
+    joins against the parsed CareerOneStop flat file for acronyms and
+    description text. Descriptions are decomposed via the same NP/VP
+    chunking grammar used by `curate_onet.py`, producing multi-word
+    phrases that feed the Aho-Corasick automaton alongside the certification
+    names and acronyms.
     """
 
     def __init__(self, root: Path):
@@ -75,13 +74,12 @@ class CertificationCurator:
         """
         Extract matchable sub-phrases from description text.
 
-        Uses the same NP/VP grammar as `curate_onet.py` to chunk
-        POS-tagged tokens. Determiners are stripped and only phrases
-        with at least two tokens are retained, filtering generic
-        single-word nouns. Phrases composed entirely of common
-        English words (all tokens with Zipf >= 4.0) are excluded
-        to avoid boilerplate like "knowledge base" and "work
-        experience."
+        Uses the same NP/VP grammar as `curate_onet.py` to chunk POS-tagged
+        tokens. Determiners are stripped and only phrases with at least two
+        tokens are retained, filtering generic single-word nouns. Phrases
+        composed entirely of common English words (all tokens with
+        Zipf >= 4.0) are excluded to avoid boilerplate like "knowledge
+        base" and "work experience."
 
         Args:
             text: Certification description text.
@@ -111,8 +109,8 @@ class CertificationCurator:
         """
         Fetch certification IDs for one SOC code from O*NET OnLine.
 
-        Parses the HTML table on the certification listing page
-        and extracts numeric cert IDs from the detail link hrefs.
+        Parses the HTML table on the certification listing page and
+        extracts numeric cert IDs from the detail link hrefs.
 
         Args:
             soc_code: O*NET SOC code (e.g., `47-2111.00`).
@@ -140,11 +138,10 @@ class CertificationCurator:
 
     def _is_ambiguous(self, term: str) -> bool:
         """
-        Test whether a single-word term collides with common
-        English.
+        Test whether a single-word term collides with common English.
 
-        Uses wordfreq Zipf frequency with the same 4.0 threshold
-        as `curate_onet.py` for consistency.
+        Uses wordfreq Zipf frequency with the same 4.0 threshold as
+        `curate_onet.py` for consistency.
 
         Args:
             term: Acronym or short certification name.
@@ -160,8 +157,8 @@ class CertificationCurator:
 
     def run_all(self):
         """
-        Filter certifications, decompose descriptions, and write
-        `data/lexicons/certifications.json`.
+        Filter certifications, decompose descriptions, and write the
+        `data/lexicons/certifications.json` lexicon file.
         """
         print(
             f"Fetching certifications for "

@@ -30,10 +30,9 @@ class NeighborMatch(BaseModel, extra="forbid"):
     A single nearest-neighbor posting within the assigned career
     family.
 
-    Carries both the geometric distance in PCA space and the
-    Jaccard similarity on discrete skill sets, giving two
-    complementary views of how closely the resume resembles the
-    posting.
+    Carries both the geometric distance in PCA space and the Jaccard
+    similarity on discrete skill sets, giving two complementary views
+    of how closely the resume resembles the posting.
     """
 
     distance    : float

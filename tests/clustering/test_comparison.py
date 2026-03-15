@@ -2,8 +2,8 @@
 Tests for comparison clustering methods.
 
 Validates K-Means, DBSCAN, Mean Shift, and HDBSCAN result structure,
-validity metrics, silhouette details, and sector ARI computation
-using the synthetic 20-posting fixture chain.
+validity metrics, silhouette details, and sector ARI computation using
+the synthetic 20-posting fixture chain.
 """
 
 import numpy as np
@@ -15,8 +15,8 @@ from chalkline.clustering.comparison import ClusterComparison
 
 class TestClusterComparison:
     """
-    Validate result structure and metrics from each comparison
-    clustering method.
+    Validate result structure and metrics from each comparison clustering
+    method.
     """
 
     # ---------------------------------------------------------
@@ -54,11 +54,12 @@ class TestClusterComparison:
 
     def test_ari_with_sectors(self, comparison_with_sectors: ClusterComparison):
         """
-        ARI is computed when sector labels are provided. The
-        sector-label masking in `_build_result` must align the
-        mask across both `sector_labels` and `assignments`. A
-        misalignment would produce a meaningless ARI that the
-        comparison report presents as valid.
+        ARI is computed when sector labels are provided.
+
+        The sector-label masking in `_build_result` must align the mask
+        across both `sector_labels` and `assignments`. A misalignment
+        would produce a meaningless ARI that the comparison report presents
+        as valid.
         """
         result = comparison_with_sectors.kmeans()
         assert result.ari_vs_sectors is not None

@@ -2,11 +2,11 @@
 Average-linkage hierarchical agglomerative clustering with cophenetic
 validation and TF-IDF centroid labeling.
 
-Fits average linkage on PCA-reduced coordinates, selects a flat
-partition via the merge-height acceleration criterion, and exposes
-cophenetic comparison and internal validity metrics as on-demand
-methods. Cluster labels are derived from TF-IDF centroid terms when
-explicitly requested via `labels()`.
+Fits average linkage on PCA-reduced coordinates, selects a flat partition
+via the merge-height acceleration criterion, and exposes cophenetic
+comparison and internal validity metrics as on-demand methods. Cluster
+labels are derived from TF-IDF centroid terms when explicitly requested
+via `labels()`.
 """
 
 import numpy as np
@@ -33,13 +33,11 @@ def compute_sector_labels(
     """
     Map postings to SOC codes via Jaccard-nearest occupation.
 
-    For each document in row order, finds the O*NET occupation
-    whose skill profile has maximum Jaccard overlap with the
-    posting's canonical skill set, then returns that occupation's
-    SOC code.
-
-    This produces 21 distinct ground-truth classes for ARI
-    evaluation rather than 3 broad sectors.
+    For each document in row order, finds the O*NET occupation whose
+    skill profile has maximum Jaccard overlap with the posting's canonical
+    skill set, then returns that occupation's SOC code. This produces 21
+    distinct ground-truth classes for ARI evaluation rather than 3 broad
+    sectors.
 
     Args:
         document_ids     : Posting identifiers in matrix row order.
@@ -47,6 +45,9 @@ def compute_sector_labels(
                            canonical skill names.
         occupation_index : O*NET occupation lookup with Jaccard
                            matching.
+
+    Returns:
+        SOC code strings aligned with `document_ids` row order.
     """
     return [
         occupation_index.get(
@@ -61,17 +62,17 @@ class HierarchicalClusterer:
     Average-linkage HAC with multi-method cophenetic validation.
 
     Computes the average linkage matrix with optimal leaf ordering and
-    selects a flat partition via the merge-height acceleration
-    criterion, which finds the largest second derivative of the
-    merge height sequence:
+    selects a flat partition via the merge-height acceleration criterion,
+    which finds the largest second derivative of the merge height
+    sequence:
 
         k = argmax{Δ²hᵢ} + 2
 
-    where Δ²hᵢ = hᵢ₊₂ - 2hᵢ₊₁ + hᵢ and k is the number of
-    clusters. Cophenetic comparison and internal validity metrics
-    are computed on demand via `cophenetic_comparison()` and
-    `validation_metrics()`. Cluster labels are derived from TF-IDF
-    centroid terms when explicitly requested via `labels()`.
+    where Δ²hᵢ = hᵢ₊₂ - 2hᵢ₊₁ + hᵢ and k is the number of clusters.
+    Cophenetic comparison and internal validity metrics are computed on
+    demand via `cophenetic_comparison()` and `validation_metrics()`.
+    Cluster labels are derived from TF-IDF centroid terms when
+    explicitly requested via `labels()`.
     """
 
     def __init__(
@@ -80,11 +81,10 @@ class HierarchicalClusterer:
         document_ids : list[str]
     ):
         """
-        Fit Ward-linkage HAC and derive cluster assignments.
+        Fit average-linkage HAC and derive cluster assignments.
 
         Args:
-            coordinates  : PCA output of shape
-                           `(n_postings, n_selected)`.
+            coordinates  : PCA output, shape `(n_postings, n_selected)`.
             document_ids : Posting identifiers in row order.
         """
         self.coordinates  = coordinates
@@ -121,26 +121,30 @@ class HierarchicalClusterer:
 
     def ari_vs_sectors(self, sector_labels: list[str]) -> float:
         """
-        Adjusted Rand index between HAC assignments and sector
-        labels.
+        Adjusted Rand index between HAC assignments and sector labels.
 
         Args:
             sector_labels: Sector strings aligned with
                            `document_ids` row order.
+
+        Returns:
+            ARI score in [-1, 1].
         """
         return float(adjusted_rand_score(sector_labels, self.assignments))
 
     def cophenetic_comparison(self) -> list[CopheneticResult]:
         """
-        Cophenetic correlations for Ward, complete, and average
-        linkage on the same coordinates.
+        Cophenetic correlations for Ward, complete, and average linkage
+        on the same coordinates.
 
             r = corr(Z_coph, pdist(X))
 
-        where `Z_coph` is the cophenetic distance matrix derived
-        from each linkage. Computes `pdist` and two additional
-        linkage matrices on demand. Results are not cached, so
-        repeated calls refit.
+        where `Z_coph` is the cophenetic distance matrix derived from each
+        linkage. Computes `pdist` and two additional linkage matrices on
+        demand. Results are not cached, so repeated calls refit.
+
+        Returns:
+            One `CopheneticResult` per linkage method.
         """
         distances = pdist(self.coordinates)
         return [
@@ -159,14 +163,16 @@ class HierarchicalClusterer:
         """
         Dendrogram structure for rendering without plotting.
 
-        Returns the scipy dendrogram dict with `icoord`, `dcoord`,
-        `ivl`, and `color_list` keys. When `title_map` is provided,
-        leaf labels are mapped from document identifiers to display
-        titles.
+        Returns the scipy dendrogram dict with `icoord`, `dcoord`, `ivl`,
+        and `color_list` keys. When `title_map` is provided, leaf labels
+        are mapped from document identifiers to display titles.
 
         Args:
-            title_map: Optional mapping from document identifier to
-                       display title for leaf labeling.
+            title_map: Optional mapping from document identifier
+                       to display title for leaf labeling.
+
+        Returns:
+            Scipy dendrogram dictionary.
         """
         return dendrogram(
             self.linkage,
@@ -185,15 +191,18 @@ class HierarchicalClusterer:
         """
         Human-readable labels from top TF-IDF centroid terms.
 
-        Averages the TF-IDF vectors of each cluster's members and
-        extracts the `top_n` highest-weighted terms. The dense
-        conversion of `tfidf_matrix` is scoped to this call.
+        Averages the TF-IDF vectors of each cluster's members and extracts
+        the `top_n` highest-weighted terms. The dense conversion of
+        `tfidf_matrix` is scoped to this call.
 
         Args:
             feature_names : TF-IDF vocabulary in column order.
             tfidf_matrix  : Sparse TF-IDF matrix for centroid
                             computation, aligned with `document_ids`.
             top_n         : Number of top terms per cluster label.
+
+        Returns:
+            One `ClusterLabel` per unique cluster assignment.
         """
         tfidf_dense                 = tfidf_matrix.toarray()
         leader_nodes, leader_labels = leaders(self.linkage, self.assignments)
@@ -217,12 +226,15 @@ class HierarchicalClusterer:
         """
         Flat cluster assignments at a specified number of clusters.
 
-        Cuts the Ward linkage tree at exactly `k` clusters via
-        `fcluster` with the `maxclust` criterion, enabling
-        post-hoc comparison against K-Means' elbow-selected K.
+        Cuts the linkage tree at exactly `k` clusters via `fcluster` with
+        the `maxclust` criterion, enabling post-hoc comparison against
+        K-Means' elbow-selected K.
 
         Args:
             k: Target number of clusters.
+
+        Returns:
+            Array of cluster labels, one per posting.
         """
         return fcluster(self.linkage, criterion = "maxclust", t = k)
 
@@ -230,10 +242,13 @@ class HierarchicalClusterer:
         """
         Internal validity metrics for the current flat partition.
 
-        Computes silhouette, Calinski-Harabasz, and Davies-Bouldin
-        scores on demand. Returns a `ValidationMetrics` instance
-        with all fields set to `None` when the partition is
-        degenerate (fewer than 2 clusters).
+        Computes silhouette, Calinski-Harabasz, and Davies-Bouldin scores
+        on demand. Returns a `ValidationMetrics` instance with all fields
+        set to `None` when the partition is degenerate (fewer than 2
+        clusters).
+
+        Returns:
+            Validity scores, or `None`-filled instance when degenerate.
         """
         n = len(self.coordinates)
         if not (2 <= self.k < n):

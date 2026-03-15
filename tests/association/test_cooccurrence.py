@@ -2,8 +2,8 @@
 Tests for PMI co-occurrence network and Louvain community detection.
 
 Validates co-occurrence matrix properties, PMI measure bounds, graph
-construction, community detection, and diagnostic reporting using
-the synthetic 20-posting fixture chain.
+construction, community detection, and diagnostic reporting using the
+synthetic 20-posting fixture chain.
 """
 
 import numpy as np
@@ -33,16 +33,16 @@ class TestCooccurrenceNetwork:
 
     def test_matrix_symmetric(self, network: CooccurrenceNetwork):
         """
-        Co-occurrence matrix is symmetric because skill co-occurrence
-        is an undirected relationship.
+        Co-occurrence matrix is symmetric because skill co-occurrence is
+        an undirected relationship.
         """
         C = network.cooccurrence
         assert (C - C.T).nnz == 0
 
     def test_threshold_auto(self, vectorizer: SkillVectorizer):
         """
-        Auto-threshold via modularity knee detection produces a
-        threshold of at least 3 and a non-degenerate graph.
+        Auto-threshold via modularity knee detection produces a threshold
+        of at least 3 and a non-degenerate graph.
         """
         auto = CooccurrenceNetwork(
             binary_matrix    = vectorizer.binary_matrix,
@@ -79,9 +79,9 @@ class TestCooccurrenceNetwork:
     def test_npmi_formula(self, network: CooccurrenceNetwork):
         """
         NPMI for a known pair equals the manual formula, catching
-        data-ordering mismatches between PMI and co-occurrence
-        sparse arrays that would silently corrupt all downstream
-        graph weights and gap ranking.
+        data-ordering mismatches between PMI and co-occurrence sparse
+        arrays that would silently corrupt all downstream graph weights
+        and gap ranking.
 
         Picks the first nonzero entry and computes:
 
@@ -110,9 +110,9 @@ class TestCooccurrenceNetwork:
 
     def test_pmi_symmetric(self, network: CooccurrenceNetwork):
         """
-        Raw PMI matrix is symmetric. Asymmetry would be masked by
-        NPMI positive clipping but would corrupt PPMI values for
-        pairs where only one direction has positive PMI.
+        Raw PMI matrix is symmetric. Asymmetry would be masked by NPMI
+        positive clipping but would corrupt PPMI values for pairs where
+        only one direction has positive PMI.
         """
         pmi  = network.pmi_matrix
         diff = pmi - pmi.T
@@ -133,9 +133,9 @@ class TestCooccurrenceNetwork:
 
     def test_gtest_graph_edges(self, network: CooccurrenceNetwork):
         """
-        G-test graph has the same edge set as the co-occurrence
-        matrix because every thresholded pair produces a valid
-        contingency table.
+        G-test graph has the same edge set as the co-occurrence matrix
+        because every thresholded pair produces a valid contingency
+        table.
         """
         assert (
             network.graph(matrix = network.gtest_matrix).number_of_edges()
@@ -145,9 +145,9 @@ class TestCooccurrenceNetwork:
     def test_gtest_no_nan(self, network: CooccurrenceNetwork):
         """
         No NaN or inf values in the G-test matrix. A negative
-        contingency cell from a co-occurrence or doc-frequency
-        mismatch would produce NaN via `xlogy` that silently
-        propagates through graph weights and community detection.
+        contingency cell from a co-occurrence or doc-frequency mismatch
+        would produce NaN via `xlogy` that silently propagates through
+        graph weights and community detection.
         """
         G = network.gtest_matrix
         if G.nnz > 0:
@@ -156,8 +156,8 @@ class TestCooccurrenceNetwork:
 
     def test_gtest_nonnegative(self, network: CooccurrenceNetwork):
         """
-        G-test statistics are non-negative because they are
-        chi-squared distributed.
+        G-test statistics are non-negative because they are chi-squared
+        distributed.
         """
         G = network.gtest_matrix
         if G.nnz > 0:
@@ -165,8 +165,8 @@ class TestCooccurrenceNetwork:
 
     def test_gtest_symmetric(self, network: CooccurrenceNetwork):
         """
-        G-test matrix is symmetric because the contingency table
-        is invariant to skill order.
+        G-test matrix is symmetric because the contingency table is
+        invariant to skill order.
         """
         G = network.gtest_matrix
         assert (G - G.T).nnz == 0
@@ -184,9 +184,9 @@ class TestCooccurrenceNetwork:
 
     def test_zero_edge_graceful(self, vectorizer: SkillVectorizer):
         """
-        A degenerate network with zero edges after thresholding
-        produces an empty graph, no communities, and diagnostics
-        with zeroed modularity.
+        A degenerate network with zero edges after thresholding produces
+        an empty graph, no communities, and diagnostics with zeroed
+        modularity.
         """
         empty = CooccurrenceNetwork(
             binary_matrix    = vectorizer.binary_matrix,
@@ -242,8 +242,8 @@ class TestCooccurrenceNetwork:
         vectorizer : SkillVectorizer
     ):
         """
-        A high-threshold network where most skills are isolates
-        triggers the 30% isolate warning.
+        A high-threshold network where most skills are isolates triggers
+        the 30% isolate warning.
         """
         sparse = CooccurrenceNetwork(
             binary_matrix    = vectorizer.binary_matrix,

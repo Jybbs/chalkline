@@ -1,1 +1,3 @@
-"""Tests for the corpus collection module."""
+"""
+Tests for the corpus collection module.
+"""

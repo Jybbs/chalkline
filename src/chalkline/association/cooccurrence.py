@@ -35,11 +35,11 @@ class CooccurrenceNetwork:
     variants, graph construction, and Louvain community detection as
     cached properties and on-demand methods.
 
-    When `min_cooccurrence` is `"auto"`, the threshold is selected by
-    finding the knee of the modularity-vs-threshold curve via `kneed`,
-    identifying the point where community quality begins to degrade.
-    The floor of 3 protects PMI stability at small corpus sizes where
-    a single observation can shift a pair's score by 25%.
+    When `min_cooccurrence` is `"auto"`, the threshold is selected
+    by finding the knee of the modularity-vs-threshold curve via
+    `kneed`, identifying the point where community quality begins to
+    degrade. The floor of 3 protects PMI stability at small corpus
+    sizes where a single observation can shift a pair's score by 25%.
     """
 
     def __init__(
@@ -53,12 +53,12 @@ class CooccurrenceNetwork:
         Compute the thresholded co-occurrence matrix.
 
         Args:
-            binary_matrix    : CSR binary presence/absence matrix from
-                               `SkillVectorizer.binary_matrix`.
+            binary_matrix    : CSR binary presence/absence matrix
+                               from `SkillVectorizer.binary_matrix`.
             feature_names    : Vocabulary in column order, matching
                                matrix column indices.
-            min_cooccurrence : Either `"auto"` to select the threshold
-                               via modularity knee detection, or a float
+            min_cooccurrence : Either `"auto"` to select via
+                               modularity knee detection, or a float
                                fraction of corpus size floored at 3.
             random_seed      : Seed for Louvain reproducibility.
         """
@@ -99,6 +99,10 @@ class CooccurrenceNetwork:
         n - df_x - df_y + C_xy]. Computed via vectorized array
         operations across all upper-triangle pairs. The result is
         symmetric.
+
+        Returns:
+            Symmetric `csr_array` of G-test statistics with the same
+            sparsity pattern as the thresholded co-occurrence matrix.
         """
         C  = triu(self.cooccurrence, format = "coo")
         n  = float(self.n_docs)
@@ -135,18 +139,18 @@ class CooccurrenceNetwork:
     @cached_property
     def npmi_matrix(self) -> csr_array:
         """
-        Normalized pointwise mutual information with positive
-        clipping.
+        Normalized pointwise mutual information with positive clipping.
 
             NPMI(x, y) = PMI(x, y) / -log(C_xy / n)
 
         Divides PMI by the negative log joint probability for each
         pair, bounding values to [-1, 1]. Pairs where both skills
         appear in every posting are capped at 1.0 rather than
-        dividing by zero.
+        dividing by zero. Negative values are clipped to zero
+        (NPMI+) for graph construction.
 
-        Negative values are clipped to zero (NPMI+) for graph
-        construction.
+        Returns:
+            Sparse `csr_array` of NPMI+ values in [0, 1].
         """
         pmi   = self.pmi_matrix.copy()
         denom = np.log(self.n_docs / self.cooccurrence.data.astype(float))
@@ -167,6 +171,10 @@ class CooccurrenceNetwork:
         are document frequencies, and `n` is the corpus size. Applies
         log directly to the sparse data attribute to avoid densifying
         the matrix.
+
+        Returns:
+            Sparse `csr_array` of raw PMI values, potentially
+            negative for pairs that co-occur less than expected.
         """
         n  = self.n_docs
         df = self.doc_freq.astype(float)
@@ -185,8 +193,11 @@ class CooccurrenceNetwork:
 
             PPMI(x, y) = max(0, PMI(x, y))
 
-        Clips negative PMI values to zero and eliminates the
-        resulting structural zeros.
+        Clips negative PMI values to zero and eliminates the resulting
+        structural zeros.
+
+        Returns:
+            Sparse `csr_array` of non-negative PMI values.
         """
         ppmi = self.pmi_matrix.copy()
         ppmi.data = np.maximum(ppmi.data, 0)
@@ -199,22 +210,25 @@ class CooccurrenceNetwork:
 
     def _find_threshold(self, C: csr_array) -> int:
         """
-        Select the co-occurrence threshold via modularity knee detection.
+        Select co-occurrence threshold via modularity knee detection.
 
         Sweeps integer thresholds from the floor of 3 up to the point
         where the graph has no edges, computes Louvain modularity at
         each level, and returns the knee of the modularity-vs-threshold
         curve via `kneed.KneeLocator`.
 
-        The knee is the point where community quality transitions from
-        stable to rapidly degrading, balancing graph density against
-        community structure. Falls back to the floor of 3 when the
-        sweep produces fewer than 3 candidate thresholds or `kneed`
-        cannot locate a knee.
+        The knee is the point where community quality transitions
+        from stable to rapidly degrading, balancing graph density
+        against community structure. Falls back to the floor of 3
+        when the sweep produces fewer than 3 candidate thresholds or
+        `kneed` cannot locate a knee.
 
         Args:
             C: Pre-computed co-occurrence matrix with diagonal zeroed
                but not yet thresholded.
+
+        Returns:
+            Integer threshold, at minimum 3.
         """
         max_cooccurrence = int(C.data.max()) if C.nnz > 0 else 0
         thresholds       = list(range(3, max_cooccurrence + 1))
@@ -255,6 +269,13 @@ class CooccurrenceNetwork:
     def _louvain(self, G: nx.Graph) -> list[set]:
         """
         Louvain community detection with fixed seed and weight.
+
+        Args:
+            G: NetworkX graph with `weight` edge attributes.
+
+        Returns:
+            List of sets, each containing node identifiers for one
+            community.
         """
         return nx.community.louvain_communities(
             G, seed = self.random_seed, weight = "weight"
@@ -278,6 +299,10 @@ class CooccurrenceNetwork:
         Args:
             matrix: Optional sparse weight matrix to override the
                     default NPMI matrix.
+
+        Returns:
+            List of `CommunityLabel` models sorted by community size
+            in descending order.
         """
         G = self.graph(matrix = matrix)
 
@@ -302,8 +327,11 @@ class CooccurrenceNetwork:
         """
         Compare graph structures across PMI variants.
 
-        Builds graphs from PPMI, NPMI, and G-test matrices and
-        reports edge count, density, and community count for each.
+        Builds graphs from PPMI, NPMI, and G-test matrices and reports
+        edge count, density, and community count for each.
+
+        Returns:
+            List of three `MeasureComparison` models, one per variant.
         """
         return [
             MeasureComparison(
@@ -330,13 +358,16 @@ class CooccurrenceNetwork:
         Network-level diagnostics for the co-occurrence graph.
 
         Reports edge count, connected components, isolate count,
-        largest component size, modularity, coverage, and
-        performance. Logs a warning if more than 30% of skills
-        are isolate nodes.
+        largest component size, modularity, coverage, and performance.
+        Logs a warning if more than 30% of skills are isolate nodes.
 
         Args:
             graph: Optional pre-built graph. Defaults to the NPMI
                    graph.
+
+        Returns:
+            `GraphDiagnostics` with modularity set to `None` when the
+            graph has no edges.
         """
         G = graph or self.graph()
 
@@ -390,6 +421,10 @@ class CooccurrenceNetwork:
         Args:
             matrix: Optional sparse weight matrix to override the
                     default NPMI matrix.
+
+        Returns:
+            Undirected `nx.Graph` with skill-name nodes and `weight`
+            edge attributes.
         """
         return nx.relabel_nodes(
             nx.from_scipy_sparse_array(
@@ -403,9 +438,13 @@ class CooccurrenceNetwork:
         """
         Symmetric NPMI DataFrame indexed by skill names.
 
-        The dense conversion is scoped to this call. Used by
-        CL-10 for gap ranking where skill-pair weights inform
-        which gaps are most actionable.
+        The dense conversion is scoped to this call. Used by CL-10
+        for gap ranking where skill-pair weights inform which gaps
+        are most actionable.
+
+        Returns:
+            Square `pd.DataFrame` with skill names as both index and
+            columns, containing NPMI+ values.
         """
         return pd.DataFrame(
             self.npmi_matrix.toarray(),
@@ -417,16 +456,20 @@ class CooccurrenceNetwork:
         """
         Compare Louvain communities against apprenticeship trades.
 
-        For each apprenticeship trade, checks whether the trade
-        title appears as a graph node and reports which Louvain
-        community it belongs to. This is a diagnostic measure
-        rather than a blocking constraint because the vocabulary
-        may not contain every trade title as a matchable skill.
+        For each apprenticeship trade, checks whether the trade title
+        appears as a graph node and reports which Louvain community it
+        belongs to. This is a diagnostic measure rather than a blocking
+        constraint because the vocabulary may not contain every trade
+        title as a matchable skill.
 
         Args:
             apprenticeships: List of dicts with `title` and
                              `rapids_code` keys from the stakeholder
                              reference data.
+
+        Returns:
+            Dict with `alignments` (per-trade match results),
+            `matched_count`, and `total_trades`.
         """
         G = self.graph()
         node_to_community = {

@@ -3,9 +3,9 @@ Skill extraction from job posting text via Aho-Corasick matching.
 
 Builds surface form variants for each lexicon term, loads them into an
 `ahocorasick_rs` automaton with `LeftmostLongest` semantics, and runs a
-single-pass match per posting with word boundary enforcement. The
-output is a mapping from document identifiers to deduplicated, sorted
-canonical skill names.
+single-pass match per posting with word boundary enforcement. The output
+is a mapping from document identifiers to deduplicated, sorted canonical
+skill names.
 """
 
 from ahocorasick_rs import AhoCorasick, MatchKind
@@ -35,8 +35,8 @@ class PatternMeta(NamedTuple):
     """
     Metadata for a single surface form pattern in the automaton.
 
-    Tracks which canonical skill name a pattern resolves to and its
-    confidence tier for conflict resolution.
+    Tracks which canonical skill name a pattern resolves to and
+    its confidence tier for conflict resolution.
     """
 
     canonical : str
@@ -51,11 +51,12 @@ class SkillExtractor:
     """
     Aho-Corasick skill extractor with surface form augmentation.
 
-    Generates lowercased, lemmatized, stemmed, and inverted bigram variants
-    for each lexicon term, loads them into a `LeftmostLongest` automaton,
-    and provides a single `extract()` method that preprocesses posting text,
-    lemmatizes, matches with word boundary enforcement, and returns
-    deduplicated canonical skill names per document.
+    Generates lowercased, lemmatized, stemmed, and inverted bigram
+    variants for each lexicon term, loads them into a
+    `LeftmostLongest` automaton, and provides a single `extract()`
+    method that preprocesses posting text, lemmatizes, matches with
+    word boundary enforcement, and returns deduplicated canonical
+    skill names per document.
     """
 
     def __init__(self, registry: LexiconRegistry):
@@ -63,8 +64,8 @@ class SkillExtractor:
         Build skill automaton from registry data.
 
         Args:
-            registry: Lexicon registry with merged `lemma_index`
-                      and `lemmatize` method.
+            registry: Lexicon registry with merged
+                      `lemma_index` and `lemmatize` method.
         """
         self.registry = registry
         self.stemmer  = PorterStemmer()
@@ -80,7 +81,11 @@ class SkillExtractor:
     @property
     def vocabulary(self) -> set[str]:
         """
-        The set of all canonical skill names loadable by this extractor.
+        The set of all canonical skill names loadable by this
+        extractor.
+
+        Returns:
+            Unique canonical names across all loaded patterns.
         """
         return {m.canonical for m in self.metadata}
 
@@ -92,13 +97,15 @@ class SkillExtractor:
         """
         Generate augmented surface forms with parallel metadata.
 
-        For each unique canonical name in the registry's `lemma_index`,
-        produces lowercased canonical, all lemmatized keys, Porter-stemmed
-        variants, and inverted bigrams for two-word skills. Each pattern
-        gets metadata tracking its canonical name and confidence tier.
+        For each unique canonical name in the registry's
+        `lemma_index`, produces lowercased canonical, all
+        lemmatized keys, Porter-stemmed variants, and inverted
+        bigrams for two-word skills. Each pattern gets metadata
+        tracking its canonical name and confidence tier.
 
         Returns:
-            A parallel pair of pattern strings and their metadata.
+            A parallel pair of pattern strings and their
+            metadata.
         """
         patterns = []
         metadata = []
@@ -133,7 +140,8 @@ class SkillExtractor:
         Assign a confidence tier based on form characteristics.
 
         Args:
-            canonical : Original canonical name for abbreviation detection.
+            canonical : Original canonical name for abbreviation
+                        detection.
             form      : The lowercased surface form string.
 
         Returns:
@@ -150,8 +158,8 @@ class SkillExtractor:
         Check whether a match span falls on word boundaries.
 
         After preprocessing, all non-pattern characters have been
-        replaced with spaces, so a valid boundary is simply a space
-        or string edge.
+        replaced with spaces, so a valid boundary is simply a
+        space or string edge.
 
         Args:
             end   : End position (exclusive) of the match.
@@ -168,13 +176,13 @@ class SkillExtractor:
 
     def _match(self, text: str) -> list[str]:
         """
-        Run the skill automaton and return deduplicated canonical names.
+        Run the automaton and return deduplicated canonical names.
 
-        Matches are filtered for word boundaries and then deduplicated by
-        canonical name. When multiple surface forms of the same canonical
-        name match, the highest-confidence tier wins, though
-        `LeftmostLongest` already prefers longer multi-word matches at
-        each position.
+        Matches are filtered for word boundaries and then
+        deduplicated by canonical name. When multiple surface
+        forms of the same canonical name match, the highest-
+        confidence tier wins, though `LeftmostLongest` already
+        prefers longer multi-word matches at each position.
 
         Args:
             text: Lemmatized posting text.
@@ -199,11 +207,12 @@ class SkillExtractor:
 
         Drops preamble text before the first structural marker and
         EEO boilerplate after the first equal-opportunity marker,
-        strips HTML tags, splits camelCase terms, lowercases, removes
-        characters absent from lexicon patterns, and collapses
-        whitespace. The allowed character set is derived at init time
-        from the automaton patterns themselves, so the filter is
-        always consistent with whatever the lexicons contain.
+        strips HTML tags, splits camelCase terms, lowercases,
+        removes characters absent from lexicon patterns, and
+        collapses whitespace. The allowed character set is derived
+        at init time from the automaton patterns themselves, so the
+        filter is always consistent with whatever the lexicons
+        contain.
 
         Args:
             text: Raw posting description.
@@ -251,19 +260,21 @@ class SkillExtractor:
 
     def extract(self, postings: dict[str, str]) -> dict[str, list[str]]:
         """
-        Extract canonical skill names from a corpus of posting texts.
+        Extract canonical skill names from a corpus of posting
+        texts.
 
-        Each posting is preprocessed, lemmatized, and matched against the
-        skill automaton. Postings with zero matched skills are excluded
-        from the output. Unmatched term frequencies are logged for lexicon
-        coverage diagnostics.
+        Each posting is preprocessed, lemmatized, and matched
+        against the skill automaton. Postings with zero matched
+        skills are excluded from the output. Unmatched term
+        frequencies are logged for lexicon coverage diagnostics.
 
         Args:
-            postings: Mapping from document identifier to raw text.
+            postings: Mapping from document identifier to raw
+                      text.
 
         Returns:
-            Mapping from document identifier to sorted canonical skill
-            names, excluding documents with no matches.
+            Mapping from document identifier to sorted canonical
+            skill names, excluding documents with no matches.
         """
         results        = {}
         corpus_tokens  = set()

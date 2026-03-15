@@ -14,9 +14,9 @@ from chalkline.matching.schemas import MatchResult
 
 class TestResumeMatcher:
     """
-    Verify resume projection, cluster assignment, neighbor
-    retrieval, skill gap computation, PPMI gap ranking, and
-    enrichment cross-referencing.
+    Verify resume projection, cluster assignment, neighbor retrieval,
+    skill gap computation, PPMI gap ranking, and enrichment
+    cross-referencing.
     """
 
     # -----------------------------------------------------------------
@@ -25,9 +25,8 @@ class TestResumeMatcher:
 
     def test_prefix_inflection(self):
         """
-        4-char prefix catches inflectional variants that the
-        enrichment pipeline relies on for apprenticeship and
-        program matching.
+        4-char prefix catches inflectional variants that the enrichment
+        pipeline relies on for apprenticeship and program matching.
         """
         assert _prefix_set("welding") & _prefix_set("Welder")
         assert _prefix_set("electrical wiring") & _prefix_set("Electrician")
@@ -35,9 +34,8 @@ class TestResumeMatcher:
 
     def test_prefix_short_words(self):
         """
-        Words shorter than 4 characters are excluded from the
-        prefix set to avoid false positives on articles and
-        prepositions.
+        Words shorter than 4 characters are excluded from the prefix
+        set to avoid false positives on articles and prepositions.
         """
         assert _prefix_set("the NEC code") == {"code"}
         assert _prefix_set("on") == set()
@@ -54,8 +52,8 @@ class TestResumeMatcher:
     ])
     def test_jaccard(self, a: set[str], b: set[str], expected: float):
         """
-        Jaccard similarity returns the correct value for each
-        input configuration.
+        Jaccard similarity returns the correct value for each input
+        configuration.
         """
         assert jaccard(a, b) == expected
 
@@ -76,7 +74,7 @@ class TestResumeMatcher:
 
     def test_cluster_distances(self, match_result: MatchResult, matcher: ResumeMatcher):
         """
-        Cluster distances covers every cluster in sorted order.
+        Cluster distances cover every cluster in sorted order.
         """
         assert len(match_result.cluster_distances) == len(matcher.cluster_ids)
         distances = [cd.distance for cd in match_result.cluster_distances]
@@ -84,8 +82,8 @@ class TestResumeMatcher:
 
     def test_empty_resume(self, matcher: ResumeMatcher):
         """
-        An empty skill list produces a valid result without
-        crashing, returning no gaps and no ranked gaps.
+        An empty skill list produces a valid result without crashing,
+        returning no gaps and no ranked gaps.
         """
         result = matcher.match([])
         assert result.skill_gaps == [] or isinstance(result.skill_gaps, list)
@@ -164,12 +162,12 @@ class TestResumeMatcher:
 
     def test_dedup_unique(self, match_result: MatchResult):
         """
-        Aggregate trade_paths and programs contain no duplicates.
+        Aggregate `trade_paths` and `programs` contain no duplicates.
 
-        The deduplication loop in `match()` filters by
-        `rapids_code` for apprenticeships and by
-        `(institution, program)` for programs. A broken dedup
-        would repeat entries in the career report.
+        The deduplication loop in `match()` filters by `rapids_code`
+        for apprenticeships and by `(institution, program)` for
+        programs. A broken dedup would repeat entries in the career
+        report.
         """
         trade_codes = [a.rapids_code for a in match_result.trade_paths]
         prog_keys   = [
@@ -188,9 +186,9 @@ class TestResumeMatcher:
     def test_ranked_relevance_positive(self, match_result: MatchResult):
         """
         Every ranked gap has strictly positive PPMI relevance.
-        Zero-relevance gaps in the ranked list would silently
-        populate the career report with skills that have no
-        co-occurrence relationship to the resume.
+        Zero-relevance gaps in the ranked list would silently populate
+        the career report with skills that have no co-occurrence
+        relationship to the resume.
         """
         for gap in match_result.ranked_gaps:
             assert gap.relevance > 0
@@ -202,12 +200,12 @@ class TestResumeMatcher:
         different relevance scores.
 
         Constructs a minimal PPMI matrix with resume skills
-        `{"a", "b"}` and centroid scope `{"a", "x"}`. Gap "x" is
-        in scope, so its relevance uses only column "a" yielding
-        `mean([0.5]) = 0.5`. Gap "y" is out of scope, so it uses
-        both columns yielding `mean([0.8, 0.0]) = 0.4`. If the
-        scoping branch were bypassed, both gaps would get the
-        same reference set and the ordering would change.
+        `{"a", "b"}` and centroid scope `{"a", "x"}`. Gap `"x"`
+        is in scope, so its relevance uses only column `"a"`
+        yielding `mean([0.5]) = 0.5`. Gap `"y"` is out of scope,
+        so it uses both columns yielding `mean([0.8, 0.0]) = 0.4`.
+        If the scoping branch were bypassed, both gaps would get
+        the same reference set and the ordering would change.
         """
         ppmi = pd.DataFrame(
             {
@@ -235,7 +233,7 @@ class TestResumeMatcher:
 
     def test_top_k_limits(self, matcher: ResumeMatcher, resume_skills: list[str]):
         """
-        top_k parameter caps the number of ranked gaps returned.
+        `top_k` parameter caps the number of ranked gaps returned.
         """
         assert len(matcher.match(resume_skills, top_k = 2).ranked_gaps) <= 2
 
@@ -254,7 +252,7 @@ class TestResumeMatcher:
 
     def test_result_serializable(self, match_result: MatchResult):
         """
-        MatchResult is JSON-serializable for Marimo cache
+        `MatchResult` is JSON-serializable for Marimo cache
         compatibility.
         """
         data = match_result.model_dump()
