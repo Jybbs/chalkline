@@ -182,6 +182,19 @@ class TestCooccurrenceNetwork:
         """
         assert all(isinstance(node, str) for node in network.graph().nodes())
 
+    def test_trade_alignment(self, network: CooccurrenceNetwork):
+        """
+        Trade alignment reports which apprenticeship trades appear
+        as graph nodes and their Louvain community assignments.
+        """
+        result = network.trade_alignment([
+            {"rapids_code" : "0001", "title" : "Electrician"},
+            {"rapids_code" : "0002", "title" : "Nonexistent Trade XYZ"}
+        ])
+        assert len(result["alignments"]) == 2
+        assert result["total_trades"] == 2
+        assert result["matched_count"] <= 2
+
     def test_zero_edge_graceful(self, vectorizer: SkillVectorizer):
         """
         A degenerate network with zero edges after thresholding produces
@@ -267,6 +280,57 @@ class TestCooccurrenceNetwork:
         assert {r.measure for r in results} == {"ppmi", "npmi", "g-test"}
 
     # ---------------------------------------------------------
+    # Partition
+    # ---------------------------------------------------------
+
+    def test_partition_covers_nodes(self, network: CooccurrenceNetwork):
+        """
+        Louvain partition communities collectively cover all graph
+        nodes.
+        """
+        assert {s for c in network.partition for s in c} == set(
+            network.graph().nodes()
+        )
+
+    def test_partition_map_consistent(self, network: CooccurrenceNetwork):
+        """
+        `partition_map` assigns every skill to the community it
+        belongs to in `partition`.
+        """
+        for idx, members in enumerate(network.partition):
+            for skill in members:
+                assert network.partition_map[skill] == idx
+
+    # ---------------------------------------------------------
+    # Index helpers
+    # ---------------------------------------------------------
+
+    def test_indices_for_known(self, network: CooccurrenceNetwork):
+        """
+        `indices_for` returns correct column positions for known
+        feature names.
+        """
+        names   = network.feature_names[:3]
+        indices = network.indices_for(names)
+        assert indices == [network.feature_index[n] for n in names]
+
+    def test_indices_for_unknown(self, network: CooccurrenceNetwork):
+        """
+        Unknown skill names are silently excluded from the result.
+        """
+        assert network.indices_for(["nonexistent_skill_xyz"]) == []
+
+    def test_pairwise_ppmi_shape(self, network: CooccurrenceNetwork):
+        """
+        `pairwise_ppmi` returns a flat array from the sparse
+        submatrix at the given index cross-product.
+        """
+        idx = network.indices_for(network.feature_names[:2])
+        if len(idx) >= 2:
+            values = network.pairwise_ppmi(idx[:1], idx[1:])
+            assert values.ndim == 1
+
+    # ---------------------------------------------------------
     # PMI DataFrame
     # ---------------------------------------------------------
 
@@ -278,3 +342,4 @@ class TestCooccurrenceNetwork:
         assert list(df.index) == list(df.columns)
         assert list(df.index) == network.feature_names
         assert (df.values == df.values.T).all()
+

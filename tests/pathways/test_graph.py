@@ -12,8 +12,9 @@ from networkx                      import is_directed_acyclic_graph
 from networkx.readwrite.json_graph import node_link_graph
 from pathlib                       import Path
 
-from chalkline.clustering.hierarchical import HierarchicalClusterer
-from chalkline.pathways.graph          import CareerPathwayGraph
+from chalkline.association.cooccurrence import CooccurrenceNetwork
+from chalkline.clustering.hierarchical  import HierarchicalClusterer
+from chalkline.pathways.graph           import CareerPathwayGraph
 
 
 class TestCareerPathwayGraph:
@@ -100,6 +101,15 @@ class TestCareerPathwayGraph:
         if pathway_graph.network.graph().number_of_edges() > 0:
             assert pathway_graph.alignment.modularity is not None
 
+    def test_longest_path_empty(self, network: CooccurrenceNetwork):
+        """
+        An empty graph returns a zero-weight empty path rather than
+        raising from `dag_longest_path`.
+        """
+        empty = CareerPathwayGraph(network = network, profiles = {})
+        assert empty.longest_path.path == []
+        assert empty.longest_path.path_weight == 0.0
+
     def test_longest_path_weight(
         self,
         pathway_graph: CareerPathwayGraph
@@ -114,6 +124,18 @@ class TestCareerPathwayGraph:
             pathway_graph.graph.edges[u, v].get("weight", 0)
             for u, v in zip(path, path[1:])
         )) < 1e-10
+
+    def test_skill_to_cluster(
+        self,
+        pathway_graph: CareerPathwayGraph
+    ):
+        """
+        Every skill in every profile maps to its owning cluster ID,
+        with last-write-wins for skills shared across clusters.
+        """
+        for cid, profile in pathway_graph.profiles.items():
+            for skill in profile.skills:
+                assert skill in pathway_graph.skill_to_cluster
 
     def test_export_creates_files(
         self,

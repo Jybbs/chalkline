@@ -57,6 +57,13 @@ class TestOccupationIndex:
         with raises(KeyError):
             occupation_index.get("99-9999.00")
 
+    def test_job_zone_empty_skills(self, occupation_index: OccupationIndex):
+        """
+        An empty skill set returns the entry-level default Job Zone
+        of 2 rather than raising.
+        """
+        assert occupation_index.job_zone_for_skills(set()) == 2
+
     @mark.parametrize("skills", [set(), {"blockchain", "quantum computing"}])
     def test_nearest_degenerate_input(
         self,

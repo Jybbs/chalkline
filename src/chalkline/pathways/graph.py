@@ -63,7 +63,6 @@ class CareerPathwayGraph:
         self.cluster_ids = sorted(self.profiles)
         self.graph       = self._build_graph()
 
-
     @cached_property
     def alignment(self) -> AlignmentDiagnostics:
         """
@@ -128,7 +127,6 @@ class CareerPathwayGraph:
             for p in self.profiles.values()
             for s in p.skills
         }
-
 
     def _build_graph(self) -> DiGraph:
         """
@@ -206,7 +204,6 @@ class CareerPathwayGraph:
         topk = np.partition(values, -k)[-k:]
         return float(topk.mean()), len(values)
 
-
     def export(self, output_dir: Path) -> GraphExport:
         """
         Export the career graph as GraphML and JSON.
@@ -228,7 +225,7 @@ class CareerPathwayGraph:
         graphml_path = output_dir / "career_graph.graphml"
         scalar_graph = self.graph.copy()
         remove_node_attributes(
-            scalar_graph, "apprenticeship", "programs", "rank", "skills", "terms"
+            scalar_graph, "apprenticeship", "programs", "skills", "terms"
         )
         write_graphml(scalar_graph, graphml_path)
 

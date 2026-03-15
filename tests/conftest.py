@@ -20,9 +20,9 @@ Lexicon fixtures feed the extractor via the registry:
 
 import pandas as pd
 
-from collections     import Counter, defaultdict
-from json            import loads
-from pathlib         import Path
+from collections      import Counter, defaultdict
+from json             import loads
+from pathlib          import Path
 from pytest           import fixture, FixtureRequest
 from sklearn.pipeline import Pipeline
 
@@ -425,7 +425,7 @@ def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResul
 
 @fixture
 def matcher(
-    apprenticeships   : list[dict],
+    apprenticeships   : list[ApprenticeshipContext],
     clusterer         : HierarchicalClusterer,
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,

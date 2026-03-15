@@ -59,8 +59,7 @@ def jaccard(a: set[str], b: set[str]) -> float:
     Returns:
         Jaccard index in [0.0, 1.0].
     """
-    union = a | b
-    return len(a & b) / len(union) if union else 0.0
+    return len(a & b) / len(u) if (u := a | b) else 0.0
 
 
 # -------------------------------------------------------------------------
@@ -325,30 +324,25 @@ class ResumeMatcher:
         if not all_ref:
             return [], sorted(skill_gaps)
 
-        valid_set   = set(self.ppmi_df.index)
-        valid       = [g for g in skill_gaps if g in valid_set]
-        invalid_set = set(skill_gaps) - set(valid)
+        valid_set = set(self.ppmi_df.index)
+        valid     = [g for g in skill_gaps if g in valid_set]
 
         if not valid:
-            return [], sorted(invalid_set)
+            return [], sorted(skill_gaps)
 
-        scoped_ref  = all_ref & centroid_scope
-        scoped_cols = list(scoped_ref) if scoped_ref else list(all_ref)
-        full_cols   = list(all_ref)
+        scoped   = list(all_ref & centroid_scope or all_ref)
+        gaps     = set(valid)
+        in_scope = gaps & centroid_scope
+        score    = lambda g, c: self.ppmi_df.loc[sorted(g), c].mean(axis = 1)
 
-        in_scope  = [g for g in valid if g in centroid_scope]
-        out_scope = [g for g in valid if g not in centroid_scope]
-
-        parts = []
-        if in_scope:
-            parts.append(self.ppmi_df.loc[in_scope, scoped_cols].mean(axis = 1))
-        if out_scope:
-            parts.append(self.ppmi_df.loc[out_scope, full_cols].mean(axis = 1))
-
-        relevances = pd.concat(parts)
+        relevances = pd.concat([
+            score(g, c)
+            for g, c in [(in_scope, scoped), (gaps - in_scope, list(all_ref))]
+            if g
+        ])
         positive   = relevances[relevances > 0].nlargest(top_k)
 
-        unrankable = sorted(invalid_set | (set(valid) - set(positive.index)))
+        unrankable = sorted(set(skill_gaps) - set(positive.index))
 
         ranked = [
             RankedGap(
@@ -422,20 +416,14 @@ class ResumeMatcher:
             top_k      = top_k if top_k is not None else self.top_k_gaps
         )
 
-        seen_trades          = set()
-        seen_programs        = set()
-        all_apprenticeships  = []
-        all_programs         = []
-
-        for gap in ranked_gaps:
-            for a in gap.apprenticeships:
-                if a.rapids_code not in seen_trades:
-                    seen_trades.add(a.rapids_code)
-                    all_apprenticeships.append(a)
-            for p in gap.programs:
-                if (p.institution, p.program) not in seen_programs:
-                    seen_programs.add((p.institution, p.program))
-                    all_programs.append(p)
+        all_apprenticeships = list({
+            a.rapids_code: a
+            for gap in ranked_gaps for a in gap.apprenticeships
+        }.values())
+        all_programs = list({
+            (p.institution, p.program): p
+            for gap in ranked_gaps for p in gap.programs
+        }.values())
 
         return MatchResult(
             cluster_distances = cluster_distances,

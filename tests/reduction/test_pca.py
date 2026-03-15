@@ -12,7 +12,7 @@ from joblib  import dump, load
 from pathlib import Path
 
 from chalkline.extraction.vectorize import SkillVectorizer
-from chalkline.reduction.pca       import PcaReducer
+from chalkline.reduction.pca        import PcaReducer
 
 
 class TestPcaReducer:

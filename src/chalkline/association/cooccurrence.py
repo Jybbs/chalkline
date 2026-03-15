@@ -98,37 +98,6 @@ class CooccurrenceNetwork:
         return {n: i for i, n in enumerate(self.feature_names)}
 
     @cached_property
-    def partition(self) -> list[set]:
-        """
-        Louvain communities on the NPMI graph, sorted by size
-        descending.
-
-        Returns:
-            List of sets, each containing skill-name node
-            identifiers for one community.
-        """
-        return sorted(
-            self._louvain(self.graph()), key=len, reverse=True
-        )
-
-    @cached_property
-    def partition_map(self) -> dict[str, int]:
-        """
-        Flat mapping from skill name to Louvain community index.
-
-        Derived from `partition` by enumerating communities in
-        size-descending order, so community 0 is always the largest.
-
-        Returns:
-            Mapping from skill name to community index.
-        """
-        return {
-            s: i
-            for i, members in enumerate(self.partition)
-            for s in members
-        }
-
-    @cached_property
     def gtest_matrix(self) -> csr_array:
         """
         Dunning's G-test statistics for all thresholded pairs.
@@ -200,6 +169,37 @@ class CooccurrenceNetwork:
         np.clip(pmi.data, 0, 1.0, out = pmi.data)
         pmi.eliminate_zeros()
         return pmi
+
+    @cached_property
+    def partition(self) -> list[set]:
+        """
+        Louvain communities on the NPMI graph, sorted by size
+        descending.
+
+        Returns:
+            List of sets, each containing skill-name node
+            identifiers for one community.
+        """
+        return sorted(
+            self._louvain(self.graph()), key=len, reverse=True
+        )
+
+    @cached_property
+    def partition_map(self) -> dict[str, int]:
+        """
+        Flat mapping from skill name to Louvain community index.
+
+        Derived from `partition` by enumerating communities in
+        size-descending order, so community 0 is always the largest.
+
+        Returns:
+            Mapping from skill name to community index.
+        """
+        return {
+            s: i
+            for i, members in enumerate(self.partition)
+            for s in members
+        }
 
     @cached_property
     def pmi_matrix(self) -> csr_array:
@@ -325,42 +325,6 @@ class CooccurrenceNetwork:
     # -----------------------------------------------------------------
     # Public methods
     # -----------------------------------------------------------------
-
-    def indices_for(self, skills: list[str]) -> list[int]:
-        """
-        Map skill names to PPMI matrix column positions.
-
-        Args:
-            skills: Canonical skill names to resolve.
-
-        Returns:
-            Column indices for skills present in the vocabulary.
-        """
-        return [
-            self.feature_index[s]
-            for s in skills
-            if s in self.feature_index
-        ]
-
-    def pairwise_ppmi(
-        self,
-        indices_i : list[int],
-        indices_j : list[int]
-    ) -> np.ndarray:
-        """
-        Extract PPMI values for inter-group skill pairs.
-
-        Returns the data array from the sparse submatrix defined by
-        the two index sets, suitable for filtering and aggregation.
-
-        Args:
-            indices_i : Column indices for the first skill group.
-            indices_j : Column indices for the second skill group.
-
-        Returns:
-            Flat array of PPMI values at the cross-product positions.
-        """
-        return self.ppmi_matrix[np.ix_(indices_i, indices_j)].data
 
     def communities(
         self,
@@ -511,6 +475,42 @@ class CooccurrenceNetwork:
             dict(enumerate(self.feature_names))
         )
 
+    def indices_for(self, skills: list[str]) -> list[int]:
+        """
+        Map skill names to PPMI matrix column positions.
+
+        Args:
+            skills: Canonical skill names to resolve.
+
+        Returns:
+            Column indices for skills present in the vocabulary.
+        """
+        return [
+            self.feature_index[s]
+            for s in skills
+            if s in self.feature_index
+        ]
+
+    def pairwise_ppmi(
+        self,
+        indices_i : list[int],
+        indices_j : list[int]
+    ) -> np.ndarray:
+        """
+        Extract PPMI values for inter-group skill pairs.
+
+        Returns the data array from the sparse submatrix defined by
+        the two index sets, suitable for filtering and aggregation.
+
+        Args:
+            indices_i : Column indices for the first skill group.
+            indices_j : Column indices for the second skill group.
+
+        Returns:
+            Flat array of PPMI values at the cross-product positions.
+        """
+        return self.ppmi_matrix[np.ix_(indices_i, indices_j)].data
+
     def pmi_dataframe(self) -> pd.DataFrame:
         """
         Symmetric NPMI DataFrame indexed by skill names.
@@ -548,21 +548,14 @@ class CooccurrenceNetwork:
             Dict with `alignments` (per-trade match results),
             `matched_count`, and `total_trades`.
         """
-        G = self.graph()
-        node_to_community = {
-            member: comm_id
-            for comm_id, members in enumerate(
-                sorted(self._louvain(G), key = len, reverse = True)
-            )
-            for member in members
-        }
+        nodes = set(self.graph().nodes())
 
         alignments = [
             {
-                "community"   : node_to_community.get(
+                "community"   : self.partition_map.get(
                     title := trade["title"].lower()
                 ),
-                "matched"     : title in G,
+                "matched"     : title in nodes,
                 "rapids_code" : trade["rapids_code"],
                 "title"       : trade["title"]
             }

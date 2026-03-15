@@ -86,8 +86,8 @@ class TestResumeMatcher:
         returning no gaps and no ranked gaps.
         """
         result = matcher.match([])
-        assert result.skill_gaps == [] or isinstance(result.skill_gaps, list)
-        assert result.ranked_gaps == [] or isinstance(result.ranked_gaps, list)
+        assert result.skill_gaps == []
+        assert result.ranked_gaps == []
         assert isinstance(result.cluster_id, int)
 
     def test_projection_immutable(
@@ -114,6 +114,30 @@ class TestResumeMatcher:
         Nearest neighbors returns at most 5 results.
         """
         assert 1 <= len(match_result.nearest_neighbors) <= 5
+
+    def test_neighbors_jaccard_fallback(
+        self,
+        matcher       : ResumeMatcher,
+        resume_skills : list[str]
+    ):
+        """
+        Clusters with fewer than 5 postings fall back to corpus-wide
+        Jaccard similarity, returning neighbors ranked by skill
+        overlap rather than PCA distance. A bug here silently returns
+        wrong neighbors for small clusters in production.
+        """
+        coords = matcher.geometry_pipeline.transform(
+            [dict.fromkeys(resume_skills, 1)]
+        )
+        neighbors = matcher._nearest_in_family(
+            cluster_id = 9999,
+            coords     = coords,
+            resume_set = set(resume_skills)
+        )
+        assert len(neighbors) > 0
+        jaccards = [n.jaccard for n in neighbors]
+        assert jaccards == sorted(jaccards, reverse = True)
+        assert all(n.distance == 1.0 - n.jaccard for n in neighbors)
 
     def test_neighbors_sorted(self, match_result: MatchResult):
         """
@@ -180,6 +204,31 @@ class TestResumeMatcher:
         """
         relevances = [g.relevance for g in match_result.ranked_gaps]
         assert relevances == sorted(relevances, reverse = True)
+
+    def test_rank_all_unrankable(self):
+        """
+        Gap skills absent from the PPMI vocabulary are returned as
+        unrankable rather than silently dropped. A regression would
+        lose gap skills from the career report.
+        """
+        ppmi = pd.DataFrame(
+            {"a" : {"a" : 0.0}},
+            index = ["a"]
+        )
+        ranked, unrankable = ResumeMatcher._rank_gaps(
+            self       = type("Stub", (), {
+                "centroid_scope"        : {0: set()},
+                "_find_apprenticeships" : lambda self, s: [],
+                "_find_programs"        : lambda self, s: [],
+                "ppmi_df"               : ppmi
+            })(),
+            cluster_id = 0,
+            resume_set = {"a"},
+            skill_gaps = ["unknown_x", "unknown_y"],
+            top_k      = 10
+        )
+        assert ranked == []
+        assert sorted(unrankable) == ["unknown_x", "unknown_y"]
 
     def test_ranked_relevance_positive(self, match_result: MatchResult):
         """

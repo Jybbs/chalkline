@@ -39,15 +39,15 @@ class ClusterProfile(BaseModel, extra="forbid"):
     and by the career report for cluster display.
     """
 
-    cluster_id : int       = Field(ge=0)
-    job_zone   : int       = Field(ge=1, le=5)
+    cluster_id : int      = Field(ge=0)
+    job_zone   : int      = Field(ge=1, le=5)
     sector     : str
-    size       : int       = Field(ge=1)
+    size       : int      = Field(ge=1)
     skills     : list[str]
     terms      : list[str] = Field(default_factory=list)
 
-    apprenticeship : ApprenticeshipContext | None       = None
-    programs       : list[ProgramRecommendation]        = Field(default_factory=list)
+    apprenticeship : ApprenticeshipContext | None = None
+    programs       : list[ProgramRecommendation]  = Field(default_factory=list)
 
     @cached_property
     def rank(self) -> tuple[int, int]:
