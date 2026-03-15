@@ -305,6 +305,9 @@ class CareerPathwayGraph:
         remove_node_attributes(
             scalar_graph, "apprenticeship", "programs", "skills", "terms"
         )
+        for _, _, data in scalar_graph.edges(data=True):
+            for attr in ("apprenticeships", "bridging_skills", "programs"):
+                data.pop(attr, None)
         write_graphml(scalar_graph, graphml_path)
 
         json_path = output_dir / "career_graph.json"
