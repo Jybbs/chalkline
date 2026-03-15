@@ -236,10 +236,7 @@ class ClusterComparison:
             random_state = self.random_seed
         ).fit_predict(self.coordinates)
 
-        return self._build_result(
-            assignments = assignments,
-            method      = "kmeans"
-        )
+        return self._build_result(assignments, "kmeans")
 
     def mean_shift(self) -> ComparisonResult:
         """
@@ -252,10 +249,7 @@ class ClusterComparison:
             bandwidth = estimate_bandwidth(self.coordinates, quantile = 0.3) or None
         ).fit_predict(self.coordinates)
 
-        return self._build_result(
-            assignments = assignments,
-            method      = "mean_shift"
-        )
+        return self._build_result(assignments, "mean_shift")
 
     # -----------------------------------------------------------------
     # Silhouette
@@ -280,8 +274,5 @@ class ClusterComparison:
             return np.zeros(self.n)
 
         scores = np.zeros(self.n)
-        scores[mask] = silhouette_samples(
-            self.coordinates[mask],
-            assignments[mask]
-        )
+        scores[mask] = silhouette_samples(self.coordinates[mask], assignments[mask])
         return scores

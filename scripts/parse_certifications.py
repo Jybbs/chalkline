@@ -90,6 +90,4 @@ class CertificationParser:
 
 if __name__ == "__main__":
 
-    CertificationParser(
-        Path(__file__).resolve().parent.parent
-    ).run_all()
+    CertificationParser(Path(__file__).resolve().parents[1]).run_all()

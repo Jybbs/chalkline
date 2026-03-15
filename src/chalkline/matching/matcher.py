@@ -138,12 +138,12 @@ class ResumeMatcher:
         self.programs          = programs
         self.top_k_gaps        = top_k_gaps
 
-        self._skill_sets = {
+        self.skill_sets = {
             doc: set(skills)
             for doc, skills in extracted_skills.items()
         }
 
-        self._metric = (
+        self.metric = (
             "cosine" if distance_metric == DistanceMetric.COSINE
             else "euclidean"
         )
@@ -151,17 +151,17 @@ class ResumeMatcher:
         centroids_df     = pd.DataFrame(coordinates).groupby(assignments).mean()
         self.cluster_ids = centroids_df.index.to_numpy()
 
-        self._centroid_nn = NearestNeighbors(
-            metric      = self._metric,
+        self.centroid_nn = NearestNeighbors(
+            metric      = self.metric,
             n_neighbors = len(self.cluster_ids)
         ).fit(centroids_df.values)
 
-        self._centroid_scope = {
+        self.centroid_scope = {
             label.cluster_id: set(label.terms)
             for label in cluster_labels
         }
 
-        self._apprenticeship_models = [
+        self.apprenticeship_models = [
             ApprenticeshipContext(
                 rapids_code = a["rapids_code"],
                 term_hours  = a["term_hours"],
@@ -170,11 +170,11 @@ class ResumeMatcher:
             for a in apprenticeships
         ]
 
-        self._trade_prefixes = {
+        self.trade_prefixes = {
             a.rapids_code: _prefix_set(a.trade)
-            for a in self._apprenticeship_models
+            for a in self.apprenticeship_models
         }
-        self._program_prefixes = {
+        self.program_prefixes = {
             (p.institution, p.program): _prefix_set(p.program)
             for p in self.programs
         }
@@ -197,8 +197,8 @@ class ResumeMatcher:
         """
         prefixes = _prefix_set(skill)
         return [
-            a for a in self._apprenticeship_models
-            if prefixes & self._trade_prefixes[a.rapids_code]
+            a for a in self.apprenticeship_models
+            if prefixes & self.trade_prefixes[a.rapids_code]
         ]
 
     def _find_programs(self, skill: str) -> list[ProgramRecommendation]:
@@ -216,7 +216,7 @@ class ResumeMatcher:
         prefixes = _prefix_set(skill)
         return [
             p for p in self.programs
-            if prefixes & self._program_prefixes[p.institution, p.program]
+            if prefixes & self.program_prefixes[p.institution, p.program]
         ]
 
     def _nearest_in_family(
@@ -254,7 +254,7 @@ class ResumeMatcher:
         if len(indices) >= 5:
             family_docs = [self.document_ids[i] for i in indices]
             nn = NearestNeighbors(
-                metric      = self._metric,
+                metric      = self.metric,
                 n_neighbors = min(5, len(family_docs))
             ).fit(self.coordinates[indices])
             distances, nn_indices = nn.kneighbors(coords)
@@ -264,7 +264,7 @@ class ResumeMatcher:
                     distance    = float(dist),
                     document_id = doc,
                     jaccard     = jaccard(
-                        resume_set, self._skill_sets[doc]
+                        resume_set, self.skill_sets[doc]
                     ),
                     skills      = self.extracted_skills[doc]
                 )
@@ -275,7 +275,7 @@ class ResumeMatcher:
         scored = sorted(
             (
                 (doc, jaccard(resume_set, skill_set))
-                for doc, skill_set in self._skill_sets.items()
+                for doc, skill_set in self.skill_sets.items()
             ),
             key     = lambda pair: pair[1],
             reverse = True
@@ -327,7 +327,7 @@ class ResumeMatcher:
             Tuple of (ranked gaps with enrichment, sorted list of
             unrankable skill names).
         """
-        centroid_scope = self._centroid_scope.get(cluster_id, set())
+        centroid_scope = self.centroid_scope.get(cluster_id, set())
         all_ref        = resume_set & set(self.ppmi_df.columns)
 
         if not all_ref:
@@ -349,20 +349,14 @@ class ResumeMatcher:
 
         parts = []
         if in_scope:
-            parts.append(
-                self.ppmi_df.loc[in_scope, scoped_cols].mean(axis = 1)
-            )
+            parts.append(self.ppmi_df.loc[in_scope, scoped_cols].mean(axis = 1))
         if out_scope:
-            parts.append(
-                self.ppmi_df.loc[out_scope, full_cols].mean(axis = 1)
-            )
+            parts.append(self.ppmi_df.loc[out_scope, full_cols].mean(axis = 1))
 
         relevances = pd.concat(parts)
         positive   = relevances[relevances > 0].nlargest(top_k)
 
-        unrankable = sorted(
-            invalid_set | (set(valid) - set(positive.index))
-        )
+        unrankable = sorted(invalid_set | (set(valid) - set(positive.index)))
 
         ranked = [
             RankedGap(
@@ -405,11 +399,9 @@ class ResumeMatcher:
             Full `MatchResult` with cluster assignment, neighbors,
             gaps, and recommendations.
         """
-        coords = self.geometry_pipeline.transform(
-            [dict.fromkeys(resume_skills, 1)]
-        )
+        coords = self.geometry_pipeline.transform([dict.fromkeys(resume_skills, 1)])
 
-        distances, indices = self._centroid_nn.kneighbors(coords)
+        distances, indices = self.centroid_nn.kneighbors(coords)
         cluster_id = int(self.cluster_ids[indices[0, 0]])
 
         cluster_distances = [

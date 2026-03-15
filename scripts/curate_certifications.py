@@ -98,9 +98,7 @@ class CertificationCurator:
             ) >= 2
             if any(
                 zipf_frequency(w, "en") < 4.0
-                for w in (
-                    phrase := " ".join(words).lower()
-                ).split()
+                for w in (phrase := " ".join(words).lower()).split()
                 if len(w) >= 3
             )
         ))
@@ -160,10 +158,7 @@ class CertificationCurator:
         Filter certifications, decompose descriptions, and write the
         `data/lexicons/certifications.json` lexicon file.
         """
-        print(
-            f"Fetching certifications for "
-            f"{len(self.codes)} SOC codes..."
-        )
+        print(f"Fetching certifications for {len(self.codes)} SOC codes...")
         codes = sorted(self.codes)
         with ThreadPoolExecutor(max_workers=5) as pool:
             cert_to_socs = {}
@@ -171,10 +166,7 @@ class CertificationCurator:
                 for cert_id in cert_ids:
                     cert_to_socs.setdefault(cert_id, set()).add(soc)
 
-        print(
-            f"Unique certifications across all SOC codes: "
-            f"{len(cert_to_socs)}"
-        )
+        print(f"Unique certifications across all SOC codes: {len(cert_to_socs)}")
 
         certifications    = []
         excluded_acronyms = []
@@ -209,26 +201,15 @@ class CertificationCurator:
             })
 
         self.output.parent.mkdir(exist_ok=True, parents=True)
-        self.output.write_text(
-            dumps(certifications, indent=2) + "\n"
-        )
+        self.output.write_text(dumps(certifications, indent=2) + "\n")
 
-        with_acronyms = sum(
-            1 for c in certifications if c["acronym"]
-        )
-        with_phrases  = sum(
-            1 for c in certifications if c["phrases"]
-        )
-        total_phrases = sum(
-            len(c["phrases"])
-            for c in certifications if c["phrases"]
-        )
+        with_acronyms = sum(1 for c in certifications if c["acronym"])
+        with_phrases  = sum(1 for c in certifications if c["phrases"])
+        total_phrases = sum(len(c["phrases"]) for c in certifications if c["phrases"])
 
-        print(f"\nWrote {len(certifications)} certifications"
-              f" to {self.output}")
+        print(f"\nWrote {len(certifications)} certifications to {self.output}")
         print(f"  With acronyms: {with_acronyms}")
-        print(f"  With description phrases: {with_phrases}"
-              f" ({total_phrases} total)")
+        print(f"  With description phrases: {with_phrases} ({total_phrases} total)")
 
         if excluded_acronyms:
             print(f"  Excluded {len(excluded_acronyms)} ambiguous"
@@ -237,6 +218,4 @@ class CertificationCurator:
 
 if __name__ == "__main__":
 
-    CertificationCurator(
-        Path(__file__).resolve().parent.parent
-    ).run_all()
+    CertificationCurator(Path(__file__).resolve().parents[1]).run_all()

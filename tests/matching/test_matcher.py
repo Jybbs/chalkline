@@ -170,9 +170,7 @@ class TestResumeMatcher:
         report.
         """
         trade_codes = [a.rapids_code for a in match_result.trade_paths]
-        prog_keys   = [
-            (p.institution, p.program) for p in match_result.programs
-        ]
+        prog_keys   = [(p.institution, p.program) for p in match_result.programs]
         assert len(trade_codes) == len(set(trade_codes))
         assert len(prog_keys) == len(set(prog_keys))
 
@@ -217,7 +215,7 @@ class TestResumeMatcher:
         )
         ranked, _ = ResumeMatcher._rank_gaps(
             self         = type("Stub", (), {
-                "_centroid_scope"       : {0: {"a", "x"}},
+                "centroid_scope"        : {0: {"a", "x"}},
                 "_find_apprenticeships" : lambda self, s: [],
                 "_find_programs"        : lambda self, s: [],
                 "ppmi_df"               : ppmi

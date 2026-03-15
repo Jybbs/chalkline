@@ -52,7 +52,7 @@ class SkillVectorizer:
         """
         self.document_ids = sorted(skills)
 
-        self._dicts = [
+        self.dicts = [
             dict.fromkeys(skills[doc], 1)
             for doc in self.document_ids
         ]
@@ -63,7 +63,7 @@ class SkillVectorizer:
             ("norm",  Normalizer())
         ])
 
-        self.tfidf_matrix = self.pipeline.fit_transform(self._dicts)
+        self.tfidf_matrix = self.pipeline.fit_transform(self.dicts)
 
     # -----------------------------------------------------------------
     # Properties
@@ -81,7 +81,7 @@ class SkillVectorizer:
         Returns:
             Sparse matrix with binary skill presence per document.
         """
-        return self.pipeline.named_steps["vec"].transform(self._dicts)
+        return self.pipeline.named_steps["vec"].transform(self.dicts)
 
     @cached_property
     def feature_names(self) -> list[str]:
@@ -106,11 +106,11 @@ class SkillVectorizer:
         """
         binary     = self.binary_matrix
         rows, cols = binary.shape
-        frequency  = Counter(skill for d in self._dicts for skill in d)
+        frequency  = Counter(skill for d in self.dicts for skill in d)
 
         return CorpusStatistics(
             matrix_sparsity         = 1 - binary.nnz / (rows * cols),
-            mean_skills_per_posting = sum(map(len, self._dicts)) / len(self._dicts),
+            mean_skills_per_posting = sum(map(len, self.dicts)) / len(self.dicts),
             skill_frequency         = dict(sorted(frequency.items())),
             vocabulary_size         = cols
         )

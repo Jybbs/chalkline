@@ -35,6 +35,7 @@ class TestPosting:
             sample_posting.model_dump() | {"date_posted" : date_str}
         )
         assert posting.date_posted == date(2026, 3, 1)
+        assert posting.id is not None
         assert "2026-03-01" in posting.id
 
     @mark.parametrize("field", ["company", "source_url", "title"])
@@ -43,9 +44,7 @@ class TestPosting:
         Empty strings on `NonEmptyStr` fields raise `ValidationError`.
         """
         with raises(Exception, match="at least 1 character"):
-            Posting.model_validate(
-                sample_posting.model_dump() | {field: ""}
-            )
+            Posting.model_validate(sample_posting.model_dump() | {field: ""})
 
     def test_explicit_id(self):
         """
@@ -66,9 +65,7 @@ class TestPosting:
         Unknown fields raise `ValidationError` per `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
-            Posting.model_validate(
-                sample_posting.model_dump() | {"salary": 50000}
-            )
+            Posting.model_validate(sample_posting.model_dump() | {"salary": 50000})
 
     def test_make_id_none_date(self):
         """

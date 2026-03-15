@@ -281,9 +281,7 @@ class SkillExtractor:
         matched_tokens = set()
 
         for doc_id in sorted(postings):
-            lemmatized = self.registry.lemmatize(
-                self._preprocess(postings[doc_id])
-            )
+            lemmatized = self.registry.lemmatize(self._preprocess(postings[doc_id]))
             skills = self._match(lemmatized)
 
             if skills:
@@ -293,17 +291,13 @@ class SkillExtractor:
                 t for t in lemmatized.split()
                 if len(t) >= 3 and word_frequency(t, "en") < 1e-4
             )
-            matched_tokens.update(
-                t for s in skills for t in s.lower().split()
-            )
+            matched_tokens.update(t for s in skills for t in s.lower().split())
 
         excluded  = len(postings) - len(results)
         unmatched = corpus_tokens - matched_tokens
 
         if excluded:
-            logger.info(
-                f"Excluded {excluded} posting(s) with zero matched skills"
-            )
+            logger.info(f"Excluded {excluded} posting(s) with zero matched skills")
 
         if corpus_tokens and (rate := len(unmatched) / len(corpus_tokens)) > 0.15:
             logger.warning(

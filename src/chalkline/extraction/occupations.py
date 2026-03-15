@@ -87,10 +87,7 @@ class OccupationIndex:
         Returns:
             Binary `numpy` array with shape `(n_socs, n_skills)`.
         """
-        matrix = np.zeros(
-            (len(self.socs), len(self.skill_to_col)),
-            dtype=np.uint8
-        )
+        matrix = np.zeros((len(self.socs), len(self.skill_to_col)), dtype=np.uint8)
         for row, code in enumerate(self.socs):
             matrix[row, [
                 self.skill_to_col[s.name]

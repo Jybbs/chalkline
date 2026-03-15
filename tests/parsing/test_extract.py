@@ -11,7 +11,7 @@ from pytest  import mark
 from chalkline.parsing.extract import clean_text, extract_pdf
 
 
-FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "parsing"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "parsing"
 
 
 class TestCleanText:

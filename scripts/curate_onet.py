@@ -295,9 +295,7 @@ class OnetCurator:
         print(f"  Wrote {len(occupations)} occupations to {self.output}")
         for occ in occupations:
             counts  = Counter(s["type"] for s in occ["skills"])
-            summary = ", ".join(
-                f"{v} {k}" for k, v in sorted(counts.items())
-            )
+            summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
             print(
                 f"    {occ["soc_code"]}  {occ["title"]:45s}"
                 f"  JZ={occ["job_zone"]}  [{summary}]"
@@ -306,4 +304,4 @@ class OnetCurator:
 
 if __name__ == "__main__":
 
-    OnetCurator(Path(__file__).resolve().parent.parent).run_all()
+    OnetCurator(Path(__file__).resolve().parents[1]).run_all()

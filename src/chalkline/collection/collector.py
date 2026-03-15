@@ -104,10 +104,7 @@ class Collector:
             except Exception as error:
                 logger.error(f"{term!r}: {error}")
 
-        return (
-            pd.concat(frames, ignore_index=True)
-            if frames else pd.DataFrame()
-        )
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
     def run(self):
         """
@@ -127,7 +124,7 @@ if __name__ == "__main__":
     )
 
     Collector(
-        postings_dir = Path("data/postings"),
+        postings_dir = Path("data") / "postings",
         search_terms = [
             "carpenter",
             "construction",

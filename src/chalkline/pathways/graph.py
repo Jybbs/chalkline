@@ -146,24 +146,19 @@ class CareerPathwayGraph:
         self.occupation_index = occupation_index
         self.programs         = programs
 
-        self._skill_index = {
-            name: i for i, name in enumerate(network.feature_names)
-        }
-        self._cluster_ids = sorted(set(int(a) for a in assignments))
-        self._label_map = {
-            label.cluster_id: label for label in cluster_labels
-        }
-        self._cluster_skills = self._aggregate_cluster_skills()
-        self._concrete_profiles = {
+        self.skill_index       = {n: i for i, n in enumerate(network.feature_names)}
+        self.cluster_ids       = sorted(set(int(a) for a in assignments))
+        self.label_map         = {l.cluster_id: l for l in cluster_labels}
+        self.cluster_skills    = self._aggregate_cluster_skills()
+        self.concrete_profiles = {
             soc: {s.name.lower() for s in occ.skills if s.type.is_concrete}
             for soc, occ in occupation_index.occupation_map.items()
         }
-        self._job_zones = {
-            cid: self._assign_job_zone(cid) for cid in self._cluster_ids
-        }
-        self._cluster_sectors = self._compute_cluster_sectors(sector_labels)
 
-        self._apprenticeship_models = [
+        self.job_zones       = {c: self._assign_job_zone(c) for c in self.cluster_ids}
+        self.cluster_sectors = self._compute_cluster_sectors(sector_labels)
+
+        self.apprenticeship_models = [
             ApprenticeshipContext(
                 rapids_code = a["rapids_code"],
                 term_hours  = a["term_hours"],
@@ -171,11 +166,11 @@ class CareerPathwayGraph:
             )
             for a in apprenticeships
         ]
-        self._trade_prefixes = {
+        self.trade_prefixes = {
             a.rapids_code: _prefix_set(a.trade)
-            for a in self._apprenticeship_models
+            for a in self.apprenticeship_models
         }
-        self._program_prefixes = {
+        self.program_prefixes = {
             (p.institution, p.program): _prefix_set(p.program)
             for p in programs
         }
@@ -183,13 +178,13 @@ class CareerPathwayGraph:
         self.graph = self._build_graph()
 
         cycles = list(nx.simple_cycles(self.graph))
-        self._cycle_count = len(cycles)
+        self.cycle_count = len(cycles)
         if cycles:
             logger.info(f"Found {len(cycles)} cycle(s) in the career graph")
             for cycle in cycles:
                 logger.debug(f"Cycle: {cycle}")
 
-        self._shortest_paths = dict(
+        self.shortest_paths = dict(
             nx.all_pairs_dijkstra_path_length(self.graph, weight="weight")
         )
 
@@ -227,8 +222,8 @@ class CareerPathwayGraph:
                 skill_to_community[skill] = comm_id
 
         skill_counts: dict[str, Counter[int]] = {}
-        for cid in self._cluster_ids:
-            for skill in self._cluster_skills[cid]:
+        for cid in self.cluster_ids:
+            for skill in self.cluster_skills[cid]:
                 skill_counts.setdefault(skill, Counter())[cid] += 1
         skill_to_cluster = {
             skill: counts.most_common(1)[0][0]
@@ -292,7 +287,7 @@ class CareerPathwayGraph:
             dag_view.remove_edge(*min_edge)
             edges_removed += 1
 
-        self._dag_view = dag_view
+        self.dag_view = dag_view
 
         if dag_view.number_of_nodes() == 0:
             return DagResult(
@@ -325,7 +320,7 @@ class CareerPathwayGraph:
         """
         return PathwayGraphResult(
             alignment    = self.alignment,
-            cycles_found = self._cycle_count,
+            cycles_found = self.cycle_count,
             dag          = self.dag,
             density      = nx.density(self.graph),
             edge_count   = self.graph.number_of_edges(),
@@ -344,13 +339,9 @@ class CareerPathwayGraph:
         Returns:
             Mapping from cluster ID to union skill set.
         """
-        cluster_skills: dict[int, set[str]] = {
-            cid: set() for cid in self._cluster_ids
-        }
+        cluster_skills: dict[int, set[str]] = {cid: set() for cid in self.cluster_ids}
         for doc, cid in zip(self.document_ids, self.assignments):
-            cluster_skills[int(cid)].update(
-                self.extracted_skills.get(doc, [])
-            )
+            cluster_skills[int(cid)].update(self.extracted_skills.get(doc, []))
         return cluster_skills
 
     def _assign_job_zone(self, cluster_id: int) -> int:
@@ -369,14 +360,12 @@ class CareerPathwayGraph:
         Returns:
             Job Zone integer from 1 to 5.
         """
-        cluster_skills = {
-            s.lower() for s in self._cluster_skills[cluster_id]
-        }
+        cluster_skills = {s.lower() for s in self.cluster_skills[cluster_id]}
         if not cluster_skills:
             return 2
 
         matches = []
-        for soc, profile in self._concrete_profiles.items():
+        for soc, profile in self.concrete_profiles.items():
             if not profile:
                 continue
             denominator = min(len(cluster_skills), len(profile))
@@ -390,9 +379,7 @@ class CareerPathwayGraph:
         if not matches:
             return 2
 
-        top_3 = sorted(
-            matches, key=lambda m: m.overlap, reverse=True
-        )[:3]
+        top_3 = sorted(matches, key=lambda m: m.overlap, reverse=True)[:3]
         return int(median(m.job_zone for m in top_3))
 
     def _build_graph(self) -> nx.DiGraph:
@@ -410,34 +397,32 @@ class CareerPathwayGraph:
         """
         G = nx.DiGraph()
 
-        for cid in self._cluster_ids:
-            label = self._label_map.get(cid)
+        for cid in self.cluster_ids:
+            label = self.label_map.get(cid)
             G.add_node(
                 cid,
                 cluster_id = cid,
-                job_zone   = self._job_zones[cid],
-                sector     = self._cluster_sectors[cid],
+                job_zone   = self.job_zones[cid],
+                sector     = self.cluster_sectors[cid],
                 size       = int((self.assignments == cid).sum()),
-                skills     = sorted(self._cluster_skills[cid]),
+                skills     = sorted(self.cluster_skills[cid]),
                 terms      = label.terms if label else []
             )
 
         candidates = []
-        for ci, cj in combinations(self._cluster_ids, 2):
+        for ci, cj in combinations(self.cluster_ids, 2):
             weight, positive_count = self._compute_edge_weight(ci, cj)
             if weight > 0 and positive_count >= 3:
                 candidates.append((ci, cj, weight))
 
         if candidates:
-            threshold = float(
-                np.percentile([w for _, _, w in candidates], 75)
-            )
+            threshold = float(np.percentile([w for _, _, w in candidates], 75))
             for ci, cj, weight in candidates:
                 if weight < threshold:
                     continue
 
-                jz_i = self._job_zones[ci]
-                jz_j = self._job_zones[cj]
+                jz_i = self.job_zones[ci]
+                jz_j = self.job_zones[cj]
 
                 if jz_i < jz_j:
                     source, target = ci, cj
@@ -491,22 +476,18 @@ class CareerPathwayGraph:
                 skills = set(self.extracted_skills.get(doc, []))
                 if skills:
                     soc = self.occupation_index.nearest(skills)
-                    posting_sectors.append(
-                        self.occupation_index.get(soc).sector
-                    )
+                    posting_sectors.append(self.occupation_index.get(soc).sector)
                 else:
                     posting_sectors.append("Unknown")
 
         cluster_sectors: dict[int, str] = {}
-        for cid in self._cluster_ids:
+        for cid in self.cluster_ids:
             counts = Counter(
                 sector for sector, assignment
                 in zip(posting_sectors, self.assignments)
                 if int(assignment) == cid
             )
-            cluster_sectors[cid] = (
-                counts.most_common(1)[0][0] if counts else "Unknown"
-            )
+            cluster_sectors[cid] = counts.most_common(1)[0][0] if counts else "Unknown"
         return cluster_sectors
 
     def _compute_edge_weight(self, ci: int, cj: int) -> tuple[float, int]:
@@ -524,19 +505,15 @@ class CareerPathwayGraph:
         Returns:
             Tuple of (top-k mean PPMI, count of positive pairs).
         """
-        skills_i  = self._cluster_skills[ci]
-        skills_j  = self._cluster_skills[cj]
-        indices_i = [self._skill_index[s] for s in skills_i
-                     if s in self._skill_index]
-        indices_j = [self._skill_index[s] for s in skills_j
-                     if s in self._skill_index]
+        skills_i  = self.cluster_skills[ci]
+        skills_j  = self.cluster_skills[cj]
+        indices_i = [self.skill_index[s] for s in skills_i if s in self.skill_index]
+        indices_j = [self.skill_index[s] for s in skills_j if s in self.skill_index]
 
         if not indices_i or not indices_j:
             return 0.0, 0
 
-        values = self.network.ppmi_matrix[
-            np.ix_(indices_i, indices_j)
-        ].toarray().ravel()
+        values = self.network.ppmi_matrix[np.ix_(indices_i, indices_j)].toarray().ravel()
 
         positive = values[values > 0]
         if len(positive) == 0:
@@ -563,8 +540,8 @@ class CareerPathwayGraph:
 
         for node in G.nodes():
             prefixes = _node_prefixes(G, node)
-            for a in self._apprenticeship_models:
-                if prefixes & self._trade_prefixes[a.rapids_code]:
+            for a in self.apprenticeship_models:
+                if prefixes & self.trade_prefixes[a.rapids_code]:
                     G.nodes[node]["term_hours"] = a.term_hours
                     G.nodes[node]["trade"]      = a.trade
                     node_trades[node] = a
@@ -597,7 +574,7 @@ class CareerPathwayGraph:
                     "url"         : p.url
                 }
                 for p in self.programs
-                if prefixes & self._program_prefixes.get(
+                if prefixes & self.program_prefixes.get(
                     (p.institution, p.program), set()
                 )
             ]
@@ -632,9 +609,7 @@ class CareerPathwayGraph:
         nx.write_graphml(scalar_graph, str(graphml_path))
 
         json_path = output_dir / "career_graph.json"
-        json_path.write_text(
-            dumps(node_link_data(self.graph), indent=2)
-        )
+        json_path.write_text(dumps(node_link_data(self.graph), indent=2))
 
         return GraphExport(
             graphml_path = graphml_path,
@@ -687,4 +662,4 @@ class CareerPathwayGraph:
         Returns:
             Weighted path length, or None if unreachable.
         """
-        return self._shortest_paths.get(source, {}).get(target)
+        return self.shortest_paths.get(source, {}).get(target)

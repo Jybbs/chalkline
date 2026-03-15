@@ -56,7 +56,7 @@ def _postings() -> list[Posting]:
     """
     return [
         Posting(**raw)
-        for raw in loads((FIXTURES / "collection/postings.json").read_text())
+        for raw in loads((FIXTURES / "collection" / "postings.json").read_text())
     ]
 
 
@@ -69,7 +69,7 @@ def certifications() -> list[Certification]:
     """
     Load synthetic certifications from fixture data.
     """
-    return load_certifications(FIXTURES / "extraction/certifications.json")
+    return load_certifications(FIXTURES / "extraction" / "certifications.json")
 
 
 @fixture
@@ -94,7 +94,7 @@ def occupations() -> list[OnetOccupation]:
     """
     Parse synthetic O*NET data into validated occupation records.
     """
-    return load_onet(FIXTURES / "extraction/onet_occupations.json")
+    return load_onet(FIXTURES / "extraction" / "onet_occupations.json")
 
 
 @fixture
@@ -102,7 +102,7 @@ def osha_terms() -> list[str]:
     """
     Load synthetic OSHA terms from fixture data.
     """
-    return load_osha(FIXTURES / "extraction/osha_terms.json")
+    return load_osha(FIXTURES / "extraction" / "osha_terms.json")
 
 
 @fixture
@@ -110,7 +110,7 @@ def supplement_terms() -> list[str]:
     """
     Load synthetic supplement terms from fixture data.
     """
-    return load_supplement(FIXTURES / "extraction/supplement_terms.json")
+    return load_supplement(FIXTURES / "extraction" / "supplement_terms.json")
 
 
 # ---------------------------------------------------------------------
@@ -386,7 +386,7 @@ def apprenticeships() -> list[dict]:
     """
     Synthetic apprenticeship reference data for matching tests.
     """
-    return loads((FIXTURES / "matching/apprenticeships.json").read_text())
+    return loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
 
 
 @fixture

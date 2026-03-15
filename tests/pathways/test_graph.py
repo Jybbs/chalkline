@@ -9,10 +9,9 @@ fixture shape.
 
 import networkx as nx
 
-from json    import loads
-from pathlib import Path
-
+from json                          import loads
 from networkx.readwrite.json_graph import node_link_graph
+from pathlib                       import Path
 
 from chalkline.pathways.graph import CareerPathwayGraph
 
@@ -61,10 +60,7 @@ class TestCareerPathwayGraph:
         """
         for node, data in pathway_graph.graph.nodes(data = True):
             expected = set()
-            for doc, cid in zip(
-                pathway_graph.document_ids,
-                pathway_graph.assignments
-            ):
+            for doc, cid in zip(pathway_graph.document_ids, pathway_graph.assignments):
                 if int(cid) == node:
                     expected.update(extracted_skills.get(doc, []))
             assert set(data["skills"]) == expected
@@ -162,7 +158,7 @@ class TestCareerPathwayGraph:
         The derived DAG view contains no cycles.
         """
         _ = pathway_graph.dag
-        assert nx.is_directed_acyclic_graph(pathway_graph._dag_view)
+        assert nx.is_directed_acyclic_graph(pathway_graph.dag_view)
 
     def test_dag_subgraph(self, pathway_graph: CareerPathwayGraph):
         """
@@ -172,7 +168,7 @@ class TestCareerPathwayGraph:
         """
         _ = pathway_graph.dag
         primary_edges = set(pathway_graph.graph.edges())
-        dag_edges     = set(pathway_graph._dag_view.edges())
+        dag_edges     = set(pathway_graph.dag_view.edges())
         assert dag_edges <= primary_edges
 
     def test_dag_path_weight(self, pathway_graph: CareerPathwayGraph):
@@ -182,7 +178,7 @@ class TestCareerPathwayGraph:
         """
         dag   = pathway_graph.dag
         path  = dag.longest_path
-        view  = pathway_graph._dag_view
+        view  = pathway_graph.dag_view
         total = sum(
             view.edges[path[i], path[i + 1]].get("weight", 0)
             for i in range(len(path) - 1)
@@ -237,9 +233,7 @@ class TestCareerPathwayGraph:
         two clusters.
         """
         nodes = list(pathway_graph.graph.nodes())
-        if len(nodes) >= 2 and not nx.is_strongly_connected(
-            pathway_graph.graph
-        ):
+        if len(nodes) >= 2 and not nx.is_strongly_connected(pathway_graph.graph):
             assert any(
                 pathway_graph.shortest_path_length(s, t) is None
                 for s in nodes for t in nodes if s != t

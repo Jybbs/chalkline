@@ -109,10 +109,7 @@ def main():
     or direct applicability. Deduplicates the combined results and writes
     a sorted JSON array of unique skill term strings.
     """
-    output = (
-        Path(__file__).resolve().parent.parent
-        / "data" / "lexicons" / "osha.json"
-    )
+    output = Path(__file__).resolve().parents[1] / "data" / "lexicons" / "osha.json"
 
     skills = set()
     for number, subparts in (("1926", None), ("1910", {"E", "I", "J", "Z"})):

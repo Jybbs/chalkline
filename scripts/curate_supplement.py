@@ -356,4 +356,4 @@ class SupplementCurator:
 
 if __name__ == "__main__":
 
-    SupplementCurator(Path(__file__).resolve().parent.parent).run_all()
+    SupplementCurator(Path(__file__).resolve().parents[1]).run_all()

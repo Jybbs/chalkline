@@ -67,10 +67,7 @@ class TestOccupationIndex:
         Empty or fully unknown skill sets return a valid SOC code
         without raising.
         """
-        assert occupation_index.nearest(skills) in {
-            "47-2071.00",
-            "47-2111.00"
-        }
+        assert occupation_index.nearest(skills) in {"47-2071.00", "47-2111.00"}
 
     @mark.parametrize("skills", [
         {"Autodesk AutoCAD"},
