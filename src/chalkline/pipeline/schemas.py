@@ -100,6 +100,7 @@ class PipelineConfig(BaseModel, extra="forbid"):
 
     distance_metric    : DistanceMetric = DistanceMetric.EUCLIDEAN
     max_components     : int            = 20
+    max_graph_density  : float          = 0.05
     min_cooccurrence   : float | str    = "auto"
     random_seed        : int            = 42
     reference_dir      : Path           = Path("data/stakeholder/reference")

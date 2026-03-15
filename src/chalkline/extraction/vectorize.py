@@ -46,9 +46,8 @@ class SkillVectorizer:
         Fit the vectorization pipeline on extracted skill lists.
 
         Args:
-            skills: Mapping from document identifier to sorted
-                    canonical skill names, as returned by
-                    `SkillExtractor.extract`.
+            skills: Mapping from document identifier to sorted canonical
+                    skill names, as returned by `SkillExtractor.extract`.
         """
         self.document_ids = sorted(skills)
 

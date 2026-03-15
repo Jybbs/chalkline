@@ -32,13 +32,14 @@ class AprioriComparison:
         feature_names : list[str]
     ):
         """
-        Convert the binary matrix to a boolean DataFrame.
+        Convert the binary presence/absence matrix from
+        `SkillVectorizer.binary_matrix` to a boolean DataFrame,
+        using the feature vocabulary as column headers to
+        preserve the matrix-to-skill-name alignment.
 
         Args:
-            binary_matrix : CSR binary presence/absence matrix from
-                            `SkillVectorizer.binary_matrix`.
-            feature_names : Vocabulary in column order, matching matrix
-                            column indices.
+            binary_matrix : CSR binary presence/absence matrix.
+            feature_names : Vocabulary in column order.
         """
         self.boolean_df = pd.DataFrame(
             binary_matrix.toarray().astype(bool),
@@ -113,8 +114,8 @@ class AprioriComparison:
         co-occurrence network.
 
         Args:
-            ppmi_pairs: Set of (skill_a, skill_b) tuples with positive
-                        PPMI, canonically ordered.
+            ppmi_pairs: Canonically ordered (skill_a, skill_b) tuples
+                        with positive PPMI.
 
         Returns:
             Jaccard similarity coefficient in [0, 1], or 0.0 when both

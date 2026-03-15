@@ -38,14 +38,14 @@ class ClusterComparison:
         sector_labels : list[str] | None = None
     ):
         """
-        Store coordinates and derive matrix dimensions.
+        Store PCA coordinates of shape `(n_postings, n_selected)`
+        and derive matrix dimensions. When sector labels are
+        provided, all comparison methods compute ARI against them.
 
         Args:
-            coordinates   : PCA output of shape
-                            `(n_postings, n_selected)`.
+            coordinates   : PCA-reduced posting coordinates.
             random_seed   : Reproducibility seed for K-Means.
-            sector_labels : Optional sector strings for ARI
-                            computation across all methods.
+            sector_labels : Optional sector strings for ARI.
         """
         self.coordinates   = coordinates
         self.random_seed   = random_seed

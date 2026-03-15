@@ -14,7 +14,6 @@ from logging        import getLogger
 from nltk.stem      import PorterStemmer
 from re             import IGNORECASE, MULTILINE, search, sub
 from typing         import NamedTuple
-from wordfreq       import word_frequency
 
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
@@ -64,8 +63,8 @@ class SkillExtractor:
         Build skill automaton from registry data.
 
         Args:
-            registry: Lexicon registry with merged
-                      `lemma_index` and `lemmatize` method.
+            registry: Lexicon registry with merged `lemma_index`
+                      and `lemmatize` method.
         """
         self.registry = registry
         self.stemmer  = PorterStemmer()
@@ -140,8 +139,7 @@ class SkillExtractor:
         Assign a confidence tier based on form characteristics.
 
         Args:
-            canonical : Original canonical name for abbreviation
-                        detection.
+            canonical : Original canonical name for abbreviation detection.
             form      : The lowercased surface form string.
 
         Returns:
@@ -265,51 +263,26 @@ class SkillExtractor:
 
         Each posting is preprocessed, lemmatized, and matched
         against the skill automaton. Postings with zero matched
-        skills are excluded from the output. Unmatched term
-        frequencies are logged for lexicon coverage diagnostics.
+        skills are excluded from the output.
 
         Args:
-            postings: Mapping from document identifier to raw
-                      text.
+            postings: Mapping from document identifier to raw text.
 
         Returns:
             Mapping from document identifier to sorted canonical
             skill names, excluding documents with no matches.
         """
-        results        = {}
-        corpus_tokens  = set()
-        matched_tokens = set()
+        results = {}
 
         for doc_id in sorted(postings):
             lemmatized = self.registry.lemmatize(self._preprocess(postings[doc_id]))
-            skills = self._match(lemmatized)
-
-            if skills:
+            if skills := self._match(lemmatized):
                 results[doc_id] = skills
 
-            corpus_tokens.update(
-                t for t in lemmatized.split()
-                if len(t) >= 3 and word_frequency(t, "en") < 1e-4
-            )
-            matched_tokens.update(t for s in skills for t in s.lower().split())
-
-        excluded  = len(postings) - len(results)
-        unmatched = corpus_tokens - matched_tokens
-
+        excluded = len(postings) - len(results)
         if excluded:
             logger.info(f"Excluded {excluded} posting(s) with zero matched skills")
 
-        if corpus_tokens and (rate := len(unmatched) / len(corpus_tokens)) > 0.15:
-            logger.warning(
-                f"Unmatched term rate {rate:.1%} exceeds "
-                f"threshold. Top unmatched: "
-                f"{sorted(unmatched)[:20]}"
-            )
-
-        logger.debug(
-            f"Extracted skills from {len(results)} posting(s), "
-            f"{excluded} excluded, "
-            f"{len(unmatched)} unique unmatched terms"
-        )
+        logger.debug(f"Extracted skills from {len(results)} posting(s)")
 
         return results

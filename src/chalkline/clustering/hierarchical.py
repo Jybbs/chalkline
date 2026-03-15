@@ -33,18 +33,17 @@ def compute_sector_labels(
     """
     Map postings to SOC codes via Jaccard-nearest occupation.
 
-    For each document in row order, finds the O*NET occupation whose
-    skill profile has maximum Jaccard overlap with the posting's canonical
-    skill set, then returns that occupation's SOC code. This produces 21
-    distinct ground-truth classes for ARI evaluation rather than 3 broad
-    sectors.
+    For each document in row order, finds the O*NET occupation
+    whose skill profile has maximum Jaccard overlap with the
+    posting's canonical skill set from `extracted_skills`, then
+    returns that occupation's SOC code via the `occupation_index`
+    lookup. This produces 21 distinct ground-truth classes for ARI
+    evaluation rather than 3 broad sectors.
 
     Args:
-        document_ids     : Posting identifiers in matrix row order.
-        extracted_skills : Mapping from document identifier to
-                           canonical skill names.
-        occupation_index : O*NET occupation lookup with Jaccard
-                           matching.
+        document_ids     : Posting identifiers in row order.
+        extracted_skills : Skills per document identifier.
+        occupation_index : O*NET occupation index.
 
     Returns:
         SOC code strings aligned with `document_ids` row order.
@@ -121,11 +120,11 @@ class HierarchicalClusterer:
 
     def ari_vs_sectors(self, sector_labels: list[str]) -> float:
         """
-        Adjusted Rand index between HAC assignments and sector labels.
+        Adjusted Rand index between HAC assignments and sector
+        labels aligned with `document_ids` row order.
 
         Args:
-            sector_labels: Sector strings aligned with
-                           `document_ids` row order.
+            sector_labels: Sector strings per posting.
 
         Returns:
             ARI score in [-1, 1].
@@ -168,8 +167,8 @@ class HierarchicalClusterer:
         are mapped from document identifiers to display titles.
 
         Args:
-            title_map: Optional mapping from document identifier
-                       to display title for leaf labeling.
+            title_map: Optional mapping from document identifier to
+                       display title for leaf labeling.
 
         Returns:
             Scipy dendrogram dictionary.
@@ -191,15 +190,15 @@ class HierarchicalClusterer:
         """
         Human-readable labels from top TF-IDF centroid terms.
 
-        Averages the TF-IDF vectors of each cluster's members and extracts
-        the `top_n` highest-weighted terms. The dense conversion of
+        Averages the TF-IDF vectors of each cluster's members
+        (aligned with `document_ids` row order) and extracts the
+        `top_n` highest-weighted terms. The dense conversion of
         `tfidf_matrix` is scoped to this call.
 
         Args:
             feature_names : TF-IDF vocabulary in column order.
-            tfidf_matrix  : Sparse TF-IDF matrix for centroid
-                            computation, aligned with `document_ids`.
-            top_n         : Number of top terms per cluster label.
+            tfidf_matrix  : Sparse TF-IDF matrix.
+            top_n         : Number of top terms per label.
 
         Returns:
             One `ClusterLabel` per unique cluster assignment.

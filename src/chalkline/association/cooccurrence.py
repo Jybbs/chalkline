@@ -50,16 +50,20 @@ class CooccurrenceNetwork:
         random_seed      : int         = 42
     ):
         """
-        Compute the thresholded co-occurrence matrix.
+        Compute the thresholded co-occurrence matrix from the
+        binary presence/absence matrix produced by
+        `SkillVectorizer.binary_matrix`.
+
+        When `min_cooccurrence` is `"auto"`, the threshold is
+        selected by finding the knee of the
+        modularity-vs-threshold curve. Otherwise the float
+        fraction is applied to the corpus size with a floor of
+        3 to protect PMI stability.
 
         Args:
-            binary_matrix    : CSR binary presence/absence matrix
-                               from `SkillVectorizer.binary_matrix`.
-            feature_names    : Vocabulary in column order, matching
-                               matrix column indices.
-            min_cooccurrence : Either `"auto"` to select via
-                               modularity knee detection, or a float
-                               fraction of corpus size floored at 3.
+            binary_matrix    : CSR binary presence/absence matrix.
+            feature_names    : Vocabulary in column order.
+            min_cooccurrence : `"auto"` or float corpus fraction.
             random_seed      : Seed for Louvain reproducibility.
         """
         self.feature_names = feature_names
@@ -338,12 +342,11 @@ class CooccurrenceNetwork:
         graph when no matrix is provided.
 
         Args:
-            matrix: Optional sparse weight matrix to override the
-                    default NPMI matrix.
+            matrix: Optional sparse weight matrix overriding NPMI.
 
         Returns:
-            List of `CommunityLabel` models sorted by community size
-            in descending order.
+            List of `CommunityLabel` models sorted by community
+            size in descending order.
         """
         G = self.graph(matrix = matrix)
 
@@ -403,12 +406,11 @@ class CooccurrenceNetwork:
         Logs a warning if more than 30% of skills are isolate nodes.
 
         Args:
-            graph: Optional pre-built graph. Defaults to the NPMI
-                   graph.
+            graph: Optional pre-built graph, defaults to NPMI.
 
         Returns:
-            `GraphDiagnostics` with modularity set to `None` when the
-            graph has no edges.
+            `GraphDiagnostics` with modularity set to `None` when
+            the graph has no edges.
         """
         G = graph or self.graph()
 
@@ -460,12 +462,11 @@ class CooccurrenceNetwork:
         Defaults to the NPMI matrix when no matrix is provided.
 
         Args:
-            matrix: Optional sparse weight matrix to override the
-                    default NPMI matrix.
+            matrix: Optional sparse weight matrix overriding NPMI.
 
         Returns:
-            Undirected `nx.Graph` with skill-name nodes and `weight`
-            edge attributes.
+            Undirected `nx.Graph` with skill-name nodes and
+            `weight` edge attributes.
         """
         return nx.relabel_nodes(
             nx.from_scipy_sparse_array(
@@ -511,6 +512,29 @@ class CooccurrenceNetwork:
         """
         return self.ppmi_matrix[np.ix_(indices_i, indices_j)].data
 
+    def pairwise_npmi(
+        self,
+        indices_i : list[int],
+        indices_j : list[int]
+    ) -> np.ndarray:
+        """
+        Extract NPMI values for inter-group skill pairs.
+
+        Normalized variant of `pairwise_ppmi` bounded to [0, 1],
+        removing frequency-dependent inflation so that edge weights
+        are interpretable as association strength regardless of
+        skill rarity.
+
+        Args:
+            indices_i : Column indices for the first skill group.
+            indices_j : Column indices for the second skill group.
+
+        Returns:
+            Flat array of NPMI+ values at the cross-product
+            positions.
+        """
+        return self.npmi_matrix[np.ix_(indices_i, indices_j)].data
+
     def pmi_dataframe(self) -> pd.DataFrame:
         """
         Symmetric NPMI DataFrame indexed by skill names.
@@ -533,16 +557,16 @@ class CooccurrenceNetwork:
         """
         Compare Louvain communities against apprenticeship trades.
 
-        For each apprenticeship trade, checks whether the trade title
-        appears as a graph node and reports which Louvain community it
-        belongs to. This is a diagnostic measure rather than a blocking
-        constraint because the vocabulary may not contain every trade
-        title as a matchable skill.
+        For each trade in the stakeholder apprenticeship records
+        (dicts with `title` and `rapids_code` keys), checks whether
+        the trade title appears as a graph node and reports which
+        Louvain community it belongs to. This is a diagnostic
+        measure rather than a blocking constraint because the
+        vocabulary may not contain every trade title as a matchable
+        skill.
 
         Args:
-            apprenticeships: List of dicts with `title` and
-                             `rapids_code` keys from the stakeholder
-                             reference data.
+            apprenticeships: Stakeholder apprenticeship records.
 
         Returns:
             Dict with `alignments` (per-trade match results),

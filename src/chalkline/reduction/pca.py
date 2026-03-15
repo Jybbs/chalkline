@@ -51,21 +51,23 @@ class PcaReducer:
         variance_threshold : float
     ):
         """
-        Fit the analysis SVD and production pipeline.
+        Fit the analysis SVD and production pipeline on the
+        sparse TF-IDF matrix from `SkillVectorizer`.
+
+        Document identifiers and vocabulary terms maintain row
+        and column alignment with the input matrix for downstream
+        labeling. The maximum component count is capped at one
+        below the matrix rank to avoid rank-deficient
+        decomposition, and both SVD fits share the same random
+        seed for reproducibility.
 
         Args:
-            document_ids       : Posting identifiers in matrix row
-                                 order.
-            feature_names      : Vocabulary terms in matrix column
-                                 order.
-            max_components     : Upper bound on retained components,
-                                 capped at matrix rank minus one.
-            random_seed        : Reproducibility seed for both SVD
-                                 fits.
-            tfidf_matrix       : Sparse TF-IDF matrix from
-                                 `SkillVectorizer`.
-            variance_threshold : Cumulative explained variance
-                                 target for component selection.
+            document_ids       : Posting identifiers in row order.
+            feature_names      : Vocabulary terms in column order.
+            max_components     : Upper bound on components.
+            random_seed        : Reproducibility seed.
+            tfidf_matrix       : Sparse TF-IDF matrix.
+            variance_threshold : Cumulative variance target.
         """
         self.document_ids  = document_ids
         self.feature_names = feature_names

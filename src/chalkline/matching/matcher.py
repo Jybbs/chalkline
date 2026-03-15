@@ -95,37 +95,33 @@ class ResumeMatcher:
         """
         Compute cluster centroids and fit nearest-neighbor models.
 
-        The geometry pipeline must be a fitted sklearn `Pipeline`
-        chaining `DictVectorizer`, `TfidfTransformer`, `Normalizer`,
+        Cluster assignments and PCA coordinates of shape
+        `(n_postings, n_selected)` from the hierarchical
+        clusterer define the career family geometry. The geometry
+        pipeline must be a fitted sklearn `Pipeline` chaining
+        `DictVectorizer`, `TfidfTransformer`, `Normalizer`,
         `TruncatedSVD`, and `StandardScaler` so that a single
-        `transform([skill_dict])` call projects a resume into the
-        shared PCA space without refitting.
+        `transform([skill_dict])` call projects a resume into
+        the shared PCA space without refitting. The symmetric
+        PPMI DataFrame (indexed by canonical skill names)
+        provides pairwise relevance for gap ranking, scoped to
+        each cluster's TF-IDF centroid labels (top-50
+        recommended). Apprenticeship and educational program
+        records from stakeholder reference data enrich ranked
+        gaps with actionable pathway recommendations.
 
         Args:
-            apprenticeships   : Validated apprenticeship program
-                                records from the stakeholder
-                                reference data.
-            assignments       : Cluster ID per posting from
-                                `HierarchicalClusterer.assignments`.
-            cluster_labels    : TF-IDF centroid labels with terms
-                                per cluster for PPMI scoping
-                                (top-50 recommended).
-            coordinates       : PCA-scaled posting coordinates of
-                                shape `(n_postings, n_selected)`.
-            distance_metric   : Distance function for neighbor
-                                queries.
-            document_ids      : Posting identifiers in matrix row
-                                order.
-            extracted_skills  : Mapping from document identifier to
-                                sorted canonical skill names.
-            geometry_pipeline : Fitted sklearn `Pipeline` chaining
-                                vectorization through scaling.
-            ppmi_df           : Symmetric PPMI DataFrame indexed by
-                                canonical skill names.
-            programs          : Normalized educational program
-                                records from `load_programs`.
-            top_k_gaps        : Default number of ranked gaps to
-                                return.
+            apprenticeships   : Apprenticeship program records.
+            assignments       : Cluster ID per posting.
+            cluster_labels    : TF-IDF centroid labels per cluster.
+            coordinates       : PCA-scaled posting coordinates.
+            distance_metric   : Distance function for neighbors.
+            document_ids      : Posting identifiers in row order.
+            extracted_skills  : Skills per document identifier.
+            geometry_pipeline : Fitted vectorization pipeline.
+            ppmi_df           : PPMI DataFrame for gap ranking.
+            programs          : Educational program records.
+            top_k_gaps        : Default number of ranked gaps.
         """
         self.assignments       = assignments
         self.coordinates       = coordinates

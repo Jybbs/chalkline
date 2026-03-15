@@ -111,8 +111,7 @@ class LexiconRegistry:
         certification name.
 
         Args:
-            terms: Canonical skill names or certification records
-                   to index.
+            terms: Canonical skill names or certification records to index.
 
         Returns:
             Mapping from lookup form to canonical form.
