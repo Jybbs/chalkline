@@ -11,12 +11,12 @@ progression rather than the fewest transitions.
 
 from functools          import cached_property
 from logging            import getLogger
-from networkx           import ancestors, betweenness_centrality, descendants
+from networkx           import all_simple_paths, ancestors
+from networkx           import betweenness_centrality, descendants
 from networkx           import get_node_attributes, has_path
 from networkx           import in_degree_centrality, out_degree_centrality
-from networkx           import pagerank, set_node_attributes
-from networkx           import shortest_path, subgraph_view
-from networkx.algorithms.simple_paths import all_simple_paths
+from networkx           import pagerank, set_edge_attributes
+from networkx           import set_node_attributes, shortest_path, subgraph_view
 from networkx.utils     import pairwise
 
 from chalkline.pathways.graph   import CareerPathwayGraph
@@ -134,42 +134,37 @@ class CareerRouter:
         G        = self.pathway_graph.graph
         profiles = self.pathway_graph.profiles
 
-        prefix = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
-
-        apprenticeships = list({
-            p.apprenticeship.rapids_code: p.apprenticeship
-            for p in profiles.values()
-            if p.apprenticeship
-        }.values())
-        programs = list({
-            (p.institution, p.program): p
-            for profile in profiles.values()
-            for p in profile.programs
-        }.values())
-
-        trade_pf = {a.rapids_code: prefix(a.title) for a in apprenticeships}
+        prefix   = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
+        apps     = G.graph["apprenticeships"]
+        progs    = G.graph["programs"]
+        trade_pf = {a.rapids_code: prefix(a.title) for a in apps}
         prog_pf  = {
             (p.institution, p.program): prefix(p.program)
-            for p in programs
+            for p in progs
         }
 
+        enrichment = {}
         for s, t, edge in G.edges(data=True):
             bridging = sorted(
                 set(profiles[t].skills) - set(profiles[s].skills)
             )
             skill_pf = {p for skill in bridging for p in prefix(skill)}
+            delta    = edge.get("term_hours_delta")
 
-            delta = edge.get("term_hours_delta")
-            edge["apprenticeships"] = [
-                a for a in apprenticeships
-                if skill_pf & trade_pf[a.rapids_code]
-            ]
-            edge["bridging_skills"] = bridging
-            edge["estimated_hours"] = int(delta) if delta is not None else None
-            edge["programs"] = [
-                p for p in programs
-                if skill_pf & prog_pf[p.institution, p.program]
-            ]
+            enrichment[s, t] = {
+                "apprenticeships" : [
+                    a for a in apps
+                    if skill_pf & trade_pf[a.rapids_code]
+                ],
+                "bridging_skills" : bridging,
+                "estimated_hours" : int(delta) if delta is not None else None,
+                "programs"        : [
+                    p for p in progs
+                    if skill_pf & prog_pf[p.institution, p.program]
+                ],
+            }
+
+        set_edge_attributes(G, enrichment)
 
     def _route_from_path(self, path: list[int]) -> CareerRoute:
         """
@@ -259,16 +254,11 @@ class CareerRouter:
             self.pathway_graph.graph, source, target
         )
         if sp != route.path:
-            paths = all_simple_paths(
-                self.pathway_graph.graph, source, target
+            logger.info(
+                f"Widest path {route.path} diverges from "
+                f"shortest path {sp} between clusters "
+                f"{source} and {target}"
             )
-            next(paths)
-            if next(paths, None) is not None:
-                logger.info(
-                    f"Widest path {route.path} diverges from "
-                    f"shortest path {sp} between clusters "
-                    f"{source} and {target}"
-                )
 
         hours = [
             s.estimated_hours for s in route.steps

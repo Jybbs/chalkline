@@ -13,6 +13,26 @@ from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import ClusterProfile, ProgramRecommendation
 
 
+def _set_graph_metadata(
+    G        : DiGraph,
+    profiles : dict[int, ClusterProfile]
+):
+    """
+    Populate graph-level apprenticeship and program metadata,
+    mirroring `CareerPathwayGraph._build_graph`.
+    """
+    G.graph["apprenticeships"] = list({
+        p.apprenticeship.rapids_code: p.apprenticeship
+        for p in profiles.values()
+        if p.apprenticeship
+    }.values())
+    G.graph["programs"] = list({
+        (p.institution, p.program): p
+        for profile in profiles.values()
+        for p in profile.programs
+    }.values())
+
+
 def _make_linear_router() -> CareerRouter:
     """
     Build a 4-node linear DAG router for deterministic tests.
@@ -84,6 +104,7 @@ def _make_linear_router() -> CareerRouter:
     ], direction_source="job_zone")
     G.edges[0, 1]["term_hours_delta"] = "1000"
     G.edges[2, 3]["term_hours_delta"] = "3000"
+    _set_graph_metadata(G, profiles)
 
     return CareerRouter(SimpleNamespace(
         graph    = G,
@@ -143,6 +164,7 @@ def _make_diamond_router() -> CareerRouter:
         (1, 3, 0.3),
         (2, 3, 0.9)
     ], direction_source="job_zone")
+    _set_graph_metadata(G, profiles)
 
     return CareerRouter(SimpleNamespace(
         graph    = G,
@@ -193,6 +215,8 @@ class TestCareerRouter:
         G = DiGraph()
         for cid, profile in profiles.items():
             G.add_node(cid, **profile.model_dump())
+
+        _set_graph_metadata(G, profiles)
 
         router = CareerRouter(SimpleNamespace(
             graph    = G,

@@ -11,18 +11,18 @@ on (Job Zone, cluster ID), guaranteeing acyclicity.
 
 import numpy as np
 
-from functools                     import cached_property
-from itertools                     import combinations
-from json                          import dumps
-from kneed                         import KneeLocator
-from logging                       import getLogger
-from networkx                      import dag_longest_path, DiGraph
-from networkx                      import node_link_data, path_weight
-from networkx                      import remove_node_attributes
-from networkx                      import set_edge_attributes, write_graphml
-from networkx.algorithms.community import modularity
-from pathlib                       import Path
-from sklearn.metrics               import adjusted_rand_score
+from functools           import cached_property
+from itertools           import combinations
+from json                import dumps
+from kneed               import KneeLocator
+from logging             import getLogger
+from networkx            import dag_longest_path, DiGraph
+from networkx            import node_link_data, path_weight
+from networkx            import remove_node_attributes
+from networkx            import set_edge_attributes, write_graphml
+from networkx.algorithms import community
+from pathlib             import Path
+from sklearn.metrics     import adjusted_rand_score
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.pathways.schemas         import AlignmentDiagnostics, GraphExport
@@ -108,7 +108,7 @@ class CareerPathwayGraph:
         )
 
         if (skill_graph := self.network.graph()).size():
-            result.modularity = float(modularity(
+            result.modularity = float(community.modularity(
                 skill_graph,
                 communities = self.network.partition,
                 weight      = "weight"
@@ -209,6 +209,17 @@ class CareerPathwayGraph:
                 if s in hours and t in hours
             }, "term_hours_delta")
 
+        G.graph["apprenticeships"] = list({
+            p.apprenticeship.rapids_code: p.apprenticeship
+            for p in self.profiles.values()
+            if p.apprenticeship
+        }.values())
+        G.graph["programs"] = list({
+            (p.institution, p.program): p
+            for profile in self.profiles.values()
+            for p in profile.programs
+        }.values())
+
         return G
 
     def _find_threshold(self, weights: list[float]) -> float:
@@ -302,6 +313,8 @@ class CareerPathwayGraph:
 
         graphml_path = output_dir / "career_graph.graphml"
         scalar_graph = self.graph.copy()
+        scalar_graph.graph.pop("apprenticeships", None)
+        scalar_graph.graph.pop("programs", None)
         remove_node_attributes(
             scalar_graph, "apprenticeship", "programs", "skills", "terms"
         )
@@ -311,9 +324,16 @@ class CareerPathwayGraph:
         write_graphml(scalar_graph, graphml_path)
 
         json_path = output_dir / "career_graph.json"
-        json_path.write_text(
-            dumps(node_link_data(self.graph), indent=2)
-        )
+        nld = node_link_data(self.graph)
+        nld["graph"]["apprenticeships"] = [
+            a.model_dump(mode="json")
+            for a in nld["graph"]["apprenticeships"]
+        ]
+        nld["graph"]["programs"] = [
+            p.model_dump(mode="json")
+            for p in nld["graph"]["programs"]
+        ]
+        json_path.write_text(dumps(nld, indent=2))
 
         return GraphExport(
             graphml_path = graphml_path,
