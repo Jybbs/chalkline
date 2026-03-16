@@ -30,7 +30,7 @@ class Posting(BaseModel, extra="forbid"):
     source_url  : NonEmptyStr
     title       : NonEmptyStr
 
-    date_collected : date               = Field(default_factory=date.today)
+    date_collected : date = Field(default_factory=date.today)
     id             : NonEmptyStr | None = None
     location       : NonEmptyStr | None = None
 

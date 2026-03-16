@@ -43,6 +43,7 @@ from chalkline.extraction.vectorize     import SkillVectorizer
 from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.matching.schemas         import MatchResult
 from chalkline.pathways.graph           import CareerPathwayGraph
+from chalkline.pathways.routing         import CareerRouter
 from chalkline.pipeline.programs        import load_programs
 from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
@@ -515,7 +516,7 @@ def pathway_graph(
     size_map  = {cl.cluster_id: cl.size for cl in cluster_labels}
     terms_map = {cl.cluster_id: cl.terms for cl in cluster_labels}
 
-    prefix = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
+    prefix   = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
     trade_pf = {a.rapids_code: prefix(a.title) for a in apprenticeships}
     prog_pf  = {
         (p.institution, p.program): prefix(p.program) for p in programs
@@ -552,3 +553,11 @@ def pathway_graph(
         network  = network,
         profiles = profiles
     )
+
+
+@fixture
+def router(pathway_graph: CareerPathwayGraph) -> CareerRouter:
+    """
+    Build a career router from the full fixture pipeline.
+    """
+    return CareerRouter(pathway_graph.graph, pathway_graph.profiles)

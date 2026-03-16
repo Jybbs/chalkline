@@ -15,7 +15,7 @@ from logging  import basicConfig, getLogger, INFO
 from pathlib  import Path
 
 from chalkline.collection.schemas import Posting
-from chalkline.collection.storage import save
+from chalkline.collection.storage import CorpusStorage
 
 
 logger = getLogger(__name__)
@@ -49,6 +49,7 @@ class Collector:
         self.results_wanted = results_wanted
         self.search_terms   = search_terms
         self.sites          = sites
+        self.storage        = CorpusStorage(postings_dir)
 
     @staticmethod
     def _parse_record(record: dict) -> Posting | None:
@@ -110,10 +111,10 @@ class Collector:
         """
         Collect postings from all search terms and persist to disk.
         """
-        save([
+        self.storage.save([
             p for record in self._scrape().to_dict("records")
             if (p := self._parse_record(record))
-        ], self.postings_dir)
+        ])
 
 
 if __name__ == "__main__":
