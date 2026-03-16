@@ -99,7 +99,7 @@ class CareerPathwayGraph:
 
         if not shared:
             logger.warning("No shared skills for ARI computation")
-            return AlignmentDiagnostics(ari=0.0)
+            return AlignmentDiagnostics()
 
         if len(self.profiles) > len(shared) / 2:
             logger.warning(
@@ -128,12 +128,13 @@ class CareerPathwayGraph:
         Longest weighted path through the career graph.
         """
         if not self.graph:
-            return LongestPath(path=[], path_weight=0.0)
+            return LongestPath()
 
         path = nx.dag_longest_path(
             self.graph, weight="weight", default_weight=0
         )
         return LongestPath(
+            edge_count  = self.graph.number_of_edges(),
             path        = path,
             path_weight = nx.path_weight(self.graph, path, "weight")
         )
@@ -227,6 +228,14 @@ class CareerPathwayGraph:
                 for s, t in G.edges()
                 if s in hours and t in hours
             }, "term_hours_delta")
+
+        if not G.number_of_edges():
+            logger.warning(
+                f"Career graph has zero edges from {n} clusters "
+                f"and {n_postings} postings; co-occurrence floor "
+                f"of {self.network.threshold} may exceed corpus "
+                f"density"
+            )
 
         return G
 

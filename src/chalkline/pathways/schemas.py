@@ -24,7 +24,7 @@ class AlignmentDiagnostics(BaseModel, extra="forbid"):
     between the geometric and co-occurrence views of the career landscape.
     """
 
-    ari        : float
+    ari        : float        = 0.0
     modularity : float | None = None
 
 
@@ -141,5 +141,6 @@ class LongestPath(BaseModel, extra="forbid"):
     career progression chain from entry-level to advanced roles.
     """
 
-    path        : list[int]
-    path_weight : float
+    edge_count  : int        = Field(default=0, ge=0)
+    path        : list[int]  = Field(default_factory=list)
+    path_weight : float      = 0.0

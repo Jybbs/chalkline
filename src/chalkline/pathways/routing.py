@@ -85,6 +85,13 @@ class CareerRouter:
         Compute four centrality measures, store as node attributes
         on the career DAG, and return the typed schema.
         """
+        if not self.graph.number_of_edges():
+            n = self.graph.number_of_nodes()
+            logger.warning(
+                f"Edgeless graph; all centrality measures are "
+                f"degenerate (PageRank uniform at 1/{n})"
+            )
+
         metrics = CentralityMetrics(
             betweenness = nx.betweenness_centrality(self.graph, weight="weight"),
             in_degree   = nx.in_degree_centrality(self.graph),
