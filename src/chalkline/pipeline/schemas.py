@@ -9,7 +9,7 @@ matching, pathways, and report generation modules.
 from enum      import StrEnum
 from functools import cached_property
 from pathlib   import Path
-from pydantic  import BaseModel, Field, field_validator
+from pydantic  import BaseModel, Field
 
 from chalkline import UnitInterval
 
@@ -43,7 +43,7 @@ class ClusterProfile(BaseModel, extra="forbid"):
     job_zone   : int      = Field(ge=1, le=5)
     sector     : str
     size       : int      = Field(ge=1)
-    skills     : list[str]
+    skills     : set[str]
     terms      : list[str] = Field(default_factory=list)
 
     apprenticeship : ApprenticeshipContext | None = None
@@ -58,15 +58,6 @@ class ClusterProfile(BaseModel, extra="forbid"):
         edges flow from entry-level to advanced roles.
         """
         return (self.job_zone, self.cluster_id)
-
-    @field_validator("skills", mode="before")
-    @classmethod
-    def sort_skills(cls, v: set[str] | list[str]) -> list[str]:
-        """
-        Accept a set or list and store as a sorted list for
-        stable node attribute output.
-        """
-        return sorted(v)
 
 
 class DistanceMetric(StrEnum):

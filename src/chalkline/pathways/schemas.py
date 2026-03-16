@@ -7,8 +7,9 @@ for widest-path routing, longest-path results, progressive learning
 plans, and export artifact paths.
 """
 
-from pathlib  import Path
-from pydantic import BaseModel, Field
+from functools import cached_property
+from pathlib   import Path
+from pydantic  import BaseModel, Field
 
 from chalkline.pipeline.schemas import ApprenticeshipContext, ProgramRecommendation
 
@@ -76,10 +77,10 @@ class CentralityMetrics(BaseModel, extra="forbid"):
     PageRank incorporates full graph topology as a prestige measure.
     """
 
-    betweenness : dict[int, float]
-    in_degree   : dict[int, float]
-    out_degree  : dict[int, float]
-    pagerank    : dict[int, float]
+    betweenness : dict[int, float] = Field(default_factory=dict)
+    in_degree   : dict[int, float] = Field(default_factory=dict)
+    out_degree  : dict[int, float] = Field(default_factory=dict)
+    pagerank    : dict[int, float] = Field(default_factory=dict)
 
 
 class GraphExport(BaseModel, extra="forbid"):
@@ -105,10 +106,30 @@ class LearningPlan(BaseModel, extra="forbid"):
     and route-level summary metrics.
     """
 
-    all_bridging_skills   : list[str]
-    route                 : CareerRoute
+    route : CareerRoute
 
-    total_estimated_hours : int | None = None
+    @cached_property
+    def bridging_skills(self) -> list[str]:
+        """
+        Sorted union of bridging skills across all transition
+        steps in the route.
+        """
+        return sorted({
+            s for step in self.route.steps
+            for s in step.bridging_skills
+        })
+
+    @cached_property
+    def estimated_hours(self) -> int | None:
+        """
+        Sum of estimated training hours across steps where
+        available, or `None` when no step carries hour data.
+        """
+        hours = [
+            s.estimated_hours for s in self.route.steps
+            if s.estimated_hours is not None
+        ]
+        return sum(hours) if hours else None
 
 
 class LongestPath(BaseModel, extra="forbid"):

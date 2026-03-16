@@ -9,25 +9,22 @@ and career report display. Edge direction follows a strict total order
 on (Job Zone, cluster ID), guaranteeing acyclicity.
 """
 
-import numpy as np
+import networkx as nx
+import numpy    as np
 
-from functools           import cached_property
-from itertools           import combinations
-from json                import dumps
-from kneed               import KneeLocator
-from logging             import getLogger
-from networkx            import dag_longest_path, DiGraph
-from networkx            import node_link_data, path_weight
-from networkx            import remove_node_attributes
-from networkx            import set_edge_attributes, write_graphml
-from networkx.algorithms import community
-from pathlib             import Path
-from sklearn.metrics     import adjusted_rand_score
+from functools       import cached_property
+from itertools       import combinations
+from json            import dumps
+from kneed           import KneeLocator
+from logging         import getLogger
+from pathlib         import Path
+from sklearn.metrics import adjusted_rand_score
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.pathways.schemas         import AlignmentDiagnostics, GraphExport
 from chalkline.pathways.schemas         import LongestPath
-from chalkline.pipeline.schemas         import ClusterProfile
+from chalkline.pipeline.schemas         import ApprenticeshipContext
+from chalkline.pipeline.schemas         import ClusterProfile, ProgramRecommendation
 
 
 logger = getLogger(__name__)
@@ -45,9 +42,9 @@ class CareerPathwayGraph:
 
     def __init__(
         self,
-        network           : CooccurrenceNetwork,
-        profiles          : dict[int, ClusterProfile],
-        max_graph_density : float = 0.05
+        network     : CooccurrenceNetwork,
+        profiles    : dict[int, ClusterProfile],
+        max_density : float = 0.05
     ):
         """
         Build the career pathway graph from pre-enriched upstream
@@ -56,23 +53,33 @@ class CareerPathwayGraph:
         Edge weights are thresholded via knee detection on the
         sorted weight curve, matching the pattern used by
         `CooccurrenceNetwork._find_threshold`. The
-        `max_graph_density` ceiling serves as a secondary guard
+        `max_density` ceiling serves as a secondary guard
         when the knee still produces a graph too dense for
         career pathway navigation.
 
         Args:
-            network           : NPMI matrix, vocabulary, and
-                                Louvain partition.
-            profiles          : Enriched cluster characteristics from the
-                                orchestrator.
-            max_graph_density : Density ceiling for edge pruning.
+            network     : NPMI matrix, vocabulary, and Louvain partition.
+            profiles    : Enriched cluster characteristics from the
+                          orchestrator.
+            max_density : Density ceiling for edge pruning.
         """
-        self.max_graph_density = max_graph_density
-        self.network           = network
-        self.profiles          = profiles
-
+        self.network     = network
+        self.profiles    = profiles
+        self.max_density = max_density
         self.cluster_ids = sorted(self.profiles)
         self.graph       = self._build_graph()
+
+    @cached_property
+    def apprenticeships(self) -> list[ApprenticeshipContext]:
+        """
+        Deduplicated apprenticeship contexts across all cluster
+        profiles, keyed by RAPIDS code.
+        """
+        return list({
+            p.apprenticeship.rapids_code: p.apprenticeship
+            for p in self.profiles.values()
+            if p.apprenticeship
+        }.values())
 
     @cached_property
     def alignment(self) -> AlignmentDiagnostics:
@@ -108,7 +115,7 @@ class CareerPathwayGraph:
         )
 
         if (skill_graph := self.network.graph()).size():
-            result.modularity = float(community.modularity(
+            result.modularity = float(nx.community.modularity(
                 skill_graph,
                 communities = self.network.partition,
                 weight      = "weight"
@@ -123,13 +130,25 @@ class CareerPathwayGraph:
         if not self.graph:
             return LongestPath(path=[], path_weight=0.0)
 
-        path = dag_longest_path(
+        path = nx.dag_longest_path(
             self.graph, weight="weight", default_weight=0
         )
         return LongestPath(
             path        = path,
-            path_weight = path_weight(self.graph, path, "weight")
+            path_weight = nx.path_weight(self.graph, path, "weight")
         )
+
+    @cached_property
+    def programs(self) -> list[ProgramRecommendation]:
+        """
+        Deduplicated program recommendations across all cluster
+        profiles, keyed by (institution, program name).
+        """
+        return list({
+            (p.institution, p.program): p
+            for profile in self.profiles.values()
+            for p in profile.programs
+        }.values())
 
     @cached_property
     def skill_to_cluster(self) -> dict[str, int]:
@@ -147,7 +166,7 @@ class CareerPathwayGraph:
             for s in p.skills
         }
 
-    def _build_graph(self) -> DiGraph:
+    def _build_graph(self) -> nx.DiGraph:
         """
         Construct the directed weighted career graph.
 
@@ -166,8 +185,8 @@ class CareerPathwayGraph:
                 f"degrades edge weight discrimination"
             )
 
-        (G := DiGraph()).add_nodes_from(
-            (cid, profile.model_dump())
+        (G := nx.DiGraph()).add_nodes_from(
+            (cid, profile.model_dump(mode="json"))
             for cid, profile in self.profiles.items()
         )
 
@@ -183,14 +202,14 @@ class CareerPathwayGraph:
             threshold = self._find_threshold(weights)
 
             max_edges = int(
-                self.max_graph_density * n * (n - 1) / 2
+                self.max_density * n * (n - 1) / 2
             ) if n > 1 else 0
             if max_edges and sum(1 for w in weights if w >= threshold) > max_edges:
                 threshold = weights[-max_edges]
                 logger.info(
                     f"Density cap raised threshold to {threshold:.3f} "
                     f"({max_edges} edges at density "
-                    f"{self.max_graph_density})"
+                    f"{self.max_density})"
                 )
 
             G.add_weighted_edges_from(
@@ -203,22 +222,11 @@ class CareerPathwayGraph:
                 for cid, p in self.profiles.items()
                 if p.apprenticeship
             }
-            set_edge_attributes(G, {
-                (s, t): str(hours[t] - hours[s])
+            nx.set_edge_attributes(G, {
+                (s, t): hours[t] - hours[s]
                 for s, t in G.edges()
                 if s in hours and t in hours
             }, "term_hours_delta")
-
-        G.graph["apprenticeships"] = list({
-            p.apprenticeship.rapids_code: p.apprenticeship
-            for p in self.profiles.values()
-            if p.apprenticeship
-        }.values())
-        G.graph["programs"] = list({
-            (p.institution, p.program): p
-            for profile in self.profiles.values()
-            for p in profile.programs
-        }.values())
 
         return G
 
@@ -313,26 +321,20 @@ class CareerPathwayGraph:
 
         graphml_path = output_dir / "career_graph.graphml"
         scalar_graph = self.graph.copy()
-        scalar_graph.graph.pop("apprenticeships", None)
-        scalar_graph.graph.pop("programs", None)
-        remove_node_attributes(
+        nx.remove_node_attributes(
             scalar_graph, "apprenticeship", "programs", "skills", "terms"
         )
+
         for _, _, data in scalar_graph.edges(data=True):
             for attr in ("apprenticeships", "bridging_skills", "programs"):
                 data.pop(attr, None)
-        write_graphml(scalar_graph, graphml_path)
+        nx.write_graphml(scalar_graph, graphml_path)
 
         json_path = output_dir / "career_graph.json"
-        nld = node_link_data(self.graph)
-        nld["graph"]["apprenticeships"] = [
-            a.model_dump(mode="json")
-            for a in nld["graph"]["apprenticeships"]
-        ]
-        nld["graph"]["programs"] = [
-            p.model_dump(mode="json")
-            for p in nld["graph"]["programs"]
-        ]
+        nld       = nx.node_link_data(self.graph)
+        dump      = lambda items: [x.model_dump(mode="json") for x in items]
+        nld["apprenticeships"] = dump(self.apprenticeships)
+        nld["programs"]        = dump(self.programs)
         json_path.write_text(dumps(nld, indent=2))
 
         return GraphExport(

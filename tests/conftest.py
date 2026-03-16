@@ -560,4 +560,4 @@ def router(pathway_graph: CareerPathwayGraph) -> CareerRouter:
     """
     Build a career router from the full fixture pipeline.
     """
-    return CareerRouter(pathway_graph)
+    return CareerRouter(pathway_graph.graph, pathway_graph.profiles)

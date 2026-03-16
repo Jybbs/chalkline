@@ -5,32 +5,11 @@ fixture chain.
 """
 
 from networkx import DiGraph
-from types    import SimpleNamespace
 
 from chalkline.pathways.routing import CareerRouter
 from chalkline.pathways.schemas import LearningPlan
 from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import ClusterProfile, ProgramRecommendation
-
-
-def _set_graph_metadata(
-    G        : DiGraph,
-    profiles : dict[int, ClusterProfile]
-):
-    """
-    Populate graph-level apprenticeship and program metadata,
-    mirroring `CareerPathwayGraph._build_graph`.
-    """
-    G.graph["apprenticeships"] = list({
-        p.apprenticeship.rapids_code: p.apprenticeship
-        for p in profiles.values()
-        if p.apprenticeship
-    }.values())
-    G.graph["programs"] = list({
-        (p.institution, p.program): p
-        for profile in profiles.values()
-        for p in profile.programs
-    }.values())
 
 
 def _make_linear_router() -> CareerRouter:
@@ -93,23 +72,19 @@ def _make_linear_router() -> CareerRouter:
         )
     }
 
-    G = DiGraph()
-    for cid, profile in profiles.items():
-        G.add_node(cid, **profile.model_dump())
-
+    (G := DiGraph()).add_nodes_from(
+        (cid, profile.model_dump(mode="json"))
+        for cid, profile in profiles.items()
+    )
     G.add_weighted_edges_from([
         (0, 1, 0.8),
         (1, 2, 0.5),
         (2, 3, 0.9)
     ], direction_source="job_zone")
-    G.edges[0, 1]["term_hours_delta"] = "1000"
-    G.edges[2, 3]["term_hours_delta"] = "3000"
-    _set_graph_metadata(G, profiles)
+    G.edges[0, 1]["term_hours_delta"] = 1000
+    G.edges[2, 3]["term_hours_delta"] = 3000
 
-    return CareerRouter(SimpleNamespace(
-        graph    = G,
-        profiles = profiles
-    ))
+    return CareerRouter(G, profiles)
 
 
 def _make_diamond_router() -> CareerRouter:
@@ -154,28 +129,24 @@ def _make_diamond_router() -> CareerRouter:
         )
     }
 
-    G = DiGraph()
-    for cid, profile in profiles.items():
-        G.add_node(cid, **profile.model_dump())
-
+    (G := DiGraph()).add_nodes_from(
+        (cid, profile.model_dump(mode="json"))
+        for cid, profile in profiles.items()
+    )
     G.add_weighted_edges_from([
         (0, 1, 0.8),
         (0, 2, 0.4),
         (1, 3, 0.3),
         (2, 3, 0.9)
     ], direction_source="job_zone")
-    _set_graph_metadata(G, profiles)
 
-    return CareerRouter(SimpleNamespace(
-        graph    = G,
-        profiles = profiles
-    ))
+    return CareerRouter(G, profiles)
 
 
 class TestCareerRouter:
     """
     Validate centrality, widest-path routing, bridging skills,
-    learning plans, and traversal methods.
+    and learning plans.
     """
 
     # ---------------------------------------------------------
@@ -212,17 +183,11 @@ class TestCareerRouter:
             )
         }
 
-        G = DiGraph()
-        for cid, profile in profiles.items():
-            G.add_node(cid, **profile.model_dump())
-
-        _set_graph_metadata(G, profiles)
-
-        router = CareerRouter(SimpleNamespace(
-            graph    = G,
-            profiles = profiles
-        ))
-        c = router.centrality
+        (G := DiGraph()).add_nodes_from(
+            (cid, profile.model_dump(mode="json"))
+            for cid, profile in profiles.items()
+        )
+        c = CareerRouter(G, profiles).centrality
         assert all(v == 0.0 for v in c.betweenness.values())
         assert abs(sum(c.pagerank.values()) - 1.0) < 1e-10
 
@@ -232,7 +197,7 @@ class TestCareerRouter:
         """
         router = _make_linear_router()
         c      = router.centrality
-        nodes  = set(router.pathway_graph.graph.nodes())
+        nodes  = set(router.graph.nodes())
         assert set(c.betweenness) == nodes
         assert set(c.in_degree) == nodes
         assert set(c.out_degree) == nodes
@@ -243,7 +208,7 @@ class TestCareerRouter:
         Centrality values are stored as node attributes on the
         graph for downstream consumption.
         """
-        G = _make_linear_router().pathway_graph.graph
+        G = _make_linear_router().graph
         for node in G.nodes():
             assert "betweenness" in G.nodes[node]
             assert "pagerank" in G.nodes[node]
@@ -323,17 +288,6 @@ class TestCareerRouter:
         assert route.steps[1].estimated_hours is None
         assert route.steps[2].estimated_hours == 3000
 
-    def test_bridging_union(self):
-        """
-        `all_bridging_skills` on the learning plan is the sorted
-        union across all transition steps.
-        """
-        plan = _make_linear_router().learning_plan(0, 3)
-        assert plan is not None
-        assert plan.all_bridging_skills == [
-            "electrical safety", "electrical wiring", "scaffolding"
-        ]
-
     # ---------------------------------------------------------
     # Enrichment
     # ---------------------------------------------------------
@@ -349,6 +303,16 @@ class TestCareerRouter:
         step_2_3 = route.steps[2]
         trades   = [a.title for a in step_2_3.apprenticeships]
         assert "Electrician" in trades
+
+    def test_enrichment_no_match(self):
+        """
+        Steps whose bridging skills do not prefix-match any
+        apprenticeship or program produce empty lists.
+        """
+        route = _make_linear_router().widest_path(0, 3)
+        assert route is not None
+        assert route.steps[0].apprenticeships == []
+        assert route.steps[0].programs == []
 
     def test_enrichment_program(self):
         """
@@ -366,21 +330,32 @@ class TestCareerRouter:
     # Learning plan
     # ---------------------------------------------------------
 
+    def test_plan_derived(self):
+        """
+        `LearningPlan` derives `bridging_skills` and
+        `estimated_hours` from the route's transition steps.
+        """
+        plan = _make_linear_router().learning_plan(0, 3)
+        assert plan is not None
+        assert plan.bridging_skills == [
+            "electrical safety", "electrical wiring", "scaffolding"
+        ]
+        assert plan.estimated_hours == 4000
+
     def test_plan_disconnected(self):
         """
         Disconnected pairs return `None`.
         """
         assert _make_linear_router().learning_plan(3, 0) is None
 
-    def test_plan_hours(self):
+    def test_plan_hours_none(self):
         """
-        `total_estimated_hours` sums `term_hours_delta` across
-        steps where available. The linear DAG has deltas on edges
-        0->1 (1000) and 2->3 (3000), so the total is 4000.
+        `estimated_hours` is `None` when no transition step
+        carries training hour data.
         """
-        plan = _make_linear_router().learning_plan(0, 3)
+        plan = _make_diamond_router().learning_plan(0, 3)
         assert plan is not None
-        assert plan.total_estimated_hours == 4000
+        assert plan.estimated_hours is None
 
     def test_plan_step_count(self):
         """
@@ -392,70 +367,15 @@ class TestCareerRouter:
         assert len(plan.route.steps) == plan.route.hops
 
     # ---------------------------------------------------------
-    # Traversal
-    # ---------------------------------------------------------
-
-    def test_leads_to(self):
-        """
-        On the linear DAG, ancestors of C3 are {C0, C1, C2}.
-        """
-        assert _make_linear_router().leads_to(3) == {0, 1, 2}
-
-    def test_reachable_from(self):
-        """
-        On the linear DAG, descendants of C0 are {C1, C2, C3}.
-        """
-        assert _make_linear_router().reachable_from(0) == {1, 2, 3}
-
-    # ---------------------------------------------------------
-    # All routes
-    # ---------------------------------------------------------
-
-    def test_all_routes_diamond(self):
-        """
-        The diamond DAG has two simple paths from C0 to C3,
-        sorted by descending bottleneck weight.
-        """
-        routes = _make_diamond_router().all_routes(0, 3)
-        assert len(routes) == 2
-        assert routes[0].bottleneck_weight >= routes[1].bottleneck_weight
-        assert routes[0].path == [0, 2, 3]
-        assert routes[1].path == [0, 1, 3]
-
-    def test_all_routes_disconnected(self):
-        """
-        Disconnected pair returns an empty list.
-        """
-        assert _make_linear_router().all_routes(3, 0) == []
-
-    def test_all_routes_linear(self):
-        """
-        Linear DAG has exactly one simple path between any
-        connected pair.
-        """
-        routes = _make_linear_router().all_routes(0, 3)
-        assert len(routes) == 1
-        assert routes[0].path == [0, 1, 2, 3]
-
-    # ---------------------------------------------------------
     # Integration (full fixture chain)
     # ---------------------------------------------------------
-
-    def test_all_routes_fixture(self, router: CareerRouter):
-        """
-        `all_routes` terminates on the full fixture graph without
-        raising.
-        """
-        nodes = list(router.pathway_graph.graph.nodes())
-        if len(nodes) >= 2:
-            router.all_routes(nodes[0], nodes[-1])
 
     def test_plan_fixture(self, router: CareerRouter):
         """
         `learning_plan` on the fixture graph returns a valid plan
         or `None` without crashing.
         """
-        nodes = list(router.pathway_graph.graph.nodes())
-        if len(nodes) >= 2:
-            result = router.learning_plan(nodes[0], nodes[-1])
-            assert result is None or isinstance(result, LearningPlan)
+        nodes = list(router.graph.nodes())
+        assert len(nodes) >= 2
+        result = router.learning_plan(nodes[0], nodes[-1])
+        assert result is None or isinstance(result, LearningPlan)

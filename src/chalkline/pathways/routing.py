@@ -1,7 +1,7 @@
 """
 Career routing with centrality analysis and widest-path computation.
 
-Consumes the career pathway DAG from `CareerPathwayGraph`, computes
+Consumes a career pathway DAG and cluster profiles, computes
 four centrality measures as node attributes, and provides on-demand
 widest-path routing with skill gap bridging and enrichment annotation
 per transition step. The widest-path algorithm maximizes the minimum
@@ -9,19 +9,13 @@ edge weight along the route, identifying the most achievable career
 progression rather than the fewest transitions.
 """
 
-from functools          import cached_property
-from logging            import getLogger
-from networkx           import all_simple_paths, ancestors
-from networkx           import betweenness_centrality, descendants
-from networkx           import get_node_attributes, has_path
-from networkx           import in_degree_centrality, out_degree_centrality
-from networkx           import pagerank, set_edge_attributes
-from networkx           import set_node_attributes, shortest_path, subgraph_view
-from networkx.utils     import pairwise
+import networkx as nx
 
-from chalkline.pathways.graph   import CareerPathwayGraph
+from logging import getLogger
+
 from chalkline.pathways.schemas import CareerRoute, CentralityMetrics
 from chalkline.pathways.schemas import LearningPlan, TransitionStep
+from chalkline.pipeline.schemas import ClusterProfile
 
 
 logger = getLogger(__name__)
@@ -31,15 +25,20 @@ class CareerRouter:
     """
     Centrality analysis and widest-path routing on the career DAG.
 
-    Receives a `CareerPathwayGraph`, computes betweenness, in-degree,
-    out-degree, and PageRank centrality at construction time, and
-    exposes on-demand widest-path routing with progressive learning
-    plan generation. Bridging skills and enrichment annotations are
-    precomputed per edge during construction for downstream assembly
-    into transition steps.
+    Accepts a NetworkX DiGraph and cluster profiles directly,
+    computes betweenness, in-degree, out-degree, and PageRank
+    centrality at construction time, and exposes on-demand
+    widest-path routing with progressive learning plan generation.
+    Bridging skills and enrichment annotations are precomputed per
+    edge during construction for downstream assembly into
+    transition steps.
     """
 
-    def __init__(self, pathway_graph: CareerPathwayGraph):
+    def __init__(
+        self,
+        graph    : nx.DiGraph,
+        profiles : dict[int, ClusterProfile]
+    ):
         """
         Compute centrality and edge enrichment attributes eagerly.
 
@@ -49,29 +48,14 @@ class CareerRouter:
         enrichment matches are stored as edge attributes.
 
         Args:
-            pathway_graph: Career DAG with enriched profiles.
+            graph    : Career DAG with weighted edges.
+            profiles : Enriched cluster characteristics keyed by
+                       cluster ID.
         """
-        self.pathway_graph = pathway_graph
-        self.widest_cache: dict[tuple[int, int], list[int] | None] = {}
-
-        self._compute_centrality()
+        self.graph       = graph
+        self.profiles    = profiles
+        self.centrality  = self._compute_centrality()
         self._compute_edge_enrichment()
-
-    @cached_property
-    def centrality(self) -> CentralityMetrics:
-        """
-        Four centrality measures over the career DAG.
-
-        Wraps the node-attribute values computed at construction
-        into a typed schema for downstream consumption.
-        """
-        G = self.pathway_graph.graph
-        return CentralityMetrics(
-            betweenness = get_node_attributes(G, "betweenness"),
-            in_degree   = get_node_attributes(G, "in_degree"),
-            out_degree  = get_node_attributes(G, "out_degree"),
-            pagerank    = get_node_attributes(G, "pagerank")
-        )
 
     def _build_step(self, source: int, target: int) -> TransitionStep:
         """
@@ -85,7 +69,7 @@ class CareerRouter:
         Returns:
             Populated transition step with enrichment.
         """
-        edge = self.pathway_graph.graph[source][target]
+        edge = self.graph[source][target]
         return TransitionStep(
             apprenticeships = edge["apprenticeships"],
             bridging_skills = edge["bridging_skills"],
@@ -96,30 +80,22 @@ class CareerRouter:
             weight          = edge["weight"]
         )
 
-    def _compute_centrality(self):
+    def _compute_centrality(self) -> CentralityMetrics:
         """
-        Compute four centrality measures and store as node
-        attributes on the career DAG.
-
-        Guards PageRank against edgeless graphs where the power
-        iteration would degenerate to uniform damping.
+        Compute four centrality measures, store as node attributes
+        on the career DAG, and return the typed schema.
         """
-        G = self.pathway_graph.graph
+        metrics = CentralityMetrics(
+            betweenness = nx.betweenness_centrality(self.graph, weight="weight"),
+            in_degree   = nx.in_degree_centrality(self.graph),
+            out_degree  = nx.out_degree_centrality(self.graph),
+            pagerank    = nx.pagerank(self.graph, weight="weight")
+        )
 
-        if G.number_of_nodes() == 0:
-            return
+        for name, values in metrics:
+            nx.set_node_attributes(self.graph, values, name)
 
-        set_node_attributes(G, betweenness_centrality(G, weight="weight"), "betweenness")
-        set_node_attributes(G, in_degree_centrality(G), "in_degree")
-        set_node_attributes(G, out_degree_centrality(G), "out_degree")
-
-        if G.number_of_edges() > 0:
-            set_node_attributes(G, pagerank(G, weight="weight"), "pagerank")
-        else:
-            uniform = 1 / G.number_of_nodes()
-            set_node_attributes(
-                G, {n: uniform for n in G.nodes()}, "pagerank"
-            )
+        return metrics
 
     def _compute_edge_enrichment(self):
         """
@@ -131,40 +107,29 @@ class CareerRouter:
         matching uses 4-char prefix overlap against the bridging
         skill set, following the same approach as `ResumeMatcher`.
         """
-        G        = self.pathway_graph.graph
-        profiles = self.pathway_graph.profiles
+        prefix = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
+        apps   = [
+            p.apprenticeship for p in self.profiles.values()
+            if p.apprenticeship
+        ]
+        progs  = [
+            p for prof in self.profiles.values()
+            for p in prof.programs
+        ]
 
-        prefix   = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
-        apps     = G.graph["apprenticeships"]
-        progs    = G.graph["programs"]
-        trade_pf = {a.rapids_code: prefix(a.title) for a in apps}
-        prog_pf  = {
-            (p.institution, p.program): prefix(p.program)
-            for p in progs
-        }
-
-        enrichment = {}
-        for s, t, edge in G.edges(data=True):
-            bridging = sorted(
-                set(profiles[t].skills) - set(profiles[s].skills)
-            )
+        for s, t, data in self.graph.edges(data=True):
+            bridging = sorted(self.profiles[t].skills - self.profiles[s].skills)
             skill_pf = {p for skill in bridging for p in prefix(skill)}
-            delta    = edge.get("term_hours_delta")
+            matched  = lambda items, attr: [
+                x for x in items if skill_pf & prefix(getattr(x, attr))
+            ]
 
-            enrichment[s, t] = {
-                "apprenticeships" : [
-                    a for a in apps
-                    if skill_pf & trade_pf[a.rapids_code]
-                ],
+            data |= {
+                "apprenticeships" : matched(apps, "title"),
                 "bridging_skills" : bridging,
-                "estimated_hours" : int(delta) if delta is not None else None,
-                "programs"        : [
-                    p for p in progs
-                    if skill_pf & prog_pf[p.institution, p.program]
-                ],
+                "estimated_hours" : data.get("term_hours_delta"),
+                "programs"        : matched(progs, "program")
             }
-
-        set_edge_attributes(G, enrichment)
 
     def _route_from_path(self, path: list[int]) -> CareerRoute:
         """
@@ -179,53 +144,16 @@ class CareerRouter:
         Returns:
             Career route with steps and bottleneck weight.
         """
-        steps = [self._build_step(u, v) for u, v in pairwise(path)]
-        return CareerRoute(
-            bottleneck_weight = min(
-                (s.weight for s in steps), default=0.0
-            ),
-            hops  = len(path) - 1,
-            path  = path,
-            steps = steps
-        )
-
-    def all_routes(self, source: int, target: int) -> list[CareerRoute]:
-        """
-        Enumerate all simple paths between two clusters with
-        bottleneck weights and transition steps.
-
-        The DAG property guarantees termination. Routes are sorted
-        by descending bottleneck weight so the most achievable
-        career progression appears first.
-
-        Args:
-            source : Source cluster ID.
-            target : Target cluster ID.
-
-        Returns:
-            All simple paths as `CareerRoute` records, or an empty
-            list if the target is unreachable.
-        """
-        routes = [
-            self._route_from_path(path)
-            for path in all_simple_paths(
-                self.pathway_graph.graph, source, target
-            )
+        steps = [
+            self._build_step(u, v)
+            for u, v in nx.utils.pairwise(path)
         ]
-        routes.sort(key=lambda r: r.bottleneck_weight, reverse=True)
-        return routes
-
-    def leads_to(self, cluster_id: int) -> set[int]:
-        """
-        All clusters that lead to this node (upstream ancestors).
-
-        Args:
-            cluster_id: Target cluster to find predecessors of.
-
-        Returns:
-            Set of cluster IDs that can reach this node.
-        """
-        return ancestors(self.pathway_graph.graph, cluster_id)
+        return CareerRoute(
+            bottleneck_weight = min((s.weight for s in steps), default=0.0),
+            hops              = len(path) - 1,
+            path              = path,
+            steps             = steps
+        )
 
     def learning_plan(self, source: int, target: int) -> LearningPlan | None:
         """
@@ -246,56 +174,27 @@ class CareerRouter:
             Learning plan with per-step detail, or `None` if the
             target is unreachable from the source.
         """
-        route = self.widest_path(source, target)
-        if route is None:
+        if (route := self.widest_path(source, target)) is None:
             return None
 
-        sp = shortest_path(
-            self.pathway_graph.graph, source, target
-        )
-        if sp != route.path:
+        if (sp := nx.shortest_path(self.graph, source, target)) != route.path:
             logger.info(
                 f"Widest path {route.path} diverges from "
                 f"shortest path {sp} between clusters "
                 f"{source} and {target}"
             )
 
-        hours = [
-            s.estimated_hours for s in route.steps
-            if s.estimated_hours is not None
-        ]
-
-        return LearningPlan(
-            all_bridging_skills = sorted({
-                s for step in route.steps
-                for s in step.bridging_skills
-            }),
-            route                 = route,
-            total_estimated_hours = sum(hours) if hours else None
-        )
-
-    def reachable_from(self, cluster_id: int) -> set[int]:
-        """
-        All clusters reachable from this node (downstream
-        descendants).
-
-        Args:
-            cluster_id: Source cluster to find successors of.
-
-        Returns:
-            Set of cluster IDs reachable from this node.
-        """
-        return descendants(self.pathway_graph.graph, cluster_id)
+        return LearningPlan(route=route)
 
     def widest_path(self, source: int, target: int) -> CareerRoute | None:
         """
         Widest (maximum bottleneck) career route between two
         clusters.
 
-        Searches edge weight thresholds in descending order,
-        filtering the DAG via `subgraph_view` at each level and
-        checking reachability with `has_path`. The first threshold
-        where a path exists yields the maximum bottleneck value.
+        Enumerates all simple paths and selects the route with the
+        maximum bottleneck weight. DAG acyclicity bounds the path
+        count and makes full enumeration tractable at the expected
+        graph scale.
 
         Args:
             source : Source cluster ID.
@@ -308,24 +207,11 @@ class CareerRouter:
         if source == target:
             return self._route_from_path([source])
 
-        key = (source, target)
-        if key in self.widest_cache:
-            cached = self.widest_cache[key]
-            return self._route_from_path(cached) if cached else None
-
-        G = self.pathway_graph.graph
-
-        for w in sorted(
-            {w for _, _, w in G.edges(data="weight")}, reverse=True
-        ):
-            view = subgraph_view(
-                G,
-                filter_edge=lambda u, v, w=w: G[u][v]["weight"] >= w
-            )
-            if has_path(view, source, target):
-                path = shortest_path(view, source, target)
-                self.widest_cache[key] = path
-                return self._route_from_path(path)
-
-        self.widest_cache[key] = None
-        return None
+        return max(
+            [
+                self._route_from_path(p)
+                for p in nx.all_simple_paths(self.graph, source, target)
+            ],
+            default = None,
+            key     = lambda r: r.bottleneck_weight
+        )
