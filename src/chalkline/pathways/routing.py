@@ -11,7 +11,8 @@ progression rather than the fewest transitions.
 
 import networkx as nx
 
-from logging import getLogger
+from itertools import accumulate, takewhile
+from logging   import getLogger
 
 from chalkline.pathways.schemas import CareerRoute, CentralityMetrics
 from chalkline.pathways.schemas import LearningPlan, TransitionStep
@@ -196,12 +197,11 @@ class CareerRouter:
     def widest_path(self, source: int, target: int) -> CareerRoute | None:
         """
         Widest (maximum bottleneck) career route between two
-        clusters.
+        clusters via topological DP.
 
-        Enumerates all simple paths and selects the route with the
-        maximum bottleneck weight. DAG acyclicity bounds the path
-        count and makes full enumeration tractable at the expected
-        graph scale.
+        Walks nodes in topological order, relaxing each edge with
+        max-min bottleneck semantics in O(V + E). DAG acyclicity
+        guarantees a single topological pass suffices.
 
         Args:
             source : Source cluster ID.
@@ -211,14 +211,20 @@ class CareerRouter:
             Career route with bottleneck weight and transition
             steps, or `None` if unreachable.
         """
-        if source == target:
-            return self._route_from_path([source])
+        best = {source: (float("inf"), None)}
 
-        return max(
-            [
-                self._route_from_path(p)
-                for p in nx.all_simple_paths(self.graph, source, target)
-            ],
-            default = None,
-            key     = lambda r: r.bottleneck_weight
-        )
+        for node in nx.topological_sort(self.graph):
+            if (state := best.get(node)) is None:
+                continue
+            best |= {
+                n: (c, node)
+                for n, d in self.graph[node].items()
+                if (c := min(state[0], d["weight"])) > best.get(n, (0,))[0]
+            }
+
+        return self._route_from_path([
+            *takewhile(
+                lambda n: n is not None,
+                accumulate(best, lambda n, _: best[n][1], initial=target)
+            )
+        ][::-1]) if best.get(target) else None
