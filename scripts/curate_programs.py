@@ -3,8 +3,9 @@ Curate a unified program lexicon from stakeholder extractions.
 
 Reads the raw `cc_programs.json` and `umaine_programs.json` produced
 by `parse_agc_workbook.py`, normalizes each source schema into the
-`ProgramRecommendation` field layout, and writes a merged, sorted
-`programs.json` to `data/lexicons/`.
+`ProgramRecommendation` field layout, pre-computes 4-character prefix
+sets for runtime matching, and writes a merged, sorted `programs.json`
+to `data/lexicons/`.
 
     uv run python scripts/curate_programs.py
 """
@@ -13,14 +14,24 @@ from json    import dumps, loads
 from pathlib import Path
 
 
+def prefixes(text: str) -> list[str]:
+    """
+    Sorted 4-character word prefixes for prefix matching.
+    """
+    return sorted({
+        w[:4] for w in text.lower().split()
+        if len(w) >= 4
+    })
+
+
 class ProgramCurator:
     """
     Normalize and merge community college and university program
     reference data into the pipeline-ready schema.
 
     Reads two extraction outputs with different field layouts and
-    maps each into the `credential`, `institution`, `program`,
-    `url` structure consumed by `TradeIndex.from_reference`.
+    maps each into the `credential`, `institution`, `prefixes`,
+    `program`, `url` structure consumed by `TradeIndex`.
     """
 
     def __init__(self, root: Path):
@@ -48,6 +59,7 @@ class ProgramCurator:
                     {
                         "credential"  : e["credential"],
                         "institution" : e["college"],
+                        "prefixes"    : prefixes(e["program"]),
                         "program"     : e["program"],
                         "url"         : e["url"]
                     }
@@ -57,6 +69,7 @@ class ProgramCurator:
                     {
                         "credential"  : e["best_for"],
                         "institution" : "Statewide",
+                        "prefixes"    : prefixes(e["initiative"]),
                         "program"     : e["initiative"],
                         "url"         : e.get("url", "")
                     }
@@ -66,6 +79,7 @@ class ProgramCurator:
                     {
                         "credential"  : e["degree"],
                         "institution" : e["campus"],
+                        "prefixes"    : prefixes(e["program"]),
                         "program"     : e["program"],
                         "url"         : e["url"]
                     }

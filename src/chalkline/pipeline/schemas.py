@@ -15,35 +15,19 @@ from chalkline import UnitInterval
 
 class ApprenticeshipContext(BaseModel, extra="forbid"):
     """
-    AGC-registered apprenticeship program from the stakeholder
-    reference data.
+    AGC-registered apprenticeship program from curated reference
+    data.
 
-    Each record represents a RAPIDS-coded trade with its required
-    term hours. Used by the pathway graph for node enrichment and
-    by the resume matcher for gap-to-trade linking.
+    Each record represents a RAPIDS-coded trade with pre-computed
+    `min_hours` and 4-character prefix sets for runtime matching.
+    Used by the pathway graph for node enrichment and by the
+    resume matcher for gap-to-trade linking.
     """
 
+    min_hours   : int
+    prefixes    : set[str]
     rapids_code : str
-    term_hours  : str
     title       : str
-
-    @cached_property
-    def min_hours(self) -> int:
-        """
-        Lower bound of the term hours range as an integer.
-        """
-        return int(self.term_hours.split("-")[0])
-
-    @cached_property
-    def prefixes(self) -> set[str]:
-        """
-        4-character word prefixes from the trade title for
-        fuzzy matching against skill strings.
-        """
-        return {
-            w[:4] for w in self.title.lower().split()
-            if len(w) >= 4
-        }
 
 
 class ClusterProfile(BaseModel, extra="forbid"):
@@ -84,8 +68,9 @@ class PipelineManifest(BaseModel, extra="forbid"):
     Tracks which corpus and configuration produced the fitted
     artifacts so that stale caches can be detected on reload.
     The `geometry_params` field stores the output of
-    `Pipeline.get_params(deep=True)` for ground-truth
-    reproducibility without manually mirroring config values.
+    `Chalkline.geometry_pipeline.get_params(deep=True)` for
+    ground-truth reproducibility without manually mirroring
+    config values.
     """
 
     corpus_size     : int
@@ -98,47 +83,35 @@ class PipelineConfig(BaseModel, extra="forbid"):
     """
     End-to-end configuration for the Chalkline pipeline.
 
-    Required path fields locate the corpus, lexicons, and output directories.
-    Optional fields control hyperparameters with defaults tuned for the
-    922-posting Maine construction corpus.
+    Required path fields locate the corpus, lexicons, and output
+    directories. Optional fields control hyperparameters with
+    defaults tuned for the 922-posting Maine construction corpus.
     """
 
     lexicon_dir  : Path
     output_dir   : Path
     postings_dir : Path
 
-    distance_metric    : str            = "euclidean"
-    max_components     : int            = 20
-    max_graph_density  : float          = 0.05
-    min_cooccurrence   : float | str    = "auto"
-    random_seed        : int            = 42
-    reference_dir      : Path           = Path("data/stakeholder/reference")
-    top_k_gaps         : int            = 10
-    variance_threshold : UnitInterval   = 0.85
+    distance_metric    : str          = "euclidean"
+    max_components     : int          = 20
+    max_graph_density  : float        = 0.05
+    min_cooccurrence   : float | str  = "auto"
+    random_seed        : int          = 42
+    top_k_gaps         : int          = 10
+    variance_threshold : UnitInterval = 0.85
 
 
 class ProgramRecommendation(BaseModel, extra="forbid"):
     """
     Normalized educational program recommendation.
 
-    Unifies community college programs (where the institution field is
-    `college` and credential is `credential`) and university programs
-    (where institution is `campus` and credential is `degree`) into a
-    consistent schema.
+    Unifies community college programs and university programs
+    into a consistent schema with pre-computed 4-character prefix
+    sets for runtime matching via `TradeIndex`.
     """
 
     credential  : str
     institution : str
+    prefixes    : set[str]
     program     : str
     url         : str
-
-    @cached_property
-    def prefixes(self) -> set[str]:
-        """
-        4-character word prefixes from the program name for
-        fuzzy matching against skill strings.
-        """
-        return {
-            w[:4] for w in self.program.lower().split()
-            if len(w) >= 4
-        }

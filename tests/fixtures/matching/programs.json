@@ -2,36 +2,42 @@
   {
     "credential"  : "AAS Degree, Certificate",
     "institution" : "CMCC",
+    "prefixes"    : ["buil", "cons", "tech"],
     "program"     : "Building Construction Technology",
     "url"         : "https://example.com/bct"
   },
   {
     "credential"  : "B.S.",
     "institution" : "UMaine",
+    "prefixes"    : ["cons", "engi", "tech"],
     "program"     : "Construction Engineering Technology",
     "url"         : "https://example.com/cet"
   },
   {
     "credential"  : "B.S.",
     "institution" : "UMaine",
+    "prefixes"    : ["comp", "elec", "engi"],
     "program"     : "Electrical and Computer Engineering",
     "url"         : "https://example.com/ece"
   },
   {
     "credential"  : "Certificate",
     "institution" : "WCCC",
+    "prefixes"    : ["equi", "heav", "oper"],
     "program"     : "Heavy Equipment Operations",
     "url"         : "https://example.com/heavy-equip"
   },
   {
     "credential"  : "Short-term Training",
     "institution" : "YCCC",
+    "prefixes"    : ["indu", "tech", "weld"],
     "program"     : "Industrial Welding Techniques",
     "url"         : "https://example.com/welding"
   },
   {
     "credential"  : "Adults seeking immediate entry into the trades",
     "institution" : "Statewide",
+    "prefixes"    : ["acad", "cons", "main"],
     "program"     : "Maine Construction Academy",
     "url"         : "https://example.com/mca"
   }

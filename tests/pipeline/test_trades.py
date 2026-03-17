@@ -19,8 +19,9 @@ class TestTradeIndex:
         """
         trades = TradeIndex(
             apprenticeships = [ApprenticeshipContext(
+                min_hours   = 8000,
+                prefixes    = {"weld"},
                 rapids_code = "001",
-                term_hours  = "8000",
                 title       = "Welder"
             )],
             programs = []
@@ -34,8 +35,9 @@ class TestTradeIndex:
         """
         trades = TradeIndex(
             apprenticeships = [ApprenticeshipContext(
+                min_hours   = 8000,
+                prefixes    = {"elec"},
                 rapids_code = "001",
-                term_hours  = "8000",
                 title       = "Electrician"
             )],
             programs = []
@@ -51,8 +53,9 @@ class TestTradeIndex:
         """
         trades = TradeIndex(
             apprenticeships = [ApprenticeshipContext(
+                min_hours   = 8000,
+                prefixes    = {"code", "spec"},
                 rapids_code = "001",
-                term_hours  = "8000",
                 title       = "NEC Code Specialist"
             )],
             programs = []

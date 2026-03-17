@@ -44,6 +44,7 @@ from chalkline.reduction.pca            import PcaReducer
 
 logger = getLogger(__name__)
 
+
 def build_profiles(
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
@@ -189,7 +190,7 @@ class Chalkline:
         self.clusterer         : HierarchicalClusterer | None    = None
         self.extractor         : SkillExtractor | None           = None
         self.extracted_skills  : dict[str, list[str]]            = {}
-        self.geometry_pipeline : Pipeline | None          = None
+        self.geometry_pipeline : Pipeline | None                 = None
         self.graph             : CareerPathwayGraph | None       = None
         self.matcher           : ResumeMatcher | None            = None
         self.ppmi_df           : pd.DataFrame | None             = None
@@ -224,30 +225,30 @@ class Chalkline:
             trades            = self.trades
         )
 
-    def _load_corpus(self) -> dict[str, str]:
+    @staticmethod
+    def _build_registry(lexicons: LexiconLoader) -> LexiconRegistry:
         """
-        Load the posting corpus as a document-ID-to-text mapping.
+        Build a `LexiconRegistry` from loaded lexicon data.
         """
-        postings = CorpusStorage(self.config.postings_dir).load()
-        return {p.id: p.description for p in postings}
-
-    def _load_lexicons(self) -> LexiconLoader:
-        """
-        Load all lexicon files from the configured directory.
-        """
-        return LexiconLoader(self.config.lexicon_dir)
+        return LexiconRegistry(
+            certifications   = lexicons.certifications,
+            occupations      = lexicons.occupations,
+            osha_terms       = lexicons.osha_terms,
+            supplement_terms = lexicons.supplement_terms
+        )
 
     def _load_trades(self) -> TradeIndex:
         """
         Load apprenticeship and program reference data into a
         `TradeIndex`.
         """
+        d = self.config.lexicon_dir
         return TradeIndex(
             apprenticeships = TypeAdapter(list[ApprenticeshipContext]).validate_json(
-                (self.config.reference_dir / "apprenticeships.json").read_bytes()
+                (d / "apprenticeships.json").read_bytes()
             ),
             programs = TypeAdapter(list[ProgramRecommendation]).validate_json(
-                (self.config.lexicon_dir / "programs.json").read_bytes()
+                (d / "programs.json").read_bytes()
             )
         )
 
@@ -268,20 +269,18 @@ class Chalkline:
             FileNotFoundError: When any required file or directory
                 is missing.
         """
-        missing = []
         d = self.config.lexicon_dir
-        for name in ("certifications.json", "onet.json",
-                     "osha.json", "supplement.json"):
-            if not (d / name).exists():
-                missing.append(str(d / name))
+        missing = [
+            str(d / name)
+            for name in (
+                "apprenticeships.json", "certifications.json",
+                "onet.json", "osha.json", "programs.json",
+                "supplement.json"
+            )
+            if not (d / name).exists()
+        ]
 
-        r = self.config.reference_dir
-        for name in ("apprenticeships.json", "cc_programs.json",
-                     "onet_codes.json", "umaine_programs.json"):
-            if not (r / name).exists():
-                missing.append(str(r / name))
-
-        if not list(self.config.postings_dir.glob("*.json")):
+        if not any(self.config.postings_dir.glob("*.json")):
             missing.append(f"{self.config.postings_dir}/*.json")
 
         if missing:
@@ -305,17 +304,13 @@ class Chalkline:
         """
         self._validate_data()
 
-        lexicons         = self._load_lexicons()
-        registry         = LexiconRegistry(
-            certifications   = lexicons.certifications,
-            occupations      = lexicons.occupations,
-            osha_terms       = lexicons.osha_terms,
-            supplement_terms = lexicons.supplement_terms
-        )
-
-        self.extractor   = SkillExtractor(registry)
+        lexicons         = LexiconLoader(self.config.lexicon_dir)
+        self.extractor   = SkillExtractor(self._build_registry(lexicons))
         self.trades      = self._load_trades()
-        corpus           = self._load_corpus()
+        corpus = {
+            p.id: p.description
+            for p in CorpusStorage(self.config.postings_dir).load()
+        }
         occupation_index = OccupationIndex(lexicons.occupations)
 
         with self._timed("Extraction"):
@@ -412,17 +407,10 @@ class Chalkline:
         d = artifact_dir or config.output_dir / "pipeline"
 
         pipe                   = cls(config)
-        lexicons               = pipe._load_lexicons()
-        pipe.extractor         = SkillExtractor(LexiconRegistry(
-            certifications   = lexicons.certifications,
-            occupations      = lexicons.occupations,
-            osha_terms       = lexicons.osha_terms,
-            supplement_terms = lexicons.supplement_terms
-        ))
+        lexicons               = LexiconLoader(pipe.config.lexicon_dir)
+        pipe.extractor         = SkillExtractor(pipe._build_registry(lexicons))
         pipe.geometry_pipeline = load(d / "geometry.joblib")
-        pipe.extracted_skills  = loads(
-            (d / "extracted_skills.json").read_text()
-        )
+        pipe.extracted_skills  = loads((d / "extracted_skills.json").read_text())
 
         check_is_fitted(pipe.geometry_pipeline)
 
@@ -485,10 +473,10 @@ class Chalkline:
                 "Pipeline is not fitted; call fit() or load() first"
             )
 
-        skills = self.extractor.extract(
-            {"resume": resume_text}
-        )["resume"]
-        result = self.matcher.match(resume_skills=skills, top_k=top_k)
+        result = self.matcher.match(
+            resume_skills = self.extractor.extract({"resume": resume_text})["resume"],
+            top_k         = top_k
+        )
 
         return result.model_copy(update={
             "sector": self.profiles[result.cluster_id].sector
@@ -533,16 +521,15 @@ class Chalkline:
 
         dump(self.graph.graph, d / "graph.joblib")
 
-        manifest = PipelineManifest(
-            corpus_size     = len(self.extracted_skills),
-            geometry_params = self.geometry_pipeline.get_params(
-                deep=True
-            ),
-            posting_ids     = sorted(self.extracted_skills),
-            timestamp       = datetime.now(timezone.utc).isoformat()
-        )
         (d / "manifest.json").write_text(
-            manifest.model_dump_json(indent=2)
+            PipelineManifest(
+                corpus_size     = len(self.extracted_skills),
+                geometry_params = self.geometry_pipeline.get_params(
+                    deep=True
+                ),
+                posting_ids     = sorted(self.extracted_skills),
+                timestamp       = datetime.now(timezone.utc).isoformat()
+            ).model_dump_json(indent=2)
         )
 
         logger.info(f"Pipeline artifacts saved to {d}")

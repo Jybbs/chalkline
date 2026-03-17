@@ -43,8 +43,9 @@ def _make_linear_router() -> CareerRouter:
         ),
         2: ClusterProfile(
             apprenticeship = ApprenticeshipContext(
+                min_hours   = 5000,
+                prefixes    = {"labo"},
                 rapids_code = "001",
-                term_hours  = "5000",
                 title       = "Laborer"
             ),
             cluster_id = 2,
@@ -55,8 +56,9 @@ def _make_linear_router() -> CareerRouter:
         ),
         3: ClusterProfile(
             apprenticeship = ApprenticeshipContext(
+                min_hours   = 8000,
+                prefixes    = {"elec"},
                 rapids_code = "002",
-                term_hours  = "8000",
                 title       = "Electrician"
             ),
             cluster_id = 3,
@@ -64,6 +66,7 @@ def _make_linear_router() -> CareerRouter:
             programs   = [ProgramRecommendation(
                 credential  = "AAS",
                 institution = "CMCC",
+                prefixes    = {"elec", "tech"},
                 program     = "Electrical Technology",
                 url         = "https://example.com"
             )],

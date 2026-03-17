@@ -3,8 +3,8 @@ Trade index for apprenticeship and program matching.
 
 Holds pre-normalized apprenticeship and educational program reference
 data and matches skill strings against both via 4-character prefix
-overlap. Each record carries its own `prefixes` cached property,
-and the `TradeIndex` class handles the query side.
+overlap. Each record carries a pre-computed `prefixes` set from
+curation, and the `TradeIndex` class handles the query side.
 """
 
 from collections.abc import Iterable
@@ -46,7 +46,7 @@ class TradeIndex:
 
         Computes the query prefix set once and matches against
         both reference collections in a single pass. Each
-        record's `prefixes` cached property provides the
+        record's pre-computed `prefixes` field provides the
         reference-side prefix set.
 
         Args:

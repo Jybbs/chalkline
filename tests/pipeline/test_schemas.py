@@ -44,7 +44,6 @@ class TestPipelineConfig:
         ("max_components",       20),
         ("min_cooccurrence",     "auto"),
         ("random_seed",          42),
-        ("reference_dir",        Path("data/stakeholder/reference")),
         ("top_k_gaps",           10),
         ("variance_threshold",   0.85)
     ])
@@ -89,9 +88,10 @@ class TestPipelineConfig:
         """
         with raises(Exception, match="Extra inputs"):
             ApprenticeshipContext(
+                min_hours   = 8000,
+                prefixes    = {"elec"},
                 rapids_code = "90046",
-                term_hours  = "8000",
-                trade       = "Electrician",
+                title       = "Electrician",
                 unknown     = True
             )
 
@@ -103,6 +103,7 @@ class TestPipelineConfig:
             ProgramRecommendation(
                 credential  = "AAS",
                 institution = "CMCC",
+                prefixes    = {"test"},
                 program     = "Test",
                 unknown     = True,
                 url         = "https://example.com"
