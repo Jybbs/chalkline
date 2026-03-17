@@ -95,16 +95,16 @@ class ResumeMatcher:
         self.geometry_pipeline = geometry_pipeline
         self.metric            = metric
         self.top_k_gaps        = top_k_gaps
-
-        self.cluster_ids = np.unique(clusterer.assignments)
-        centroids = np.array([
-            clusterer.coordinates[clusterer.assignments == cid].mean(axis = 0)
-            for cid in self.cluster_ids
-        ])
-        self.centroid_nn = NearestNeighbors(
+        self.cluster_ids       = np.unique(clusterer.assignments)
+        self.centroid_nn       = NearestNeighbors(
             metric      = self.metric,
             n_neighbors = len(self.cluster_ids)
-        ).fit(centroids)
+        ).fit(
+            np.array([
+                clusterer.coordinates[clusterer.assignments == cid].mean(axis = 0)
+                for cid in self.cluster_ids
+            ])
+        )
 
     @cached_property
     def centroid_scope(self) -> dict[int, set[str]]:
@@ -297,7 +297,6 @@ class ResumeMatcher:
 
         distances, indices = self.centroid_nn.kneighbors(coords)
         cluster_id = self.cluster_ids[indices[0, 0]]
-
         resume_set = set(resume_skills)
         neighbors  = self._nearest_in_family(
             cluster_id = cluster_id,

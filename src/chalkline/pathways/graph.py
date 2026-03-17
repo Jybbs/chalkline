@@ -5,23 +5,20 @@ Constructs a directed weighted DiGraph where nodes are job clusters from
 hierarchical agglomerative clustering and edges connect clusters whose
 skill profiles share significant NPMI co-occurrence. Edge weights are
 bounded to [0, 1] for interpretability in downstream widest-path routing
-and career report display. Edge direction follows a strict total order
-on (Job Zone, cluster ID), guaranteeing acyclicity.
+and career report display. Edge direction follows a strict total order on
+(Job Zone, cluster ID), guaranteeing acyclicity.
 """
 
 import networkx as nx
 import numpy    as np
 
-from functools       import cached_property
-from itertools       import combinations
-from json            import dumps, loads
-from kneed           import KneeLocator
-from logging         import getLogger
-from pathlib         import Path
-from typing          import TYPE_CHECKING, Self
-
-if TYPE_CHECKING:
-    from scipy.sparse import csr_array
+from functools import cached_property
+from itertools import combinations
+from json      import dumps, loads
+from kneed     import KneeLocator
+from logging   import getLogger
+from pathlib   import Path
+from typing    import Self
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.pathways.schemas         import GraphExport, LongestPath
@@ -38,8 +35,8 @@ class CareerPathwayGraph:
 
     Accepts pre-enriched `ClusterProfile` records and a co-occurrence
     network, then constructs a DiGraph with one node per cluster and
-    thresholded PMI edges. Edge direction follows a strict total order
-    on (Job Zone, cluster ID), so the graph is always acyclic.
+    thresholded PMI edges. Edge direction follows a strict total order on
+    (Job Zone, cluster ID), so the graph is always acyclic.
     """
 
     def __init__(
@@ -51,17 +48,15 @@ class CareerPathwayGraph:
         max_density     : float = 0.05
     ):
         """
-        Build the career pathway graph from pre-enriched upstream
-        artifacts.
+        Build the career pathway graph from pre-enriched upstream artifacts.
 
-        Edge weights are thresholded via knee detection on the
-        sorted weight curve, matching the pattern used by
-        `CooccurrenceNetwork._find_threshold`. The
-        `max_density` ceiling serves as a secondary guard
-        when the knee still produces a graph too dense for
-        career pathway navigation. Deduplicated apprenticeship
-        and program lists are computed by the orchestrator and
-        passed through for export serialization.
+        Edge weights are thresholded via knee detection on the sorted weight
+        curve, matching the pattern used by
+        `CooccurrenceNetwork._find_threshold`. The `max_density` ceiling
+        serves as a secondary guard when the knee still produces a graph too
+        dense for career pathway navigation. Deduplicated apprenticeship and
+        program lists are computed by the orchestrator and passed through
+        for export serialization.
 
         Args:
             apprenticeships : Deduplicated apprenticeship programs
@@ -89,22 +84,20 @@ class CareerPathwayGraph:
         profiles  : dict[int, ClusterProfile] | None = None
     ) -> Self:
         """
-        Reconstruct a graph from its JSON export without
-        re-triggering the full build.
+        Reconstruct a graph from its JSON export without re-triggering the
+        full build.
 
-        Reads the JSON file written by `export()`, extracts
-        sidecar apprenticeship and program data, and reconstructs
-        the `DiGraph` via `node_link_graph`. The `network`
-        attribute is set to `None` because the `CooccurrenceNetwork`
-        is not persisted; properties that depend on it (like
-        `alignment`) return safe defaults.
+        Reads the JSON file written by `export()`, extracts sidecar
+        apprenticeship and program data, and reconstructs the `DiGraph` via
+        `node_link_graph`. The `network` attribute is set to `None` because
+        the `CooccurrenceNetwork` is not persisted; properties that depend
+        on it (like `alignment`) return safe defaults.
 
         Args:
             json_path : Path to `career_graph.json`.
-            profiles  : Enriched cluster profiles from the
-                        orchestrator. When provided, enables
-                        `skill_to_cluster` on the deserialized
-                        instance.
+            profiles  : Enriched cluster profiles from the orchestrator.
+                        When provided, enables `skill_to_cluster` on the
+                        deserialized instance.
 
         Returns:
             A `CareerPathwayGraph` with pre-built graph state.
@@ -149,15 +142,25 @@ class CareerPathwayGraph:
             path_weight = nx.path_weight(self.graph, path, "weight")
         )
 
+    @cached_property
+    def vocab(self) -> dict[str, int]:
+        """
+        Reverse index from skill name to column position in the
+        co-occurrence matrix.
+        """
+        return {
+            name: i
+            for i, name in enumerate(self.network.feature_names)
+        }
+
     def _build_graph(self) -> nx.DiGraph:
         """
         Construct the directed weighted career graph.
 
-        Nodes carry all profile and enrichment attributes via
-        `model_dump`. Edge threshold is selected by knee detection
-        on the sorted candidate weight curve, with a density cap
-        as a secondary guard. Edges are directed from lower to
-        higher rank.
+        Nodes carry all profile and enrichment attributes via `model_dump`.
+        Edge threshold is selected by knee detection on the sorted candidate
+        weight curve, with a density cap as a secondary guard. Edges are
+        directed from lower to higher rank.
         """
         n = len(self.profiles)
         n_postings = sum(p.size for p in self.profiles.values())
@@ -173,29 +176,17 @@ class CareerPathwayGraph:
             for cid, profile in self.profiles.items()
         )
 
-        npmi  = self.network.npmi_matrix
-        vocab = {n: i for i, n in enumerate(self.network.feature_names)}
-        rank  = lambda c: self.profiles[c].rank
         candidates = [
-            (min(ci, cj, key=rank), max(ci, cj, key=rank), wc[0])
+            (*sorted((ci, cj), key=lambda c: self.profiles[c].rank), wc[0])
             for ci, cj in combinations(self.cluster_ids, 2)
-            if (wc := self._edge_weight(ci, cj, npmi, vocab))[0] > 0 and wc[1] >= 3
+            if (wc := self._edge_weight(ci, cj))[0] > 0 and wc[1] >= 3
         ]
 
         if candidates:
-            weights   = sorted(w for _, _, w in candidates)
-            threshold = self._find_threshold(weights)
-
-            max_edges = int(
-                self.max_density * n * (n - 1) / 2
-            ) if n > 1 else 0
-            if max_edges and sum(1 for w in weights if w >= threshold) > max_edges:
-                threshold = weights[-max_edges]
-                logger.info(
-                    f"Density cap raised threshold to {threshold:.3f} "
-                    f"({max_edges} edges at density "
-                    f"{self.max_density})"
-                )
+            threshold = self._find_threshold(
+                max_edges = int(self.max_density * n * (n - 1) / 2) if n > 1 else 0,
+                weights   = sorted(w for _, _, w in candidates)
+            )
 
             G.add_weighted_edges_from(
                 [(s, t, w) for s, t, w in candidates if w >= threshold],
@@ -223,19 +214,59 @@ class CareerPathwayGraph:
 
         return G
 
-    def _find_threshold(self, weights: list[float]) -> float:
+    def _edge_weight(
+        self,
+        ci : int,
+        cj : int
+    ) -> tuple[float, int]:
+        """
+        Top-k mean NPMI for a cluster pair.
+
+        Uses NPMI rather than PPMI so that edge weights are bounded to
+        [0, 1] and interpretable as association strength independent of
+        skill frequency. The top-k aggregation retains the strongest
+        inter-cluster bridges where k = min(10, |Ci|, |Cj|). Operates
+        directly on the sparse NPMI matrix to avoid dense materialization.
+
+        Args:
+            ci : First cluster ID.
+            cj : Second cluster ID.
+
+        Returns:
+            Tuple of (top-k mean NPMI, count of positive pairs).
+        """
+        idx_i = [self.vocab[s] for s in self.profiles[ci].skills if s in self.vocab]
+        idx_j = [self.vocab[s] for s in self.profiles[cj].skills if s in self.vocab]
+
+        if not idx_i or not idx_j:
+            return 0.0, 0
+
+        values = self.network.npmi_matrix[np.ix_(idx_i, idx_j)].data
+        values = values[values > 0]
+
+        if len(values) == 0:
+            return 0.0, 0
+
+        k    = min(10, len(idx_i), len(idx_j), len(values))
+        topk = np.partition(values, -k)[-k:]
+        return topk.mean(), len(values)
+    
+    def _find_threshold(
+        self,
+        max_edges : int,
+        weights   : list[float]
+    ) -> float:
         """
         Select edge weight threshold via knee detection.
 
-        Finds the knee of the sorted weight curve where values
-        transition from the noise floor to the signal regime,
-        matching the pattern used by `CooccurrenceNetwork` for
-        co-occurrence thresholds and by `ClusterComparison` for
-        DBSCAN epsilon. Falls back to the 75th percentile when
-        fewer than 3 candidates exist or no knee is found.
+        Finds the knee of the sorted weight curve where values transition
+        from the noise floor to the signal regime, matching the pattern used
+        by `CooccurrenceNetwork` for co-occurrence thresholds and by
+        `ClusterComparison` for DBSCAN epsilon. Falls back to the 75th
+        percentile when fewer than 3 candidates exist or no knee is found.
 
         Args:
-            weights: Candidate edge weights in ascending order.
+            weights : Candidate edge weights in ascending order.
 
         Returns:
             Weight threshold at or above the knee.
@@ -255,65 +286,33 @@ class CareerPathwayGraph:
                 "Edge weight knee detection found no inflection, "
                 "using 75th percentile"
             )
-            return np.percentile(weights, 75)
+            threshold = np.percentile(weights, 75)
+        else:
+            threshold = weights[knee]
 
-        return weights[knee]
+        if max_edges and sum(1 for w in weights if w >= threshold) > max_edges:
+            threshold = weights[-max_edges]
+            logger.info(
+                f"Density cap raised threshold to {threshold:.3f} "
+                f"({max_edges} edges at density "
+                f"{self.max_density})"
+            )
 
-    def _edge_weight(
-        self,
-        ci    : int,
-        cj    : int,
-        npmi  : csr_array,
-        vocab : dict[str, int]
-    ) -> tuple[float, int]:
-        """
-        Top-k mean NPMI for a cluster pair.
+        return threshold
 
-        Uses NPMI rather than PPMI so that edge weights are
-        bounded to [0, 1] and interpretable as association
-        strength independent of skill frequency. The top-k
-        aggregation retains the strongest inter-cluster bridges
-        where k = min(10, |Ci|, |Cj|). Operates directly on
-        the sparse NPMI matrix to avoid dense materialization.
-
-        Args:
-            ci    : First cluster ID.
-            cj    : Second cluster ID.
-            npmi  : Sparse NPMI matrix from the co-occurrence
-                    network.
-            vocab : Skill name to column index mapping.
-
-        Returns:
-            Tuple of (top-k mean NPMI, count of positive pairs).
-        """
-        idx_i = [vocab[s] for s in self.profiles[ci].skills if s in vocab]
-        idx_j = [vocab[s] for s in self.profiles[cj].skills if s in vocab]
-
-        if not idx_i or not idx_j:
-            return 0.0, 0
-
-        values = npmi[np.ix_(idx_i, idx_j)].data
-        values = values[values > 0]
-
-        if len(values) == 0:
-            return 0.0, 0
-
-        k    = min(10, len(idx_i), len(idx_j), len(values))
-        topk = np.partition(values, -k)[-k:]
-        return topk.mean(), len(values)
 
     def export(self, output_dir: Path) -> GraphExport:
         """
-        Export the career graph as GraphML and JSON to the
-        specified output directory, creating it if needed.
+        Export the career graph as GraphML and JSON to the specified output
+        directory, creating it if needed.
 
         GraphML includes only scalar node and edge attributes for
-        interoperability with Gephi and Cytoscape. JSON preserves
-        full attribute fidelity including nested program lists via
+        interoperability with Gephi and Cytoscape. JSON preserves full
+        attribute fidelity including nested program lists via
         `node_link_data`.
 
         Args:
-            output_dir: Target directory for export artifacts.
+            output_dir : Target directory for export artifacts.
 
         Returns:
             Export paths for GraphML and JSON artifacts.
