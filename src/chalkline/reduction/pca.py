@@ -81,10 +81,10 @@ class PcaReducer:
 
         cumulative               = np.cumsum(self.explained_variance_ratio)
         self.n_selected          = min(
-            int(np.searchsorted(cumulative, variance_threshold)) + 1,
+            np.searchsorted(cumulative, variance_threshold) + 1,
             effective_max
         )
-        self.cumulative_variance = float(cumulative[self.n_selected - 1])
+        self.cumulative_variance = cumulative[self.n_selected - 1]
 
         self.pipeline = Pipeline([
             ("svd", TruncatedSVD(
@@ -119,7 +119,7 @@ class PcaReducer:
             ComponentLoading(
                 index          = i,
                 terms          = names[indices].tolist(),
-                variance_ratio = float(self.explained_variance_ratio[i]),
+                variance_ratio = self.explained_variance_ratio[i],
                 weights        = row[indices].tolist()
             )
             for i, row in enumerate(

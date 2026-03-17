@@ -6,10 +6,11 @@ fixture chain.
 
 from networkx import DiGraph
 
-from chalkline.pathways.routing import CareerRouter
-from chalkline.pathways.schemas import LearningPlan
-from chalkline.pipeline.schemas import ApprenticeshipContext
-from chalkline.pipeline.schemas import ClusterProfile, ProgramRecommendation
+from chalkline.pathways.routing    import CareerRouter
+from chalkline.pathways.schemas    import LearningPlan
+from chalkline.pipeline.enrichment import EnrichmentContext
+from chalkline.pipeline.schemas    import ApprenticeshipContext
+from chalkline.pipeline.schemas    import ClusterProfile, ProgramRecommendation
 
 
 def _make_linear_router() -> CareerRouter:
@@ -84,7 +85,14 @@ def _make_linear_router() -> CareerRouter:
     G.edges[0, 1]["term_hours_delta"] = 1000
     G.edges[2, 3]["term_hours_delta"] = 3000
 
-    return CareerRouter(G, profiles)
+    apps  = [p.apprenticeship for p in profiles.values() if p.apprenticeship]
+    progs = [p for prof in profiles.values() for p in prof.programs]
+
+    return CareerRouter(
+        enrichment = EnrichmentContext(apps, progs),
+        graph      = G,
+        profiles   = profiles
+    )
 
 
 def _make_diamond_router() -> CareerRouter:
@@ -140,7 +148,11 @@ def _make_diamond_router() -> CareerRouter:
         (2, 3, 0.9)
     ], direction_source="job_zone")
 
-    return CareerRouter(G, profiles)
+    return CareerRouter(
+        enrichment = EnrichmentContext([], []),
+        graph      = G,
+        profiles   = profiles
+    )
 
 
 class TestCareerRouter:
@@ -187,7 +199,11 @@ class TestCareerRouter:
             (cid, profile.model_dump(mode="json"))
             for cid, profile in profiles.items()
         )
-        c = CareerRouter(G, profiles).centrality
+        c = CareerRouter(
+            enrichment = EnrichmentContext([], []),
+            graph      = G,
+            profiles   = profiles
+        ).centrality
         assert all(v == 0.0 for v in c.betweenness.values())
         assert abs(sum(c.pagerank.values()) - 1.0) < 1e-10
 

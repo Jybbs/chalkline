@@ -10,14 +10,12 @@ from pathlib import Path
 from pytest  import mark, raises
 
 from chalkline.pipeline.schemas import ApprenticeshipContext
-from chalkline.pipeline.schemas import DistanceMetric, PipelineConfig
-from chalkline.pipeline.schemas import ProgramRecommendation
+from chalkline.pipeline.schemas import PipelineConfig, ProgramRecommendation
 
 
 class TestPipelineConfig:
     """
-    Validate `PipelineConfig` constraints, defaults, and `DistanceMetric`
-    enum behavior.
+    Validate `PipelineConfig` constraints and defaults.
     """
 
     @staticmethod
@@ -42,7 +40,7 @@ class TestPipelineConfig:
         assert config.min_cooccurrence == 0.05
 
     @mark.parametrize("field, expected", [
-        ("distance_metric",      DistanceMetric.EUCLIDEAN),
+        ("distance_metric",      "euclidean"),
         ("max_components",       20),
         ("min_cooccurrence",     "auto"),
         ("random_seed",          42),
@@ -56,35 +54,12 @@ class TestPipelineConfig:
         """
         assert getattr(self._config(tmp_path), field) == expected
 
-    def test_distance_metric_coercion(self, tmp_path: Path):
-        """
-        A raw string coerces to the correct enum member when passed through
-        `PipelineConfig`.
-        """
-        assert self._config(
-            tmp_path, distance_metric="cosine"
-        ).distance_metric is DistanceMetric.COSINE
-
-    def test_distance_metric_members(self):
-        """
-        All expected distance metrics are defined.
-        """
-        assert set(DistanceMetric) == {"cosine", "euclidean", "standardized_euclidean"}
-
     def test_extra_fields(self, tmp_path: Path):
         """
         Unknown fields raise `ValidationError` per `extra="forbid"`.
         """
         with raises(Exception, match="Extra inputs"):
             self._config(tmp_path, stale_field=True)
-
-    def test_invalid_distance_metric(self, tmp_path: Path):
-        """
-        Unrecognized metric strings fail at construction, not downstream in
-        sklearn.
-        """
-        with raises(Exception):
-            self._config(tmp_path, distance_metric="manhattan")
 
     def test_missing_fields(self):
         """
@@ -108,9 +83,9 @@ class TestPipelineConfig:
         """
         assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0
 
-    # -----------------------------------------------------------------
+    # ---------------------------------------------------------
     # ApprenticeshipContext
-    # -----------------------------------------------------------------
+    # ---------------------------------------------------------
 
     def test_apprenticeship_extra(self):
         """
@@ -124,9 +99,9 @@ class TestPipelineConfig:
                 unknown     = True
             )
 
-    # -----------------------------------------------------------------
+    # ---------------------------------------------------------
     # ProgramRecommendation
-    # -----------------------------------------------------------------
+    # ---------------------------------------------------------
 
     def test_program_extra(self):
         """

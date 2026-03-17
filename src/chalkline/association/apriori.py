@@ -10,6 +10,7 @@ pipeline.
 
 import pandas as pd
 
+from itertools                 import takewhile
 from mlxtend.frequent_patterns import apriori, association_rules
 from scipy.sparse              import spmatrix
 
@@ -66,69 +67,35 @@ class AprioriComparison:
             `AprioriResult` with the final support threshold, itemset
             and rule counts, and a summary of the top 20 rules.
         """
-        support  = min_support
         itemsets = pd.DataFrame()
         rules    = pd.DataFrame()
-
-        while support >= 0.01:
+        for support in takewhile(
+            lambda s: s >= 0.01,
+            (min_support / 2**i for i in range(20))
+        ):
             itemsets = apriori(
                 self.boolean_df,
-                min_support    = support,
-                use_colnames   = True
+                min_support  = support,
+                use_colnames = True
             )
-            if not itemsets.empty:
-                rules = association_rules(
-                    itemsets,
-                    metric        = "confidence",
-                    min_threshold = 0.3
-                )
-                rules = rules[rules["lift"] > 1.0]
-                if not rules.empty:
-                    break
-            support /= 2
+            if itemsets.empty:
+                continue
+            rules = association_rules(
+                itemsets,
+                metric        = "confidence",
+                min_threshold = 0.3
+            )
+            if not (rules := rules[rules["lift"] > 1.0]).empty:
+                break
 
         return AprioriResult(
             min_support   = support,
             n_itemsets    = len(itemsets),
             n_rules       = len(rules),
-            rules_summary = [
-                {
-                    "antecedents" : sorted(row["antecedents"]),
-                    "confidence"  : float(row["confidence"]),
-                    "consequents" : sorted(row["consequents"]),
-                    "lift"        : float(row["lift"]),
-                    "support"     : float(row["support"])
-                }
-                for _, row in rules.head(20).iterrows()
-            ]
+            rules_summary = (top := rules.head(20)).assign(
+                antecedents = top["antecedents"].map(sorted),
+                consequents = top["consequents"].map(sorted)
+            )[
+                ["antecedents", "confidence", "consequents", "lift", "support"]
+            ].to_dict(orient="records")
         )
-
-    def overlap(self, ppmi_pairs: set[tuple[str, str]]) -> float:
-        """
-        Jaccard overlap between Apriori and PPMI positive pairs.
-
-            J = |P_apriori ∩ P_ppmi| / |P_apriori ∪ P_ppmi|
-
-        where P_apriori is the set of skill pairs with lift > 1.0 and
-        P_ppmi is the set of pairs with positive PPMI from the
-        co-occurrence network.
-
-        Args:
-            ppmi_pairs: Canonically ordered (skill_a, skill_b) tuples
-                        with positive PPMI.
-
-        Returns:
-            Jaccard similarity coefficient in [0, 1], or 0.0 when both
-            pair sets are empty.
-        """
-        apriori_pairs = {
-            tuple(sorted([ant, con]))
-            for rule in self.mine().rules_summary
-            for ant in rule["antecedents"]
-            for con in rule["consequents"]
-        }
-
-        if not apriori_pairs and not ppmi_pairs:
-            return 0.0
-
-        return len(apriori_pairs & ppmi_pairs) / len(apriori_pairs | ppmi_pairs)

@@ -57,18 +57,3 @@ class CopheneticResult(BaseModel, extra="forbid"):
 
     correlation : float
     method      : NonEmptyStr
-
-
-class ValidationMetrics(BaseModel, extra="forbid"):
-    """
-    Internal validity metrics for a hierarchical cluster partition.
-
-    All metric fields are optional because degenerate clusterings (fewer
-    than 2 clusters) cannot produce internal validity scores.
-    `silhouette_samples` is an empty list in the degenerate case.
-    """
-
-    calinski_harabasz  : float | None = None
-    davies_bouldin     : float | None = None
-    silhouette         : float | None = None
-    silhouette_samples : list[float]  = Field(default_factory = list)

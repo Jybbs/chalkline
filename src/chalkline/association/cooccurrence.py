@@ -70,36 +70,13 @@ class CooccurrenceNetwork:
         self.n_docs        = binary_matrix.shape[0]
         self.random_seed   = random_seed
 
-        B = csc_array(binary_matrix)
-        self.doc_freq = np.diff(B.indptr)
-
-        C = (B.T @ B).tocsr()
-        C.setdiag(0)
-        C.eliminate_zeros()
-
-        if min_cooccurrence == "auto":
-            self.threshold = self._find_threshold(C)
-        else:
-            self.threshold = max(3, ceil(min_cooccurrence * self.n_docs))
-
-        C.data[C.data < self.threshold] = 0
-        C.eliminate_zeros()
-
-        self.cooccurrence = C
+        self.doc_freq, self.cooccurrence, self.threshold = (
+            self._build_cooccurrence(binary_matrix, min_cooccurrence)
+        )
 
     # -----------------------------------------------------------------
     # Cached properties
     # -----------------------------------------------------------------
-
-    @cached_property
-    def feature_index(self) -> dict[str, int]:
-        """
-        Reverse lookup from skill name to column position.
-
-        Returns:
-            Mapping from feature name to zero-based column index.
-        """
-        return {n: i for i, n in enumerate(self.feature_names)}
 
     @cached_property
     def gtest_matrix(self) -> csr_array:
@@ -118,8 +95,8 @@ class CooccurrenceNetwork:
             Symmetric `csr_array` of G-test statistics with the same
             sparsity pattern as the thresholded co-occurrence matrix.
         """
-        C  = triu(self.cooccurrence, format = "coo")
-        n  = float(self.n_docs)
+        C = triu(self.cooccurrence, format = "coo")
+        n = self.n_docs
         df = self.doc_freq.astype(float)
 
         a = C.data.astype(float)
@@ -153,48 +130,43 @@ class CooccurrenceNetwork:
     @cached_property
     def npmi_matrix(self) -> csr_array:
         """
-        Normalized pointwise mutual information with positive clipping.
+        Normalized pointwise mutual information with positive
+        clipping.
 
-            NPMI(x, y) = PMI(x, y) / -log(C_xy / n)
+            NPMI(x, y) = log(n · C_xy / (df_x · df_y))
+                         / log(n / C_xy)
 
-        Divides PMI by the negative log joint probability for each
-        pair, bounding values to [-1, 1]. Pairs where both skills
-        appear in every posting are capped at 1.0 rather than
-        dividing by zero. Negative values are clipped to zero
-        (NPMI+) for graph construction.
+        Bounded to [0, 1] by clipping. Pairs where both skills
+        appear in every posting use a floored denominator rather
+        than dividing by zero.
 
         Returns:
             Sparse `csr_array` of NPMI+ values in [0, 1].
         """
-        pmi   = self.pmi_matrix.copy()
-        denom = np.log(self.n_docs / self.cooccurrence.data.astype(float))
-
-        pmi.data = np.where(denom > 0, pmi.data / denom, 1.0)
-        np.clip(pmi.data, 0, 1.0, out = pmi.data)
-        pmi.eliminate_zeros()
-        return pmi
+        npmi = self.cooccurrence.astype(float)
+        npmi.data = np.clip(
+            self._pmi_values() / np.maximum(
+                np.log(self.n_docs / npmi.data), 1e-10
+            ), 0, 1.0
+        )
+        npmi.eliminate_zeros()
+        return npmi
 
     @cached_property
     def partition(self) -> list[set]:
         """
-        Louvain communities on the NPMI graph, sorted by size
-        descending.
+        Louvain communities on the NPMI graph.
 
         Returns:
             List of sets, each containing skill-name node
             identifiers for one community.
         """
-        return sorted(
-            self._louvain(self.graph()), key=len, reverse=True
-        )
+        return self._louvain(self.graph())
 
     @cached_property
     def partition_map(self) -> dict[str, int]:
         """
         Flat mapping from skill name to Louvain community index.
-
-        Derived from `partition` by enumerating communities in
-        size-descending order, so community 0 is always the largest.
 
         Returns:
             Mapping from skill name to community index.
@@ -206,52 +178,64 @@ class CooccurrenceNetwork:
         }
 
     @cached_property
-    def pmi_matrix(self) -> csr_array:
-        """
-        Pointwise mutual information as sparse matrix algebra.
-
-            PMI(x, y) = log(n · C_xy / (df_x · df_y))
-
-        where `C_xy` is the co-occurrence count, `df_x` and `df_y`
-        are document frequencies, and `n` is the corpus size. Applies
-        log directly to the sparse data attribute to avoid densifying
-        the matrix.
-
-        Returns:
-            Sparse `csr_array` of raw PMI values, potentially
-            negative for pairs that co-occur less than expected.
-        """
-        n  = self.n_docs
-        df = self.doc_freq.astype(float)
-        C  = self.cooccurrence.copy().astype(float)
-
-        rows, cols = C.nonzero()
-        C.data = np.log(
-            (n * C.data) / (df[rows] * df[cols])
-        )
-        return C
-
-    @cached_property
     def ppmi_matrix(self) -> csr_array:
         """
         Positive pointwise mutual information.
 
-            PPMI(x, y) = max(0, PMI(x, y))
+            PPMI(x, y) = max(0, log(n · C_xy / (df_x · df_y)))
 
-        Clips negative PMI values to zero and eliminates the resulting
-        structural zeros.
+        Clips negative values to zero.
 
         Returns:
             Sparse `csr_array` of non-negative PMI values.
         """
-        ppmi = self.pmi_matrix.copy()
-        ppmi.data = np.maximum(ppmi.data, 0)
+        ppmi = self.cooccurrence.astype(float)
+        ppmi.data = np.maximum(self._pmi_values(), 0)
         ppmi.eliminate_zeros()
         return ppmi
 
     # -----------------------------------------------------------------
     # Private methods
     # -----------------------------------------------------------------
+
+    def _build_cooccurrence(
+        self,
+        binary_matrix    : spmatrix,
+        min_cooccurrence : float | str
+    ) -> tuple[np.ndarray, csr_array, int]:
+        """
+        Compute document frequencies and the thresholded
+        co-occurrence matrix from the binary presence/absence
+        matrix.
+
+        Converts to CSC for efficient column access, derives
+        document frequencies from column pointers, multiplies
+        B^T @ B to get pairwise co-occurrence counts, zeros the
+        diagonal, and applies a threshold selected via modularity
+        knee detection (auto) or a corpus fraction with a floor
+        of 3.
+
+        Args:
+            binary_matrix    : Binary presence/absence matrix.
+            min_cooccurrence : `"auto"` or float corpus fraction.
+
+        Returns:
+            Tuple of (document frequency array, thresholded CSR
+            co-occurrence matrix, threshold value).
+        """
+        B = csc_array(binary_matrix)
+        C = (B.T @ B).tocsr()
+        C.setdiag(0)
+        C.eliminate_zeros()
+
+        threshold = (
+            self._find_threshold(C) if min_cooccurrence == "auto"
+            else max(3, ceil(min_cooccurrence * self.n_docs))
+        )
+
+        C.data[C.data < threshold] = 0
+        C.eliminate_zeros()
+        return np.diff(B.indptr), C, threshold
 
     def _find_threshold(self, C: csr_array) -> int:
         """
@@ -326,9 +310,54 @@ class CooccurrenceNetwork:
             G, seed = self.random_seed, weight = "weight"
         )
 
+    def _pmi_values(self) -> np.ndarray:
+        """
+        Raw PMI values for all thresholded co-occurrence pairs.
+
+            PMI(x, y) = log(n · C_xy / (df_x · df_y))
+
+        Returns the flat data array aligned with
+        `self.cooccurrence.data` for direct assignment into a
+        structural copy of the cooccurrence matrix.
+        """
+        C          = self.cooccurrence
+        df         = self.doc_freq.astype(float)
+        rows, cols = C.nonzero()
+        return np.log(
+            (self.n_docs * C.data.astype(float))
+            / (df[rows] * df[cols])
+        )
+
     # -----------------------------------------------------------------
     # Public methods
     # -----------------------------------------------------------------
+
+    def association_dataframe(self, variant: str = "npmi") -> pd.DataFrame:
+        """
+        Dense symmetric DataFrame for a PMI variant.
+
+        Materializes the requested sparse association matrix into a
+        labeled DataFrame indexed by skill names. The `"ppmi"`
+        variant feeds `ResumeMatcher` gap ranking, while `"npmi"`
+        feeds graph edge weight analysis.
+
+        Args:
+            variant: One of `"npmi"` or `"ppmi"`.
+
+        Returns:
+            Square `pd.DataFrame` with skill names as both index
+            and columns.
+        """
+        matrix = {
+            "npmi" : self.npmi_matrix,
+            "ppmi" : self.ppmi_matrix
+        }[variant]
+
+        return pd.DataFrame(
+            matrix.toarray(),
+            columns = self.feature_names,
+            index   = self.feature_names
+        )
 
     def communities(
         self,
@@ -476,83 +505,6 @@ class CooccurrenceNetwork:
             dict(enumerate(self.feature_names))
         )
 
-    def indices_for(self, skills: list[str]) -> list[int]:
-        """
-        Map skill names to matrix column positions.
-
-        Args:
-            skills: Canonical skill names to resolve.
-
-        Returns:
-            Column indices for skills present in the vocabulary.
-        """
-        return [
-            self.feature_index[s]
-            for s in skills
-            if s in self.feature_index
-        ]
-
-    def pairwise_ppmi(
-        self,
-        indices_i : list[int],
-        indices_j : list[int]
-    ) -> np.ndarray:
-        """
-        Extract PPMI values for inter-group skill pairs.
-
-        Returns the data array from the sparse submatrix defined by
-        the two index sets, suitable for filtering and aggregation.
-
-        Args:
-            indices_i : Column indices for the first skill group.
-            indices_j : Column indices for the second skill group.
-
-        Returns:
-            Flat array of PPMI values at the cross-product positions.
-        """
-        return self.ppmi_matrix[np.ix_(indices_i, indices_j)].data
-
-    def pairwise_npmi(
-        self,
-        indices_i : list[int],
-        indices_j : list[int]
-    ) -> np.ndarray:
-        """
-        Extract NPMI values for inter-group skill pairs.
-
-        Normalized variant of `pairwise_ppmi` bounded to [0, 1],
-        removing frequency-dependent inflation so that edge weights
-        are interpretable as association strength regardless of
-        skill rarity.
-
-        Args:
-            indices_i : Column indices for the first skill group.
-            indices_j : Column indices for the second skill group.
-
-        Returns:
-            Flat array of NPMI+ values at the cross-product
-            positions.
-        """
-        return self.npmi_matrix[np.ix_(indices_i, indices_j)].data
-
-    def pmi_dataframe(self) -> pd.DataFrame:
-        """
-        Symmetric NPMI DataFrame indexed by skill names.
-
-        The dense conversion is scoped to this call. Used by CL-10
-        for gap ranking where skill-pair weights inform which gaps
-        are most actionable.
-
-        Returns:
-            Square `pd.DataFrame` with skill names as both index and
-            columns, containing NPMI+ values.
-        """
-        return pd.DataFrame(
-            self.npmi_matrix.toarray(),
-            columns = self.feature_names,
-            index   = self.feature_names
-        )
-
     def trade_alignment(self, apprenticeships: list[dict]) -> dict:
         """
         Compare Louvain communities against apprenticeship trades.
@@ -576,10 +528,8 @@ class CooccurrenceNetwork:
 
         alignments = [
             {
-                "community"   : self.partition_map.get(
-                    title := trade["title"].lower()
-                ),
-                "matched"     : title in nodes,
+                "community"   : self.partition_map.get(t := trade["title"].lower()),
+                "matched"     : t in nodes,
                 "rapids_code" : trade["rapids_code"],
                 "title"       : trade["title"]
             }

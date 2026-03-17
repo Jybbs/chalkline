@@ -6,7 +6,6 @@ apprenticeship and educational program reference data consumed across
 matching, pathways, and report generation modules.
 """
 
-from enum      import StrEnum
 from functools import cached_property
 from pathlib   import Path
 from pydantic  import BaseModel, Field
@@ -60,20 +59,21 @@ class ClusterProfile(BaseModel, extra="forbid"):
         return (self.job_zone, self.cluster_id)
 
 
-class DistanceMetric(StrEnum):
+class PipelineManifest(BaseModel, extra="forbid"):
     """
-    Distance functions for resume matching and clustering comparison.
+    Provenance metadata for serialized pipeline artifacts.
 
-    `EUCLIDEAN` is the default because `StandardScaler(with_mean=False)`
-    is always applied after PCA, making Euclidean on scaled coordinates
-    equivalent to standardized Euclidean on raw PCA output. `COSINE`
-    and `STANDARDIZED_EUCLIDEAN` exist for comparison experiments in
-    CL-08.
+    Tracks which corpus and configuration produced the fitted
+    artifacts so that stale caches can be detected on reload.
+    The `geometry_params` field stores the output of
+    `Pipeline.get_params(deep=True)` for ground-truth
+    reproducibility without manually mirroring config values.
     """
 
-    COSINE                 = "cosine"
-    EUCLIDEAN              = "euclidean"
-    STANDARDIZED_EUCLIDEAN = "standardized_euclidean"
+    corpus_size     : int
+    geometry_params : dict
+    posting_ids     : list[str]
+    timestamp       : str
 
 
 class PipelineConfig(BaseModel, extra="forbid"):
@@ -89,7 +89,7 @@ class PipelineConfig(BaseModel, extra="forbid"):
     output_dir   : Path
     postings_dir : Path
 
-    distance_metric    : DistanceMetric = DistanceMetric.EUCLIDEAN
+    distance_metric    : str            = "euclidean"
     max_components     : int            = 20
     max_graph_density  : float          = 0.05
     min_cooccurrence   : float | str    = "auto"

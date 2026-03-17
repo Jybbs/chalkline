@@ -18,36 +18,37 @@ Lexicon fixtures feed the extractor via the registry:
     supplement_terms┘
 """
 
-import pandas as pd
-
-from collections      import Counter, defaultdict
 from json             import loads
 from pathlib          import Path
 from pytest           import fixture, FixtureRequest
 from sklearn.pipeline import Pipeline
 
-from chalkline.association.apriori      import AprioriComparison
-from chalkline.association.cooccurrence import CooccurrenceNetwork
-from chalkline.clustering.comparison    import ClusterComparison
-from chalkline.clustering.hierarchical  import compute_sector_labels
-from chalkline.clustering.hierarchical  import HierarchicalClusterer
-from chalkline.clustering.schemas       import ClusterLabel
-from chalkline.collection.schemas       import Posting
-from chalkline.extraction.lexicons      import LexiconRegistry
-from chalkline.extraction.loaders       import load_certifications, load_onet
-from chalkline.extraction.loaders       import load_osha, load_supplement
-from chalkline.extraction.occupations   import OccupationIndex
-from chalkline.extraction.schemas       import Certification, OnetOccupation
-from chalkline.extraction.skills        import SkillExtractor
-from chalkline.extraction.vectorize     import SkillVectorizer
-from chalkline.matching.matcher         import ResumeMatcher
-from chalkline.matching.schemas         import MatchResult
-from chalkline.pathways.graph           import CareerPathwayGraph
-from chalkline.pathways.routing         import CareerRouter
-from chalkline.pipeline.programs        import load_programs
-from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
-from chalkline.reduction.pca            import PcaReducer
+from chalkline.association.apriori       import AprioriComparison
+from chalkline.association.cooccurrence  import CooccurrenceNetwork
+from chalkline.clustering.comparison     import ClusterComparison
+from chalkline.clustering.hierarchical   import HierarchicalClusterer
+from chalkline.clustering.schemas        import ClusterLabel
+from chalkline.collection.schemas        import Posting
+from chalkline.extraction.lexicons       import LexiconRegistry
+from chalkline.extraction.loaders        import load_certifications, load_onet
+from chalkline.extraction.loaders        import load_osha, load_supplement
+from chalkline.extraction.occupations    import OccupationIndex
+from chalkline.extraction.schemas        import Certification, OnetOccupation
+from chalkline.extraction.skills         import SkillExtractor
+from chalkline.extraction.vectorize      import SkillVectorizer
+from chalkline.matching.matcher          import ResumeMatcher
+from chalkline.matching.schemas          import MatchResult
+from chalkline.pathways.graph            import CareerPathwayGraph
+from chalkline.pathways.routing          import CareerRouter
+from chalkline.pipeline.enrichment       import EnrichmentContext
+from chalkline.pipeline.orchestrator     import build_profiles, compose_geometry
+from chalkline.pipeline.orchestrator     import compute_sector_labels
+from chalkline.pipeline.orchestrator     import deduplicate_apprenticeships
+from chalkline.pipeline.orchestrator     import deduplicate_programs
+from chalkline.pipeline.programs         import load_programs
+from chalkline.pipeline.schemas          import ApprenticeshipContext, ClusterProfile
+from chalkline.pipeline.schemas          import ProgramRecommendation
+from chalkline.reduction.pca             import PcaReducer
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -396,24 +397,25 @@ def apprenticeships() -> list[ApprenticeshipContext]:
 
 
 @fixture
+def enrichment(
+    apprenticeships : list[ApprenticeshipContext],
+    programs        : list[ProgramRecommendation]
+) -> EnrichmentContext:
+    """
+    Shared enrichment context with precomputed prefix lookups.
+    """
+    return EnrichmentContext(
+        apprenticeships = apprenticeships,
+        programs        = programs
+    )
+
+
+@fixture
 def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> Pipeline:
     """
     Combined geometry pipeline from vectorization through scaling.
-
-    Chains the fitted steps from `SkillVectorizer.pipeline` and
-    `PcaReducer.pipeline` into a single `Pipeline` whose
-    `transform([skill_dict])` projects a resume directly into PCA-scaled
-    coordinates.
     """
-    vec_steps = vectorizer.pipeline.named_steps
-    pca_steps = pca_reducer.pipeline.named_steps
-    return Pipeline([
-        ("vec",    vec_steps["vec"]),
-        ("tfidf",  vec_steps["tfidf"]),
-        ("norm",   vec_steps["norm"]),
-        ("svd",    pca_steps["svd"]),
-        ("scaler", pca_steps["scaler"])
-    ])
+    return compose_geometry(reducer=pca_reducer, vectorizer=vectorizer)
 
 
 @fixture
@@ -426,12 +428,11 @@ def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResul
 
 @fixture
 def matcher(
-    apprenticeships   : list[ApprenticeshipContext],
     clusterer         : HierarchicalClusterer,
+    enrichment        : EnrichmentContext,
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,
     network           : CooccurrenceNetwork,
-    programs          : list[ProgramRecommendation],
     vectorizer        : SkillVectorizer
 ) -> ResumeMatcher:
     """
@@ -442,23 +443,13 @@ def matcher(
         tfidf_matrix  = vectorizer.tfidf_matrix,
         top_n         = 50
     )
-    ppmi_df = pd.DataFrame(
-        network.ppmi_matrix.toarray(),
-        columns = network.feature_names,
-        index   = network.feature_names
-    )
     return ResumeMatcher(
-        apprenticeships   = apprenticeships,
-        assignments       = clusterer.assignments,
         cluster_labels    = cluster_labels_50,
-        coordinates       = clusterer.coordinates,
-        distance_metric   = DistanceMetric.EUCLIDEAN,
-        document_ids      = clusterer.document_ids,
+        clusterer         = clusterer,
+        enrichment        = enrichment,
         extracted_skills  = extracted_skills,
         geometry_pipeline = geometry_pipeline,
-        ppmi_df           = ppmi_df,
-        programs          = programs,
-        top_k_gaps        = 10
+        ppmi_df           = network.association_dataframe("ppmi")
     )
 
 
@@ -487,77 +478,47 @@ def resume_skills() -> list[str]:
 
 @fixture
 def pathway_graph(
-    apprenticeships  : list[ApprenticeshipContext],
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
+    enrichment       : EnrichmentContext,
     extracted_skills : dict[str, list[str]],
     network          : CooccurrenceNetwork,
     occupation_index : OccupationIndex,
-    programs         : list[ProgramRecommendation],
     sector_labels    : list[str]
 ) -> CareerPathwayGraph:
     """
     Build a career pathway graph from the full fixture pipeline.
-
-    Pre-computes fully enriched `ClusterProfile` records (including
-    apprenticeship and program matches via prefix overlap) before
-    passing them to the graph constructor.
     """
-    cluster_skills: dict[int, set[str]] = defaultdict(set)
-    for doc, cid in zip(clusterer.document_ids, clusterer.assignments):
-        cluster_skills[int(cid)].update(extracted_skills.get(doc, []))
+    profiles = build_profiles(
+        cluster_labels   = cluster_labels,
+        clusterer        = clusterer,
+        enrichment       = enrichment,
+        extracted_skills = extracted_skills,
+        occupation_index = occupation_index,
+        sector_labels    = sector_labels
+    )
 
-    by_cluster: dict[int, list[str]] = defaultdict(list)
-    for soc, cid in zip(sector_labels, clusterer.assignments):
-        by_cluster[int(cid)].append(
-            occupation_index.get(soc).sector
-        )
-
-    size_map  = {cl.cluster_id: cl.size for cl in cluster_labels}
-    terms_map = {cl.cluster_id: cl.terms for cl in cluster_labels}
-
-    prefix   = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
-    trade_pf = {a.rapids_code: prefix(a.title) for a in apprenticeships}
-    prog_pf  = {
-        (p.institution, p.program): prefix(p.program) for p in programs
-    }
-
-    profiles: dict[int, ClusterProfile] = {}
-    for cid, skills in cluster_skills.items():
-        terms   = terms_map.get(cid, [])
-        node_pf = {p for text in (*terms, *skills) for p in prefix(text)}
-
-        matched = next(
-            (a for a in apprenticeships if node_pf & trade_pf[a.rapids_code]),
-            None
-        )
-
-        profiles[cid] = ClusterProfile(
-            cluster_id = cid,
-            job_zone   = occupation_index.job_zone_for_skills(
-                {s.lower() for s in skills}
-            ),
-            sector     = Counter(by_cluster[cid]).most_common(1)[0][0],
-            size       = size_map[cid],
-            skills     = skills,
-            terms      = terms,
-
-            apprenticeship = matched,
-            programs       = [
-                p for p in programs
-                if node_pf & prog_pf[p.institution, p.program]
-            ]
-        )
+    deduped_apps  = deduplicate_apprenticeships(profiles)
+    deduped_progs = deduplicate_programs(profiles)
 
     return CareerPathwayGraph(
-        network  = network,
-        profiles = profiles
+        apprenticeships = deduped_apps,
+        network         = network,
+        profiles        = profiles,
+        programs        = deduped_progs
     )
 
 
 @fixture
-def router(pathway_graph: CareerPathwayGraph) -> CareerRouter:
+def router(
+    enrichment    : EnrichmentContext,
+    pathway_graph : CareerPathwayGraph
+) -> CareerRouter:
     """
     Build a career router from the full fixture pipeline.
     """
-    return CareerRouter(pathway_graph.graph, pathway_graph.profiles)
+    return CareerRouter(
+        enrichment = enrichment,
+        graph      = pathway_graph.graph,
+        profiles   = pathway_graph.profiles
+    )

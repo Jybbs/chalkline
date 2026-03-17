@@ -14,9 +14,10 @@ import networkx as nx
 from itertools import accumulate, takewhile
 from logging   import getLogger
 
-from chalkline.pathways.schemas import CareerRoute, CentralityMetrics
-from chalkline.pathways.schemas import LearningPlan, TransitionStep
-from chalkline.pipeline.schemas import ClusterProfile
+from chalkline.pathways.schemas    import CareerRoute, CentralityMetrics
+from chalkline.pathways.schemas    import LearningPlan, TransitionStep
+from chalkline.pipeline.enrichment import EnrichmentContext, prefix_set
+from chalkline.pipeline.schemas    import ClusterProfile
 
 
 logger = getLogger(__name__)
@@ -37,8 +38,9 @@ class CareerRouter:
 
     def __init__(
         self,
-        graph    : nx.DiGraph,
-        profiles : dict[int, ClusterProfile]
+        enrichment : EnrichmentContext,
+        graph      : nx.DiGraph,
+        profiles   : dict[int, ClusterProfile]
     ):
         """
         Compute centrality and edge enrichment attributes eagerly.
@@ -46,13 +48,18 @@ class CareerRouter:
         Both passes are negligible at the expected graph scale
         (5-21 nodes under healthy clustering). Centrality scores
         are stored as node attributes, while bridging skills and
-        enrichment matches are stored as edge attributes.
+        enrichment matches are stored as edge attributes. The
+        shared `EnrichmentContext` provides precomputed prefix
+        lookup dicts for apprenticeship and program matching,
+        eliminating redundant prefix dict construction.
 
         Args:
-            graph    : Career DAG with weighted edges.
-            profiles : Enriched cluster characteristics keyed by
-                       cluster ID.
+            enrichment : Shared prefix lookup context.
+            graph      : Career DAG with weighted edges.
+            profiles   : Enriched cluster characteristics keyed
+                         by cluster ID.
         """
+        self.enrichment  = enrichment
         self.graph       = graph
         self.profiles    = profiles
         self.centrality  = self._compute_centrality()
@@ -112,31 +119,24 @@ class CareerRouter:
         For each edge, stores the skill set difference between
         target and source cluster profiles, matched apprenticeships,
         matched programs, and estimated training hours. Enrichment
-        matching uses 4-char prefix overlap against the bridging
-        skill set, following the same approach as `ResumeMatcher`.
+        matching delegates to the shared `EnrichmentContext` prefix
+        lookups rather than rebuilding them locally.
         """
-        prefix = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
-        apps   = [
-            p.apprenticeship for p in self.profiles.values()
-            if p.apprenticeship
-        ]
-        progs  = [
-            p for prof in self.profiles.values()
-            for p in prof.programs
-        ]
-
+        dump = lambda items: [x.model_dump(mode="json") for x in items]
         for s, t, data in self.graph.edges(data=True):
-            bridging = sorted(self.profiles[t].skills - self.profiles[s].skills)
-            skill_pf = {p for skill in bridging for p in prefix(skill)}
-            matched  = lambda items, attr: [
-                x for x in items if skill_pf & prefix(getattr(x, attr))
-            ]
+            bridging = sorted(
+                self.profiles[t].skills - self.profiles[s].skills
+            )
+            skill_pf = {
+                p for skill in bridging
+                for p in prefix_set(skill)
+            }
 
             data |= {
-                "apprenticeships" : matched(apps, "title"),
+                "apprenticeships" : dump(self.enrichment.find_apprenticeships(skill_pf)),
                 "bridging_skills" : bridging,
                 "estimated_hours" : data.get("term_hours_delta"),
-                "programs"        : matched(progs, "program")
+                "programs"        : dump(self.enrichment.find_programs(skill_pf))
             }
 
     def _route_from_path(self, path: list[int]) -> CareerRoute:

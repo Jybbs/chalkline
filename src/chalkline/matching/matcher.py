@@ -12,36 +12,20 @@ actionable recommendations.
 import numpy  as np
 import pandas as pd
 
+from functools         import cached_property
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline  import Pipeline
 
-from chalkline.clustering.schemas import ClusterLabel
-from chalkline.matching.schemas   import ClusterDistance, MatchResult
-from chalkline.matching.schemas   import NeighborMatch, RankedGap
-from chalkline.pipeline.schemas   import ApprenticeshipContext
-from chalkline.pipeline.schemas   import DistanceMetric, ProgramRecommendation
+from chalkline.clustering.hierarchical import HierarchicalClusterer
+from chalkline.clustering.schemas      import ClusterLabel
+from chalkline.matching.schemas        import ClusterDistance, MatchResult
+from chalkline.matching.schemas        import NeighborMatch, RankedGap
+from chalkline.pipeline.enrichment import EnrichmentContext, prefix_set
 
 
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
-
-def _prefix_set(text: str) -> set[str]:
-    """
-    Extract 4-character word prefixes from text.
-
-    Filters to words of 4+ characters and truncates to 4-char prefixes,
-    catching inflectional variants across the construction domain
-    (welding/welder, electrical/electrician, scaffolding/scaffold).
-
-    Args:
-        text: Raw text to extract prefixes from.
-
-    Returns:
-        Set of lowercased 4-character prefixes.
-    """
-    return {w[:4] for w in text.lower().split() if len(w) >= 4}
-
 
 def jaccard(a: set[str], b: set[str]) -> float:
     """
@@ -71,140 +55,92 @@ class ResumeMatcher:
     Resume projection into fitted PCA space with cluster matching
     and PPMI gap ranking.
 
-    Receives fitted pipeline artifacts, computes cluster centroids,
-    and exposes a `match()` method that projects a resume's skill
-    list into the shared coordinate space, assigns it to the nearest
-    career family, identifies skill gaps from neighboring postings,
-    and ranks gaps by centroid-scoped mean PPMI relevance.
+    Receives fitted pipeline artifacts via the orchestrator's shared
+    state objects, computes cluster centroids, and exposes a `match()`
+    method that projects a resume's skill list into the shared
+    coordinate space, assigns it to the nearest career family,
+    identifies skill gaps from neighboring postings, and ranks gaps
+    by centroid-scoped mean PPMI relevance.
     """
 
     def __init__(
         self,
-        apprenticeships   : list[ApprenticeshipContext],
-        assignments       : np.ndarray,
         cluster_labels    : list[ClusterLabel],
-        coordinates       : np.ndarray,
-        distance_metric   : DistanceMetric,
-        document_ids      : list[str],
+        clusterer         : HierarchicalClusterer,
+        enrichment        : EnrichmentContext,
         extracted_skills  : dict[str, list[str]],
         geometry_pipeline : Pipeline,
-        ppmi_df           : pd.DataFrame,
-        programs          : list[ProgramRecommendation],
-        top_k_gaps        : int
+        metric            : str = "euclidean",
+        ppmi_df           : pd.DataFrame = None,
+        top_k_gaps        : int = 10
     ):
         """
         Compute cluster centroids and fit nearest-neighbor models.
 
-        Cluster assignments and PCA coordinates of shape
-        `(n_postings, n_selected)` from the hierarchical
-        clusterer define the career family geometry. The geometry
-        pipeline must be a fitted sklearn `Pipeline` chaining
-        `DictVectorizer`, `TfidfTransformer`, `Normalizer`,
-        `TruncatedSVD`, and `StandardScaler` so that a single
-        `transform([skill_dict])` call projects a resume into
-        the shared PCA space without refitting. The symmetric
-        PPMI DataFrame (indexed by canonical skill names)
-        provides pairwise relevance for gap ranking, scoped to
-        each cluster's TF-IDF centroid labels (top-50
-        recommended). Apprenticeship and educational program
-        records from stakeholder reference data enrich ranked
-        gaps with actionable pathway recommendations.
+        The `clusterer` provides assignments, coordinates, and
+        document identifiers from the HAC step. The `enrichment`
+        context carries precomputed prefix lookup dicts for
+        apprenticeship and program matching, eliminating redundant
+        prefix dict construction. The geometry pipeline must be a
+        fitted sklearn `Pipeline` chaining `DictVectorizer`,
+        `TfidfTransformer`, `Normalizer`, `TruncatedSVD`, and
+        `StandardScaler` so that a single `transform([skill_dict])`
+        call projects a resume into the shared PCA space.
 
         Args:
-            apprenticeships   : Apprenticeship program records.
-            assignments       : Cluster ID per posting.
             cluster_labels    : TF-IDF centroid labels per cluster.
-            coordinates       : PCA-scaled posting coordinates.
-            distance_metric   : Distance function for neighbors.
-            document_ids      : Posting identifiers in row order.
+            clusterer         : Fitted hierarchical clusterer with
+                                assignments, coordinates, and
+                                document identifiers.
+            enrichment        : Shared prefix lookup context.
             extracted_skills  : Skills per document identifier.
             geometry_pipeline : Fitted vectorization pipeline.
+            metric            : sklearn distance metric string.
             ppmi_df           : PPMI DataFrame for gap ranking.
-            programs          : Educational program records.
             top_k_gaps        : Default number of ranked gaps.
         """
-        self.assignments       = assignments
-        self.coordinates       = coordinates
-        self.document_ids      = document_ids
+        self.cluster_labels    = cluster_labels
+        self.clusterer         = clusterer
+        self.enrichment        = enrichment
         self.extracted_skills  = extracted_skills
         self.geometry_pipeline = geometry_pipeline
+        self.metric            = metric
         self.ppmi_df           = ppmi_df
-        self.programs          = programs
         self.top_k_gaps        = top_k_gaps
 
-        self.skill_sets = {
-            doc: set(skills)
-            for doc, skills in extracted_skills.items()
-        }
-
-        self.metric = (
-            "cosine" if distance_metric == DistanceMetric.COSINE
-            else "euclidean"
-        )
-
-        centroids_df     = pd.DataFrame(coordinates).groupby(assignments).mean()
-        self.cluster_ids = centroids_df.index.to_numpy()
-
+        self.cluster_ids = clusterer.centroids.index.to_numpy()
         self.centroid_nn = NearestNeighbors(
             metric      = self.metric,
             n_neighbors = len(self.cluster_ids)
-        ).fit(centroids_df.values)
+        ).fit(clusterer.centroids.values)
 
-        self.centroid_scope = {
+    # -----------------------------------------------------------------
+    # Properties
+    # -----------------------------------------------------------------
+
+    @cached_property
+    def centroid_scope(self) -> dict[int, set[str]]:
+        """
+        Top TF-IDF terms per cluster for scoping gap relevance.
+        """
+        return {
             label.cluster_id: set(label.terms)
-            for label in cluster_labels
+            for label in self.cluster_labels
         }
 
-        self.apprenticeships = apprenticeships
-
-        self.trade_prefixes = {
-            a.rapids_code: _prefix_set(a.title)
-            for a in self.apprenticeships
-        }
-        self.program_prefixes = {
-            (p.institution, p.program): _prefix_set(p.program)
-            for p in self.programs
+    @cached_property
+    def skill_sets(self) -> dict[str, set[str]]:
+        """
+        Skill names as sets per document for Jaccard computation.
+        """
+        return {
+            doc: set(skills)
+            for doc, skills in self.extracted_skills.items()
         }
 
     # -----------------------------------------------------------------
     # Private methods
     # -----------------------------------------------------------------
-
-    def _find_apprenticeships(self, skill: str) -> list[ApprenticeshipContext]:
-        """
-        Find apprenticeship trades matching a skill via word-root
-        overlap.
-
-        Args:
-            skill: Canonical skill name to match against.
-
-        Returns:
-            Apprenticeships whose trade name shares a 4-char prefix
-            with the skill.
-        """
-        prefixes = _prefix_set(skill)
-        return [
-            a for a in self.apprenticeships
-            if prefixes & self.trade_prefixes[a.rapids_code]
-        ]
-
-    def _find_programs(self, skill: str) -> list[ProgramRecommendation]:
-        """
-        Find educational programs matching a skill via word-root
-        overlap with the program name.
-
-        Args:
-            skill: Canonical skill name to match against.
-
-        Returns:
-            Programs whose name shares a 4-char prefix with the
-            skill.
-        """
-        prefixes = _prefix_set(skill)
-        return [
-            p for p in self.programs
-            if prefixes & self.program_prefixes[p.institution, p.program]
-        ]
 
     def _nearest_in_family(
         self,
@@ -236,37 +172,25 @@ class ResumeMatcher:
             Up to 5 nearest neighbors with distances and Jaccard
             scores.
         """
-        indices = np.nonzero(self.assignments == cluster_id)[0]
+        indices = np.nonzero(self.clusterer.assignments == cluster_id)[0]
 
         if len(indices) >= 5:
-            family_docs = [self.document_ids[i] for i in indices]
-            nn = NearestNeighbors(
+            document_ids  = [self.clusterer.document_ids[i] for i in indices]
+            dists, nn_idx = NearestNeighbors(
                 metric      = self.metric,
-                n_neighbors = min(5, len(family_docs))
-            ).fit(self.coordinates[indices])
-            distances, nn_indices = nn.kneighbors(coords)
+                n_neighbors = 5
+            ).fit(self.clusterer.coordinates[indices]).kneighbors(coords)
 
             return [
                 NeighborMatch(
-                    distance    = float(dist),
-                    document_id = doc,
-                    jaccard     = jaccard(
-                        resume_set, self.skill_sets[doc]
-                    ),
-                    skills      = self.extracted_skills[doc]
+                    distance    = dist,
+                    document_id = document_id,
+                    jaccard     = jaccard(resume_set, self.skill_sets[document_id]),
+                    skills      = self.extracted_skills[document_id]
                 )
-                for dist, idx in zip(distances[0], nn_indices[0])
-                for doc in [family_docs[idx]]
+                for dist, idx   in zip(dists[0], nn_idx[0])
+                for document_id in [document_ids[idx]]
             ]
-
-        scored = sorted(
-            (
-                (doc, jaccard(resume_set, skill_set))
-                for doc, skill_set in self.skill_sets.items()
-            ),
-            key     = lambda pair: pair[1],
-            reverse = True
-        )[:5]
 
         return [
             NeighborMatch(
@@ -275,7 +199,14 @@ class ResumeMatcher:
                 jaccard     = sim,
                 skills      = self.extracted_skills[doc]
             )
-            for doc, sim in scored
+            for doc, sim in sorted(
+                (
+                    (doc, jaccard(resume_set, skills))
+                    for doc, skills in self.skill_sets.items()
+                ),
+                key     = lambda p: p[1],
+                reverse = True
+            )[:5]
             if sim > 0
         ]
 
@@ -342,10 +273,14 @@ class ResumeMatcher:
 
         ranked = [
             RankedGap(
-                apprenticeships = self._find_apprenticeships(gap),
-                programs        = self._find_programs(gap),
-                relevance       = float(rel),
-                skill           = gap
+                apprenticeships = self.enrichment.find_apprenticeships(
+                    prefix_set(gap)
+                ),
+                programs  = self.enrichment.find_programs(
+                    prefix_set(gap)
+                ),
+                relevance = rel,
+                skill     = gap
             )
             for gap, rel in positive.items()
         ]
@@ -381,15 +316,17 @@ class ResumeMatcher:
             Full `MatchResult` with cluster assignment, neighbors,
             gaps, and recommendations.
         """
-        coords = self.geometry_pipeline.transform([dict.fromkeys(resume_skills, 1)])
+        coords = self.geometry_pipeline.transform(
+            [dict.fromkeys(resume_skills, 1)]
+        )
 
         distances, indices = self.centroid_nn.kneighbors(coords)
-        cluster_id = int(self.cluster_ids[indices[0, 0]])
+        cluster_id = self.cluster_ids[indices[0, 0]]
 
         cluster_distances = [
             ClusterDistance(
-                cluster_id = int(self.cluster_ids[idx]),
-                distance   = float(dist)
+                cluster_id = self.cluster_ids[idx],
+                distance   = dist
             )
             for dist, idx in zip(distances[0], indices[0])
         ]
@@ -409,7 +346,7 @@ class ResumeMatcher:
             cluster_id = cluster_id,
             resume_set = resume_set,
             skill_gaps = skill_gaps,
-            top_k      = top_k if top_k is not None else self.top_k_gaps
+            top_k      = top_k or self.top_k_gaps
         )
 
         all_apprenticeships = list({
@@ -425,6 +362,7 @@ class ResumeMatcher:
             cluster_distances = cluster_distances,
             cluster_id        = cluster_id,
             nearest_neighbors = neighbors,
+            pca_coordinates   = coords[0].tolist(),
             programs          = all_programs,
             ranked_gaps       = ranked_gaps,
             resume_skills     = sorted(resume_skills),

@@ -108,14 +108,12 @@ class TestCooccurrenceNetwork:
 
         assert abs(float(npmi[r, c]) - expected) < 1e-10
 
-    def test_pmi_symmetric(self, network: CooccurrenceNetwork):
+    def test_ppmi_symmetric(self, network: CooccurrenceNetwork):
         """
-        Raw PMI matrix is symmetric. Asymmetry would be masked by NPMI
-        positive clipping but would corrupt PPMI values for pairs where
-        only one direction has positive PMI.
+        PPMI matrix is symmetric because the underlying co-occurrence
+        matrix is symmetric.
         """
-        pmi  = network.pmi_matrix
-        diff = pmi - pmi.T
+        diff = network.ppmi_matrix - network.ppmi_matrix.T
         if diff.nnz > 0:
             assert abs(diff.data).max() < 1e-10
 
@@ -302,43 +300,14 @@ class TestCooccurrenceNetwork:
                 assert network.partition_map[skill] == idx
 
     # ---------------------------------------------------------
-    # Index helpers
+    # Association DataFrame
     # ---------------------------------------------------------
 
-    def test_indices_for_known(self, network: CooccurrenceNetwork):
-        """
-        `indices_for` returns correct column positions for known
-        feature names.
-        """
-        names   = network.feature_names[:3]
-        indices = network.indices_for(names)
-        assert indices == [network.feature_index[n] for n in names]
-
-    def test_indices_for_unknown(self, network: CooccurrenceNetwork):
-        """
-        Unknown skill names are silently excluded from the result.
-        """
-        assert network.indices_for(["nonexistent_skill_xyz"]) == []
-
-    def test_pairwise_ppmi_shape(self, network: CooccurrenceNetwork):
-        """
-        `pairwise_ppmi` returns a flat array from the sparse
-        submatrix at the given index cross-product.
-        """
-        idx = network.indices_for(network.feature_names[:2])
-        if len(idx) >= 2:
-            values = network.pairwise_ppmi(idx[:1], idx[1:])
-            assert values.ndim == 1
-
-    # ---------------------------------------------------------
-    # PMI DataFrame
-    # ---------------------------------------------------------
-
-    def test_pmi_dataframe_symmetric(self, network: CooccurrenceNetwork):
+    def test_dataframe_symmetric(self, network: CooccurrenceNetwork):
         """
         PMI DataFrame is symmetric with skill name indices.
         """
-        df = network.pmi_dataframe()
+        df = network.association_dataframe("npmi")
         assert list(df.index) == list(df.columns)
         assert list(df.index) == network.feature_names
         assert (df.values == df.values.T).all()

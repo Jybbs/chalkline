@@ -76,7 +76,9 @@ class MatchResult(BaseModel, extra="forbid"):
     resume_skills     : list[str]
     skill_gaps        : list[str]
 
+    pca_coordinates : list[float]                = Field(default_factory = list)
     programs        : list[ProgramRecommendation] = Field(default_factory = list)
     ranked_gaps     : list[RankedGap]             = Field(default_factory = list)
+    sector          : str                         = ""
     trade_paths     : list[ApprenticeshipContext] = Field(default_factory = list)
     unrankable_gaps : list[str]                   = Field(default_factory = list)

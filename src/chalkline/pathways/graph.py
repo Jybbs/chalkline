@@ -14,11 +14,15 @@ import numpy    as np
 
 from functools       import cached_property
 from itertools       import combinations
-from json            import dumps
+from json            import dumps, loads
 from kneed           import KneeLocator
 from logging         import getLogger
 from pathlib         import Path
 from sklearn.metrics import adjusted_rand_score
+from typing          import TYPE_CHECKING, Self
+
+if TYPE_CHECKING:
+    from scipy.sparse import csr_array
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.pathways.schemas         import AlignmentDiagnostics, GraphExport
@@ -42,9 +46,11 @@ class CareerPathwayGraph:
 
     def __init__(
         self,
-        network     : CooccurrenceNetwork,
-        profiles    : dict[int, ClusterProfile],
-        max_density : float = 0.05
+        apprenticeships : list[ApprenticeshipContext],
+        network         : CooccurrenceNetwork,
+        profiles        : dict[int, ClusterProfile],
+        programs        : list[ProgramRecommendation],
+        max_density     : float = 0.05
     ):
         """
         Build the career pathway graph from pre-enriched upstream
@@ -55,31 +61,78 @@ class CareerPathwayGraph:
         `CooccurrenceNetwork._find_threshold`. The
         `max_density` ceiling serves as a secondary guard
         when the knee still produces a graph too dense for
-        career pathway navigation.
+        career pathway navigation. Deduplicated apprenticeship
+        and program lists are computed by the orchestrator and
+        passed through for export serialization.
 
         Args:
-            network     : NPMI matrix, vocabulary, and Louvain partition.
-            profiles    : Enriched cluster characteristics from the
-                          orchestrator.
-            max_density : Density ceiling for edge pruning.
+            apprenticeships : Deduplicated apprenticeship programs
+                              across all cluster profiles.
+            network         : NPMI matrix, vocabulary, and Louvain
+                              partition.
+            profiles        : Enriched cluster characteristics from
+                              the orchestrator.
+            programs        : Deduplicated educational programs
+                              across all cluster profiles.
+            max_density     : Density ceiling for edge pruning.
         """
-        self.network     = network
-        self.profiles    = profiles
-        self.max_density = max_density
-        self.cluster_ids = sorted(self.profiles)
-        self.graph       = self._build_graph()
+        self.apprenticeships = apprenticeships
+        self.network         = network
+        self.profiles        = profiles
+        self.programs        = programs
+        self.max_density     = max_density
+        self.cluster_ids     = sorted(self.profiles)
+        self.graph           = self._build_graph()
 
-    @cached_property
-    def apprenticeships(self) -> list[ApprenticeshipContext]:
+    @classmethod
+    def from_serialized(
+        cls,
+        json_path : Path,
+        profiles  : dict[int, ClusterProfile] | None = None
+    ) -> Self:
         """
-        Deduplicated apprenticeship contexts across all cluster
-        profiles, keyed by RAPIDS code.
+        Reconstruct a graph from its JSON export without
+        re-triggering the full build.
+
+        Reads the JSON file written by `export()`, extracts
+        sidecar apprenticeship and program data, and reconstructs
+        the `DiGraph` via `node_link_graph`. The `network`
+        attribute is set to `None` because the `CooccurrenceNetwork`
+        is not persisted; properties that depend on it (like
+        `alignment`) return safe defaults.
+
+        Args:
+            json_path : Path to `career_graph.json`.
+            profiles  : Enriched cluster profiles from the
+                        orchestrator. When provided, enables
+                        `skill_to_cluster` on the deserialized
+                        instance.
+
+        Returns:
+            A `CareerPathwayGraph` with pre-built graph state.
         """
-        return list({
-            p.apprenticeship.rapids_code: p.apprenticeship
-            for p in self.profiles.values()
-            if p.apprenticeship
-        }.values())
+        nld = loads(json_path.read_text())
+
+        deduped_apps = [
+            ApprenticeshipContext(**a)
+            for a in nld.pop("apprenticeships", [])
+        ]
+        deduped_progs = [
+            ProgramRecommendation(**p)
+            for p in nld.pop("programs", [])
+        ]
+
+        instance                  = cls.__new__(cls)
+        instance.apprenticeships  = deduped_apps
+        instance.cluster_ids      = sorted(
+            int(n["id"]) for n in nld.get("nodes", [])
+        )
+        instance.graph            = nx.node_link_graph(nld)
+        instance.max_density      = 0.0
+        instance.network          = None
+        instance.profiles         = profiles or {}
+        instance.programs         = deduped_progs
+        return instance
 
     @cached_property
     def alignment(self) -> AlignmentDiagnostics:
@@ -91,8 +144,13 @@ class CareerPathwayGraph:
         one cluster, assigns a Louvain community ID and an HAC
         cluster ID. The adjusted Rand index quantifies agreement
         between these two partitions. Modularity is computed on the
-        Louvain partition as a standalone quality measure.
+        Louvain partition as a standalone quality measure. Returns
+        empty diagnostics when the network is unavailable (after
+        deserialization).
         """
+        if self.network is None:
+            return AlignmentDiagnostics()
+
         louvain = self.network.partition_map
         hac     = self.skill_to_cluster
         shared  = louvain.keys() & hac.keys()
@@ -111,15 +169,15 @@ class CareerPathwayGraph:
 
         labels = [(louvain[s], hac[s]) for s in shared]
         result = AlignmentDiagnostics(
-            ari = float(adjusted_rand_score(*zip(*labels)))
+            ari = adjusted_rand_score(*zip(*labels))
         )
 
         if (skill_graph := self.network.graph()).size():
-            result.modularity = float(nx.community.modularity(
+            result.modularity = nx.community.modularity(
                 skill_graph,
                 communities = self.network.partition,
                 weight      = "weight"
-            ))
+            )
         return result
 
     @cached_property
@@ -138,18 +196,6 @@ class CareerPathwayGraph:
             path        = path,
             path_weight = nx.path_weight(self.graph, path, "weight")
         )
-
-    @cached_property
-    def programs(self) -> list[ProgramRecommendation]:
-        """
-        Deduplicated program recommendations across all cluster
-        profiles, keyed by (institution, program name).
-        """
-        return list({
-            (p.institution, p.program): p
-            for profile in self.profiles.values()
-            for p in profile.programs
-        }.values())
 
     @cached_property
     def skill_to_cluster(self) -> dict[str, int]:
@@ -191,11 +237,13 @@ class CareerPathwayGraph:
             for cid, profile in self.profiles.items()
         )
 
-        rank       = lambda c: self.profiles[c].rank
+        npmi  = self.network.npmi_matrix
+        vocab = {n: i for i, n in enumerate(self.network.feature_names)}
+        rank  = lambda c: self.profiles[c].rank
         candidates = [
             (min(ci, cj, key=rank), max(ci, cj, key=rank), wc[0])
             for ci, cj in combinations(self.cluster_ids, 2)
-            if (wc := self._edge_weight(ci, cj))[0] > 0 and wc[1] >= 3
+            if (wc := self._edge_weight(ci, cj, npmi, vocab))[0] > 0 and wc[1] >= 3
         ]
 
         if candidates:
@@ -271,11 +319,17 @@ class CareerPathwayGraph:
                 "Edge weight knee detection found no inflection, "
                 "using 75th percentile"
             )
-            return float(np.percentile(weights, 75))
+            return np.percentile(weights, 75)
 
         return weights[knee]
 
-    def _edge_weight(self, ci: int, cj: int) -> tuple[float, int]:
+    def _edge_weight(
+        self,
+        ci    : int,
+        cj    : int,
+        npmi  : csr_array,
+        vocab : dict[str, int]
+    ) -> tuple[float, int]:
         """
         Top-k mean NPMI for a cluster pair.
 
@@ -283,32 +337,34 @@ class CareerPathwayGraph:
         bounded to [0, 1] and interpretable as association
         strength independent of skill frequency. The top-k
         aggregation retains the strongest inter-cluster bridges
-        where k = min(10, |Ci|, |Cj|).
+        where k = min(10, |Ci|, |Cj|). Operates directly on
+        the sparse NPMI matrix to avoid dense materialization.
 
         Args:
-            ci : First cluster ID.
-            cj : Second cluster ID.
+            ci    : First cluster ID.
+            cj    : Second cluster ID.
+            npmi  : Sparse NPMI matrix from the co-occurrence
+                    network.
+            vocab : Skill name to column index mapping.
 
         Returns:
             Tuple of (top-k mean NPMI, count of positive pairs).
         """
-        idx_i = self.network.indices_for(self.profiles[ci].skills)
-        idx_j = self.network.indices_for(self.profiles[cj].skills)
+        idx_i = [vocab[s] for s in self.profiles[ci].skills if s in vocab]
+        idx_j = [vocab[s] for s in self.profiles[cj].skills if s in vocab]
 
         if not idx_i or not idx_j:
             return 0.0, 0
 
-        values = (v := self.network.pairwise_npmi(idx_i, idx_j))[v > 0]
+        values = npmi[np.ix_(idx_i, idx_j)].data
+        values = values[values > 0]
 
         if len(values) == 0:
             return 0.0, 0
 
-        k = min(
-            10, len(self.profiles[ci].skills),
-            len(self.profiles[cj].skills), len(values)
-        )
+        k    = min(10, len(idx_i), len(idx_j), len(values))
         topk = np.partition(values, -k)[-k:]
-        return float(topk.mean()), len(values)
+        return topk.mean(), len(values)
 
     def export(self, output_dir: Path) -> GraphExport:
         """
@@ -335,7 +391,8 @@ class CareerPathwayGraph:
         )
 
         for _, _, data in scalar_graph.edges(data=True):
-            for attr in ("apprenticeships", "bridging_skills", "programs"):
+            for attr in ("apprenticeships", "bridging_skills",
+                         "estimated_hours", "programs"):
                 data.pop(attr, None)
         nx.write_graphml(scalar_graph, graphml_path)
 
@@ -344,7 +401,9 @@ class CareerPathwayGraph:
         dump      = lambda items: [x.model_dump(mode="json") for x in items]
         nld["apprenticeships"] = dump(self.apprenticeships)
         nld["programs"]        = dump(self.programs)
-        json_path.write_text(dumps(nld, indent=2))
+        json_path.write_text(dumps(
+            nld, indent=2, default=lambda o: o.item()
+        ))
 
         return GraphExport(
             graphml_path = graphml_path,

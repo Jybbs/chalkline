@@ -106,7 +106,12 @@ class TestCareerPathwayGraph:
         An empty graph returns a zero-weight empty path rather than
         raising from `dag_longest_path`.
         """
-        empty = CareerPathwayGraph(network = network, profiles = {})
+        empty = CareerPathwayGraph(
+            apprenticeships = [],
+            network         = network,
+            profiles        = {},
+            programs        = []
+        )
         assert empty.longest_path.path == []
         assert empty.longest_path.path_weight == 0.0
 

@@ -8,7 +8,8 @@ import pandas as pd
 from pytest           import mark, param
 from sklearn.pipeline import Pipeline
 
-from chalkline.matching.matcher import ResumeMatcher, _prefix_set, jaccard
+from chalkline.matching.matcher  import ResumeMatcher, jaccard
+from chalkline.pipeline.enrichment import prefix_set
 from chalkline.matching.schemas import MatchResult
 
 
@@ -28,17 +29,17 @@ class TestResumeMatcher:
         4-char prefix catches inflectional variants that the enrichment
         pipeline relies on for apprenticeship and program matching.
         """
-        assert _prefix_set("welding") & _prefix_set("Welder")
-        assert _prefix_set("electrical wiring") & _prefix_set("Electrician")
-        assert not _prefix_set("scaffolding") & _prefix_set("concrete")
+        assert prefix_set("welding") & prefix_set("Welder")
+        assert prefix_set("electrical wiring") & prefix_set("Electrician")
+        assert not prefix_set("scaffolding") & prefix_set("concrete")
 
     def test_prefix_short_words(self):
         """
         Words shorter than 4 characters are excluded from the prefix
         set to avoid false positives on articles and prepositions.
         """
-        assert _prefix_set("the NEC code") == {"code"}
-        assert _prefix_set("on") == set()
+        assert prefix_set("the NEC code") == {"code"}
+        assert prefix_set("on") == set()
 
     # -----------------------------------------------------------------
     # Jaccard
@@ -262,12 +263,12 @@ class TestResumeMatcher:
                 "y" : {"a" : 0.8, "b" : 0.0}
             }
         )
+        from chalkline.pipeline.enrichment import EnrichmentContext
         ranked, _ = ResumeMatcher._rank_gaps(
             self         = type("Stub", (), {
-                "centroid_scope"        : {0: {"a", "x"}},
-                "_find_apprenticeships" : lambda self, s: [],
-                "_find_programs"        : lambda self, s: [],
-                "ppmi_df"               : ppmi
+                "centroid_scope" : {0: {"a", "x"}},
+                "enrichment"     : EnrichmentContext([], []),
+                "ppmi_df"        : ppmi
             })(),
             cluster_id = 0,
             resume_set = {"a", "b"},

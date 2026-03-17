@@ -89,7 +89,7 @@ class TestHierarchicalClusterer:
         """
         One label per unique cluster.
         """
-        assert len(cluster_labels) == clusterer.k
+        assert len(cluster_labels) == len(np.unique(clusterer.assignments))
 
     def test_labels_size_sums(
         self,
@@ -139,16 +139,3 @@ class TestHierarchicalClusterer:
         data = clusterer.dendrogram_data(title_map = title_map)
         assert all(label.startswith("Title ") for label in data["ivl"])
 
-    # ---------------------------------------------------------
-    # Validate at K
-    # ---------------------------------------------------------
-
-    @mark.parametrize("k", [2, 3])
-    def test_validate_at_k(self, clusterer: HierarchicalClusterer, k: int):
-        """
-        Assignments at a given K cover all postings and produce exactly
-        K unique clusters.
-        """
-        result = clusterer.validate_at_k(k = k)
-        assert len(result) == len(clusterer.document_ids)
-        assert len(np.unique(result)) == k
