@@ -6,11 +6,11 @@ fixture chain.
 
 from networkx import DiGraph
 
-from chalkline.pathways.routing    import CareerRouter
-from chalkline.pathways.schemas    import LearningPlan
-from chalkline.pipeline.enrichment import EnrichmentContext
-from chalkline.pipeline.schemas    import ApprenticeshipContext
-from chalkline.pipeline.schemas    import ClusterProfile, ProgramRecommendation
+from chalkline.pathways.routing  import CareerRouter
+from chalkline.pathways.schemas  import LearningPlan
+from chalkline.pipeline.schemas  import ApprenticeshipContext
+from chalkline.pipeline.schemas  import ClusterProfile, ProgramRecommendation
+from chalkline.pipeline.trades   import TradeIndex
 
 def _make_linear_router() -> CareerRouter:
     """
@@ -27,11 +27,6 @@ def _make_linear_router() -> CareerRouter:
     """
     profiles = {
         0: ClusterProfile(
-            apprenticeship = ApprenticeshipContext(
-                rapids_code = "001",
-                term_hours  = "2000",
-                title       = "Laborer"
-            ),
             cluster_id = 0,
             job_zone   = 1,
             sector     = "Heavy Highway Construction",
@@ -46,6 +41,11 @@ def _make_linear_router() -> CareerRouter:
             skills     = ["scaffolding", "welding"]
         ),
         2: ClusterProfile(
+            apprenticeship = ApprenticeshipContext(
+                rapids_code = "001",
+                term_hours  = "5000",
+                title       = "Laborer"
+            ),
             cluster_id = 2,
             job_zone   = 3,
             sector     = "Building Construction",
@@ -81,16 +81,14 @@ def _make_linear_router() -> CareerRouter:
         (1, 2, 0.5),
         (2, 3, 0.9)
     ], direction_source="job_zone")
-    G.edges[0, 1]["term_hours_delta"] = 1000
-    G.edges[2, 3]["term_hours_delta"] = 3000
 
     apps  = [p.apprenticeship for p in profiles.values() if p.apprenticeship]
     progs = [p for prof in profiles.values() for p in prof.programs]
 
     return CareerRouter(
-        enrichment = EnrichmentContext(apps, progs),
-        graph      = G,
-        profiles   = profiles
+        graph    = G,
+        profiles = profiles,
+        trades   = TradeIndex(apps, progs)
     )
 
 def _make_diamond_router() -> CareerRouter:
@@ -147,9 +145,9 @@ def _make_diamond_router() -> CareerRouter:
     ], direction_source="job_zone")
 
     return CareerRouter(
-        enrichment = EnrichmentContext([], []),
-        graph      = G,
-        profiles   = profiles
+        graph    = G,
+        profiles = profiles,
+        trades   = TradeIndex([], [])
     )
 
 class TestCareerRouter:
@@ -193,9 +191,9 @@ class TestCareerRouter:
             for cid, profile in profiles.items()
         )
         c = CareerRouter(
-            enrichment = EnrichmentContext([], []),
-            graph      = G,
-            profiles   = profiles
+            graph    = G,
+            profiles = profiles,
+            trades   = TradeIndex([], [])
         ).centrality
         assert all(v == 0.0 for v in c.betweenness.values())
         assert abs(sum(c.pagerank.values()) - 1.0) < 1e-10
@@ -280,12 +278,13 @@ class TestCareerRouter:
 
     def test_bridging_step_hours(self):
         """
-        Steps with `term_hours_delta` produce int hours; steps
-        without produce `None`.
+        Steps between clusters where both have apprenticeships
+        produce int hour deltas; steps where either side lacks
+        an apprenticeship produce `None`.
         """
         route = _make_linear_router().widest_path(0, 3)
         assert route is not None
-        assert route.steps[0].estimated_hours == 1000
+        assert route.steps[0].estimated_hours is None
         assert route.steps[1].estimated_hours is None
         assert route.steps[2].estimated_hours == 3000
 
@@ -333,7 +332,7 @@ class TestCareerRouter:
         assert plan.bridging_skills == [
             "electrical safety", "electrical wiring", "scaffolding"
         ]
-        assert plan.estimated_hours == 4000
+        assert plan.estimated_hours == 3000
 
     def test_plan_disconnected(self):
         """

@@ -9,6 +9,7 @@ coordinates and TF-IDF label derivation as on-demand methods.
 
 import numpy as np
 
+from functools               import cached_property
 from scipy.cluster.hierarchy import fcluster, leaders, linkage
 from scipy.sparse            import spmatrix
 
@@ -59,6 +60,13 @@ class HierarchicalClusterer:
             criterion = "maxclust",
             t         = self._select_k()
         )
+
+    @cached_property
+    def cluster_ids(self) -> np.ndarray:
+        """
+        Sorted unique cluster IDs from the flat partition.
+        """
+        return np.unique(self.assignments)
 
     def _select_k(self) -> int:
         """

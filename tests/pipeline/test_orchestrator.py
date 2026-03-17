@@ -11,19 +11,16 @@ pre-fit guards on `match()`.
 from sklearn.pipeline         import Pipeline as SklearnPipeline
 from sklearn.utils.validation import check_is_fitted
 
-from chalkline.association.cooccurrence import CooccurrenceNetwork
-from chalkline.clustering.hierarchical  import HierarchicalClusterer
-from chalkline.clustering.schemas       import ClusterLabel
-from chalkline.extraction.occupations   import OccupationIndex
-from chalkline.extraction.vectorize     import SkillVectorizer
-from chalkline.matching.schemas         import MatchResult
-from chalkline.pipeline.enrichment      import EnrichmentContext
-from chalkline.pipeline.orchestrator    import build_profiles, compose_geometry
-from chalkline.pipeline.orchestrator    import Pipeline
-from chalkline.pipeline.schemas         import ApprenticeshipContext
-from chalkline.pipeline.schemas         import ClusterProfile, PipelineConfig
-from chalkline.pipeline.schemas         import ProgramRecommendation
-from chalkline.reduction.pca            import PcaReducer
+from chalkline.clustering.hierarchical import HierarchicalClusterer
+from chalkline.clustering.schemas      import ClusterLabel
+from chalkline.extraction.occupations  import OccupationIndex
+from chalkline.extraction.vectorize    import SkillVectorizer
+from chalkline.matching.schemas        import MatchResult
+from chalkline.pipeline.orchestrator   import build_profiles, compose_geometry
+from chalkline.pipeline.orchestrator   import Pipeline
+from chalkline.pipeline.schemas        import PipelineConfig
+from chalkline.pipeline.trades         import TradeIndex
+from chalkline.reduction.pca           import PcaReducer
 
 import pytest
 
@@ -86,10 +83,10 @@ class TestBuildProfiles:
         self,
         cluster_labels   : list[ClusterLabel],
         clusterer        : HierarchicalClusterer,
-        enrichment       : EnrichmentContext,
         extracted_skills : dict[str, list[str]],
         occupation_index : OccupationIndex,
-        sector_labels    : list[str]
+        sector_labels    : list[str],
+        trades           : TradeIndex
     ):
         """
         Every cluster has a non-empty skill set in its profile.
@@ -97,10 +94,10 @@ class TestBuildProfiles:
         profiles = build_profiles(
             cluster_labels   = cluster_labels,
             clusterer        = clusterer,
-            enrichment       = enrichment,
             extracted_skills = extracted_skills,
             occupation_index = occupation_index,
-            sector_labels    = sector_labels
+            sector_labels    = sector_labels,
+            trades           = trades
         )
         assert len(profiles) > 0
         for profile in profiles.values():
@@ -110,10 +107,10 @@ class TestBuildProfiles:
         self,
         cluster_labels   : list[ClusterLabel],
         clusterer        : HierarchicalClusterer,
-        enrichment       : EnrichmentContext,
         extracted_skills : dict[str, list[str]],
         occupation_index : OccupationIndex,
-        sector_labels    : list[str]
+        sector_labels    : list[str],
+        trades           : TradeIndex
     ):
         """
         Job Zone values are in [1, 5] per O*NET specification.
@@ -121,10 +118,10 @@ class TestBuildProfiles:
         profiles = build_profiles(
             cluster_labels   = cluster_labels,
             clusterer        = clusterer,
-            enrichment       = enrichment,
             extracted_skills = extracted_skills,
             occupation_index = occupation_index,
-            sector_labels    = sector_labels
+            sector_labels    = sector_labels,
+            trades           = trades
         )
         for profile in profiles.values():
             assert 1 <= profile.job_zone <= 5
@@ -133,10 +130,10 @@ class TestBuildProfiles:
         self,
         cluster_labels   : list[ClusterLabel],
         clusterer        : HierarchicalClusterer,
-        enrichment       : EnrichmentContext,
         extracted_skills : dict[str, list[str]],
         occupation_index : OccupationIndex,
-        sector_labels    : list[str]
+        sector_labels    : list[str],
+        trades           : TradeIndex
     ):
         """
         Every profile has a non-empty sector string.
@@ -144,10 +141,10 @@ class TestBuildProfiles:
         profiles = build_profiles(
             cluster_labels   = cluster_labels,
             clusterer        = clusterer,
-            enrichment       = enrichment,
             extracted_skills = extracted_skills,
             occupation_index = occupation_index,
-            sector_labels    = sector_labels
+            sector_labels    = sector_labels,
+            trades           = trades
         )
         for profile in profiles.values():
             assert profile.sector

@@ -9,6 +9,7 @@ that `match()` can project resumes without re-fitting.
 """
 
 import joblib
+import pandas as pd
 
 from collections               import Counter, defaultdict
 from contextlib                import contextmanager
@@ -35,7 +36,7 @@ from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.matching.schemas         import MatchResult
 from chalkline.pathways.graph           import CareerPathwayGraph
 from chalkline.pathways.routing         import CareerRouter
-from chalkline.pipeline.enrichment      import EnrichmentContext, prefix_set
+from chalkline.pipeline.trades          import TradeIndex
 from chalkline.pipeline.programs        import load_programs
 from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas         import PipelineConfig, PipelineManifest
@@ -47,10 +48,10 @@ logger = getLogger(__name__)
 def build_profiles(
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
-    enrichment       : EnrichmentContext,
     extracted_skills : dict[str, list[str]],
     occupation_index : OccupationIndex,
-    sector_labels    : list[str]
+    sector_labels    : list[str],
+    trades           : TradeIndex
 ) -> dict[int, ClusterProfile]:
     """
     Enrich HAC clusters with sector, Job Zone, apprenticeship, and
@@ -60,15 +61,15 @@ def build_profiles(
     resolves sector via majority vote on SOC-matched labels, assigns
     Job Zone via overlap coefficient against concrete O*NET profiles,
     and links apprenticeships and programs via the shared
-    `EnrichmentContext` prefix lookups.
+    `TradeIndex` prefix lookups.
 
     Args:
         cluster_labels   : TF-IDF centroid labels per cluster.
         clusterer        : Fitted hierarchical clusterer.
-        enrichment       : Precomputed prefix lookup context.
         extracted_skills : Skills per document identifier.
         occupation_index : O*NET occupation index for Job Zone.
         sector_labels    : SOC codes aligned with document order.
+        trades           : Precomputed prefix lookup index.
 
     Returns:
         Enriched `ClusterProfile` per cluster ID.
@@ -88,11 +89,7 @@ def build_profiles(
 
     profiles: dict[int, ClusterProfile] = {}
     for cid, skills in cluster_skills.items():
-        terms   = terms_map.get(cid, [])
-        node_pf = {
-            p for text in (*terms, *skills)
-            for p in prefix_set(text)
-        }
+        terms = terms_map.get(cid, [])
 
         profiles[cid] = ClusterProfile(
             cluster_id = cid,
@@ -104,8 +101,14 @@ def build_profiles(
             skills = skills,
             terms  = terms,
 
-            apprenticeship = enrichment.find_apprenticeship(node_pf),
-            programs       = enrichment.find_programs(node_pf)
+            apprenticeship = next(
+                iter(trades.find_apprenticeships(
+                    [*terms, *skills]
+                )), None
+            ),
+            programs = trades.find_programs(
+                [*terms, *skills]
+            )
         )
 
     return profiles
@@ -216,14 +219,15 @@ class Pipeline:
 
         self.cluster_labels    : list[ClusterLabel]              = []
         self.clusterer         : HierarchicalClusterer | None    = None
-        self.enrichment        : EnrichmentContext | None        = None
         self.extractor         : SkillExtractor | None           = None
         self.extracted_skills  : dict[str, list[str]]            = {}
         self.geometry_pipeline : SklearnPipeline | None          = None
         self.graph             : CareerPathwayGraph | None       = None
         self.matcher           : ResumeMatcher | None            = None
+        self.ppmi_df           : pd.DataFrame | None             = None
         self.profiles          : dict[int, ClusterProfile]       = {}
         self.router            : CareerRouter | None             = None
+        self.trades            : TradeIndex | None               = None
 
     @property
     def fitted(self) -> bool:
@@ -238,18 +242,18 @@ class Pipeline:
         Construct a `ResumeMatcher` from the pipeline's fitted
         artifacts.
 
-        Centralizes the 7-argument wiring so that both `fit()` and
-        `load()` share the same construction path. The PPMI
-        DataFrame is accessed via `self.enrichment.ppmi_df`.
+        Centralizes the 8-argument wiring so that both `fit()` and
+        `load()` share the same construction path.
         """
         return ResumeMatcher(
             cluster_labels    = self.cluster_labels,
             clusterer         = self.clusterer,
-            enrichment        = self.enrichment,
             extracted_skills  = self.extracted_skills,
             geometry_pipeline = self.geometry_pipeline,
             metric            = self.config.distance_metric,
-            top_k_gaps        = self.config.top_k_gaps
+            ppmi_df           = self.ppmi_df,
+            top_k_gaps        = self.config.top_k_gaps,
+            trades            = self.trades
         )
 
     def _load_apprenticeships(self) -> list[ApprenticeshipContext]:
@@ -393,7 +397,7 @@ class Pipeline:
         )
 
         self.geometry_pipeline = compose_geometry(reducer, vectorizer)
-        self.enrichment = EnrichmentContext(
+        self.trades = TradeIndex(
             apprenticeships = apprenticeships,
             programs        = programs
         )
@@ -402,31 +406,26 @@ class Pipeline:
             self.profiles = build_profiles(
                 cluster_labels   = self.cluster_labels,
                 clusterer        = self.clusterer,
-                enrichment       = self.enrichment,
                 extracted_skills = self.extracted_skills,
                 occupation_index = occupation_index,
-                sector_labels    = sector_labels
+                sector_labels    = sector_labels,
+                trades           = self.trades
             )
-
-        deduped_apps  = deduplicate_apprenticeships(self.profiles)
-        deduped_progs = deduplicate_programs(self.profiles)
 
         with self._timed("Pathway graph"):
             self.graph = CareerPathwayGraph(
-                apprenticeships = deduped_apps,
-                max_density     = self.config.max_graph_density,
-                network         = network,
-                profiles        = self.profiles,
-                programs        = deduped_progs
+                max_density = self.config.max_graph_density,
+                network     = network,
+                profiles    = self.profiles
             )
 
         self.router = CareerRouter(
-            enrichment = self.enrichment,
-            graph      = self.graph.graph,
-            profiles   = self.profiles
+            graph    = self.graph.graph,
+            profiles = self.profiles,
+            trades   = self.trades
         )
 
-        self.enrichment.ppmi_df = network.ppmi_dataframe()
+        self.ppmi_df = network.ppmi_dataframe()
         self.matcher = self._build_matcher()
 
         return self
@@ -476,21 +475,21 @@ class Pipeline:
             ).items()
         }
 
-        pipe.graph = CareerPathwayGraph.from_serialized(
-            json_path = d / "career_graph.json",
-            profiles  = pipe.profiles
+        pipe.graph = CareerPathwayGraph(
+            graph    = joblib.load(d / "graph.joblib"),
+            profiles = pipe.profiles
         )
 
-        pipe.enrichment = EnrichmentContext(
-            apprenticeships = pipe.graph.apprenticeships,
-            ppmi_df         = joblib.load(d / "ppmi.joblib"),
-            programs        = pipe.graph.programs
+        pipe.trades = TradeIndex(
+            apprenticeships = deduplicate_apprenticeships(pipe.profiles),
+            programs        = deduplicate_programs(pipe.profiles)
         )
+        pipe.ppmi_df = joblib.load(d / "ppmi.joblib")
 
         pipe.router = CareerRouter(
-            enrichment = pipe.enrichment,
-            graph      = pipe.graph.graph,
-            profiles   = pipe.profiles
+            graph    = pipe.graph.graph,
+            profiles = pipe.profiles,
+            trades   = pipe.trades
         )
 
         pipe.matcher = pipe._build_matcher()
@@ -539,10 +538,9 @@ class Pipeline:
         """
         Persist fitted artifacts to disk.
 
-        Writes sklearn objects via `joblib`, the career graph in dual
-        formats (JSON for pipeline reload, GraphML for interop), and
-        a manifest tracking provenance via
-        `geometry_pipeline.get_params(deep=True)`.
+        Writes sklearn objects and the career graph via `joblib`,
+        JSON for Pydantic models, and a manifest tracking provenance
+        via `geometry_pipeline.get_params(deep=True)`.
 
         Args:
             artifact_dir : Target directory for serialized artifacts.
@@ -558,7 +556,7 @@ class Pipeline:
 
         joblib.dump(self.clusterer, d / "clusterer.joblib")
         joblib.dump(self.geometry_pipeline, d / "geometry.joblib")
-        joblib.dump(self.enrichment.ppmi_df, d / "ppmi.joblib")
+        joblib.dump(self.ppmi_df, d / "ppmi.joblib")
 
         (d / "extracted_skills.json").write_text(
             dumps(self.extracted_skills, indent=2)
@@ -573,7 +571,7 @@ class Pipeline:
             indent=2
         ))
 
-        self.graph.export(d)
+        joblib.dump(self.graph.graph, d / "graph.joblib")
 
         manifest = PipelineManifest(
             corpus_size     = len(self.extracted_skills),

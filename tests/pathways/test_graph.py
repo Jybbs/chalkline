@@ -1,16 +1,13 @@
 """
-Validate career pathway graph construction, enrichment, and export from
-the synthetic 20-posting fixture chain.
+Validate career pathway graph construction and enrichment from the
+synthetic 20-posting fixture chain.
 
 Tests focus on invariants that would silently corrupt downstream routing
 and career reports if broken, rather than confirming library guarantees
 or fixture shape.
 """
 
-from json                          import loads
-from networkx                      import is_directed_acyclic_graph
-from networkx.readwrite.json_graph import node_link_graph
-from pathlib                       import Path
+from networkx import is_directed_acyclic_graph
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.clustering.hierarchical  import HierarchicalClusterer
@@ -19,8 +16,8 @@ from chalkline.pathways.graph           import CareerPathwayGraph
 
 class TestCareerPathwayGraph:
     """
-    Validate career pathway graph construction, enrichment, and export
-    from the synthetic 20-posting fixture chain.
+    Validate career pathway graph construction and enrichment from
+    the synthetic 20-posting fixture chain.
     """
 
     def test_is_acyclic(self, pathway_graph: CareerPathwayGraph):
@@ -88,10 +85,8 @@ class TestCareerPathwayGraph:
         raising from `dag_longest_path`.
         """
         empty = CareerPathwayGraph(
-            apprenticeships = [],
-            network         = network,
-            profiles        = {},
-            programs        = []
+            network  = network,
+            profiles = {}
         )
         assert empty.longest_path.path == []
         assert empty.longest_path.path_weight == 0.0
@@ -111,35 +106,3 @@ class TestCareerPathwayGraph:
             for u, v in zip(path, path[1:])
         )) < 1e-10
 
-    def test_export_creates_files(
-        self,
-        pathway_graph : CareerPathwayGraph,
-        tmp_path      : Path
-    ):
-        """
-        Export creates both GraphML and JSON files.
-        """
-        result = pathway_graph.export(tmp_path / "export")
-        assert result.graphml_path.exists()
-        assert result.json_path.exists()
-
-    def test_json_roundtrip(
-        self,
-        pathway_graph : CareerPathwayGraph,
-        tmp_path      : Path
-    ):
-        """
-        JSON roundtrip via `node_link_data` / `node_link_graph` preserves
-        node count, edge count, and nested program lists.
-        """
-        G = node_link_graph(loads(
-            pathway_graph.export(tmp_path / "export").json_path.read_text()
-        ))
-
-        assert G.number_of_nodes() == pathway_graph.graph.number_of_nodes()
-        assert G.number_of_edges() == pathway_graph.graph.number_of_edges()
-
-        for node in pathway_graph.graph:
-            assert len(G.nodes[node].get("programs", [])) == len(
-                pathway_graph.graph.nodes[node].get("programs", [])
-            )

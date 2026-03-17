@@ -169,7 +169,7 @@ class TestResumeMatcher:
         unrankable rather than silently dropped. A regression would
         lose gap skills from the career report.
         """
-        from chalkline.pipeline.enrichment import EnrichmentContext
+        from chalkline.pipeline.trades import TradeIndex
         ppmi = pd.DataFrame(
             {"a" : {"a" : 0.0}},
             index = ["a"]
@@ -177,7 +177,8 @@ class TestResumeMatcher:
         ranked, unrankable = ResumeMatcher._rank_gaps(
             self       = type("Stub", (), {
                 "centroid_scope" : {0: set()},
-                "enrichment"     : EnrichmentContext([], [], ppmi_df=ppmi)
+                "ppmi_df"        : ppmi,
+                "trades"    : TradeIndex([], [])
             })(),
             cluster_id = 0,
             neighbors  = [
@@ -226,11 +227,12 @@ class TestResumeMatcher:
                 "y" : {"a" : 0.8, "b" : 0.0}
             }
         )
-        from chalkline.pipeline.enrichment import EnrichmentContext
+        from chalkline.pipeline.trades import TradeIndex
         ranked, _ = ResumeMatcher._rank_gaps(
             self         = type("Stub", (), {
                 "centroid_scope" : {0: {"a", "x"}},
-                "enrichment"     : EnrichmentContext([], [], ppmi_df=ppmi)
+                "ppmi_df"        : ppmi,
+                "trades"    : TradeIndex([], [])
             })(),
             cluster_id = 0,
             neighbors  = [

@@ -18,6 +18,8 @@ Lexicon fixtures feed the extractor via the registry:
     supplement_terms┘
 """
 
+import pandas as pd
+
 from json             import loads
 from pathlib          import Path
 from pytest           import fixture, FixtureRequest
@@ -38,11 +40,9 @@ from chalkline.matching.matcher          import ResumeMatcher
 from chalkline.matching.schemas          import MatchResult
 from chalkline.pathways.graph            import CareerPathwayGraph
 from chalkline.pathways.routing          import CareerRouter
-from chalkline.pipeline.enrichment       import EnrichmentContext
+from chalkline.pipeline.trades           import TradeIndex
 from chalkline.pipeline.orchestrator     import build_profiles, compose_geometry
 from chalkline.pipeline.orchestrator     import compute_sector_labels
-from chalkline.pipeline.orchestrator     import deduplicate_apprenticeships
-from chalkline.pipeline.orchestrator     import deduplicate_programs
 from chalkline.pipeline.programs         import load_programs
 from chalkline.pipeline.schemas          import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas          import ProgramRecommendation
@@ -307,17 +307,22 @@ def apprenticeships() -> list[ApprenticeshipContext]:
     ]
 
 @fixture
-def enrichment(
+def ppmi_df(network: CooccurrenceNetwork) -> pd.DataFrame:
+    """
+    PPMI DataFrame from the co-occurrence network for gap ranking.
+    """
+    return network.ppmi_dataframe()
+
+@fixture
+def trades(
     apprenticeships : list[ApprenticeshipContext],
-    network         : CooccurrenceNetwork,
     programs        : list[ProgramRecommendation]
-) -> EnrichmentContext:
+) -> TradeIndex:
     """
-    Shared enrichment context with prefix lookups and PPMI DataFrame.
+    Shared trade index with prefix lookups for matching.
     """
-    return EnrichmentContext(
+    return TradeIndex(
         apprenticeships = apprenticeships,
-        ppmi_df         = network.ppmi_dataframe(),
         programs        = programs
     )
 
@@ -338,9 +343,10 @@ def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResul
 @fixture
 def matcher(
     clusterer         : HierarchicalClusterer,
-    enrichment        : EnrichmentContext,
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,
+    ppmi_df           : pd.DataFrame,
+    trades            : TradeIndex,
     vectorizer        : SkillVectorizer
 ) -> ResumeMatcher:
     """
@@ -354,9 +360,10 @@ def matcher(
     return ResumeMatcher(
         cluster_labels    = cluster_labels_50,
         clusterer         = clusterer,
-        enrichment        = enrichment,
         extracted_skills  = extracted_skills,
-        geometry_pipeline = geometry_pipeline
+        geometry_pipeline = geometry_pipeline,
+        ppmi_df           = ppmi_df,
+        trades            = trades
     )
 
 @fixture
@@ -380,44 +387,37 @@ def resume_skills() -> list[str]:
 def pathway_graph(
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
-    enrichment       : EnrichmentContext,
     extracted_skills : dict[str, list[str]],
     network          : CooccurrenceNetwork,
     occupation_index : OccupationIndex,
-    sector_labels    : list[str]
+    sector_labels    : list[str],
+    trades           : TradeIndex
 ) -> CareerPathwayGraph:
     """
     Build a career pathway graph from the full fixture pipeline.
     """
-    profiles = build_profiles(
-        cluster_labels   = cluster_labels,
-        clusterer        = clusterer,
-        enrichment       = enrichment,
-        extracted_skills = extracted_skills,
-        occupation_index = occupation_index,
-        sector_labels    = sector_labels
-    )
-
-    deduped_apps  = deduplicate_apprenticeships(profiles)
-    deduped_progs = deduplicate_programs(profiles)
-
     return CareerPathwayGraph(
-        apprenticeships = deduped_apps,
-        network         = network,
-        profiles        = profiles,
-        programs        = deduped_progs
+        network  = network,
+        profiles = build_profiles(
+            cluster_labels   = cluster_labels,
+            clusterer        = clusterer,
+            extracted_skills = extracted_skills,
+            occupation_index = occupation_index,
+            sector_labels    = sector_labels,
+            trades           = trades
+        )
     )
 
 @fixture
 def router(
-    enrichment    : EnrichmentContext,
-    pathway_graph : CareerPathwayGraph
+    pathway_graph : CareerPathwayGraph,
+    trades        : TradeIndex
 ) -> CareerRouter:
     """
     Build a career router from the full fixture pipeline.
     """
     return CareerRouter(
-        enrichment = enrichment,
-        graph      = pathway_graph.graph,
-        profiles   = pathway_graph.profiles
+        graph    = pathway_graph.graph,
+        profiles = pathway_graph.profiles,
+        trades   = trades
     )

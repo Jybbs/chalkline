@@ -14,16 +14,12 @@ import numpy    as np
 
 from functools import cached_property
 from itertools import combinations
-from json      import dumps, loads
 from kneed     import KneeLocator
 from logging   import getLogger
-from pathlib   import Path
-from typing    import Self
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
-from chalkline.pathways.schemas         import GraphExport, LongestPath
-from chalkline.pipeline.schemas         import ApprenticeshipContext
-from chalkline.pipeline.schemas         import ClusterProfile, ProgramRecommendation
+from chalkline.pathways.schemas         import LongestPath
+from chalkline.pipeline.schemas         import ClusterProfile
 
 
 logger = getLogger(__name__)
@@ -41,89 +37,35 @@ class CareerPathwayGraph:
 
     def __init__(
         self,
-        apprenticeships : list[ApprenticeshipContext],
-        network         : CooccurrenceNetwork,
-        profiles        : dict[int, ClusterProfile],
-        programs        : list[ProgramRecommendation],
-        max_density     : float = 0.05
+        profiles    : dict[int, ClusterProfile],
+        graph       : nx.DiGraph | None = None,
+        max_density : float = 0.05,
+        network     : CooccurrenceNetwork | None = None
     ):
         """
-        Build the career pathway graph from pre-enriched upstream artifacts.
+        Build or accept a pre-built career pathway graph.
 
-        Edge weights are thresholded via knee detection on the sorted weight
-        curve, matching the pattern used by
-        `CooccurrenceNetwork._find_threshold`. The `max_density` ceiling
-        serves as a secondary guard when the knee still produces a graph too
-        dense for career pathway navigation. Deduplicated apprenticeship and
-        program lists are computed by the orchestrator and passed through
-        for export serialization.
+        When `network` is provided, edges are computed via NPMI
+        co-occurrence and thresholded by knee detection with a
+        `max_density` ceiling. When `graph` is provided instead,
+        the DiGraph is used directly without rebuilding, as in
+        the `Pipeline.load()` path.
 
         Args:
-            apprenticeships : Deduplicated apprenticeship programs
-                              across all cluster profiles.
-            network         : NPMI matrix, vocabulary, and Louvain
-                              partition.
-            profiles        : Enriched cluster characteristics from
-                              the orchestrator.
-            programs        : Deduplicated educational programs
-                              across all cluster profiles.
-            max_density     : Density ceiling for edge pruning.
+            profiles    : Enriched cluster characteristics from
+                          the orchestrator.
+            graph       : Pre-built DiGraph from deserialized
+                          artifacts. Skips `_build_graph` when
+                          provided.
+            max_density : Density ceiling for edge pruning.
+            network     : NPMI matrix, vocabulary, and Louvain
+                          partition. Required when `graph` is
+                          not provided.
         """
-        self.apprenticeships = apprenticeships
-        self.network         = network
-        self.profiles        = profiles
-        self.programs        = programs
-        self.max_density     = max_density
-        self.cluster_ids     = sorted(self.profiles)
-        self.graph           = self._build_graph()
-
-    @classmethod
-    def from_serialized(
-        cls,
-        json_path : Path,
-        profiles  : dict[int, ClusterProfile] | None = None
-    ) -> Self:
-        """
-        Reconstruct a graph from its JSON export without re-triggering the
-        full build.
-
-        Reads the JSON file written by `export()`, extracts sidecar
-        apprenticeship and program data, and reconstructs the `DiGraph` via
-        `node_link_graph`. The `network` attribute is set to `None` because
-        the `CooccurrenceNetwork` is not persisted; properties that depend
-        on it (like `alignment`) return safe defaults.
-
-        Args:
-            json_path : Path to `career_graph.json`.
-            profiles  : Enriched cluster profiles from the orchestrator.
-                        When provided, enables `skill_to_cluster` on the
-                        deserialized instance.
-
-        Returns:
-            A `CareerPathwayGraph` with pre-built graph state.
-        """
-        nld = loads(json_path.read_text())
-
-        deduped_apps = [
-            ApprenticeshipContext(**a)
-            for a in nld.pop("apprenticeships", [])
-        ]
-        deduped_progs = [
-            ProgramRecommendation(**p)
-            for p in nld.pop("programs", [])
-        ]
-
-        instance                  = cls.__new__(cls)
-        instance.apprenticeships  = deduped_apps
-        instance.cluster_ids      = sorted(
-            int(n["id"]) for n in nld.get("nodes", [])
-        )
-        instance.graph            = nx.node_link_graph(nld)
-        instance.max_density      = 0.0
-        instance.network          = None
-        instance.profiles         = profiles or {}
-        instance.programs         = deduped_progs
-        return instance
+        self.max_density = max_density
+        self.network     = network
+        self.profiles    = profiles
+        self.graph       = graph or self._build_graph()
 
     @cached_property
     def longest_path(self) -> LongestPath:
@@ -137,10 +79,28 @@ class CareerPathwayGraph:
             self.graph, weight="weight", default_weight=0
         )
         return LongestPath(
-            edge_count  = self.graph.number_of_edges(),
+            edges       = self.graph.number_of_edges(),
             path        = path,
             path_weight = nx.path_weight(self.graph, path, "weight")
         )
+
+    @cached_property
+    def size(self) -> int:
+        """
+        Number of clusters in the career graph.
+        """
+        return len(self.profiles)
+
+    @cached_property
+    def skill_indices(self) -> dict[int, list[int]]:
+        """
+        Vocab-mapped column indices per cluster, precomputed for
+        pairwise NPMI lookups in `_edge_weight`.
+        """
+        return {
+            cid: [self.vocab[s] for s in profile.skills if s in self.vocab]
+            for cid, profile in self.profiles.items()
+        }
 
     @cached_property
     def vocab(self) -> dict[str, int]:
@@ -162,29 +122,21 @@ class CareerPathwayGraph:
         weight curve, with a density cap as a secondary guard. Edges are
         directed from lower to higher rank.
         """
-        n = len(self.profiles)
-        n_postings = sum(p.size for p in self.profiles.values())
-        if n > n_postings * 0.75:
-            logger.warning(
-                f"Cluster count ({n}) exceeds 75% of corpus "
-                f"size ({n_postings}); near-singleton clustering "
-                f"degrades edge weight discrimination"
-            )
-
         (G := nx.DiGraph()).add_nodes_from(
             (cid, profile.model_dump(mode="json"))
             for cid, profile in self.profiles.items()
         )
 
-        candidates = [
-            (*sorted((ci, cj), key=lambda c: self.profiles[c].rank), wc[0])
-            for ci, cj in combinations(self.cluster_ids, 2)
+        cluster_ids = sorted(self.profiles, key=lambda c: self.profiles[c].rank)
+        candidates  = [
+            (ci, cj, wc[0])
+            for ci, cj in combinations(cluster_ids, 2)
             if (wc := self._edge_weight(ci, cj))[0] > 0 and wc[1] >= 3
         ]
 
         if candidates:
             threshold = self._find_threshold(
-                max_edges = int(self.max_density * n * (n - 1) / 2) if n > 1 else 0,
+                max_edges = int(self.max_density * self.size * (self.size - 1) / 2),
                 weights   = sorted(w for _, _, w in candidates)
             )
 
@@ -193,32 +145,18 @@ class CareerPathwayGraph:
                 direction_source="job_zone"
             )
 
-            hours = {
-                cid: int(p.apprenticeship.term_hours.split("-")[0])
-                for cid, p in self.profiles.items()
-                if p.apprenticeship
-            }
-            nx.set_edge_attributes(G, {
-                (s, t): hours[t] - hours[s]
-                for s, t in G.edges()
-                if s in hours and t in hours
-            }, "term_hours_delta")
-
         if not G.number_of_edges():
             logger.warning(
-                f"Career graph has zero edges from {n} clusters "
-                f"and {n_postings} postings; co-occurrence floor "
-                f"of {self.network.threshold} may exceed corpus "
-                f"density"
+                f"Career graph has zero edges from "
+                f"{self.size} clusters and "
+                f"{sum(p.size for p in self.profiles.values())} "
+                f"postings; co-occurrence floor of "
+                f"{self.network.threshold} may exceed corpus density"
             )
 
         return G
 
-    def _edge_weight(
-        self,
-        ci : int,
-        cj : int
-    ) -> tuple[float, int]:
+    def _edge_weight(self, ci: int, cj: int) -> tuple[float, int]:
         """
         Top-k mean NPMI for a cluster pair.
 
@@ -235,21 +173,15 @@ class CareerPathwayGraph:
         Returns:
             Tuple of (top-k mean NPMI, count of positive pairs).
         """
-        idx_i = [self.vocab[s] for s in self.profiles[ci].skills if s in self.vocab]
-        idx_j = [self.vocab[s] for s in self.profiles[cj].skills if s in self.vocab]
+        si, sj    = self.skill_indices[ci], self.skill_indices[cj]
+        values    = self.network.npmi_matrix[np.ix_(si, sj)].data
+        positives = values[values > 0]
 
-        if not idx_i or not idx_j:
+        if not len(positives):
             return 0.0, 0
 
-        values = self.network.npmi_matrix[np.ix_(idx_i, idx_j)].data
-        values = values[values > 0]
-
-        if len(values) == 0:
-            return 0.0, 0
-
-        k    = min(10, len(idx_i), len(idx_j), len(values))
-        topk = np.partition(values, -k)[-k:]
-        return topk.mean(), len(values)
+        k = min(10, len(si), len(sj), len(positives))
+        return np.partition(positives, -k)[-k:].mean(), len(positives)
     
     def _find_threshold(
         self,
@@ -301,46 +233,3 @@ class CareerPathwayGraph:
         return threshold
 
 
-    def export(self, output_dir: Path) -> GraphExport:
-        """
-        Export the career graph as GraphML and JSON to the specified output
-        directory, creating it if needed.
-
-        GraphML includes only scalar node and edge attributes for
-        interoperability with Gephi and Cytoscape. JSON preserves full
-        attribute fidelity including nested program lists via
-        `node_link_data`.
-
-        Args:
-            output_dir : Target directory for export artifacts.
-
-        Returns:
-            Export paths for GraphML and JSON artifacts.
-        """
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        graphml_path = output_dir / "career_graph.graphml"
-        scalar_graph = self.graph.copy()
-        nx.remove_node_attributes(
-            scalar_graph, "apprenticeship", "programs", "skills", "terms"
-        )
-
-        for _, _, data in scalar_graph.edges(data=True):
-            for attr in ("apprenticeships", "bridging_skills",
-                         "estimated_hours", "programs"):
-                data.pop(attr, None)
-        nx.write_graphml(scalar_graph, graphml_path)
-
-        json_path = output_dir / "career_graph.json"
-        nld       = nx.node_link_data(self.graph)
-        dump      = lambda items: [x.model_dump(mode="json") for x in items]
-        nld["apprenticeships"] = dump(self.apprenticeships)
-        nld["programs"]        = dump(self.programs)
-        json_path.write_text(dumps(
-            nld, indent=2, default=lambda o: o.item()
-        ))
-
-        return GraphExport(
-            graphml_path = graphml_path,
-            json_path    = json_path
-        )

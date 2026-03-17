@@ -75,9 +75,9 @@ class MatchResult(BaseModel, extra="forbid"):
     nearest_neighbors : list[NeighborMatch]
     resume_skills     : list[str]
 
-    pca_coordinates : list[float]    = Field(default_factory = list)
+    pca_coordinates : list[float]     = Field(default_factory = list)
     ranked_gaps     : list[RankedGap] = Field(default_factory = list)
-    sector          : str             = ""
+    sector          : str | None      = None
     unrankable_gaps : list[str]       = Field(default_factory = list)
 
     @computed_field

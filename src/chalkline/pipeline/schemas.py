@@ -27,6 +27,24 @@ class ApprenticeshipContext(BaseModel, extra="forbid"):
     term_hours  : str
     title       : str
 
+    @cached_property
+    def min_hours(self) -> int:
+        """
+        Lower bound of the term hours range as an integer.
+        """
+        return int(self.term_hours.split("-")[0])
+
+    @cached_property
+    def prefixes(self) -> set[str]:
+        """
+        4-character word prefixes from the trade title for
+        fuzzy matching against skill strings.
+        """
+        return {
+            w[:4] for w in self.title.lower().split()
+            if len(w) >= 4
+        }
+
 
 class ClusterProfile(BaseModel, extra="forbid"):
     """
@@ -113,3 +131,14 @@ class ProgramRecommendation(BaseModel, extra="forbid"):
     institution : str
     program     : str
     url         : str
+
+    @cached_property
+    def prefixes(self) -> set[str]:
+        """
+        4-character word prefixes from the program name for
+        fuzzy matching against skill strings.
+        """
+        return {
+            w[:4] for w in self.program.lower().split()
+            if len(w) >= 4
+        }

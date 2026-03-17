@@ -1,13 +1,12 @@
 """
-Schemas for career pathway graph routing and export.
+Schemas for career pathway graph routing.
 
 Defines centrality metrics, career route and transition step models
-for widest-path routing, longest-path results, progressive learning
-plans, and export artifact paths.
+for widest-path routing, longest-path results, and progressive
+learning plans.
 """
 
 from functools import cached_property
-from pathlib   import Path
 from pydantic  import BaseModel, Field
 
 from chalkline.pipeline.schemas import ApprenticeshipContext, ProgramRecommendation
@@ -68,20 +67,6 @@ class CentralityMetrics(BaseModel, extra="forbid"):
     pagerank    : dict[int, float] = Field(default_factory=dict)
 
 
-class GraphExport(BaseModel, extra="forbid"):
-    """
-    Paths to exported graph serialization artifacts.
-
-    GraphML contains only scalar node and edge attributes for
-    interoperability with Gephi and Cytoscape. JSON preserves full attribute
-    fidelity including nested program lists and serves as the primary
-    pipeline serialization format.
-    """
-
-    graphml_path : Path
-    json_path    : Path
-
-
 class LearningPlan(BaseModel, extra="forbid"):
     """
     Progressive learning plan along a career route.
@@ -126,6 +111,6 @@ class LongestPath(BaseModel, extra="forbid"):
     career progression chain from entry-level to advanced roles.
     """
 
-    edge_count  : int        = Field(default=0, ge=0)
+    edges       : int        = Field(default=0, ge=0)
     path        : list[int]  = Field(default_factory=list)
     path_weight : float      = 0.0

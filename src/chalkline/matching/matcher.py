@@ -20,7 +20,7 @@ from chalkline.clustering.hierarchical import HierarchicalClusterer
 from chalkline.clustering.schemas      import ClusterLabel
 from chalkline.matching.schemas        import ClusterDistance, MatchResult
 from chalkline.matching.schemas        import NeighborMatch, RankedGap
-from chalkline.pipeline.enrichment import EnrichmentContext, prefix_set
+from chalkline.pipeline.trades         import TradeIndex
 
 def jaccard(a: set[str], b: set[str]) -> float:
     """
@@ -57,9 +57,10 @@ class ResumeMatcher:
         self,
         cluster_labels    : list[ClusterLabel],
         clusterer         : HierarchicalClusterer,
-        enrichment        : EnrichmentContext,
         extracted_skills  : dict[str, list[str]],
         geometry_pipeline : Pipeline,
+        ppmi_df           : pd.DataFrame,
+        trades            : TradeIndex,
         metric            : str = "euclidean",
         top_k_gaps        : int = 10
     ):
@@ -67,35 +68,37 @@ class ResumeMatcher:
         Compute cluster centroids and fit nearest-neighbor models.
 
         The `clusterer` provides assignments, coordinates, and
-        document identifiers from the HAC step. The `enrichment`
-        context carries precomputed prefix lookup dicts for
-        apprenticeship and program matching as well as the PPMI
-        DataFrame for gap ranking. The geometry pipeline must be a
-        fitted sklearn `Pipeline` chaining `DictVectorizer`,
-        `TfidfTransformer`, `Normalizer`, `TruncatedSVD`, and
-        `StandardScaler` so that a single `transform([skill_dict])`
-        call projects a resume into the shared PCA space.
+        document identifiers from the HAC step. The `trades`
+        index carries precomputed prefix lookup dicts for
+        apprenticeship and program matching, while `ppmi_df`
+        provides the PPMI DataFrame for gap ranking. The geometry
+        pipeline must be a fitted sklearn `Pipeline` chaining
+        `DictVectorizer`, `TfidfTransformer`, `Normalizer`,
+        `TruncatedSVD`, and `StandardScaler` so that a single
+        `transform([skill_dict])` call projects a resume into
+        the shared PCA space.
 
         Args:
             cluster_labels    : TF-IDF centroid labels per cluster.
             clusterer         : Fitted hierarchical clusterer with
                                 assignments, coordinates, and
                                 document identifiers.
-            enrichment        : Shared enrichment context with PPMI
-                                DataFrame and prefix lookups.
             extracted_skills  : Skills per document identifier.
             geometry_pipeline : Fitted vectorization pipeline.
+            ppmi_df           : PPMI DataFrame for gap ranking.
+            trades            : Precomputed prefix lookup index.
             metric            : sklearn distance metric string.
             top_k_gaps        : Default number of ranked gaps.
         """
         self.cluster_labels    = cluster_labels
         self.clusterer         = clusterer
-        self.enrichment        = enrichment
         self.extracted_skills  = extracted_skills
         self.geometry_pipeline = geometry_pipeline
+        self.ppmi_df           = ppmi_df
+        self.trades            = trades
         self.metric            = metric
         self.top_k_gaps        = top_k_gaps
-        self.cluster_ids       = np.unique(clusterer.assignments)
+        self.cluster_ids       = clusterer.cluster_ids
         self.centroid_nn       = NearestNeighbors(
             metric      = self.metric,
             n_neighbors = len(self.cluster_ids)
@@ -237,7 +240,7 @@ class ResumeMatcher:
             - resume_set
         )
 
-        ppmi  = self.enrichment.ppmi_df
+        ppmi  = self.ppmi_df
         scope = self.centroid_scope[cluster_id]
         ref   = resume_set & set(ppmi.columns)
         valid = skill_gaps & set(ppmi.index)
@@ -256,12 +259,10 @@ class ResumeMatcher:
 
         return [
             RankedGap(
-                apprenticeships = self.enrichment.find_apprenticeships(
-                    pf := prefix_set(gap)
-                ),
-                programs  = self.enrichment.find_programs(pf),
-                relevance = rel,
-                skill     = gap
+                apprenticeships = self.trades.find_apprenticeships([gap]),
+                programs        = self.trades.find_programs([gap]),
+                relevance       = rel,
+                skill           = gap
             )
             for gap, rel in positive.items()
         ], skill_gaps - set(positive.index)
