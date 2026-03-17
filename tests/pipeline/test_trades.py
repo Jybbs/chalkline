@@ -2,28 +2,63 @@
 Tests for trade index prefix matching.
 """
 
-from chalkline.pipeline.trades import _prefix_set
+from chalkline.pipeline.schemas import ApprenticeshipContext
+from chalkline.pipeline.trades  import TradeIndex
 
 
-class TestPrefixSet:
+class TestTradeIndex:
     """
-    Validate 4-character prefix extraction for apprenticeship and
-    program matching.
+    Validate prefix-based matching between skill strings and
+    reference records.
     """
 
-    def test_inflection(self):
+    def test_inflection_match(self):
         """
-        4-char prefix catches inflectional variants that the trade
-        index relies on for apprenticeship and program matching.
+        4-char prefix overlap catches inflectional variants,
+        matching "welding" against a trade titled "Welder".
         """
-        assert _prefix_set("welding") & _prefix_set("Welder")
-        assert _prefix_set("electrical wiring") & _prefix_set("Electrician")
-        assert not _prefix_set("scaffolding") & _prefix_set("concrete")
+        trades = TradeIndex(
+            apprenticeships = [ApprenticeshipContext(
+                rapids_code = "001",
+                term_hours  = "8000",
+                title       = "Welder"
+            )],
+            programs = []
+        )
+        apps, _ = trades.match(["welding"])
+        assert len(apps) == 1
 
-    def test_short_words(self):
+    def test_no_match(self):
         """
-        Words shorter than 4 characters are excluded from the prefix
-        set to avoid false positives on articles and prepositions.
+        Unrelated terms produce no matches.
         """
-        assert _prefix_set("the NEC code") == {"code"}
-        assert _prefix_set("on") == set()
+        trades = TradeIndex(
+            apprenticeships = [ApprenticeshipContext(
+                rapids_code = "001",
+                term_hours  = "8000",
+                title       = "Electrician"
+            )],
+            programs = []
+        )
+        apps, _ = trades.match(["concrete"])
+        assert apps == []
+
+    def test_short_words_excluded(self):
+        """
+        Words shorter than 4 characters are excluded from prefix
+        matching to avoid false positives on articles and
+        prepositions.
+        """
+        trades = TradeIndex(
+            apprenticeships = [ApprenticeshipContext(
+                rapids_code = "001",
+                term_hours  = "8000",
+                title       = "NEC Code Specialist"
+            )],
+            programs = []
+        )
+        apps, _ = trades.match(["the NEC code"])
+        assert len(apps) == 1
+
+        apps, _ = trades.match(["on"])
+        assert apps == []

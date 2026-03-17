@@ -8,6 +8,7 @@ exclusion, and unmatched term logging using synthetic fixture data.
 
 from chalkline.extraction.skills import SkillExtractor
 
+
 class TestSkillExtractor:
     """
     Validate extraction behavior, priority, and edge cases.

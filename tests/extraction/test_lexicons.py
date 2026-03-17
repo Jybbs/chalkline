@@ -11,6 +11,7 @@ from pytest import mark
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import Certification, OnetOccupation, OnetSkill
 
+
 class TestLexiconRegistry:
     """
     Validate normalization priority, decomposition, and lemma index
@@ -64,7 +65,7 @@ class TestLexiconRegistry:
         tagging, leaving verb forms like "installing" unchanged.
         """
         assert registry.lemmatize("scaffoldings") == "scaffolding"
-        assert registry.lemmatize("installing") == "installing"
+        assert registry.lemmatize("installing")   == "installing"
 
     def test_normalize_case_insensitive(self, registry: LexiconRegistry):
         """

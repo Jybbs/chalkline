@@ -40,15 +40,15 @@ from chalkline.matching.matcher          import ResumeMatcher
 from chalkline.matching.schemas          import MatchResult
 from chalkline.pathways.graph            import CareerPathwayGraph
 from chalkline.pathways.routing          import CareerRouter
-from chalkline.pipeline.trades           import TradeIndex
 from chalkline.pipeline.orchestrator     import build_profiles, compose_geometry
 from chalkline.pipeline.orchestrator     import compute_sector_labels
-from chalkline.pipeline.programs         import load_programs
 from chalkline.pipeline.schemas          import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas          import ProgramRecommendation
+from chalkline.pipeline.trades           import TradeIndex
 from chalkline.reduction.pca             import PcaReducer
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
 
 def _postings() -> list[Posting]:
     """
@@ -218,7 +218,7 @@ def second_posting() -> Posting:
     """
     return _postings()[1]
 
-@fixture(params = ["47-2111", "47-2111.00"])
+@fixture(params=["47-2111", "47-2111.00"])
 def soc(request: FixtureRequest) -> str:
     """
     Electrician SOC code in both bare and suffixed formats.
@@ -231,8 +231,6 @@ def pca_reducer(vectorizer: SkillVectorizer) -> PcaReducer:
     Build a PCA reducer from the shared skill vectorizer.
     """
     return PcaReducer(
-        document_ids       = vectorizer.document_ids,
-        feature_names      = vectorizer.feature_names,
         max_components     = 4,
         random_seed        = 42,
         tfidf_matrix       = vectorizer.tfidf_matrix,
@@ -272,26 +270,29 @@ def cluster_labels(
     )
 
 @fixture
-def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
+def clusterer(
+    pca_reducer : PcaReducer,
+    vectorizer  : SkillVectorizer
+) -> HierarchicalClusterer:
     """
     Build a hierarchical clusterer from the shared PCA reducer.
     """
     return HierarchicalClusterer(
         coordinates  = pca_reducer.coordinates,
-        document_ids = pca_reducer.document_ids
+        document_ids = vectorizer.document_ids
     )
 
 @fixture
 def sector_labels(
     extracted_skills : dict[str, list[str]],
     occupation_index : OccupationIndex,
-    pca_reducer      : PcaReducer
+    vectorizer       : SkillVectorizer
 ) -> list[str]:
     """
-    Sector labels aligned with PCA reducer document order.
+    Sector labels aligned with vectorizer document order.
     """
     return compute_sector_labels(
-        document_ids     = pca_reducer.document_ids,
+        document_ids     = vectorizer.document_ids,
         extracted_skills = extracted_skills,
         occupation_index = occupation_index
     )
@@ -367,13 +368,14 @@ def matcher(
     )
 
 @fixture
-def programs(tmp_path: Path) -> list[ProgramRecommendation]:
+def programs() -> list[ProgramRecommendation]:
     """
-    Load and normalize synthetic educational program fixtures.
+    Load synthetic educational program fixtures.
     """
-    for name in ("cc_programs.json", "umaine_programs.json"):
-        (tmp_path / name).write_text((FIXTURES / "matching" / name).read_text())
-    return load_programs(tmp_path)
+    return [
+        ProgramRecommendation(**raw)
+        for raw in loads((FIXTURES / "matching" / "programs.json").read_text())
+    ]
 
 @fixture
 def resume_skills() -> list[str]:

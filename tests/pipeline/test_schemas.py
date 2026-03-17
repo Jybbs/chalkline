@@ -12,6 +12,7 @@ from pytest  import mark, raises
 from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import PipelineConfig, ProgramRecommendation
 
+
 class TestPipelineConfig:
     """
     Validate `PipelineConfig` constraints and defaults.
@@ -35,7 +36,7 @@ class TestPipelineConfig:
         `min_cooccurrence` accepts a float fraction, not only the
         default `"auto"` string.
         """
-        config = self._config(tmp_path, min_cooccurrence = 0.05)
+        config = self._config(tmp_path, min_cooccurrence=0.05)
         assert config.min_cooccurrence == 0.05
 
     @mark.parametrize("field, expected", [

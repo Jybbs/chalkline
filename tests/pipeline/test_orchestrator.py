@@ -8,8 +8,9 @@ reference data annotations, and that the `Pipeline` class enforces
 pre-fit guards on `match()`.
 """
 
-from sklearn.pipeline         import Pipeline as SklearnPipeline
-from sklearn.utils.validation import check_is_fitted
+from pytest                    import raises
+from sklearn.pipeline          import Pipeline as SklearnPipeline
+from sklearn.utils.validation  import check_is_fitted
 
 from chalkline.clustering.hierarchical import HierarchicalClusterer
 from chalkline.clustering.schemas      import ClusterLabel
@@ -22,7 +23,6 @@ from chalkline.pipeline.schemas        import PipelineConfig
 from chalkline.pipeline.trades         import TradeIndex
 from chalkline.reduction.pca           import PcaReducer
 
-import pytest
 
 class TestComposeGeometry:
     """
@@ -73,6 +73,7 @@ class TestComposeGeometry:
         )
         coords = geo.transform([{"fall protection": 1, "welding": 1}])
         assert coords.shape == (1, pca_reducer.n_selected)
+
 
 class TestBuildProfiles:
     """
@@ -149,6 +150,7 @@ class TestBuildProfiles:
         for profile in profiles.values():
             assert profile.sector
 
+
 class TestPipeline:
     """
     Tests for the Pipeline orchestrator lifecycle.
@@ -164,7 +166,7 @@ class TestPipeline:
             postings_dir = tmp_path
         )
         pipe = Pipeline(config)
-        with pytest.raises(RuntimeError, match="not fitted"):
+        with raises(RuntimeError, match="not fitted"):
             pipe.match("some resume text")
 
     def test_fitted_property(self, tmp_path):

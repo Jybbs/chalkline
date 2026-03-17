@@ -12,6 +12,7 @@ from chalkline.pipeline.schemas  import ApprenticeshipContext
 from chalkline.pipeline.schemas  import ClusterProfile, ProgramRecommendation
 from chalkline.pipeline.trades   import TradeIndex
 
+
 def _make_linear_router() -> CareerRouter:
     """
     Build a 4-node linear DAG router for deterministic tests.
@@ -91,6 +92,7 @@ def _make_linear_router() -> CareerRouter:
         trades   = TradeIndex(apps, progs)
     )
 
+
 def _make_diamond_router() -> CareerRouter:
     """
     Build a 4-node diamond DAG with two paths for route comparison.
@@ -150,6 +152,7 @@ def _make_diamond_router() -> CareerRouter:
         trades   = TradeIndex([], [])
     )
 
+
 class TestCareerRouter:
     """
     Validate centrality, widest-path routing, bridging skills,
@@ -160,9 +163,11 @@ class TestCareerRouter:
         """
         Betweenness and PageRank values fall within [0, 1].
         """
-        c = _make_linear_router().centrality
-        assert all(0 <= v <= 1 for v in c.betweenness.values())
-        assert all(0 <= v <= 1 for v in c.pagerank.values())
+        G = _make_linear_router().graph
+        for node in G.nodes():
+            attrs = G.nodes[node]
+            assert 0 <= attrs["betweenness"] <= 1
+            assert 0 <= attrs["pagerank"] <= 1
 
     def test_centrality_edgeless(self):
         """
@@ -190,35 +195,29 @@ class TestCareerRouter:
             (cid, profile.model_dump(mode="json"))
             for cid, profile in profiles.items()
         )
-        c = CareerRouter(
+        router = CareerRouter(
             graph    = G,
             profiles = profiles,
             trades   = TradeIndex([], [])
-        ).centrality
-        assert all(v == 0.0 for v in c.betweenness.values())
-        assert abs(sum(c.pagerank.values()) - 1.0) < 1e-10
+        )
+        for node in router.graph.nodes():
+            assert router.graph.nodes[node]["betweenness"] == 0.0
+        assert abs(sum(
+            router.graph.nodes[n]["pagerank"]
+            for n in router.graph.nodes()
+        ) - 1.0) < 1e-10
 
     def test_centrality_keys(self):
         """
-        Every node ID appears in each centrality dict.
-        """
-        router = _make_linear_router()
-        c      = router.centrality
-        nodes  = set(router.graph.nodes())
-        assert set(c.betweenness) == nodes
-        assert set(c.in_degree) == nodes
-        assert set(c.out_degree) == nodes
-        assert set(c.pagerank) == nodes
-
-    def test_centrality_node_attrs(self):
-        """
-        Centrality values are stored as node attributes on the
-        graph for downstream consumption.
+        Every node has all four centrality attributes.
         """
         G = _make_linear_router().graph
         for node in G.nodes():
-            assert "betweenness" in G.nodes[node]
-            assert "pagerank" in G.nodes[node]
+            attrs = G.nodes[node]
+            assert "betweenness" in attrs
+            assert "in_degree"   in attrs
+            assert "out_degree"  in attrs
+            assert "pagerank"    in attrs
 
     def test_widest_bottleneck(self):
         """
@@ -279,8 +278,8 @@ class TestCareerRouter:
     def test_bridging_step_hours(self):
         """
         Steps between clusters where both have apprenticeships
-        produce int hour deltas; steps where either side lacks
-        an apprenticeship produce `None`.
+        produce int hour deltas, whereas steps where either
+        side lacks an apprenticeship produce `None`.
         """
         route = _make_linear_router().widest_path(0, 3)
         assert route is not None
@@ -308,7 +307,7 @@ class TestCareerRouter:
         route = _make_linear_router().widest_path(0, 3)
         assert route is not None
         assert route.steps[0].apprenticeships == []
-        assert route.steps[0].programs == []
+        assert route.steps[0].programs        == []
 
     def test_enrichment_program(self):
         """

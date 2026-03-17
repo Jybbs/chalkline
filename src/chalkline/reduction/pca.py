@@ -14,7 +14,7 @@ Euclidean in downstream matching.
 
 import numpy as np
 
-from scipy.sparse          import spmatrix
+from scipy.sparse          import csr_matrix
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline      import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -41,48 +41,37 @@ class PcaReducer:
 
     def __init__(
         self,
-        document_ids       : list[str],
-        feature_names      : list[str],
         max_components     : int,
         random_seed        : int,
-        tfidf_matrix       : spmatrix,
+        tfidf_matrix       : csr_matrix,
         variance_threshold : float
     ):
         """
         Fit the analysis SVD and production pipeline on the
         sparse TF-IDF matrix from `SkillVectorizer`.
 
-        Document identifiers and vocabulary terms maintain row
-        and column alignment with the input matrix for downstream
-        labeling. The maximum component count is capped at one
-        below the matrix rank to avoid rank-deficient
-        decomposition, and both SVD fits share the same random
-        seed for reproducibility.
+        The maximum component count is capped at one below the
+        matrix rank to avoid rank-deficient decomposition, and
+        both SVD fits share the same random seed for
+        reproducibility.
 
         Args:
-            document_ids       : Posting identifiers in row order.
-            feature_names      : Vocabulary terms in column order.
             max_components     : Upper bound on components.
             random_seed        : Reproducibility seed.
             tfidf_matrix       : Sparse TF-IDF matrix.
             variance_threshold : Cumulative variance target.
         """
-        self.document_ids  = document_ids
-        self.feature_names = feature_names
-
-        effective_max = min(max_components, min(tfidf_matrix.shape) - 1)
-
-        self.explained_variance_ratio = TruncatedSVD(
-            n_components = effective_max,
+        variance_profile = TruncatedSVD(
+            n_components = (
+                effective_max := min(max_components, min(tfidf_matrix.shape) - 1)
+            ),
             random_state = random_seed
         ).fit(tfidf_matrix).explained_variance_ratio_
 
-        cumulative               = np.cumsum(self.explained_variance_ratio)
-        self.n_selected          = min(
-            np.searchsorted(cumulative, variance_threshold) + 1,
+        self.n_selected = min(
+            np.searchsorted(np.cumsum(variance_profile), variance_threshold) + 1,
             effective_max
         )
-        self.cumulative_variance = cumulative[self.n_selected - 1]
 
         self.pipeline = Pipeline([
             ("svd", TruncatedSVD(

@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from chalkline.matching.matcher import ResumeMatcher, jaccard
 from chalkline.matching.schemas import MatchResult, NeighborMatch
 
+
 class TestResumeMatcher:
     """
     Verify resume projection, cluster assignment, neighbor retrieval,
@@ -19,10 +20,10 @@ class TestResumeMatcher:
     """
 
     @mark.parametrize("a, b, expected", [
-        param({"a", "b"}, {"c", "d"}, 0.0,   id = "disjoint"),
-        param(set(),      set(),      0.0,   id = "empty"),
-        param({"x", "y", "z"}, {"x", "y", "z"}, 1.0, id = "identical"),
-        param({"a", "b", "c"}, {"b", "c", "d"}, 0.5, id = "partial")
+        param({"a", "b"},       {"c", "d"},       0.0, id="disjoint"),
+        param(set(),            set(),            0.0, id="empty"),
+        param({"x", "y", "z"},  {"x", "y", "z"},  1.0, id="identical"),
+        param({"a", "b", "c"},  {"b", "c", "d"},  0.5, id="partial")
     ])
     def test_jaccard(self, a: set[str], b: set[str], expected: float):
         """
@@ -56,7 +57,7 @@ class TestResumeMatcher:
         returning no gaps and no ranked gaps.
         """
         result = matcher.match([])
-        assert result.skill_gaps == []
+        assert result.skill_gaps  == []
         assert result.ranked_gaps == []
         assert isinstance(result.cluster_id, int)
 
@@ -102,7 +103,7 @@ class TestResumeMatcher:
         )
         assert len(neighbors) > 0
         jaccards = [n.jaccard for n in neighbors]
-        assert jaccards == sorted(jaccards, reverse = True)
+        assert jaccards == sorted(jaccards, reverse=True)
         assert all(n.distance == 1.0 - n.jaccard for n in neighbors)
 
     def test_neighbors_sorted(self, match_result: MatchResult):
@@ -161,7 +162,7 @@ class TestResumeMatcher:
         Ranked gaps are sorted by descending PPMI relevance.
         """
         relevances = [g.relevance for g in match_result.ranked_gaps]
-        assert relevances == sorted(relevances, reverse = True)
+        assert relevances == sorted(relevances, reverse=True)
 
     def test_rank_all_unrankable(self):
         """
@@ -178,7 +179,8 @@ class TestResumeMatcher:
             self       = type("Stub", (), {
                 "centroid_scope" : {0: set()},
                 "ppmi_df"        : ppmi,
-                "trades"    : TradeIndex([], [])
+                "ppmi_skills"    : frozenset(ppmi.index),
+                "trades"         : TradeIndex([], [])
             })(),
             cluster_id = 0,
             neighbors  = [
@@ -232,7 +234,8 @@ class TestResumeMatcher:
             self         = type("Stub", (), {
                 "centroid_scope" : {0: {"a", "x"}},
                 "ppmi_df"        : ppmi,
-                "trades"    : TradeIndex([], [])
+                "ppmi_skills"    : frozenset(ppmi.index),
+                "trades"         : TradeIndex([], [])
             })(),
             cluster_id = 0,
             neighbors  = [
@@ -254,7 +257,7 @@ class TestResumeMatcher:
         """
         `top_k` parameter caps the number of ranked gaps returned.
         """
-        assert len(matcher.match(resume_skills, top_k = 2).ranked_gaps) <= 2
+        assert len(matcher.match(resume_skills, top_k=2).ranked_gaps) <= 2
 
     def test_unrankable_separate(self, match_result: MatchResult):
         """

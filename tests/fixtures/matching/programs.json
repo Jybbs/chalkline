@@ -1,0 +1,38 @@
+[
+  {
+    "credential"  : "AAS Degree, Certificate",
+    "institution" : "CMCC",
+    "program"     : "Building Construction Technology",
+    "url"         : "https://example.com/bct"
+  },
+  {
+    "credential"  : "B.S.",
+    "institution" : "UMaine",
+    "program"     : "Construction Engineering Technology",
+    "url"         : "https://example.com/cet"
+  },
+  {
+    "credential"  : "B.S.",
+    "institution" : "UMaine",
+    "program"     : "Electrical and Computer Engineering",
+    "url"         : "https://example.com/ece"
+  },
+  {
+    "credential"  : "Certificate",
+    "institution" : "WCCC",
+    "program"     : "Heavy Equipment Operations",
+    "url"         : "https://example.com/heavy-equip"
+  },
+  {
+    "credential"  : "Short-term Training",
+    "institution" : "YCCC",
+    "program"     : "Industrial Welding Techniques",
+    "url"         : "https://example.com/welding"
+  },
+  {
+    "credential"  : "Adults seeking immediate entry into the trades",
+    "institution" : "Statewide",
+    "program"     : "Maine Construction Academy",
+    "url"         : "https://example.com/mca"
+  }
+]

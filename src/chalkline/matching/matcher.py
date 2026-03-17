@@ -120,6 +120,34 @@ class ResumeMatcher:
         }
 
     @cached_property
+    def family_nn(self) -> dict[int, tuple[list[str], NearestNeighbors]]:
+        """
+        Pre-fit nearest-neighbor models per cluster with 5+
+        members, avoiding repeated sklearn fitting on each
+        `match()` call.
+        """
+        return {
+            cid: (
+                [self.clusterer.document_ids[i] for i in idx],
+                NearestNeighbors(
+                    metric      = self.metric,
+                    n_neighbors = 5
+                ).fit(self.clusterer.coordinates[idx])
+            )
+            for cid in self.cluster_ids
+            for idx in [np.nonzero(self.clusterer.assignments == cid)[0]]
+            if len(idx) >= 5
+        }
+
+    @cached_property
+    def ppmi_skills(self) -> frozenset[str]:
+        """
+        Skill names present in the PPMI matrix, cached because
+        the DataFrame is immutable after pipeline fitting.
+        """
+        return frozenset(self.ppmi_df.index)
+
+    @cached_property
     def skill_sets(self) -> dict[str, set[str]]:
         """
         Skill names as sets per document for Jaccard computation.
@@ -159,24 +187,18 @@ class ResumeMatcher:
             Up to 5 nearest neighbors with distances and Jaccard
             scores.
         """
-        indices = np.nonzero(self.clusterer.assignments == cluster_id)[0]
-
-        if len(indices) >= 5:
-            document_ids  = [self.clusterer.document_ids[i] for i in indices]
-            dists, nn_idx = NearestNeighbors(
-                metric      = self.metric,
-                n_neighbors = 5
-            ).fit(self.clusterer.coordinates[indices]).kneighbors(coords)
+        if cluster_id in self.family_nn:
+            doc_ids, nn = self.family_nn[cluster_id]
+            dists, nn_idx = nn.kneighbors(coords)
 
             return [
                 NeighborMatch(
                     distance    = dist,
-                    document_id = document_id,
-                    jaccard     = jaccard(resume_set, self.skill_sets[document_id]),
-                    skills      = self.extracted_skills[document_id]
+                    document_id = doc_ids[idx],
+                    jaccard     = jaccard(resume_set, self.skill_sets[doc_ids[idx]]),
+                    skills      = self.extracted_skills[doc_ids[idx]]
                 )
-                for dist, idx   in zip(dists[0], nn_idx[0])
-                for document_id in [document_ids[idx]]
+                for dist, idx in zip(dists[0], nn_idx[0])
             ]
 
         return [
@@ -240,31 +262,31 @@ class ResumeMatcher:
             - resume_set
         )
 
-        ppmi  = self.ppmi_df
         scope = self.centroid_scope[cluster_id]
-        ref   = resume_set & set(ppmi.columns)
-        valid = skill_gaps & set(ppmi.index)
+        ref   = resume_set & self.ppmi_skills
+        valid = skill_gaps & self.ppmi_skills
 
         if not ref or not valid:
             return [], skill_gaps
 
         positive = pd.concat([
-            ppmi.loc[sorted(g), c].mean(axis = 1)
-            for g, c in [
+            self.ppmi_df.loc[list(g), c].mean(axis=1)
+            for g, c in (
                 (valid & scope, list(ref & scope or ref)),
                 (valid - scope, list(ref))
-            ]
+            )
             if g
         ])[lambda s: s > 0].nlargest(top_k)
 
         return [
             RankedGap(
-                apprenticeships = self.trades.find_apprenticeships([gap]),
-                programs        = self.trades.find_programs([gap]),
+                apprenticeships = apps,
+                programs        = progs,
                 relevance       = rel,
                 skill           = gap
             )
             for gap, rel in positive.items()
+            for apps, progs in [self.trades.match([gap])]
         ], skill_gaps - set(positive.index)
 
     def match(
@@ -278,9 +300,9 @@ class ResumeMatcher:
         Converts the resume's canonical skill names to a binary dict,
         projects through the fitted geometry pipeline, assigns to the
         nearest cluster centroid, and finds top-5 neighbors within the
-        cluster. Gap derivation, PPMI ranking, and enrichment
-        aggregation are handled by `_rank_gaps` and the computed
-        fields on `MatchResult`.
+        cluster. Gap derivation and PPMI ranking are handled by
+        `_rank_gaps`, with deduplication of programs and
+        apprenticeships computed at construction time.
 
         Args:
             resume_skills : Sorted canonical skill names from
@@ -323,7 +345,18 @@ class ResumeMatcher:
             cluster_id        = cluster_id,
             nearest_neighbors = neighbors,
             pca_coordinates   = coords[0].tolist(),
+            programs          = list({
+                (p.institution, p.program): p
+                for gap in ranked_gaps for p in gap.programs
+            }.values()),
             ranked_gaps       = ranked_gaps,
             resume_skills     = sorted(resume_skills),
+            skill_gaps        = sorted(
+                {g.skill for g in ranked_gaps} | unrankable
+            ),
+            trade_paths       = list({
+                a.rapids_code: a
+                for gap in ranked_gaps for a in gap.apprenticeships
+            }.values()),
             unrankable_gaps   = sorted(unrankable)
         )

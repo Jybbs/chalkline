@@ -27,8 +27,6 @@ class TestPcaReducer:
         """
         matrix  = vectorizer.tfidf_matrix
         reducer = PcaReducer(
-            document_ids       = vectorizer.document_ids,
-            feature_names      = vectorizer.feature_names,
             max_components     = 999,
             random_seed        = 42,
             tfidf_matrix       = matrix,
@@ -44,22 +42,23 @@ class TestPcaReducer:
         `searchsorted + 1` logic does not over-select.
         """
         reducer = PcaReducer(
-            document_ids       = vectorizer.document_ids,
-            feature_names      = vectorizer.feature_names,
             max_components     = min(vectorizer.tfidf_matrix.shape) - 1,
             random_seed        = 42,
             tfidf_matrix       = vectorizer.tfidf_matrix,
             variance_threshold = 0.01
         )
         assert reducer.n_selected == 1
-        assert reducer.cumulative_variance >= 0.01
 
-    def test_coordinates_shape(self, pca_reducer: PcaReducer):
+    def test_coordinates_shape(
+        self,
+        pca_reducer : PcaReducer,
+        vectorizer  : SkillVectorizer
+    ):
         """
         Output array has shape (n_postings, n_selected).
         """
         assert pca_reducer.coordinates.shape == (
-            len(pca_reducer.document_ids),
+            len(vectorizer.document_ids),
             pca_reducer.n_selected
         )
 

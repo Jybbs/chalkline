@@ -62,7 +62,7 @@ class CareerRouter:
         self.graph      = graph
         self.profiles   = profiles
         self.trades     = trades
-        self.centrality = self._compute_centrality()
+        self._compute_centrality()
         self._compute_edge_enrichment()
 
     def _build_step(self, source: int, target: int) -> TransitionStep:
@@ -88,10 +88,10 @@ class CareerRouter:
             weight          = edge["weight"]
         )
 
-    def _compute_centrality(self) -> CentralityMetrics:
+    def _compute_centrality(self):
         """
-        Compute four centrality measures, store as node attributes
-        on the career DAG, and return the typed schema.
+        Compute four centrality measures and store as node
+        attributes on the career DAG.
         """
         if not self.graph.number_of_edges():
             n = self.graph.number_of_nodes()
@@ -110,8 +110,6 @@ class CareerRouter:
         for name, values in metrics:
             nx.set_node_attributes(self.graph, values, name)
 
-        return metrics
-
     def _compute_edge_enrichment(self):
         """
         Precompute bridging skills and enrichment per edge.
@@ -123,18 +121,16 @@ class CareerRouter:
         lookups rather than rebuilding them locally.
         """
         for s, t, data in self.graph.edges(data=True):
-            bridging = sorted(
-                self.profiles[t].skills - self.profiles[s].skills
-            )
-
-            app_s = self.profiles[s].apprenticeship
-            app_t = self.profiles[t].apprenticeship
+            bridging    = sorted(self.profiles[t].skills - self.profiles[s].skills)
+            apps, progs = self.trades.match(bridging)
+            app_s       = self.profiles[s].apprenticeship
+            app_t       = self.profiles[t].apprenticeship
 
             data |= {
-                "apprenticeships" : self.trades.find_apprenticeships(bridging),
+                "apprenticeships" : apps,
                 "bridging_skills" : bridging,
                 "estimated_hours" : app_s and app_t and app_t.min_hours - app_s.min_hours,
-                "programs"        : self.trades.find_programs(bridging)
+                "programs"        : progs
             }
 
     def _route_from_path(self, path: list[int]) -> CareerRoute:

@@ -17,6 +17,7 @@ from datetime                  import datetime, timezone
 from json                      import dumps, loads
 from logging                   import getLogger
 from pathlib                   import Path
+from pydantic                  import TypeAdapter
 from sklearn.pipeline          import Pipeline as SklearnPipeline
 from sklearn.utils.validation  import check_is_fitted
 from time                      import perf_counter
@@ -36,11 +37,10 @@ from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.matching.schemas         import MatchResult
 from chalkline.pathways.graph           import CareerPathwayGraph
 from chalkline.pathways.routing         import CareerRouter
-from chalkline.pipeline.trades          import TradeIndex
-from chalkline.pipeline.programs        import load_programs
 from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
 from chalkline.pipeline.schemas         import PipelineConfig, PipelineManifest
 from chalkline.pipeline.schemas         import ProgramRecommendation
+from chalkline.pipeline.trades          import TradeIndex
 from chalkline.reduction.pca            import PcaReducer
 
 logger = getLogger(__name__)
@@ -89,7 +89,8 @@ def build_profiles(
 
     profiles: dict[int, ClusterProfile] = {}
     for cid, skills in cluster_skills.items():
-        terms = terms_map.get(cid, [])
+        terms       = terms_map.get(cid, [])
+        apps, progs = trades.match([*terms, *skills])
 
         profiles[cid] = ClusterProfile(
             cluster_id = cid,
@@ -101,14 +102,8 @@ def build_profiles(
             skills = skills,
             terms  = terms,
 
-            apprenticeship = next(
-                iter(trades.find_apprenticeships(
-                    [*terms, *skills]
-                )), None
-            ),
-            programs = trades.find_programs(
-                [*terms, *skills]
-            )
+            apprenticeship = next(iter(apps), None),
+            programs       = progs
         )
 
     return profiles
@@ -173,32 +168,6 @@ def compute_sector_labels(
         for doc in document_ids
     ]
 
-def deduplicate_apprenticeships(
-    profiles: dict[int, ClusterProfile]
-) -> list[ApprenticeshipContext]:
-    """
-    Collect unique apprenticeship contexts across all cluster
-    profiles, keyed by RAPIDS code.
-    """
-    return list({
-        p.apprenticeship.rapids_code: p.apprenticeship
-        for p in profiles.values()
-        if p.apprenticeship
-    }.values())
-
-def deduplicate_programs(
-    profiles: dict[int, ClusterProfile]
-) -> list[ProgramRecommendation]:
-    """
-    Collect unique program recommendations across all cluster
-    profiles, keyed by (institution, program name).
-    """
-    return list({
-        (p.institution, p.program): p
-        for profile in profiles.values()
-        for p in profile.programs
-    }.values())
-
 class Pipeline:
     """
     End-to-end orchestrator for the Chalkline career mapping pipeline.
@@ -256,17 +225,6 @@ class Pipeline:
             trades            = self.trades
         )
 
-    def _load_apprenticeships(self) -> list[ApprenticeshipContext]:
-        """
-        Load apprenticeship reference data from the stakeholder
-        directory.
-        """
-        path = self.config.reference_dir / "apprenticeships.json"
-        return [
-            ApprenticeshipContext(**raw)
-            for raw in loads(path.read_text())
-        ]
-
     def _load_corpus(self) -> dict[str, str]:
         """
         Load the posting corpus as a document-ID-to-text mapping.
@@ -284,6 +242,20 @@ class Pipeline:
             occupations      = load_onet(d / "onet.json"),
             osha_terms       = load_osha(d / "osha.json"),
             supplement_terms = load_supplement(d / "supplement.json")
+        )
+
+    def _load_trades(self) -> TradeIndex:
+        """
+        Load apprenticeship and program reference data into a
+        `TradeIndex`.
+        """
+        return TradeIndex(
+            apprenticeships = TypeAdapter(list[ApprenticeshipContext]).validate_json(
+                (self.config.reference_dir / "apprenticeships.json").read_bytes()
+            ),
+            programs = TypeAdapter(list[ProgramRecommendation]).validate_json(
+                (self.config.lexicon_dir / "programs.json").read_bytes()
+            )
         )
 
     @contextmanager
@@ -350,9 +322,8 @@ class Pipeline:
         )
 
         self.extractor   = SkillExtractor(registry)
+        self.trades      = self._load_trades()
         corpus           = self._load_corpus()
-        apprenticeships  = self._load_apprenticeships()
-        programs         = load_programs(self.config.reference_dir)
         occupation_index = OccupationIndex(occupations)
 
         with self._timed("Extraction"):
@@ -363,8 +334,6 @@ class Pipeline:
 
         with self._timed("PCA reduction"):
             reducer = PcaReducer(
-                document_ids       = vectorizer.document_ids,
-                feature_names      = vectorizer.feature_names,
                 max_components     = self.config.max_components,
                 random_seed        = self.config.random_seed,
                 tfidf_matrix       = vectorizer.tfidf_matrix,
@@ -374,7 +343,7 @@ class Pipeline:
         with self._timed("Clustering"):
             self.clusterer = HierarchicalClusterer(
                 coordinates  = reducer.coordinates,
-                document_ids = reducer.document_ids
+                document_ids = vectorizer.document_ids
             )
             self.cluster_labels = self.clusterer.labels(
                 feature_names = vectorizer.feature_names,
@@ -391,16 +360,12 @@ class Pipeline:
             )
 
         sector_labels = compute_sector_labels(
-            document_ids     = reducer.document_ids,
+            document_ids     = vectorizer.document_ids,
             extracted_skills = self.extracted_skills,
             occupation_index = occupation_index
         )
 
         self.geometry_pipeline = compose_geometry(reducer, vectorizer)
-        self.trades = TradeIndex(
-            apprenticeships = apprenticeships,
-            programs        = programs
-        )
 
         with self._timed("Profile enrichment"):
             self.profiles = build_profiles(
@@ -480,10 +445,7 @@ class Pipeline:
             profiles = pipe.profiles
         )
 
-        pipe.trades = TradeIndex(
-            apprenticeships = deduplicate_apprenticeships(pipe.profiles),
-            programs        = deduplicate_programs(pipe.profiles)
-        )
+        pipe.trades = pipe._load_trades()
         pipe.ppmi_df = joblib.load(d / "ppmi.joblib")
 
         pipe.router = CareerRouter(
