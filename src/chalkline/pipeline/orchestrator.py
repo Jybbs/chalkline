@@ -3,16 +3,17 @@ End-to-end pipeline orchestrator for Chalkline career mapping.
 
 Coordinates the geometry track (extraction, vectorization, PCA,
 clustering) and co-occurrence track (PMI network, Louvain communities)
-into a single `fit()` / `match()` interface. Fitted artifacts are
-cached in memory and optionally persisted to disk via `save()` so
-that `match()` can project resumes without re-fitting.
+into a fitted `Chalkline` instance constructed via `fit()` or `load()`.
+All fitted artifacts are guaranteed present by construction, and
+`match()` projects resumes without re-fitting.
 """
 
 import pandas as pd
 
 from collections               import Counter, defaultdict
-from contextlib                import contextmanager
+from dataclasses               import dataclass
 from datetime                  import datetime, timezone
+from functools                 import cached_property
 from joblib                    import dump, load
 from json                      import dumps, loads
 from logging                   import getLogger
@@ -20,7 +21,6 @@ from pathlib                   import Path
 from pydantic                  import TypeAdapter
 from sklearn.pipeline          import Pipeline
 from sklearn.utils.validation  import check_is_fitted
-from time                      import perf_counter
 from typing                    import Self
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
@@ -74,39 +74,35 @@ def build_profiles(
     Returns:
         Enriched `ClusterProfile` per cluster ID.
     """
-    cluster_skills: dict[int, set[str]] = defaultdict(set)
-    for doc, cid in zip(clusterer.document_ids, clusterer.assignments):
+    cluster_sectors = defaultdict(list)
+    cluster_skills  = defaultdict(set)
+    for doc, soc, cid in zip(
+        clusterer.document_ids, sector_labels, clusterer.assignments
+    ):
+        cluster_sectors[cid].append(occupation_index.get(soc).sector)
         cluster_skills[cid].update(extracted_skills.get(doc, []))
 
-    by_cluster: dict[int, list[str]] = defaultdict(list)
-    for soc, cid in zip(sector_labels, clusterer.assignments):
-        by_cluster[cid].append(
-            occupation_index.get(soc).sector
-        )
+    majority_sector = {
+        cid: Counter(sectors).most_common(1)[0][0]
+        for cid, sectors in cluster_sectors.items()
+    }
 
-    size_map  = {cl.cluster_id: cl.size for cl in cluster_labels}
-    terms_map = {cl.cluster_id: cl.terms for cl in cluster_labels}
-
-    profiles: dict[int, ClusterProfile] = {}
-    for cid, skills in cluster_skills.items():
-        terms       = terms_map.get(cid, [])
-        apps, progs = trades.match([*terms, *skills])
-
-        profiles[cid] = ClusterProfile(
-            cluster_id = cid,
-            job_zone   = occupation_index.job_zone_for_skills(
-                {s.lower() for s in skills}
-            ),
-            sector = Counter(by_cluster[cid]).most_common(1)[0][0],
-            size   = size_map[cid],
-            skills = skills,
-            terms  = terms,
-
+    return {
+        label.cluster_id: ClusterProfile(
             apprenticeship = next(iter(apps), None),
-            programs       = progs
+            cluster_id     = label.cluster_id,
+            job_zone       = occupation_index.job_zone_for_skills(skills),
+            programs       = progs,
+            sector         = majority_sector[label.cluster_id],
+            size           = label.size,
+            skills         = skills,
+            terms          = label.terms
         )
+        for label       in cluster_labels
+        for skills      in [cluster_skills[label.cluster_id]]
+        for apps, progs in [trades.match([*label.terms, *skills])]
+    }
 
-    return profiles
 
 def compose_geometry(
     reducer    : PcaReducer,
@@ -139,6 +135,7 @@ def compose_geometry(
         ("scaler", pca_steps["scaler"])
     ])
 
+
 def compute_sector_labels(
     document_ids     : list[str],
     extracted_skills : dict[str, list[str]],
@@ -168,51 +165,98 @@ def compute_sector_labels(
         for doc in document_ids
     ]
 
+
+def _build_registry(lexicons: LexiconLoader) -> LexiconRegistry:
+    """
+    Build a `LexiconRegistry` from loaded lexicon data.
+    """
+    return LexiconRegistry(
+        certifications   = lexicons.certifications,
+        occupations      = lexicons.occupations,
+        osha_terms       = lexicons.osha_terms,
+        supplement_terms = lexicons.supplement_terms
+    )
+
+
+def _load_trades(config: PipelineConfig) -> TradeIndex:
+    """
+    Load apprenticeship and program reference data into a
+    `TradeIndex`.
+    """
+    d = config.lexicon_dir
+    return TradeIndex(
+        apprenticeships = TypeAdapter(list[ApprenticeshipContext]).validate_json(
+            (d / "apprenticeships.json").read_bytes()
+        ),
+        programs = TypeAdapter(list[ProgramRecommendation]).validate_json(
+            (d / "programs.json").read_bytes()
+        )
+    )
+
+
+def _validate_data(config: PipelineConfig):
+    """
+    Verify that all required data files exist before processing.
+
+    Raises:
+        FileNotFoundError: When any required file or directory
+            is missing.
+    """
+    d = config.lexicon_dir
+    missing = [
+        str(d / name)
+        for name in (
+            "apprenticeships.json",
+            "certifications.json",
+            "onet.json",
+            "osha.json",
+            "programs.json",
+            "supplement.json"
+        )
+        if not (d / name).exists()
+    ]
+
+    if not any(config.postings_dir.glob("*.json")):
+        missing.append(f"{config.postings_dir}/*.json")
+
+    if missing:
+        raise FileNotFoundError(
+            f"Missing required data files: {', '.join(missing)}"
+        )
+
+
+@dataclass(kw_only=True)
 class Chalkline:
     """
-    End-to-end orchestrator for the Chalkline career mapping pipeline.
+    Fitted career mapping pipeline.
 
-    Coordinates two parallel tracks (geometry and co-occurrence) that
-    merge at the pathway graph stage, caches all fitted transforms,
-    and provides `match()` for single-resume inference without
-    re-fitting. Fitted artifacts are accessible as instance attributes
-    for direct consumption by the Marimo notebook.
+    Coordinates the geometry track (extraction, vectorization, PCA,
+    clustering) and co-occurrence track (PMI network, Louvain
+    communities) into a fitted landscape. Construct via `fit()` or
+    `load()`, then access fitted artifacts directly or call `match()`
+    for single-resume inference.
     """
 
-    def __init__(self, config: PipelineConfig):
-        """
-        Args:
-            config: End-to-end pipeline configuration.
-        """
-        self.config = config
+    cluster_labels    : list[ClusterLabel]
+    clusterer         : HierarchicalClusterer
+    config            : PipelineConfig
+    extracted_skills  : dict[str, list[str]]
+    extractor         : SkillExtractor
+    geometry_pipeline : Pipeline
+    graph             : CareerPathwayGraph
+    ppmi_df           : pd.DataFrame
+    profiles          : dict[int, ClusterProfile]
+    router            : CareerRouter
+    trades            : TradeIndex
 
-        self.cluster_labels    : list[ClusterLabel]              = []
-        self.clusterer         : HierarchicalClusterer | None    = None
-        self.extractor         : SkillExtractor | None           = None
-        self.extracted_skills  : dict[str, list[str]]            = {}
-        self.geometry_pipeline : Pipeline | None                 = None
-        self.graph             : CareerPathwayGraph | None       = None
-        self.matcher           : ResumeMatcher | None            = None
-        self.ppmi_df           : pd.DataFrame | None             = None
-        self.profiles          : dict[int, ClusterProfile]       = {}
-        self.router            : CareerRouter | None             = None
-        self.trades            : TradeIndex | None               = None
-
-    @property
-    def fitted(self) -> bool:
+    @cached_property
+    def matcher(self) -> ResumeMatcher:
         """
-        Whether the pipeline has been fitted and is ready for
-        `match()` calls.
-        """
-        return self.geometry_pipeline is not None
+        Lazily construct the resume matcher from fitted artifacts.
 
-    def _build_matcher(self) -> ResumeMatcher:
-        """
-        Construct a `ResumeMatcher` from the pipeline's fitted
-        artifacts.
-
-        Centralizes the 8-argument wiring so that both `fit()` and
-        `load()` share the same construction path.
+        Deferred because `ResumeMatcher` fits nearest-neighbor
+        models and computes centroids, and notebook users
+        inspecting profiles or graphs should not pay that cost.
         """
         return ResumeMatcher(
             cluster_labels    = self.cluster_labels,
@@ -225,162 +269,101 @@ class Chalkline:
             trades            = self.trades
         )
 
-    @staticmethod
-    def _build_registry(lexicons: LexiconLoader) -> LexiconRegistry:
+    @classmethod
+    def fit(cls, config: PipelineConfig) -> Self:
         """
-        Build a `LexiconRegistry` from loaded lexicon data.
-        """
-        return LexiconRegistry(
-            certifications   = lexicons.certifications,
-            occupations      = lexicons.occupations,
-            osha_terms       = lexicons.osha_terms,
-            supplement_terms = lexicons.supplement_terms
-        )
-
-    def _load_trades(self) -> TradeIndex:
-        """
-        Load apprenticeship and program reference data into a
-        `TradeIndex`.
-        """
-        d = self.config.lexicon_dir
-        return TradeIndex(
-            apprenticeships = TypeAdapter(list[ApprenticeshipContext]).validate_json(
-                (d / "apprenticeships.json").read_bytes()
-            ),
-            programs = TypeAdapter(list[ProgramRecommendation]).validate_json(
-                (d / "programs.json").read_bytes()
-            )
-        )
-
-    @contextmanager
-    def _timed(self, label: str):
-        """
-        Context manager that logs elapsed time for a pipeline step.
-        """
-        start = perf_counter()
-        yield
-        logger.info(f"{label}: {perf_counter() - start:.1f}s")
-
-    def _validate_data(self):
-        """
-        Verify that all required data files exist before processing.
-
-        Raises:
-            FileNotFoundError: When any required file or directory
-                is missing.
-        """
-        d = self.config.lexicon_dir
-        missing = [
-            str(d / name)
-            for name in (
-                "apprenticeships.json", "certifications.json",
-                "onet.json", "osha.json", "programs.json",
-                "supplement.json"
-            )
-            if not (d / name).exists()
-        ]
-
-        if not any(self.config.postings_dir.glob("*.json")):
-            missing.append(f"{self.config.postings_dir}/*.json")
-
-        if missing:
-            raise FileNotFoundError(
-                f"Missing required data files: {', '.join(missing)}"
-            )
-
-    def fit(self) -> Self:
-        """
-        Execute all pipeline steps in dependency order.
+        Execute all pipeline steps and return a fitted pipeline.
 
         Runs the geometry track (extraction, vectorization, PCA,
         clustering) and co-occurrence track (PMI network) in
         sequence, enriches clusters with stakeholder reference data,
-        builds the career pathway graph and router, and composes the
-        geometry pipeline for resume projection. All fitted artifacts
-        are cached as instance attributes.
+        and builds the career pathway graph and router.
+
+        Args:
+            config: End-to-end pipeline configuration.
 
         Returns:
-            The fitted pipeline instance for chaining.
+            A fully fitted `Chalkline` instance.
         """
-        self._validate_data()
+        _validate_data(config)
 
-        lexicons         = LexiconLoader(self.config.lexicon_dir)
-        self.extractor   = SkillExtractor(self._build_registry(lexicons))
-        self.trades      = self._load_trades()
+        lexicons         = LexiconLoader(config.lexicon_dir)
+        extractor        = SkillExtractor(_build_registry(lexicons))
+        trades           = _load_trades(config)
         corpus = {
             p.id: p.description
-            for p in CorpusStorage(self.config.postings_dir).load()
+            for p in CorpusStorage(config.postings_dir).load()
         }
         occupation_index = OccupationIndex(lexicons.occupations)
 
-        with self._timed("Extraction"):
-            self.extracted_skills = self.extractor.extract(corpus)
+        extracted_skills = extractor.extract(corpus)
+        vectorizer       = SkillVectorizer(extracted_skills)
 
-        with self._timed("Vectorization"):
-            vectorizer = SkillVectorizer(self.extracted_skills)
+        reducer = PcaReducer(
+            max_components     = config.max_components,
+            random_seed        = config.random_seed,
+            tfidf_matrix       = vectorizer.tfidf_matrix,
+            variance_threshold = config.variance_threshold
+        )
 
-        with self._timed("PCA reduction"):
-            reducer = PcaReducer(
-                max_components     = self.config.max_components,
-                random_seed        = self.config.random_seed,
-                tfidf_matrix       = vectorizer.tfidf_matrix,
-                variance_threshold = self.config.variance_threshold
-            )
+        clusterer = HierarchicalClusterer(
+            coordinates  = reducer.coordinates,
+            document_ids = vectorizer.document_ids
+        )
+        cluster_labels = clusterer.labels(
+            feature_names = vectorizer.feature_names,
+            tfidf_matrix  = vectorizer.tfidf_matrix,
+            top_n         = 50
+        )
 
-        with self._timed("Clustering"):
-            self.clusterer = HierarchicalClusterer(
-                coordinates  = reducer.coordinates,
-                document_ids = vectorizer.document_ids
-            )
-            self.cluster_labels = self.clusterer.labels(
-                feature_names = vectorizer.feature_names,
-                tfidf_matrix  = vectorizer.tfidf_matrix,
-                top_n         = 50
-            )
+        network = CooccurrenceNetwork(
+            binary_matrix    = vectorizer.binary_matrix,
+            feature_names    = vectorizer.feature_names,
+            min_cooccurrence = config.min_cooccurrence,
+            random_seed      = config.random_seed
+        )
 
-        with self._timed("Co-occurrence"):
-            network = CooccurrenceNetwork(
-                binary_matrix    = vectorizer.binary_matrix,
-                feature_names    = vectorizer.feature_names,
-                min_cooccurrence = self.config.min_cooccurrence,
-                random_seed      = self.config.random_seed
-            )
-
-        sector_labels = compute_sector_labels(
+        sector_labels     = compute_sector_labels(
             document_ids     = vectorizer.document_ids,
-            extracted_skills = self.extracted_skills,
+            extracted_skills = extracted_skills,
             occupation_index = occupation_index
         )
+        geometry_pipeline = compose_geometry(reducer, vectorizer)
 
-        self.geometry_pipeline = compose_geometry(reducer, vectorizer)
-
-        with self._timed("Profile enrichment"):
-            self.profiles = build_profiles(
-                cluster_labels   = self.cluster_labels,
-                clusterer        = self.clusterer,
-                extracted_skills = self.extracted_skills,
-                occupation_index = occupation_index,
-                sector_labels    = sector_labels,
-                trades           = self.trades
-            )
-
-        with self._timed("Pathway graph"):
-            self.graph = CareerPathwayGraph(
-                max_density = self.config.max_graph_density,
-                network     = network,
-                profiles    = self.profiles
-            )
-
-        self.router = CareerRouter(
-            graph    = self.graph.graph,
-            profiles = self.profiles,
-            trades   = self.trades
+        profiles = build_profiles(
+            cluster_labels   = cluster_labels,
+            clusterer        = clusterer,
+            extracted_skills = extracted_skills,
+            occupation_index = occupation_index,
+            sector_labels    = sector_labels,
+            trades           = trades
         )
 
-        self.ppmi_df = network.ppmi_dataframe()
-        self.matcher = self._build_matcher()
+        graph = CareerPathwayGraph(
+            max_density = config.max_graph_density,
+            network     = network,
+            profiles    = profiles
+        )
 
-        return self
+        router = CareerRouter(
+            graph    = graph.graph,
+            profiles = profiles,
+            trades   = trades
+        )
+
+        return cls(
+            cluster_labels    = cluster_labels,
+            clusterer         = clusterer,
+            config            = config,
+            extracted_skills  = extracted_skills,
+            extractor         = extractor,
+            geometry_pipeline = geometry_pipeline,
+            graph             = graph,
+            ppmi_df           = network.ppmi_dataframe(),
+            profiles          = profiles,
+            router            = router,
+            trades            = trades
+        )
 
     @classmethod
     def load(
@@ -399,50 +382,54 @@ class Chalkline:
             config       : Pipeline configuration for lexicon and
                            reference data paths.
             artifact_dir : Directory containing serialized artifacts.
-                           Defaults to `config.output_dir / "pipeline"`.
+                           Defaults to `config.pipeline_dir`.
 
         Returns:
             A fitted `Chalkline` ready for `match()` calls.
         """
-        d = artifact_dir or config.output_dir / "pipeline"
+        d = artifact_dir or config.pipeline_dir
 
-        pipe                   = cls(config)
-        lexicons               = LexiconLoader(pipe.config.lexicon_dir)
-        pipe.extractor         = SkillExtractor(pipe._build_registry(lexicons))
-        pipe.geometry_pipeline = load(d / "geometry.joblib")
-        pipe.extracted_skills  = loads((d / "extracted_skills.json").read_text())
+        lexicons          = LexiconLoader(config.lexicon_dir)
+        geometry_pipeline = load(d / "geometry.joblib")
+        check_is_fitted(geometry_pipeline)
 
-        check_is_fitted(pipe.geometry_pipeline)
-
-        pipe.clusterer      = load(d / "clusterer.joblib")
-        pipe.cluster_labels = [
+        clusterer = load(d / "clusterer.joblib")
+        cluster_labels = [
             ClusterLabel(**raw)
             for raw in loads((d / "cluster_labels.json").read_text())
         ]
-        pipe.profiles = {
+        extracted_skills = loads((d / "extracted_skills.json").read_text())
+        profiles = {
             int(k): ClusterProfile(**v)
             for k, v in loads(
                 (d / "profiles.json").read_text()
             ).items()
         }
 
-        pipe.graph = CareerPathwayGraph(
+        graph = CareerPathwayGraph(
             graph    = load(d / "graph.joblib"),
-            profiles = pipe.profiles
+            profiles = profiles
         )
 
-        pipe.trades = pipe._load_trades()
-        pipe.ppmi_df = load(d / "ppmi.joblib")
+        trades = _load_trades(config)
 
-        pipe.router = CareerRouter(
-            graph    = pipe.graph.graph,
-            profiles = pipe.profiles,
-            trades   = pipe.trades
+        return cls(
+            cluster_labels    = cluster_labels,
+            clusterer         = clusterer,
+            config            = config,
+            extracted_skills  = extracted_skills,
+            extractor         = SkillExtractor(_build_registry(lexicons)),
+            geometry_pipeline = geometry_pipeline,
+            graph             = graph,
+            ppmi_df           = load(d / "ppmi.joblib"),
+            profiles          = profiles,
+            router            = CareerRouter(
+                graph    = graph.graph,
+                profiles = profiles,
+                trades   = trades
+            ),
+            trades            = trades
         )
-
-        pipe.matcher = pipe._build_matcher()
-
-        return pipe
 
     def match(
         self,
@@ -464,15 +451,7 @@ class Chalkline:
 
         Returns:
             Enriched `MatchResult` with sector annotation.
-
-        Raises:
-            RuntimeError: If the pipeline has not been fitted.
         """
-        if not self.fitted:
-            raise RuntimeError(
-                "Pipeline is not fitted; call fit() or load() first"
-            )
-
         result = self.matcher.match(
             resume_skills = self.extractor.extract({"resume": resume_text})["resume"],
             top_k         = top_k
@@ -492,14 +471,9 @@ class Chalkline:
 
         Args:
             artifact_dir : Target directory for serialized artifacts.
-                           Defaults to `config.output_dir / "pipeline"`.
+                           Defaults to `config.pipeline_dir`.
         """
-        if not self.fitted:
-            raise RuntimeError(
-                "Pipeline is not fitted; call fit() first"
-            )
-
-        d = artifact_dir or self.config.output_dir / "pipeline"
+        d = artifact_dir or self.config.pipeline_dir
         d.mkdir(parents=True, exist_ok=True)
 
         dump(self.clusterer, d / "clusterer.joblib")
@@ -524,9 +498,7 @@ class Chalkline:
         (d / "manifest.json").write_text(
             PipelineManifest(
                 corpus_size     = len(self.extracted_skills),
-                geometry_params = self.geometry_pipeline.get_params(
-                    deep=True
-                ),
+                geometry_params = self.geometry_pipeline.get_params(deep=True),
                 posting_ids     = sorted(self.extracted_skills),
                 timestamp       = datetime.now(timezone.utc).isoformat()
             ).model_dump_json(indent=2)

@@ -392,28 +392,37 @@ def resume_skills() -> list[str]:
     return ["electrical wiring", "fall protection", "scaffolding"]
 
 @fixture
-def pathway_graph(
+def profiles(
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
     extracted_skills : dict[str, list[str]],
-    network          : CooccurrenceNetwork,
     occupation_index : OccupationIndex,
     sector_labels    : list[str],
     trades           : TradeIndex
+) -> dict[int, ClusterProfile]:
+    """
+    Enriched cluster profiles from the full fixture pipeline.
+    """
+    return build_profiles(
+        cluster_labels   = cluster_labels,
+        clusterer        = clusterer,
+        extracted_skills = extracted_skills,
+        occupation_index = occupation_index,
+        sector_labels    = sector_labels,
+        trades           = trades
+    )
+
+@fixture
+def pathway_graph(
+    network  : CooccurrenceNetwork,
+    profiles : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
     """
     Build a career pathway graph from the full fixture pipeline.
     """
     return CareerPathwayGraph(
         network  = network,
-        profiles = build_profiles(
-            cluster_labels   = cluster_labels,
-            clusterer        = clusterer,
-            extracted_skills = extracted_skills,
-            occupation_index = occupation_index,
-            sector_labels    = sector_labels,
-            trades           = trades
-        )
+        profiles = profiles
     )
 
 @fixture

@@ -100,6 +100,13 @@ class PipelineConfig(BaseModel, extra="forbid"):
     top_k_gaps         : int          = 10
     variance_threshold : UnitInterval = 0.85
 
+    @cached_property
+    def pipeline_dir(self) -> Path:
+        """
+        Default directory for serialized pipeline artifacts.
+        """
+        return self.output_dir / "pipeline"
+
 
 class ProgramRecommendation(BaseModel, extra="forbid"):
     """

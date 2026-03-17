@@ -162,11 +162,12 @@ class OccupationIndex:
         default) when the input set is empty or no profiles overlap.
 
         Args:
-            skills: Lowercased canonical skill names from a cluster.
+            skills: Canonical skill names from a cluster.
 
         Returns:
             Job Zone integer in [1, 5].
         """
+        skills = {s.lower() for s in skills}
         if not skills:
             return 2
 
