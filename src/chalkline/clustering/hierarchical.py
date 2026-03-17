@@ -7,10 +7,8 @@ via the merge-height acceleration criterion, and exposes centroid
 coordinates and TF-IDF label derivation as on-demand methods.
 """
 
-import numpy  as np
-import pandas as pd
+import numpy as np
 
-from functools               import cached_property
 from scipy.cluster.hierarchy import fcluster, leaders, linkage
 from scipy.sparse            import spmatrix
 
@@ -61,15 +59,6 @@ class HierarchicalClusterer:
             criterion = "maxclust",
             t         = self._select_k()
         )
-
-    @cached_property
-    def centroids(self) -> pd.DataFrame:
-        """
-        Mean PCA coordinates per cluster, indexed by cluster ID.
-        """
-        return pd.DataFrame(
-            self.coordinates
-        ).groupby(self.assignments).mean()
 
     def _select_k(self) -> int:
         """

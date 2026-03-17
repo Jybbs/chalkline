@@ -39,8 +39,15 @@ class ClusterComparison:
         self.sector_labels = sector_labels
         self.n, self.d     = coordinates.shape
 
-    def _build_result(self, assignments, method, noise_count=0) -> dict:
-        """Wrap assignments and validity metrics into a result dict."""
+    def _build_result(
+        self,
+        assignments,
+        method,
+        noise_count = 0
+    ) -> dict:
+        """
+        Wrap assignments and validity metrics into a result dict.
+        """
         mask       = assignments >= 0
         n_clusters = len(np.unique(assignments[mask]))
         metrics    = self._validity_metrics(assignments)
@@ -64,7 +71,10 @@ class ClusterComparison:
         }
 
     def _validity_metrics(self, assignments) -> dict:
-        """Calinski-Harabasz, Davies-Bouldin, silhouette (None if degenerate)."""
+        """
+        Calinski-Harabasz, Davies-Bouldin, and silhouette scores,
+        or None for each when fewer than 2 non-noise clusters.
+        """
         mask   = assignments >= 0
         coords = self.coordinates[mask]
         labels = assignments[mask]
@@ -84,7 +94,9 @@ class ClusterComparison:
         }
 
     def dbscan(self) -> dict:
-        """DBSCAN with KneeLocator epsilon from the k-distance graph."""
+        """
+        DBSCAN with KneeLocator epsilon from the k-distance graph.
+        """
         min_samples = max(2, min(floor(0.1 * self.n), 2 * self.d))
 
         k_distances = np.sort(
@@ -120,7 +132,9 @@ class ClusterComparison:
         )
 
     def hdbscan(self) -> dict:
-        """HDBSCAN with corpus-scaled minimum cluster size."""
+        """
+        HDBSCAN with corpus-scaled minimum cluster size.
+        """
         assignments = HDBSCAN(
             copy             = False,
             min_cluster_size = max(3, floor(0.05 * self.n))
@@ -133,7 +147,9 @@ class ClusterComparison:
         )
 
     def kmeans(self) -> dict:
-        """K-Means with KneeLocator K from the inertia curve."""
+        """
+        K-Means with KneeLocator K from the inertia curve.
+        """
         ks = range(2, min(self.n, 11))
 
         inertias = [
@@ -161,7 +177,9 @@ class ClusterComparison:
         return self._build_result(assignments, "kmeans")
 
     def mean_shift(self) -> dict:
-        """Mean Shift with bandwidth estimated at quantile 0.3."""
+        """
+        Mean Shift with bandwidth estimated at quantile 0.3.
+        """
         assignments = MeanShift(
             bandwidth = estimate_bandwidth(self.coordinates, quantile = 0.3) or None
         ).fit_predict(self.coordinates)
@@ -169,7 +187,9 @@ class ClusterComparison:
         return self._build_result(assignments, "mean_shift")
 
     def silhouette_details(self, assignments: np.ndarray) -> np.ndarray:
-        """Per-posting silhouette coefficients (zeros if degenerate)."""
+        """
+        Per-posting silhouette coefficients, zeros when degenerate.
+        """
         mask = assignments >= 0
         if len(np.unique(assignments[mask])) < 2:
             return np.zeros(self.n)

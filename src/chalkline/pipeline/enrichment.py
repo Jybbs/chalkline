@@ -4,8 +4,12 @@ Shared enrichment context for apprenticeship and program matching.
 Precomputes 4-character prefix lookup dicts once so that cluster
 profile enrichment, resume gap annotation, and career route edge
 enrichment all share the same matching state rather than
-independently rebuilding it.
+independently rebuilding it. Also carries the PPMI DataFrame for
+gap ranking so that `ResumeMatcher` accesses it as enrichment
+data rather than storing it as its own attribute.
 """
+
+import pandas as pd
 
 from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import ProgramRecommendation
@@ -43,7 +47,8 @@ class EnrichmentContext:
     def __init__(
         self,
         apprenticeships : list[ApprenticeshipContext],
-        programs        : list[ProgramRecommendation]
+        programs        : list[ProgramRecommendation],
+        ppmi_df         : pd.DataFrame | None = None
     ):
         """
         Precompute prefix dicts from apprenticeship titles and
@@ -52,8 +57,11 @@ class EnrichmentContext:
         Args:
             apprenticeships : Deduplicated apprenticeship records.
             programs        : Deduplicated program records.
+            ppmi_df         : PPMI DataFrame for gap ranking,
+                              set after network construction.
         """
         self.apprenticeships = apprenticeships
+        self.ppmi_df         = ppmi_df
         self.programs        = programs
 
         self.trade_prefixes = {

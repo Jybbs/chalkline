@@ -2,10 +2,10 @@
 PMI co-occurrence network with Louvain community detection.
 
 Computes pairwise co-occurrence counts via sparse matrix multiplication,
-derives PMI, PPMI, and NPMI as association measures, and constructs a
+derives NPMI as the primary association measure and constructs a
 NetworkX graph with Louvain community detection for career track
-grouping. The NPMI graph feeds directly into the pathway graph in CL-11,
-and the NPMI DataFrame feeds gap ranking in CL-10.
+grouping. The NPMI graph feeds edge weights in the pathway graph,
+and the PPMI DataFrame feeds gap ranking in resume matching.
 """
 
 import networkx as nx
@@ -18,16 +18,18 @@ from logging                  import getLogger
 from math                     import ceil
 from scipy.sparse             import csc_array, csr_array, spmatrix
 
+
 logger = getLogger(__name__)
+
 
 class CooccurrenceNetwork:
     """
     PMI-weighted skill co-occurrence network with Louvain detection.
 
     Receives the binary skill matrix from `SkillVectorizer`, computes
-    the thresholded co-occurrence matrix eagerly, and exposes PMI
-    variants, graph construction, and Louvain community detection as
-    cached properties and on-demand methods.
+    the thresholded co-occurrence matrix eagerly, and exposes NPMI,
+    graph construction, and Louvain community detection as cached
+    properties and on-demand methods.
 
     When `min_cooccurrence` is `"auto"`, the threshold is selected
     by finding the knee of the modularity-vs-threshold curve via
@@ -92,48 +94,6 @@ class CooccurrenceNetwork:
         )
         npmi.eliminate_zeros()
         return npmi
-
-    @cached_property
-    def partition(self) -> list[set]:
-        """
-        Louvain communities on the NPMI graph.
-
-        Returns:
-            List of sets, each containing skill-name node
-            identifiers for one community.
-        """
-        return self._louvain(self.graph())
-
-    @cached_property
-    def partition_map(self) -> dict[str, int]:
-        """
-        Flat mapping from skill name to Louvain community index.
-
-        Returns:
-            Mapping from skill name to community index.
-        """
-        return {
-            s: i
-            for i, members in enumerate(self.partition)
-            for s in members
-        }
-
-    @cached_property
-    def ppmi_matrix(self) -> csr_array:
-        """
-        Positive pointwise mutual information.
-
-            PPMI(x, y) = max(0, log(n * C_xy / (df_x * df_y)))
-
-        Clips negative values to zero.
-
-        Returns:
-            Sparse `csr_array` of non-negative PMI values.
-        """
-        ppmi = self.cooccurrence.astype(float)
-        ppmi.data = np.maximum(self._pmi_values(), 0)
-        ppmi.eliminate_zeros()
-        return ppmi
 
     def _build_cooccurrence(
         self,
@@ -257,53 +217,16 @@ class CooccurrenceNetwork:
         `self.cooccurrence.data` for direct assignment into a
         structural copy of the cooccurrence matrix.
         """
-        C          = self.cooccurrence
-        df         = self.doc_freq.astype(float)
-        rows, cols = C.nonzero()
-        return np.log(
-            (self.n_docs * C.data.astype(float))
-            / (df[rows] * df[cols])
-        )
+        C    = self.cooccurrence
+        df   = self.doc_freq.astype(float)
+        r, c = C.nonzero()
+        return np.log(self.n_docs * C.data.astype(float) / (df[r] * df[c]))
 
-    def association_dataframe(self, variant: str = "npmi") -> pd.DataFrame:
+    def graph(self) -> nx.Graph:
         """
-        Dense symmetric DataFrame for a PMI variant.
-
-        Materializes the requested sparse association matrix into a
-        labeled DataFrame indexed by skill names. The `"ppmi"`
-        variant feeds `ResumeMatcher` gap ranking, while `"npmi"`
-        feeds graph edge weight analysis.
-
-        Args:
-            variant: One of `"npmi"` or `"ppmi"`.
-
-        Returns:
-            Square `pd.DataFrame` with skill names as both index
-            and columns.
-        """
-        matrix = {
-            "npmi" : self.npmi_matrix,
-            "ppmi" : self.ppmi_matrix
-        }[variant]
-
-        return pd.DataFrame(
-            matrix.toarray(),
-            columns = self.feature_names,
-            index   = self.feature_names
-        )
-
-    def graph(
-        self,
-        matrix: spmatrix | None = None
-    ) -> nx.Graph:
-        """
-        Build a NetworkX graph from a sparse weight matrix.
+        Build a NetworkX graph from the NPMI matrix.
 
         Relabels integer node indices to canonical skill names.
-        Defaults to the NPMI matrix when no matrix is provided.
-
-        Args:
-            matrix: Optional sparse weight matrix overriding NPMI.
 
         Returns:
             Undirected `nx.Graph` with skill-name nodes and
@@ -311,8 +234,27 @@ class CooccurrenceNetwork:
         """
         return nx.relabel_nodes(
             nx.from_scipy_sparse_array(
-                matrix if matrix is not None else self.npmi_matrix,
+                self.npmi_matrix,
                 edge_attribute = "weight"
             ),
             dict(enumerate(self.feature_names))
+        )
+
+    def ppmi_dataframe(self) -> pd.DataFrame:
+        """
+        Positive PMI materialized as a labeled dense DataFrame for
+        `ResumeMatcher` gap ranking. Computed and materialized in a
+        single step because no other consumer needs the sparse PPMI
+        matrix.
+
+        Returns:
+            Square `pd.DataFrame` with skill names as both index
+            and columns, values clipped to non-negative.
+        """
+        ppmi = self.cooccurrence.astype(float)
+        ppmi.data = np.maximum(self._pmi_values(), 0)
+        return pd.DataFrame(
+            ppmi.toarray(),
+            columns = self.feature_names,
+            index   = self.feature_names
         )

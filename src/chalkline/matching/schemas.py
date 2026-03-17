@@ -6,7 +6,7 @@ similarities, and ranked skill gaps with apprenticeship and educational
 program enrichment annotations.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import ProgramRecommendation
@@ -74,11 +74,44 @@ class MatchResult(BaseModel, extra="forbid"):
     cluster_id        : int = Field(ge = 0)
     nearest_neighbors : list[NeighborMatch]
     resume_skills     : list[str]
-    skill_gaps        : list[str]
 
-    pca_coordinates : list[float]                = Field(default_factory = list)
-    programs        : list[ProgramRecommendation] = Field(default_factory = list)
-    ranked_gaps     : list[RankedGap]             = Field(default_factory = list)
-    sector          : str                         = ""
-    trade_paths     : list[ApprenticeshipContext] = Field(default_factory = list)
-    unrankable_gaps : list[str]                   = Field(default_factory = list)
+    pca_coordinates : list[float]    = Field(default_factory = list)
+    ranked_gaps     : list[RankedGap] = Field(default_factory = list)
+    sector          : str             = ""
+    unrankable_gaps : list[str]       = Field(default_factory = list)
+
+    @computed_field
+    @property
+    def programs(self) -> list[ProgramRecommendation]:
+        """
+        Deduplicated program recommendations across all ranked
+        gaps, keyed by `(institution, program)` pair.
+        """
+        return list({
+            (p.institution, p.program): p
+            for gap in self.ranked_gaps for p in gap.programs
+        }.values())
+
+    @computed_field
+    @property
+    def skill_gaps(self) -> list[str]:
+        """
+        Sorted union of ranked and unrankable gap skill names
+        for display in the career report.
+        """
+        return sorted(
+            {g.skill for g in self.ranked_gaps}
+            | set(self.unrankable_gaps)
+        )
+
+    @computed_field
+    @property
+    def trade_paths(self) -> list[ApprenticeshipContext]:
+        """
+        Deduplicated apprenticeship paths across all ranked
+        gaps, keyed by RAPIDS code.
+        """
+        return list({
+            a.rapids_code: a
+            for gap in self.ranked_gaps for a in gap.apprenticeships
+        }.values())

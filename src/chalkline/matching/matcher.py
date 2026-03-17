@@ -61,7 +61,6 @@ class ResumeMatcher:
         extracted_skills  : dict[str, list[str]],
         geometry_pipeline : Pipeline,
         metric            : str = "euclidean",
-        ppmi_df           : pd.DataFrame = None,
         top_k_gaps        : int = 10
     ):
         """
@@ -70,8 +69,8 @@ class ResumeMatcher:
         The `clusterer` provides assignments, coordinates, and
         document identifiers from the HAC step. The `enrichment`
         context carries precomputed prefix lookup dicts for
-        apprenticeship and program matching, eliminating redundant
-        prefix dict construction. The geometry pipeline must be a
+        apprenticeship and program matching as well as the PPMI
+        DataFrame for gap ranking. The geometry pipeline must be a
         fitted sklearn `Pipeline` chaining `DictVectorizer`,
         `TfidfTransformer`, `Normalizer`, `TruncatedSVD`, and
         `StandardScaler` so that a single `transform([skill_dict])`
@@ -82,11 +81,11 @@ class ResumeMatcher:
             clusterer         : Fitted hierarchical clusterer with
                                 assignments, coordinates, and
                                 document identifiers.
-            enrichment        : Shared prefix lookup context.
+            enrichment        : Shared enrichment context with PPMI
+                                DataFrame and prefix lookups.
             extracted_skills  : Skills per document identifier.
             geometry_pipeline : Fitted vectorization pipeline.
             metric            : sklearn distance metric string.
-            ppmi_df           : PPMI DataFrame for gap ranking.
             top_k_gaps        : Default number of ranked gaps.
         """
         self.cluster_labels    = cluster_labels
@@ -95,14 +94,17 @@ class ResumeMatcher:
         self.extracted_skills  = extracted_skills
         self.geometry_pipeline = geometry_pipeline
         self.metric            = metric
-        self.ppmi_df           = ppmi_df
         self.top_k_gaps        = top_k_gaps
 
-        self.cluster_ids = clusterer.centroids.index.to_numpy()
+        self.cluster_ids = np.unique(clusterer.assignments)
+        centroids = np.array([
+            clusterer.coordinates[clusterer.assignments == cid].mean(axis = 0)
+            for cid in self.cluster_ids
+        ])
         self.centroid_nn = NearestNeighbors(
             metric      = self.metric,
             n_neighbors = len(self.cluster_ids)
-        ).fit(clusterer.centroids.values)
+        ).fit(centroids)
 
     @cached_property
     def centroid_scope(self) -> dict[int, set[str]]:
@@ -195,20 +197,22 @@ class ResumeMatcher:
     def _rank_gaps(
         self,
         cluster_id : int,
+        neighbors  : list[NeighborMatch],
         resume_set : set[str],
-        skill_gaps : list[str],
         top_k      : int
-    ) -> tuple[list[RankedGap], list[str]]:
+    ) -> tuple[list[RankedGap], set[str]]:
         """
-        Rank skill gaps by centroid-scoped mean PPMI relevance.
+        Derive skill gaps from neighbors and rank by
+        centroid-scoped mean PPMI relevance.
 
             relevance(g) = (1/|S_r|) * sum PPMI(g,s) for s in S_r
 
         where S_r is the resume's existing skills restricted to the
-        cluster's centroid scope. Skills outside the centroid scope
-        fall back to the full PPMI matrix. Skills absent from the
-        PPMI index or with zero mean relevance are returned as
-        unrankable.
+        cluster's centroid scope. Gaps are the set difference
+        between all neighbor skills and the resume's own skills.
+        Skills outside the centroid scope fall back to the full
+        PPMI matrix. Skills absent from the PPMI index or with
+        zero mean relevance are returned as unrankable.
 
         Relevance scores are computed via vectorized DataFrame
         operations across two groups (centroid-scoped and unscoped)
@@ -219,55 +223,48 @@ class ResumeMatcher:
 
         Args:
             cluster_id : Assigned cluster for centroid scoping.
+            neighbors  : Nearest-neighbor postings whose skills
+                         define the gap set.
             resume_set : Resume skill names as a set.
-            skill_gaps : Sorted list of gap skill names.
             top_k      : Maximum number of ranked gaps to return.
 
         Returns:
-            Tuple of (ranked gaps with enrichment, sorted list of
-            unrankable skill names).
+            Tuple of (ranked gaps with enrichment, unrankable
+            gap set).
         """
-        centroid_scope = self.centroid_scope.get(cluster_id, set())
-        all_ref        = resume_set & set(self.ppmi_df.columns)
+        skill_gaps = (
+            {skill for n in neighbors for skill in n.skills}
+            - resume_set
+        )
 
-        if not all_ref:
-            return [], sorted(skill_gaps)
+        ppmi  = self.enrichment.ppmi_df
+        scope = self.centroid_scope[cluster_id]
+        ref   = resume_set & set(ppmi.columns)
+        valid = skill_gaps & set(ppmi.index)
 
-        valid_set = set(self.ppmi_df.index)
-        valid     = [g for g in skill_gaps if g in valid_set]
+        if not ref or not valid:
+            return [], skill_gaps
 
-        if not valid:
-            return [], sorted(skill_gaps)
-
-        scoped   = list(all_ref & centroid_scope or all_ref)
-        gaps     = set(valid)
-        in_scope = gaps & centroid_scope
-        score    = lambda g, c: self.ppmi_df.loc[sorted(g), c].mean(axis = 1)
-
-        relevances = pd.concat([
-            score(g, c)
-            for g, c in [(in_scope, scoped), (gaps - in_scope, list(all_ref))]
+        positive = pd.concat([
+            ppmi.loc[sorted(g), c].mean(axis = 1)
+            for g, c in [
+                (valid & scope, list(ref & scope or ref)),
+                (valid - scope, list(ref))
+            ]
             if g
-        ])
-        positive   = relevances[relevances > 0].nlargest(top_k)
+        ])[lambda s: s > 0].nlargest(top_k)
 
-        unrankable = sorted(set(skill_gaps) - set(positive.index))
-
-        ranked = [
+        return [
             RankedGap(
                 apprenticeships = self.enrichment.find_apprenticeships(
-                    prefix_set(gap)
+                    pf := prefix_set(gap)
                 ),
-                programs  = self.enrichment.find_programs(
-                    prefix_set(gap)
-                ),
+                programs  = self.enrichment.find_programs(pf),
                 relevance = rel,
                 skill     = gap
             )
             for gap, rel in positive.items()
-        ]
-
-        return ranked, unrankable
+        ], skill_gaps - set(positive.index)
 
     def match(
         self,
@@ -279,10 +276,10 @@ class ResumeMatcher:
 
         Converts the resume's canonical skill names to a binary dict,
         projects through the fitted geometry pipeline, assigns to the
-        nearest cluster centroid, finds top-5 neighbors within the
-        cluster, computes skill gaps, ranks gaps by PPMI relevance,
-        and cross-references gaps against apprenticeship and
-        educational program reference data.
+        nearest cluster centroid, and finds top-5 neighbors within the
+        cluster. Gap derivation, PPMI ranking, and enrichment
+        aggregation are handled by `_rank_gaps` and the computed
+        fields on `MatchResult`.
 
         Args:
             resume_skills : Sorted canonical skill names from
@@ -301,14 +298,6 @@ class ResumeMatcher:
         distances, indices = self.centroid_nn.kneighbors(coords)
         cluster_id = self.cluster_ids[indices[0, 0]]
 
-        cluster_distances = [
-            ClusterDistance(
-                cluster_id = self.cluster_ids[idx],
-                distance   = dist
-            )
-            for dist, idx in zip(distances[0], indices[0])
-        ]
-
         resume_set = set(resume_skills)
         neighbors  = self._nearest_in_family(
             cluster_id = cluster_id,
@@ -316,35 +305,25 @@ class ResumeMatcher:
             resume_set = resume_set
         )
 
-        skill_gaps = sorted(
-            {skill for n in neighbors for skill in n.skills}
-            - resume_set
-        )
         ranked_gaps, unrankable = self._rank_gaps(
             cluster_id = cluster_id,
+            neighbors  = neighbors,
             resume_set = resume_set,
-            skill_gaps = skill_gaps,
             top_k      = top_k or self.top_k_gaps
         )
 
-        all_apprenticeships = list({
-            a.rapids_code: a
-            for gap in ranked_gaps for a in gap.apprenticeships
-        }.values())
-        all_programs = list({
-            (p.institution, p.program): p
-            for gap in ranked_gaps for p in gap.programs
-        }.values())
-
         return MatchResult(
-            cluster_distances = cluster_distances,
+            cluster_distances = [
+                ClusterDistance(
+                    cluster_id = self.cluster_ids[idx],
+                    distance   = dist
+                )
+                for dist, idx in zip(distances[0], indices[0])
+            ],
             cluster_id        = cluster_id,
             nearest_neighbors = neighbors,
             pca_coordinates   = coords[0].tolist(),
-            programs          = all_programs,
             ranked_gaps       = ranked_gaps,
             resume_skills     = sorted(resume_skills),
-            skill_gaps        = skill_gaps,
-            trade_paths       = all_apprenticeships,
-            unrankable_gaps   = unrankable
+            unrankable_gaps   = sorted(unrankable)
         )

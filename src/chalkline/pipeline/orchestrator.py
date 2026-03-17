@@ -233,13 +233,14 @@ class Pipeline:
         """
         return self.geometry_pipeline is not None
 
-    def _build_matcher(self, ppmi_df) -> ResumeMatcher:
+    def _build_matcher(self) -> ResumeMatcher:
         """
         Construct a `ResumeMatcher` from the pipeline's fitted
         artifacts.
 
-        Centralizes the 8-argument wiring so that both `fit()` and
-        `load()` share the same construction path.
+        Centralizes the 7-argument wiring so that both `fit()` and
+        `load()` share the same construction path. The PPMI
+        DataFrame is accessed via `self.enrichment.ppmi_df`.
         """
         return ResumeMatcher(
             cluster_labels    = self.cluster_labels,
@@ -248,7 +249,6 @@ class Pipeline:
             extracted_skills  = self.extracted_skills,
             geometry_pipeline = self.geometry_pipeline,
             metric            = self.config.distance_metric,
-            ppmi_df           = ppmi_df,
             top_k_gaps        = self.config.top_k_gaps
         )
 
@@ -426,9 +426,8 @@ class Pipeline:
             profiles   = self.profiles
         )
 
-        self.matcher = self._build_matcher(
-            ppmi_df = network.association_dataframe("ppmi")
-        )
+        self.enrichment.ppmi_df = network.ppmi_dataframe()
+        self.matcher = self._build_matcher()
 
         return self
 
@@ -484,6 +483,7 @@ class Pipeline:
 
         pipe.enrichment = EnrichmentContext(
             apprenticeships = pipe.graph.apprenticeships,
+            ppmi_df         = joblib.load(d / "ppmi.joblib"),
             programs        = pipe.graph.programs
         )
 
@@ -493,9 +493,7 @@ class Pipeline:
             profiles   = pipe.profiles
         )
 
-        pipe.matcher = pipe._build_matcher(
-            ppmi_df = joblib.load(d / "ppmi.joblib")
-        )
+        pipe.matcher = pipe._build_matcher()
 
         return pipe
 
@@ -560,7 +558,7 @@ class Pipeline:
 
         joblib.dump(self.clusterer, d / "clusterer.joblib")
         joblib.dump(self.geometry_pipeline, d / "geometry.joblib")
-        joblib.dump(self.matcher.ppmi_df, d / "ppmi.joblib")
+        joblib.dump(self.enrichment.ppmi_df, d / "ppmi.joblib")
 
         (d / "extracted_skills.json").write_text(
             dumps(self.extracted_skills, indent=2)

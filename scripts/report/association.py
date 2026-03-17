@@ -23,6 +23,56 @@ from chalkline.association.cooccurrence import CooccurrenceNetwork
 logger = getLogger(__name__)
 
 
+def _graph_from_matrix(network: CooccurrenceNetwork, matrix) -> nx.Graph:
+    """
+    Build a skill-labeled graph from an arbitrary sparse weight
+    matrix using the network's feature vocabulary.
+    """
+    return nx.relabel_nodes(
+        nx.from_scipy_sparse_array(matrix, edge_attribute = "weight"),
+        dict(enumerate(network.feature_names))
+    )
+
+
+def _louvain(network: CooccurrenceNetwork, G: nx.Graph) -> list[set]:
+    """
+    Louvain community detection using the network's random seed.
+    """
+    return nx.community.louvain_communities(
+        G, seed = network.random_seed, weight = "weight"
+    )
+
+
+def _partition_map(network: CooccurrenceNetwork) -> dict[str, int]:
+    """
+    Flat mapping from skill name to Louvain community index on
+    the NPMI graph.
+    """
+    return {
+        s: i
+        for i, members in enumerate(_louvain(network, network.graph()))
+        for s in members
+    }
+
+
+def _ppmi_matrix(network: CooccurrenceNetwork) -> csr_array:
+    """
+    Compute sparse PPMI from the network's co-occurrence matrix
+    and document frequencies.
+    """
+    C          = network.cooccurrence
+    df         = network.doc_freq.astype(float)
+    rows, cols = C.nonzero()
+    pmi = np.log(
+        (network.n_docs * C.data.astype(float))
+        / (df[rows] * df[cols])
+    )
+    ppmi = C.astype(float)
+    ppmi.data = np.maximum(pmi, 0)
+    ppmi.eliminate_zeros()
+    return ppmi
+
+
 class AprioriComparison:
     """
     Apriori frequent itemset mining for comparing association rules
@@ -119,23 +169,21 @@ def compare_measures(network: CooccurrenceNetwork) -> list[dict]:
     Compare PPMI, NPMI, and G-test graph structures by edge count,
     density, and community count.
     """
-    louvain = lambda G: nx.community.louvain_communities(
-        G, seed = network.random_seed, weight = "weight"
-    )
-
     return [
         {
             "density"       : nx.density(G),
             "edge_count"    : G.number_of_edges(),
             "measure"       : name,
-            "n_communities" : len(louvain(G)) if G.number_of_edges() > 0 else 0
+            "n_communities" : len(
+                _louvain(network, G)
+            ) if G.number_of_edges() > 0 else 0
         }
         for name, matrix in [
-            ("ppmi",   network.ppmi_matrix),
+            ("ppmi",   _ppmi_matrix(network)),
             ("npmi",   network.npmi_matrix),
             ("g-test", gtest_matrix(network))
         ]
-        for G in [network.graph(matrix = matrix)]
+        for G in [_graph_from_matrix(network, matrix)]
     ]
 
 
@@ -147,10 +195,8 @@ def communities(
     Louvain communities labeled by their top-3 weighted-degree
     skills. Defaults to the NPMI graph.
     """
-    G = network.graph(matrix = matrix)
-    louvain = nx.community.louvain_communities(
-        G, seed = network.random_seed, weight = "weight"
-    )
+    G = _graph_from_matrix(network, matrix) if matrix is not None else network.graph()
+    louvain = _louvain(network, G)
 
     return [
         {
@@ -188,9 +234,7 @@ def diagnostics(
     performance = 0.0
 
     if G.number_of_edges() > 0:
-        louvain    = nx.community.louvain_communities(
-            G, seed = network.random_seed, weight = "weight"
-        )
+        louvain    = _louvain(network, G)
         modularity = nx.community.modularity(
             G, louvain, weight = "weight"
         )
@@ -229,10 +273,11 @@ def trade_alignment(
     report their Louvain community assignments.
     """
     nodes = set(network.graph().nodes())
+    pmap  = _partition_map(network)
 
     alignments = [
         {
-            "community"   : network.partition_map.get(t := trade["title"].lower()),
+            "community"   : pmap.get(t := trade["title"].lower()),
             "matched"     : t in nodes,
             "rapids_code" : trade["rapids_code"],
             "title"       : trade["title"]

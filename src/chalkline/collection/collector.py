@@ -65,7 +65,7 @@ class Collector:
         Returns:
             A validated `Posting`, or `None` if the row is invalid.
         """
-        clean = lambda v: v if pd.notna(v) else None
+        clean = lambda v: None if v is None or v != v else v
 
         try:
             return Posting(

@@ -30,13 +30,22 @@ def alignment(graph: CareerPathwayGraph) -> dict:
     if graph.network is None:
         return {"ari": 0.0, "modularity": None}
 
-    louvain = graph.network.partition_map
-    hac     = {
+    louvain_communities = nx.community.louvain_communities(
+        graph.network.graph(),
+        seed   = graph.network.random_seed,
+        weight = "weight"
+    )
+    louvain_map = {
+        s: i
+        for i, members in enumerate(louvain_communities)
+        for s in members
+    }
+    hac = {
         s: p.cluster_id
         for p in graph.profiles.values()
         for s in p.skills
     }
-    shared = louvain.keys() & hac.keys()
+    shared = louvain_map.keys() & hac.keys()
 
     if not shared:
         logger.warning("No shared skills for ARI computation")
@@ -50,13 +59,13 @@ def alignment(graph: CareerPathwayGraph) -> dict:
             f"structurally near-zero"
         )
 
-    labels = [(louvain[s], hac[s]) for s in shared]
+    labels = [(louvain_map[s], hac[s]) for s in shared]
     result = {"ari": adjusted_rand_score(*zip(*labels)), "modularity": None}
 
     if (skill_graph := graph.network.graph()).size():
         result["modularity"] = nx.community.modularity(
             skill_graph,
-            communities = graph.network.partition,
+            communities = louvain_communities,
             weight      = "weight"
         )
     return result

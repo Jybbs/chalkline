@@ -309,13 +309,15 @@ def apprenticeships() -> list[ApprenticeshipContext]:
 @fixture
 def enrichment(
     apprenticeships : list[ApprenticeshipContext],
+    network         : CooccurrenceNetwork,
     programs        : list[ProgramRecommendation]
 ) -> EnrichmentContext:
     """
-    Shared enrichment context with precomputed prefix lookups.
+    Shared enrichment context with prefix lookups and PPMI DataFrame.
     """
     return EnrichmentContext(
         apprenticeships = apprenticeships,
+        ppmi_df         = network.ppmi_dataframe(),
         programs        = programs
     )
 
@@ -339,7 +341,6 @@ def matcher(
     enrichment        : EnrichmentContext,
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,
-    network           : CooccurrenceNetwork,
     vectorizer        : SkillVectorizer
 ) -> ResumeMatcher:
     """
@@ -355,8 +356,7 @@ def matcher(
         clusterer         = clusterer,
         enrichment        = enrichment,
         extracted_skills  = extracted_skills,
-        geometry_pipeline = geometry_pipeline,
-        ppmi_df           = network.association_dataframe("ppmi")
+        geometry_pipeline = geometry_pipeline
     )
 
 @fixture

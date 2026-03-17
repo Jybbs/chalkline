@@ -8,9 +8,8 @@ import pandas as pd
 from pytest           import mark, param
 from sklearn.pipeline import Pipeline
 
-from chalkline.matching.matcher  import ResumeMatcher, jaccard
-from chalkline.pipeline.enrichment import prefix_set
-from chalkline.matching.schemas import MatchResult
+from chalkline.matching.matcher import ResumeMatcher, jaccard
+from chalkline.matching.schemas import MatchResult, NeighborMatch
 
 class TestResumeMatcher:
     """
@@ -18,23 +17,6 @@ class TestResumeMatcher:
     skill gap computation, PPMI gap ranking, and enrichment
     cross-referencing.
     """
-
-    def test_prefix_inflection(self):
-        """
-        4-char prefix catches inflectional variants that the enrichment
-        pipeline relies on for apprenticeship and program matching.
-        """
-        assert prefix_set("welding") & prefix_set("Welder")
-        assert prefix_set("electrical wiring") & prefix_set("Electrician")
-        assert not prefix_set("scaffolding") & prefix_set("concrete")
-
-    def test_prefix_short_words(self):
-        """
-        Words shorter than 4 characters are excluded from the prefix
-        set to avoid false positives on articles and prepositions.
-        """
-        assert prefix_set("the NEC code") == {"code"}
-        assert prefix_set("on") == set()
 
     @mark.parametrize("a, b, expected", [
         param({"a", "b"}, {"c", "d"}, 0.0,   id = "disjoint"),
@@ -187,20 +169,26 @@ class TestResumeMatcher:
         unrankable rather than silently dropped. A regression would
         lose gap skills from the career report.
         """
+        from chalkline.pipeline.enrichment import EnrichmentContext
         ppmi = pd.DataFrame(
             {"a" : {"a" : 0.0}},
             index = ["a"]
         )
         ranked, unrankable = ResumeMatcher._rank_gaps(
             self       = type("Stub", (), {
-                "centroid_scope"        : {0: set()},
-                "_find_apprenticeships" : lambda self, s: [],
-                "_find_programs"        : lambda self, s: [],
-                "ppmi_df"               : ppmi
+                "centroid_scope" : {0: set()},
+                "enrichment"     : EnrichmentContext([], [], ppmi_df=ppmi)
             })(),
             cluster_id = 0,
+            neighbors  = [
+                NeighborMatch(
+                    distance    = 0.0,
+                    document_id = "stub",
+                    jaccard     = 0.0,
+                    skills      = ["a", "unknown_x", "unknown_y"]
+                )
+            ],
             resume_set = {"a"},
-            skill_gaps = ["unknown_x", "unknown_y"],
             top_k      = 10
         )
         assert ranked == []
@@ -242,12 +230,18 @@ class TestResumeMatcher:
         ranked, _ = ResumeMatcher._rank_gaps(
             self         = type("Stub", (), {
                 "centroid_scope" : {0: {"a", "x"}},
-                "enrichment"     : EnrichmentContext([], []),
-                "ppmi_df"        : ppmi
+                "enrichment"     : EnrichmentContext([], [], ppmi_df=ppmi)
             })(),
             cluster_id = 0,
+            neighbors  = [
+                NeighborMatch(
+                    distance    = 0.0,
+                    document_id = "stub",
+                    jaccard     = 0.0,
+                    skills      = ["x", "y"]
+                )
+            ],
             resume_set = {"a", "b"},
-            skill_gaps = ["x", "y"],
             top_k      = 10
         )
 
@@ -272,10 +266,17 @@ class TestResumeMatcher:
     def test_result_serializable(self, match_result: MatchResult):
         """
         `MatchResult` is JSON-serializable for Marimo cache
-        compatibility.
+        compatibility. Computed fields appear in the serialized
+        output and are regenerated on reconstruction from stored
+        fields.
         """
         data = match_result.model_dump()
         assert isinstance(data, dict)
-        assert "cluster_id" in data
-        roundtrip = MatchResult(**data)
+        assert "skill_gaps" in data
+        stored = {
+            k: v for k, v in data.items()
+            if k not in MatchResult.model_computed_fields
+        }
+        roundtrip = MatchResult(**stored)
         assert roundtrip.cluster_id == match_result.cluster_id
+        assert roundtrip.skill_gaps == match_result.skill_gaps

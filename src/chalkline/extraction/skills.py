@@ -101,7 +101,7 @@ class SkillExtractor:
                 forms.add(f"{words[1]} {words[0]}")
 
             forms -= seen | {""}
-            seen |= forms
+            seen  |= forms
             for form in sorted(forms):
                 patterns.append(form)
                 metadata.append(PatternMeta(
@@ -169,8 +169,7 @@ class SkillExtractor:
         for pattern_idx, start, end in self.automaton.find_matches_as_indexes(text):
             if not self._is_word_boundary(end, start, text):
                 continue
-            meta      = self.metadata[pattern_idx]
-            canonical = meta.canonical
+            canonical = (meta := self.metadata[pattern_idx]).canonical
             if canonical not in hits or meta.tier.value < hits[canonical].value:
                 hits[canonical] = meta.tier
 
