@@ -18,9 +18,7 @@ from logging                  import getLogger
 from math                     import ceil
 from scipy.sparse             import csc_array, csr_array, spmatrix
 
-
 logger = getLogger(__name__)
-
 
 class CooccurrenceNetwork:
     """
@@ -69,10 +67,6 @@ class CooccurrenceNetwork:
         self.doc_freq, self.cooccurrence, self.threshold = (
             self._build_cooccurrence(binary_matrix, min_cooccurrence)
         )
-
-    # -----------------------------------------------------------------
-    # Cached properties
-    # -----------------------------------------------------------------
 
     @cached_property
     def npmi_matrix(self) -> csr_array:
@@ -140,10 +134,6 @@ class CooccurrenceNetwork:
         ppmi.data = np.maximum(self._pmi_values(), 0)
         ppmi.eliminate_zeros()
         return ppmi
-
-    # -----------------------------------------------------------------
-    # Private methods
-    # -----------------------------------------------------------------
 
     def _build_cooccurrence(
         self,
@@ -274,10 +264,6 @@ class CooccurrenceNetwork:
             (self.n_docs * C.data.astype(float))
             / (df[rows] * df[cols])
         )
-
-    # -----------------------------------------------------------------
-    # Public methods
-    # -----------------------------------------------------------------
 
     def association_dataframe(self, variant: str = "npmi") -> pd.DataFrame:
         """

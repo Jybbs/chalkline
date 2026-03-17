@@ -11,16 +11,11 @@ from pytest import mark
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import Certification, OnetOccupation, OnetSkill
 
-
 class TestLexiconRegistry:
     """
     Validate normalization priority, decomposition, and lemma index
     merging.
     """
-
-    # -------------------------------------------------------------------------
-    # Decomposition
-    # -------------------------------------------------------------------------
 
     def test_decompose_filters_single_words(self, registry: LexiconRegistry):
         """
@@ -54,10 +49,6 @@ class TestLexiconRegistry:
             "Install electrical wiring, equipment, and fixtures"
         ) is None
 
-    # -------------------------------------------------------------------------
-    # Index construction
-    # -------------------------------------------------------------------------
-
     def test_empty_inputs(self):
         """
         With no lexicon data, `normalize` returns `None`.
@@ -74,10 +65,6 @@ class TestLexiconRegistry:
         """
         assert registry.lemmatize("scaffoldings") == "scaffolding"
         assert registry.lemmatize("installing") == "installing"
-
-    # -------------------------------------------------------------------------
-    # Normalization
-    # -------------------------------------------------------------------------
 
     def test_normalize_case_insensitive(self, registry: LexiconRegistry):
         """
@@ -194,10 +181,6 @@ class TestLexiconRegistry:
         """
         assert registry.normalize("Laptop computers") == "Laptop computers"
 
-    # -------------------------------------------------------------------------
-    # Certification integration
-    # -------------------------------------------------------------------------
-
     def test_certification_acronym(self, registry: LexiconRegistry):
         """
         Acronyms index as lookup keys pointing to the full certification
@@ -250,10 +233,6 @@ class TestLexiconRegistry:
             occupations    = occupations,
             osha_terms     = []
         ).normalize("autodesk autocad") == "Autodesk AutoCAD"
-
-    # -------------------------------------------------------------------------
-    # Supplement integration
-    # -------------------------------------------------------------------------
 
     def test_supplement_onet_overwrites_supplement(self, registry: LexiconRegistry):
         """

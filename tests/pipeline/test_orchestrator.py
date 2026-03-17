@@ -27,11 +27,6 @@ from chalkline.reduction.pca            import PcaReducer
 
 import pytest
 
-
-# ---------------------------------------------------------------------
-# compose_geometry
-# ---------------------------------------------------------------------
-
 class TestComposeGeometry:
     """
     Tests for the five-step geometry pipeline composition.
@@ -81,11 +76,6 @@ class TestComposeGeometry:
         )
         coords = geo.transform([{"fall protection": 1, "welding": 1}])
         assert coords.shape == (1, pca_reducer.n_selected)
-
-
-# ---------------------------------------------------------------------
-# build_profiles
-# ---------------------------------------------------------------------
 
 class TestBuildProfiles:
     """
@@ -161,11 +151,6 @@ class TestBuildProfiles:
         )
         for profile in profiles.values():
             assert profile.sector
-
-
-# ---------------------------------------------------------------------
-# Pipeline class
-# ---------------------------------------------------------------------
 
 class TestPipeline:
     """

@@ -12,7 +12,6 @@ from chalkline.matching.matcher  import ResumeMatcher, jaccard
 from chalkline.pipeline.enrichment import prefix_set
 from chalkline.matching.schemas import MatchResult
 
-
 class TestResumeMatcher:
     """
     Verify resume projection, cluster assignment, neighbor retrieval,
@@ -49,10 +48,6 @@ class TestResumeMatcher:
         configuration.
         """
         assert jaccard(a, b) == expected
-
-    # -----------------------------------------------------------------
-    # Projection and assignment
-    # -----------------------------------------------------------------
 
     def test_assignment_singular(
         self,
@@ -98,10 +93,6 @@ class TestResumeMatcher:
         after = geometry_pipeline.transform(probe)
         np.testing.assert_array_equal(before, after)
 
-    # -----------------------------------------------------------------
-    # Neighbors
-    # -----------------------------------------------------------------
-
     def test_neighbors_bounded(self, match_result: MatchResult):
         """
         Nearest neighbors returns at most 5 results.
@@ -139,10 +130,6 @@ class TestResumeMatcher:
         distances = [n.distance for n in match_result.nearest_neighbors]
         assert distances == sorted(distances)
 
-    # -----------------------------------------------------------------
-    # Skill gaps
-    # -----------------------------------------------------------------
-
     def test_gap_empty_perfect(
         self,
         extracted_skills : dict[str, list[str]],
@@ -172,10 +159,6 @@ class TestResumeMatcher:
         A partial resume produces at least one skill gap.
         """
         assert len(match_result.skill_gaps) > 0
-
-    # -----------------------------------------------------------------
-    # Gap ranking
-    # -----------------------------------------------------------------
 
     def test_dedup_unique(self, match_result: MatchResult):
         """

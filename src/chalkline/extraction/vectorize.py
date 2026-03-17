@@ -21,7 +21,6 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline                import Pipeline
 from sklearn.preprocessing           import Normalizer
 
-
 class SkillVectorizer:
     """
     IDF-weighted and binary matrix builder from extracted skill
@@ -61,10 +60,6 @@ class SkillVectorizer:
 
         self.tfidf_matrix = self.pipeline.fit_transform(self.dicts)
 
-    # -----------------------------------------------------------------
-    # Properties
-    # -----------------------------------------------------------------
-
     @cached_property
     def binary_matrix(self) -> spmatrix:
         """
@@ -88,4 +83,3 @@ class SkillVectorizer:
             Skill names ordered by their column position.
         """
         return self.pipeline.named_steps["vec"].get_feature_names_out().tolist()
-

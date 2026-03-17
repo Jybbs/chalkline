@@ -42,13 +42,7 @@ from chalkline.pipeline.schemas         import PipelineConfig, PipelineManifest
 from chalkline.pipeline.schemas         import ProgramRecommendation
 from chalkline.reduction.pca            import PcaReducer
 
-
 logger = getLogger(__name__)
-
-
-# -------------------------------------------------------------------------
-# Reusable composition helpers
-# -------------------------------------------------------------------------
 
 def build_profiles(
     cluster_labels   : list[ClusterLabel],
@@ -116,7 +110,6 @@ def build_profiles(
 
     return profiles
 
-
 def compose_geometry(
     reducer    : PcaReducer,
     vectorizer : SkillVectorizer
@@ -148,7 +141,6 @@ def compose_geometry(
         ("scaler", pca_steps["scaler"])
     ])
 
-
 def compute_sector_labels(
     document_ids     : list[str],
     extracted_skills : dict[str, list[str]],
@@ -178,7 +170,6 @@ def compute_sector_labels(
         for doc in document_ids
     ]
 
-
 def deduplicate_apprenticeships(
     profiles: dict[int, ClusterProfile]
 ) -> list[ApprenticeshipContext]:
@@ -192,7 +183,6 @@ def deduplicate_apprenticeships(
         if p.apprenticeship
     }.values())
 
-
 def deduplicate_programs(
     profiles: dict[int, ClusterProfile]
 ) -> list[ProgramRecommendation]:
@@ -205,11 +195,6 @@ def deduplicate_programs(
         for profile in profiles.values()
         for p in profile.programs
     }.values())
-
-
-# -------------------------------------------------------------------------
-# Pipeline
-# -------------------------------------------------------------------------
 
 class Pipeline:
     """
@@ -240,10 +225,6 @@ class Pipeline:
         self.profiles          : dict[int, ClusterProfile]       = {}
         self.router            : CareerRouter | None             = None
 
-    # -----------------------------------------------------------------
-    # Properties
-    # -----------------------------------------------------------------
-
     @property
     def fitted(self) -> bool:
         """
@@ -251,10 +232,6 @@ class Pipeline:
         `match()` calls.
         """
         return self.geometry_pipeline is not None
-
-    # -----------------------------------------------------------------
-    # Private methods
-    # -----------------------------------------------------------------
 
     def _build_matcher(self, ppmi_df) -> ResumeMatcher:
         """
@@ -342,10 +319,6 @@ class Pipeline:
             raise FileNotFoundError(
                 f"Missing required data files: {', '.join(missing)}"
             )
-
-    # -----------------------------------------------------------------
-    # Public methods
-    # -----------------------------------------------------------------
 
     def fit(self) -> Self:
         """

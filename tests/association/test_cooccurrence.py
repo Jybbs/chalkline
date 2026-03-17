@@ -11,16 +11,11 @@ import numpy as np
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.extraction.vectorize     import SkillVectorizer
 
-
 class TestCooccurrenceNetwork:
     """
     Validate co-occurrence matrix, PMI measures, graph construction,
     and partition.
     """
-
-    # ---------------------------------------------------------
-    # Co-occurrence matrix
-    # ---------------------------------------------------------
 
     def test_diagonal_zero(self, network: CooccurrenceNetwork):
         """
@@ -51,10 +46,6 @@ class TestCooccurrenceNetwork:
             min_cooccurrence = 0.99
         )
         assert strict.cooccurrence.nnz == 0
-
-    # ---------------------------------------------------------
-    # PMI measures
-    # ---------------------------------------------------------
 
     def test_npmi_bounded(self, network: CooccurrenceNetwork):
         """

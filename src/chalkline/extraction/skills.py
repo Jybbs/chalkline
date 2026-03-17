@@ -18,17 +18,7 @@ from typing         import NamedTuple
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
 
-
 logger = getLogger(__name__)
-
-
-# -------------------------------------------------------------------------
-# Default filler phrases
-# -------------------------------------------------------------------------
-
-# -------------------------------------------------------------------------
-# Pattern metadata
-# -------------------------------------------------------------------------
 
 class PatternMeta(NamedTuple):
     """
@@ -40,11 +30,6 @@ class PatternMeta(NamedTuple):
 
     canonical : str
     tier      : ConfidenceTier
-
-
-# -------------------------------------------------------------------------
-# SkillExtractor
-# -------------------------------------------------------------------------
 
 class SkillExtractor:
     """
@@ -73,10 +58,6 @@ class SkillExtractor:
         self.pattern_chars      = frozenset(c for p in patterns for c in p)
         self.automaton          = AhoCorasick(patterns, MatchKind.LeftmostLongest)
 
-    # -----------------------------------------------------------------
-    # Properties
-    # -----------------------------------------------------------------
-
     @property
     def vocabulary(self) -> set[str]:
         """
@@ -87,10 +68,6 @@ class SkillExtractor:
             Unique canonical names across all loaded patterns.
         """
         return {m.canonical for m in self.metadata}
-
-    # -----------------------------------------------------------------
-    # Private methods
-    # -----------------------------------------------------------------
 
     def _build_patterns(self) -> tuple[list[str], list[PatternMeta]]:
         """
@@ -251,10 +228,6 @@ class SkillExtractor:
             self.stemmer.stem(word)
             for word in text.lower().split()
         )
-
-    # -----------------------------------------------------------------
-    # Public methods
-    # -----------------------------------------------------------------
 
     def extract(self, postings: dict[str, str]) -> dict[str, list[str]]:
         """

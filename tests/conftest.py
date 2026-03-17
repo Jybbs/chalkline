@@ -48,9 +48,7 @@ from chalkline.pipeline.schemas          import ApprenticeshipContext, ClusterPr
 from chalkline.pipeline.schemas          import ProgramRecommendation
 from chalkline.reduction.pca             import PcaReducer
 
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-
 
 def _postings() -> list[Posting]:
     """
@@ -61,18 +59,12 @@ def _postings() -> list[Posting]:
         for raw in loads((FIXTURES / "collection" / "postings.json").read_text())
     ]
 
-
-# ---------------------------------------------------------------------
-# Lexicon loading
-# ---------------------------------------------------------------------
-
 @fixture
 def certifications() -> list[Certification]:
     """
     Load synthetic certifications from fixture data.
     """
     return load_certifications(FIXTURES / "extraction" / "certifications.json")
-
 
 @fixture
 def lexicon_dir(tmp_path: Path) -> Path:
@@ -90,14 +82,12 @@ def lexicon_dir(tmp_path: Path) -> Path:
         )
     return tmp_path
 
-
 @fixture
 def occupations() -> list[OnetOccupation]:
     """
     Parse synthetic O*NET data into validated occupation records.
     """
     return load_onet(FIXTURES / "extraction" / "onet_occupations.json")
-
 
 @fixture
 def osha_terms() -> list[str]:
@@ -106,18 +96,12 @@ def osha_terms() -> list[str]:
     """
     return load_osha(FIXTURES / "extraction" / "osha_terms.json")
 
-
 @fixture
 def supplement_terms() -> list[str]:
     """
     Load synthetic supplement terms from fixture data.
     """
     return load_supplement(FIXTURES / "extraction" / "supplement_terms.json")
-
-
-# ---------------------------------------------------------------------
-# Extraction pipeline
-# ---------------------------------------------------------------------
 
 @fixture
 def corpus() -> dict[str, str]:
@@ -176,7 +160,6 @@ def corpus() -> dict[str, str]:
                        "equipment on highway projects."
     }
 
-
 @fixture
 def extracted_skills(
     corpus    : dict[str, str],
@@ -190,7 +173,6 @@ def extracted_skills(
     """
     return extractor.extract(corpus)
 
-
 @fixture
 def extractor(registry: LexiconRegistry) -> SkillExtractor:
     """
@@ -198,14 +180,12 @@ def extractor(registry: LexiconRegistry) -> SkillExtractor:
     """
     return SkillExtractor(registry)
 
-
 @fixture
 def occupation_index(occupations: list[OnetOccupation]) -> OccupationIndex:
     """
     Build an occupation index from synthetic fixture data.
     """
     return OccupationIndex(occupations)
-
 
 @fixture
 def registry(
@@ -224,18 +204,12 @@ def registry(
         supplement_terms = supplement_terms
     )
 
-
-# ---------------------------------------------------------------------
-# Collection
-# ---------------------------------------------------------------------
-
 @fixture
 def sample_posting() -> Posting:
     """
     A minimal valid posting for testing.
     """
     return _postings()[0]
-
 
 @fixture
 def second_posting() -> Posting:
@@ -244,18 +218,12 @@ def second_posting() -> Posting:
     """
     return _postings()[1]
 
-
 @fixture(params = ["47-2111", "47-2111.00"])
 def soc(request: FixtureRequest) -> str:
     """
     Electrician SOC code in both bare and suffixed formats.
     """
     return request.param
-
-
-# ---------------------------------------------------------------------
-# Vectorization and reduction
-# ---------------------------------------------------------------------
 
 @fixture
 def pca_reducer(vectorizer: SkillVectorizer) -> PcaReducer:
@@ -271,18 +239,12 @@ def pca_reducer(vectorizer: SkillVectorizer) -> PcaReducer:
         variance_threshold = 0.85
     )
 
-
 @fixture
 def vectorizer(extracted_skills: dict[str, list[str]]) -> SkillVectorizer:
     """
     Build a vectorizer from extracted skill lists.
     """
     return SkillVectorizer(extracted_skills)
-
-
-# ---------------------------------------------------------------------
-# Association
-# ---------------------------------------------------------------------
 
 @fixture
 def network(vectorizer: SkillVectorizer) -> CooccurrenceNetwork:
@@ -295,11 +257,6 @@ def network(vectorizer: SkillVectorizer) -> CooccurrenceNetwork:
         min_cooccurrence = 0.05,
         random_seed      = 42
     )
-
-
-# ---------------------------------------------------------------------
-# Clustering
-# ---------------------------------------------------------------------
 
 @fixture
 def cluster_labels(
@@ -314,7 +271,6 @@ def cluster_labels(
         tfidf_matrix  = vectorizer.tfidf_matrix
     )
 
-
 @fixture
 def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
     """
@@ -324,7 +280,6 @@ def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
         coordinates  = pca_reducer.coordinates,
         document_ids = pca_reducer.document_ids
     )
-
 
 @fixture
 def sector_labels(
@@ -341,11 +296,6 @@ def sector_labels(
         occupation_index = occupation_index
     )
 
-
-# ---------------------------------------------------------------------
-# Matching
-# ---------------------------------------------------------------------
-
 @fixture
 def apprenticeships() -> list[ApprenticeshipContext]:
     """
@@ -355,7 +305,6 @@ def apprenticeships() -> list[ApprenticeshipContext]:
         ApprenticeshipContext(**raw)
         for raw in loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
     ]
-
 
 @fixture
 def enrichment(
@@ -370,7 +319,6 @@ def enrichment(
         programs        = programs
     )
 
-
 @fixture
 def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> Pipeline:
     """
@@ -378,14 +326,12 @@ def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> P
     """
     return compose_geometry(reducer=pca_reducer, vectorizer=vectorizer)
 
-
 @fixture
 def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResult:
     """
     Default match result from the partial resume skill set.
     """
     return matcher.match(resume_skills)
-
 
 @fixture
 def matcher(
@@ -413,7 +359,6 @@ def matcher(
         ppmi_df           = network.association_dataframe("ppmi")
     )
 
-
 @fixture
 def programs(tmp_path: Path) -> list[ProgramRecommendation]:
     """
@@ -423,7 +368,6 @@ def programs(tmp_path: Path) -> list[ProgramRecommendation]:
         (tmp_path / name).write_text((FIXTURES / "matching" / name).read_text())
     return load_programs(tmp_path)
 
-
 @fixture
 def resume_skills() -> list[str]:
     """
@@ -431,11 +375,6 @@ def resume_skills() -> list[str]:
     corpus.
     """
     return ["electrical wiring", "fall protection", "scaffolding"]
-
-
-# ---------------------------------------------------------------------
-# Pathways
-# ---------------------------------------------------------------------
 
 @fixture
 def pathway_graph(
@@ -468,7 +407,6 @@ def pathway_graph(
         profiles        = profiles,
         programs        = deduped_progs
     )
-
 
 @fixture
 def router(

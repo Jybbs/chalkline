@@ -12,7 +12,6 @@ from pytest  import mark, raises
 from chalkline.pipeline.schemas import ApprenticeshipContext
 from chalkline.pipeline.schemas import PipelineConfig, ProgramRecommendation
 
-
 class TestPipelineConfig:
     """
     Validate `PipelineConfig` constraints and defaults.
@@ -83,10 +82,6 @@ class TestPipelineConfig:
         """
         assert self._config(tmp_path, variance_threshold=1.0).variance_threshold == 1.0
 
-    # ---------------------------------------------------------
-    # ApprenticeshipContext
-    # ---------------------------------------------------------
-
     def test_apprenticeship_extra(self):
         """
         Unknown fields are rejected per extra="forbid".
@@ -98,10 +93,6 @@ class TestPipelineConfig:
                 trade       = "Electrician",
                 unknown     = True
             )
-
-    # ---------------------------------------------------------
-    # ProgramRecommendation
-    # ---------------------------------------------------------
 
     def test_program_extra(self):
         """

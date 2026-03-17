@@ -12,7 +12,6 @@ from chalkline.pipeline.enrichment import EnrichmentContext
 from chalkline.pipeline.schemas    import ApprenticeshipContext
 from chalkline.pipeline.schemas    import ClusterProfile, ProgramRecommendation
 
-
 def _make_linear_router() -> CareerRouter:
     """
     Build a 4-node linear DAG router for deterministic tests.
@@ -94,7 +93,6 @@ def _make_linear_router() -> CareerRouter:
         profiles   = profiles
     )
 
-
 def _make_diamond_router() -> CareerRouter:
     """
     Build a 4-node diamond DAG with two paths for route comparison.
@@ -154,16 +152,11 @@ def _make_diamond_router() -> CareerRouter:
         profiles   = profiles
     )
 
-
 class TestCareerRouter:
     """
     Validate centrality, widest-path routing, bridging skills,
     and learning plans.
     """
-
-    # ---------------------------------------------------------
-    # Centrality
-    # ---------------------------------------------------------
 
     def test_centrality_bounded(self):
         """
@@ -228,10 +221,6 @@ class TestCareerRouter:
         for node in G.nodes():
             assert "betweenness" in G.nodes[node]
             assert "pagerank" in G.nodes[node]
-
-    # ---------------------------------------------------------
-    # Widest path
-    # ---------------------------------------------------------
 
     def test_widest_bottleneck(self):
         """
@@ -300,10 +289,6 @@ class TestCareerRouter:
         assert route.steps[1].estimated_hours is None
         assert route.steps[2].estimated_hours == 3000
 
-    # ---------------------------------------------------------
-    # Enrichment
-    # ---------------------------------------------------------
-
     def test_enrichment_apprenticeship(self):
         """
         The C2->C3 step's bridging skill "electrical wiring"
@@ -337,10 +322,6 @@ class TestCareerRouter:
         step_2_3 = route.steps[2]
         progs    = [p.program for p in step_2_3.programs]
         assert "Electrical Technology" in progs
-
-    # ---------------------------------------------------------
-    # Learning plan
-    # ---------------------------------------------------------
 
     def test_plan_derived(self):
         """

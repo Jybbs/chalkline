@@ -22,11 +22,6 @@ from chalkline.matching.schemas        import ClusterDistance, MatchResult
 from chalkline.matching.schemas        import NeighborMatch, RankedGap
 from chalkline.pipeline.enrichment import EnrichmentContext, prefix_set
 
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
 def jaccard(a: set[str], b: set[str]) -> float:
     """
     Jaccard similarity between two skill sets.
@@ -44,11 +39,6 @@ def jaccard(a: set[str], b: set[str]) -> float:
         Jaccard index in [0.0, 1.0].
     """
     return len(a & b) / len(u) if (u := a | b) else 0.0
-
-
-# -------------------------------------------------------------------------
-# Matcher
-# -------------------------------------------------------------------------
 
 class ResumeMatcher:
     """
@@ -114,10 +104,6 @@ class ResumeMatcher:
             n_neighbors = len(self.cluster_ids)
         ).fit(clusterer.centroids.values)
 
-    # -----------------------------------------------------------------
-    # Properties
-    # -----------------------------------------------------------------
-
     @cached_property
     def centroid_scope(self) -> dict[int, set[str]]:
         """
@@ -137,10 +123,6 @@ class ResumeMatcher:
             doc: set(skills)
             for doc, skills in self.extracted_skills.items()
         }
-
-    # -----------------------------------------------------------------
-    # Private methods
-    # -----------------------------------------------------------------
 
     def _nearest_in_family(
         self,
@@ -286,10 +268,6 @@ class ResumeMatcher:
         ]
 
         return ranked, unrankable
-
-    # -----------------------------------------------------------------
-    # Public methods
-    # -----------------------------------------------------------------
 
     def match(
         self,

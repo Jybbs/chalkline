@@ -8,15 +8,10 @@ exclusion, and unmatched term logging using synthetic fixture data.
 
 from chalkline.extraction.skills import SkillExtractor
 
-
 class TestSkillExtractor:
     """
     Validate extraction behavior, priority, and edge cases.
     """
-
-    # ---------------------------------------------------------
-    # Extraction
-    # ---------------------------------------------------------
 
     def test_case_insensitive(self, extractor: SkillExtractor):
         """
@@ -79,10 +74,6 @@ class TestSkillExtractor:
             "a": "scaffold inspection required"
         }).get("a", [])
 
-    # ---------------------------------------------------------
-    # Output format
-    # ---------------------------------------------------------
-
     def test_output_sorted(self, extractor: SkillExtractor):
         """
         Each posting's skill list is sorted alphabetically with no
@@ -92,10 +83,6 @@ class TestSkillExtractor:
             "a": "welding and welding, plus fall protection"
         })["a"]
         assert skills == sorted(set(skills))
-
-    # ---------------------------------------------------------
-    # Preprocessing
-    # ---------------------------------------------------------
 
     def test_bullet_normalization(self, extractor: SkillExtractor):
         """
@@ -129,10 +116,6 @@ class TestSkillExtractor:
         result = extractor.extract({"a": text})
         assert "fall protection" in result.get("a", [])
 
-    # ---------------------------------------------------------
-    # Word boundaries
-    # ---------------------------------------------------------
-
     def test_boundary_digit(self, extractor: SkillExtractor):
         """
         Digits not appearing in any lexicon pattern are treated as
@@ -150,10 +133,6 @@ class TestSkillExtractor:
         assert "weld" not in extractor.extract(
             {"a": "The welder inspected the scaffoldings"}
         ).get("a", [])
-
-    # ---------------------------------------------------------
-    # Zero-skill exclusion
-    # ---------------------------------------------------------
 
     def test_empty_corpus(self, extractor: SkillExtractor):
         """
