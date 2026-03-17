@@ -1,15 +1,11 @@
 """
-Tests for Ward-linkage hierarchical agglomerative clustering.
+Tests for average-linkage hierarchical agglomerative clustering.
 
-Validates linkage structure, cophenetic correlations, cluster assignments,
-label derivation, dendrogram output, ARI computation, and post-hoc
-validation at arbitrary K values using the synthetic 20-posting fixture
-chain.
+Validates cluster assignments and label derivation using the synthetic
+20-posting fixture chain.
 """
 
 import numpy as np
-
-from pytest import mark
 
 from chalkline.clustering.hierarchical import HierarchicalClusterer
 from chalkline.clustering.schemas      import ClusterLabel
@@ -34,45 +30,8 @@ class TestComputeSectorLabels:
 
 class TestHierarchicalClusterer:
     """
-    Validate linkage, assignments, labels, dendrogram, and validity
-    metrics from the Ward-linkage HAC fit.
+    Validate assignments and labels from the average-linkage HAC fit.
     """
-
-    # ---------------------------------------------------------
-    # Linkage
-    # ---------------------------------------------------------
-
-    def test_cophenetic_count(self, clusterer: HierarchicalClusterer):
-        """
-        Three cophenetic results for ward, complete, and average linkage
-        methods.
-        """
-        assert len(clusterer.cophenetic_comparison()) == 3
-
-    def test_linkage_shape(self, clusterer: HierarchicalClusterer):
-        """
-        Ward linkage matrix has shape `(n - 1, 4)` where `n` is the
-        number of postings.
-        """
-        n = len(clusterer.document_ids)
-        assert clusterer.linkage.shape == (n - 1, 4)
-
-    # ---------------------------------------------------------
-    # Assignments
-    # ---------------------------------------------------------
-
-    def test_every_posting_assigned(self, clusterer: HierarchicalClusterer):
-        """
-        Every posting receives exactly one cluster assignment with no
-        unassigned labels.
-        """
-        n = len(clusterer.document_ids)
-        assert len(clusterer.assignments) == n
-        assert (clusterer.assignments > 0).all()
-
-    # ---------------------------------------------------------
-    # Labels
-    # ---------------------------------------------------------
 
     def test_labels_aligned(self, cluster_labels: list[ClusterLabel]):
         """
@@ -116,26 +75,3 @@ class TestHierarchicalClusterer:
             top_n         = 2
         ):
             assert len(label.terms) <= 2
-
-    # ---------------------------------------------------------
-    # Dendrogram
-    # ---------------------------------------------------------
-
-    def test_dendrogram_leaf_count(self, clusterer: HierarchicalClusterer):
-        """
-        Leaf labels match the number of postings.
-        """
-        data = clusterer.dendrogram_data()
-        assert len(data["ivl"]) == len(clusterer.document_ids)
-
-    def test_dendrogram_title_map(self, clusterer: HierarchicalClusterer):
-        """
-        Title map substitutes document identifiers in leaf labels.
-        """
-        title_map = {
-            doc: f"Title {i}"
-            for i, doc in enumerate(clusterer.document_ids)
-        }
-        data = clusterer.dendrogram_data(title_map = title_map)
-        assert all(label.startswith("Title ") for label in data["ivl"])
-

@@ -20,10 +20,6 @@ class TestResumeMatcher:
     cross-referencing.
     """
 
-    # -----------------------------------------------------------------
-    # Helpers
-    # -----------------------------------------------------------------
-
     def test_prefix_inflection(self):
         """
         4-char prefix catches inflectional variants that the enrichment
@@ -40,10 +36,6 @@ class TestResumeMatcher:
         """
         assert prefix_set("the NEC code") == {"code"}
         assert prefix_set("on") == set()
-
-    # -----------------------------------------------------------------
-    # Jaccard
-    # -----------------------------------------------------------------
 
     @mark.parametrize("a, b, expected", [
         param({"a", "b"}, {"c", "d"}, 0.0,   id = "disjoint"),
@@ -293,10 +285,6 @@ class TestResumeMatcher:
         all_gaps   = set(match_result.skill_gaps)
         covered    = ranked_set | set(match_result.unrankable_gaps)
         assert covered == all_gaps
-
-    # -----------------------------------------------------------------
-    # Serialization
-    # -----------------------------------------------------------------
 
     def test_result_serializable(self, match_result: MatchResult):
         """

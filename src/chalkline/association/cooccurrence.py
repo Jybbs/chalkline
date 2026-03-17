@@ -2,10 +2,10 @@
 PMI co-occurrence network with Louvain community detection.
 
 Computes pairwise co-occurrence counts via sparse matrix multiplication,
-derives PMI, PPMI, NPMI, and Dunning's G-test as association measures,
-and constructs a NetworkX graph with Louvain community detection for
-career track grouping. The NPMI graph feeds directly into the pathway
-graph in CL-11, and the NPMI DataFrame feeds gap ranking in CL-10.
+derives PMI, PPMI, and NPMI as association measures, and constructs a
+NetworkX graph with Louvain community detection for career track
+grouping. The NPMI graph feeds directly into the pathway graph in CL-11,
+and the NPMI DataFrame feeds gap ranking in CL-10.
 """
 
 import networkx as nx
@@ -16,11 +16,7 @@ from functools                import cached_property
 from kneed                    import KneeLocator
 from logging                  import getLogger
 from math                     import ceil
-from scipy.sparse             import csc_array, csr_array, spmatrix, triu
-from scipy.special            import xlogy
-
-from chalkline.association.schemas import CommunityLabel
-from chalkline.association.schemas import GraphDiagnostics, MeasureComparison
+from scipy.sparse             import csc_array, csr_array, spmatrix
 
 
 logger = getLogger(__name__)
@@ -79,61 +75,12 @@ class CooccurrenceNetwork:
     # -----------------------------------------------------------------
 
     @cached_property
-    def gtest_matrix(self) -> csr_array:
-        """
-        Dunning's G-test statistics for all thresholded pairs.
-
-            G = 2 · Σᵢ Oᵢ · ln(Oᵢ / Eᵢ)
-
-        where O and E are the observed and expected counts from the
-        2x2 contingency table [C_xy, df_x - C_xy; df_y - C_xy,
-        n - df_x - df_y + C_xy]. Computed via vectorized array
-        operations across all upper-triangle pairs. The result is
-        symmetric.
-
-        Returns:
-            Symmetric `csr_array` of G-test statistics with the same
-            sparsity pattern as the thresholded co-occurrence matrix.
-        """
-        C = triu(self.cooccurrence, format = "coo")
-        n = self.n_docs
-        df = self.doc_freq.astype(float)
-
-        a = C.data.astype(float)
-        b = df[C.row] - a
-        c = df[C.col] - a
-        d = n - df[C.row] - df[C.col] + a
-
-        valid      = (b >= 0) & (c >= 0) & (d >= 0)
-        rows, cols = C.row[valid], C.col[valid]
-        a, b, c, d = a[valid], b[valid], c[valid], d[valid]
-
-        df_r = df[rows]
-        df_c = df[cols]
-        obs  = np.vstack([a, b, c, d])
-        exp  = np.vstack([
-            df_r * df_c,
-            df_r * (n - df_c),
-            (n - df_r) * df_c,
-            (n - df_r) * (n - df_c)
-        ]) / n
-
-        g = 2 * (xlogy(obs, obs) - xlogy(obs, exp)).sum(axis = 0)
-
-        size  = self.cooccurrence.shape[0]
-        upper = csr_array(
-            (g, (rows, cols)),
-            shape = (size, size)
-        )
-        return upper + upper.T
-
-    @cached_property
     def npmi_matrix(self) -> csr_array:
         """
         Normalized pointwise mutual information with positive
         clipping.
 
-            NPMI(x, y) = log(n · C_xy / (df_x · df_y))
+            NPMI(x, y) = log(n * C_xy / (df_x * df_y))
                          / log(n / C_xy)
 
         Bounded to [0, 1] by clipping. Pairs where both skills
@@ -182,7 +129,7 @@ class CooccurrenceNetwork:
         """
         Positive pointwise mutual information.
 
-            PPMI(x, y) = max(0, log(n · C_xy / (df_x · df_y)))
+            PPMI(x, y) = max(0, log(n * C_xy / (df_x * df_y)))
 
         Clips negative values to zero.
 
@@ -314,7 +261,7 @@ class CooccurrenceNetwork:
         """
         Raw PMI values for all thresholded co-occurrence pairs.
 
-            PMI(x, y) = log(n · C_xy / (df_x · df_y))
+            PMI(x, y) = log(n * C_xy / (df_x * df_y))
 
         Returns the flat data array aligned with
         `self.cooccurrence.data` for direct assignment into a
@@ -359,127 +306,6 @@ class CooccurrenceNetwork:
             index   = self.feature_names
         )
 
-    def communities(
-        self,
-        matrix: spmatrix | None = None
-    ) -> list[CommunityLabel]:
-        """
-        Louvain community detection with weighted-degree labeling.
-
-        Each community is labeled by its top-3 skills ranked by
-        weighted degree within the community. Defaults to the NPMI
-        graph when no matrix is provided.
-
-        Args:
-            matrix: Optional sparse weight matrix overriding NPMI.
-
-        Returns:
-            List of `CommunityLabel` models sorted by community
-            size in descending order.
-        """
-        G = self.graph(matrix = matrix)
-
-        return [
-            CommunityLabel(
-                community_id        = idx,
-                size                = len(members),
-                top_skills          = sorted(
-                    degrees, key = degrees.get, reverse = True
-                )[:3],
-                weighted_degree_sum = sum(degrees.values())
-            )
-            for idx, members in enumerate(
-                sorted(self._louvain(G), key = len, reverse = True)
-            )
-            for degrees in [
-                dict(G.subgraph(members).degree(weight = "weight"))
-            ]
-        ]
-
-    def compare_measures(self) -> list[MeasureComparison]:
-        """
-        Compare graph structures across PMI variants.
-
-        Builds graphs from PPMI, NPMI, and G-test matrices and reports
-        edge count, density, and community count for each.
-
-        Returns:
-            List of three `MeasureComparison` models, one per variant.
-        """
-        return [
-            MeasureComparison(
-                density       = nx.density(G),
-                edge_count    = G.number_of_edges(),
-                measure       = name,
-                n_communities = len(
-                    self._louvain(G)
-                ) if G.number_of_edges() > 0 else 0
-            )
-            for name, matrix in [
-                ("ppmi",   self.ppmi_matrix),
-                ("npmi",   self.npmi_matrix),
-                ("g-test", self.gtest_matrix)
-            ]
-            for G in [self.graph(matrix = matrix)]
-        ]
-
-    def diagnostics(
-        self,
-        graph: nx.Graph | None = None
-    ) -> GraphDiagnostics:
-        """
-        Network-level diagnostics for the co-occurrence graph.
-
-        Reports edge count, connected components, isolate count,
-        largest component size, modularity, coverage, and performance.
-        Logs a warning if more than 30% of skills are isolate nodes.
-
-        Args:
-            graph: Optional pre-built graph, defaults to NPMI.
-
-        Returns:
-            `GraphDiagnostics` with modularity set to `None` when
-            the graph has no edges.
-        """
-        G = graph or self.graph()
-
-        components    = list(nx.connected_components(G))
-        isolate_count = sum(1 for c in components if len(c) == 1)
-
-        modularity  = None
-        coverage    = 0.0
-        performance = 0.0
-
-        if G.number_of_edges() > 0:
-            louvain    = self._louvain(G)
-            modularity = nx.community.modularity(
-                G, louvain, weight = "weight"
-            )
-            coverage, performance = nx.community.partition_quality(
-                G, louvain
-            )
-
-        if G.number_of_nodes() > 0 and (
-            isolate_rate := isolate_count / G.number_of_nodes()
-        ) > 0.30:
-            logger.warning(
-                f"{isolate_rate:.0%} of skills are isolate nodes "
-                f"({isolate_count} of {G.number_of_nodes()})"
-            )
-
-        return GraphDiagnostics(
-            connected_components = len(components),
-            coverage             = coverage,
-            edge_count           = G.number_of_edges(),
-            isolate_count        = isolate_count,
-            largest_component    = max(
-                (len(c) for c in components), default = 0
-            ),
-            modularity           = modularity,
-            node_count           = G.number_of_nodes(),
-            performance          = performance
-        )
-
     def graph(
         self,
         matrix: spmatrix | None = None
@@ -504,46 +330,3 @@ class CooccurrenceNetwork:
             ),
             dict(enumerate(self.feature_names))
         )
-
-    def trade_alignment(self, apprenticeships: list[dict]) -> dict:
-        """
-        Compare Louvain communities against apprenticeship trades.
-
-        For each trade in the stakeholder apprenticeship records
-        (dicts with `title` and `rapids_code` keys), checks whether
-        the trade title appears as a graph node and reports which
-        Louvain community it belongs to. This is a diagnostic
-        measure rather than a blocking constraint because the
-        vocabulary may not contain every trade title as a matchable
-        skill.
-
-        Args:
-            apprenticeships: Stakeholder apprenticeship records.
-
-        Returns:
-            Dict with `alignments` (per-trade match results),
-            `matched_count`, and `total_trades`.
-        """
-        nodes = set(self.graph().nodes())
-
-        alignments = [
-            {
-                "community"   : self.partition_map.get(t := trade["title"].lower()),
-                "matched"     : t in nodes,
-                "rapids_code" : trade["rapids_code"],
-                "title"       : trade["title"]
-            }
-            for trade in apprenticeships
-        ]
-
-        matched_count = sum(1 for a in alignments if a["matched"])
-        logger.info(
-            f"Trade alignment: {matched_count}/{len(apprenticeships)} "
-            f"trades found in vocabulary"
-        )
-
-        return {
-            "alignments"    : alignments,
-            "matched_count" : matched_count,
-            "total_trades"  : len(apprenticeships)
-        }

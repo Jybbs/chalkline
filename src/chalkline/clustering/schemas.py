@@ -1,14 +1,11 @@
 """
-Schemas for clustering results and validity metrics.
+Schemas for clustering results.
 
-Defines Pydantic models for cluster labels, comparison method output,
-cophenetic correlations, and internal validity scores used across the
-hierarchical and comparison clustering modules.
+Defines the Pydantic model for cluster labels derived from TF-IDF
+centroid terms.
 """
 
 from pydantic import BaseModel, Field
-
-from chalkline import NonEmptyStr
 
 
 class ClusterLabel(BaseModel, extra="forbid"):
@@ -26,34 +23,3 @@ class ClusterLabel(BaseModel, extra="forbid"):
     size           : int = Field(ge = 1)
     terms          : list[str]
     weights        : list[float]
-
-
-class ComparisonResult(BaseModel, extra="forbid"):
-    """
-    Output from a single comparison clustering method.
-
-    Metric fields are optional because degenerate clusterings (fewer
-    than 2 non-noise clusters) cannot produce internal validity scores.
-    """
-
-    assignments : list[int]
-    method      : NonEmptyStr
-    n_clusters  : int = Field(ge = 0)
-
-    ari_vs_sectors    : float | None = None
-    calinski_harabasz : float | None = None
-    davies_bouldin    : float | None = None
-    noise_count       : int          = Field(ge = 0, default = 0)
-    silhouette        : float | None = None
-
-
-class CopheneticResult(BaseModel, extra="forbid"):
-    """
-    Cophenetic correlation for a single linkage method.
-
-    Measures how faithfully the dendrogram preserves pairwise distances
-    from the original coordinate space.
-    """
-
-    correlation : float
-    method      : NonEmptyStr

@@ -278,10 +278,6 @@ class TestCareerRouter:
         assert route.path == [0]
         assert route.hops == 0
 
-    # ---------------------------------------------------------
-    # Bridging skills
-    # ---------------------------------------------------------
-
     def test_bridging_set_diff(self):
         """
         Bridging skills at each step equal the set difference
@@ -381,10 +377,6 @@ class TestCareerRouter:
         plan = _make_linear_router().learning_plan(0, 3)
         assert plan is not None
         assert len(plan.route.steps) == plan.route.hops
-
-    # ---------------------------------------------------------
-    # Integration (full fixture chain)
-    # ---------------------------------------------------------
 
     def test_plan_fixture(self, router: CareerRouter):
         """

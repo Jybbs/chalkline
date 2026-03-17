@@ -305,43 +305,6 @@ class Pipeline:
             supplement_terms = load_supplement(d / "supplement.json")
         )
 
-    def _log_density(self, vectorizer: SkillVectorizer):
-        """
-        Log feature density metrics for extraction evaluation.
-
-        Reports vocabulary size, mean skills per posting, and the
-        fraction of posting pairs with zero skill overlap. A
-        zero-overlap fraction above 50% signals that the lexicon-
-        matching paradigm may lack sufficient feature density for
-        meaningful clustering discrimination.
-        """
-        stats = vectorizer.statistics
-        logger.info(f"Vocabulary: {stats.vocabulary_size} features")
-        logger.info(
-            f"Mean skills/posting: "
-            f"{stats.mean_skills_per_posting:.1f}"
-        )
-
-        B            = vectorizer.binary_matrix
-        intersection = B @ B.T
-        n            = intersection.shape[0]
-        total_pairs  = n * (n - 1) // 2
-        # nnz includes diagonal (one per posting); off-diagonal
-        # entries are symmetric, so halve after subtracting diagonal
-        nonzero_pairs = (intersection.nnz - n) // 2
-        zero_frac     = (
-            1 - nonzero_pairs / total_pairs if total_pairs else 0.0
-        )
-
-        logger.info(f"Zero-overlap fraction: {zero_frac:.1%}")
-
-        if zero_frac > 0.5:
-            logger.warning(
-                "Zero-overlap fraction exceeds 50%; consider "
-                "sentence-embedding alternative for the geometry "
-                "track"
-            )
-
     @contextmanager
     def _timed(self, label: str):
         """
@@ -493,8 +456,6 @@ class Pipeline:
         self.matcher = self._build_matcher(
             ppmi_df = network.association_dataframe("ppmi")
         )
-
-        self._log_density(vectorizer)
 
         return self
 

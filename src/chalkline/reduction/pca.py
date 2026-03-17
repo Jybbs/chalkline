@@ -19,8 +19,6 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline      import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from chalkline.reduction.schemas import ComponentLoading
-
 
 class PcaReducer:
     """
@@ -94,36 +92,3 @@ class PcaReducer:
             ("scaler", StandardScaler(with_mean=False))
         ])
         self.coordinates = self.pipeline.fit_transform(tfidf_matrix)
-
-    # -----------------------------------------------------------------
-    # Public methods
-    # -----------------------------------------------------------------
-
-    def loadings(self, top_n: int = 10) -> list[ComponentLoading]:
-        """
-        Top loading terms for each selected component.
-
-        Extracts the `top_n` terms with the highest absolute weights
-        from each component's loading vector, returning skill names
-        rather than column indices.
-
-        Args:
-            top_n: Number of top terms per component.
-
-        Returns:
-            One `ComponentLoading` per selected component with terms,
-            weights, and variance ratio.
-        """
-        names = np.array(self.feature_names)
-        return [
-            ComponentLoading(
-                index          = i,
-                terms          = names[indices].tolist(),
-                variance_ratio = self.explained_variance_ratio[i],
-                weights        = row[indices].tolist()
-            )
-            for i, row in enumerate(
-                self.pipeline.named_steps["svd"].components_
-            )
-            for indices in [np.argsort(np.abs(row))[::-1][:top_n]]
-        ]

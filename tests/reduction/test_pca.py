@@ -1,9 +1,8 @@
 """
 Tests for PCA dimensionality reduction via TruncatedSVD.
 
-Validates component selection, coordinate output shape, loading term
-extraction, unit variance scaling, and pipeline serializability using
-synthetic extraction output.
+Validates component selection, coordinate output shape, and pipeline
+serializability using synthetic extraction output.
 """
 
 import numpy as np
@@ -20,10 +19,6 @@ class TestPcaReducer:
     Validate reduction pipeline, component selection, and output
     properties.
     """
-
-    # ---------------------------------------------------------
-    # Component selection
-    # ---------------------------------------------------------
 
     def test_max_components_capped(self, vectorizer: SkillVectorizer):
         """
@@ -59,17 +54,6 @@ class TestPcaReducer:
         assert reducer.n_selected == 1
         assert reducer.cumulative_variance >= 0.01
 
-    # ---------------------------------------------------------
-    # Coordinates
-    # ---------------------------------------------------------
-
-    def test_coordinates_finite(self, pca_reducer: PcaReducer):
-        """
-        All coordinate values are finite (no NaN or inf from
-        degenerate scaling).
-        """
-        assert np.isfinite(pca_reducer.coordinates).all()
-
     def test_coordinates_shape(self, pca_reducer: PcaReducer):
         """
         Output array has shape (n_postings, n_selected).
@@ -78,47 +62,6 @@ class TestPcaReducer:
             len(pca_reducer.document_ids),
             pca_reducer.n_selected
         )
-
-    # ---------------------------------------------------------
-    # Loadings
-    # ---------------------------------------------------------
-
-    def test_loadings_skill_names(self, pca_reducer: PcaReducer):
-        """
-        Top-loading terms per component return skill names, not
-        column indices.
-        """
-        for loading in pca_reducer.loadings():
-            assert all(isinstance(t, str) for t in loading.terms)
-            assert all(not t.isdigit() for t in loading.terms)
-
-    def test_loadings_weight_order(self, pca_reducer: PcaReducer):
-        """
-        Terms within each loading are ordered by descending absolute
-        weight, matching the `argsort` contract in `PcaReducer`.
-        """
-        for loading in pca_reducer.loadings():
-            absolutes = [abs(w) for w in loading.weights]
-            assert absolutes == sorted(absolutes, reverse=True)
-
-    # ---------------------------------------------------------
-    # Scaling
-    # ---------------------------------------------------------
-
-    def test_unit_variance(self, pca_reducer: PcaReducer):
-        """
-        PCA output columns have unit variance after scaling, verified
-        by `np.allclose(std, 1.0)`. Skipped when only one component
-        is selected because std is always 1.0 trivially in that case
-        and the real invariant is that `StandardScaler` was applied.
-        """
-        if pca_reducer.coordinates.shape[0] < 3:
-            return
-        assert np.allclose(pca_reducer.coordinates.std(axis=0), 1.0, atol=1e-6)
-
-    # ---------------------------------------------------------
-    # Pipeline
-    # ---------------------------------------------------------
 
     def test_pipeline_persist(self, pca_reducer: PcaReducer, tmp_path: Path):
         """

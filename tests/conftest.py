@@ -23,9 +23,7 @@ from pathlib          import Path
 from pytest           import fixture, FixtureRequest
 from sklearn.pipeline import Pipeline
 
-from chalkline.association.apriori       import AprioriComparison
 from chalkline.association.cooccurrence  import CooccurrenceNetwork
-from chalkline.clustering.comparison     import ClusterComparison
 from chalkline.clustering.hierarchical   import HierarchicalClusterer
 from chalkline.clustering.schemas        import ClusterLabel
 from chalkline.collection.schemas        import Posting
@@ -287,17 +285,6 @@ def vectorizer(extracted_skills: dict[str, list[str]]) -> SkillVectorizer:
 # ---------------------------------------------------------------------
 
 @fixture
-def apriori(vectorizer: SkillVectorizer) -> AprioriComparison:
-    """
-    Build an Apriori comparison from the shared skill vectorizer.
-    """
-    return AprioriComparison(
-        binary_matrix = vectorizer.binary_matrix,
-        feature_names = vectorizer.feature_names
-    )
-
-
-@fixture
 def network(vectorizer: SkillVectorizer) -> CooccurrenceNetwork:
     """
     Build a co-occurrence network from the shared skill vectorizer.
@@ -336,32 +323,6 @@ def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
     return HierarchicalClusterer(
         coordinates  = pca_reducer.coordinates,
         document_ids = pca_reducer.document_ids
-    )
-
-
-@fixture
-def comparison(pca_reducer: PcaReducer) -> ClusterComparison:
-    """
-    Build a comparison runner without sector labels.
-    """
-    return ClusterComparison(
-        coordinates = pca_reducer.coordinates,
-        random_seed = 42
-    )
-
-
-@fixture
-def comparison_with_sectors(
-    pca_reducer   : PcaReducer,
-    sector_labels : list[str]
-) -> ClusterComparison:
-    """
-    Build a comparison runner with sector labels for ARI.
-    """
-    return ClusterComparison(
-        coordinates   = pca_reducer.coordinates,
-        random_seed   = 42,
-        sector_labels = sector_labels
     )
 
 

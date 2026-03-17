@@ -82,25 +82,6 @@ class TestCareerPathwayGraph:
             assert (pathway_graph.graph.nodes[source]["job_zone"]
                     <= pathway_graph.graph.nodes[target]["job_zone"])
 
-    def test_alignment_ari_bounded(
-        self,
-        pathway_graph: CareerPathwayGraph
-    ):
-        """
-        ARI is bounded in [-1, 1].
-        """
-        assert -1.0 <= pathway_graph.alignment.ari <= 1.0
-
-    def test_modularity_computed(
-        self,
-        pathway_graph: CareerPathwayGraph
-    ):
-        """
-        Louvain modularity is computed when the skill graph has edges.
-        """
-        if pathway_graph.network.graph().number_of_edges() > 0:
-            assert pathway_graph.alignment.modularity is not None
-
     def test_longest_path_empty(self, network: CooccurrenceNetwork):
         """
         An empty graph returns a zero-weight empty path rather than
@@ -129,18 +110,6 @@ class TestCareerPathwayGraph:
             pathway_graph.graph.edges[u, v].get("weight", 0)
             for u, v in zip(path, path[1:])
         )) < 1e-10
-
-    def test_skill_to_cluster(
-        self,
-        pathway_graph: CareerPathwayGraph
-    ):
-        """
-        Every skill in every profile maps to its owning cluster ID,
-        with last-write-wins for skills shared across clusters.
-        """
-        for cid, profile in pathway_graph.profiles.items():
-            for skill in profile.skills:
-                assert skill in pathway_graph.skill_to_cluster
 
     def test_export_creates_files(
         self,

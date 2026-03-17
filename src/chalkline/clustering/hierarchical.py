@@ -1,42 +1,35 @@
 """
-Average-linkage hierarchical agglomerative clustering with cophenetic
-validation and TF-IDF centroid labeling.
+Average-linkage hierarchical agglomerative clustering with
+TF-IDF centroid labeling.
 
 Fits average linkage on PCA-reduced coordinates, selects a flat partition
-via the merge-height acceleration criterion, and exposes cophenetic
-comparison and internal validity metrics as on-demand methods. Cluster
-labels are derived from TF-IDF centroid terms when explicitly requested
-via `labels()`.
+via the merge-height acceleration criterion, and exposes centroid
+coordinates and TF-IDF label derivation as on-demand methods.
 """
 
 import numpy  as np
 import pandas as pd
 
 from functools               import cached_property
-from scipy.cluster.hierarchy import cophenet, dendrogram
 from scipy.cluster.hierarchy import fcluster, leaders, linkage
 from scipy.sparse            import spmatrix
-from scipy.spatial.distance  import pdist
 
-from chalkline.clustering.schemas import ClusterLabel, CopheneticResult
+from chalkline.clustering.schemas import ClusterLabel
 
 
 class HierarchicalClusterer:
     """
-    Average-linkage HAC with multi-method cophenetic validation.
+    Average-linkage HAC with merge-height acceleration.
 
     Computes the average linkage matrix with optimal leaf ordering and
     selects a flat partition via the merge-height acceleration criterion,
     which finds the largest second derivative of the merge height
     sequence:
 
-        k = argmax{Δ²hᵢ} + 2
+        k = argmax{d^2 h_i} + 2
 
-    where Δ²hᵢ = hᵢ₊₂ - 2hᵢ₊₁ + hᵢ and k is the number of clusters.
-    Cophenetic comparison and internal validity metrics are computed on
-    demand via `cophenetic_comparison()` and `validation_metrics()`.
-    Cluster labels are derived from TF-IDF centroid terms when
-    explicitly requested via `labels()`.
+    where d^2 h_i = h_{i+2} - 2h_{i+1} + h_i and k is the number of
+    clusters.
     """
 
     def __init__(
@@ -64,8 +57,8 @@ class HierarchicalClusterer:
         )
 
         self.assignments = fcluster(
-            self.linkage, 
-            criterion = "maxclust", 
+            self.linkage,
+            criterion = "maxclust",
             t         = self._select_k()
         )
 
@@ -93,56 +86,6 @@ class HierarchicalClusterer:
         if (accel := np.diff(self.linkage[:, 2], n=2)).size:
             return accel[::-1].argmax() + 2
         return 2
-
-    def cophenetic_comparison(self) -> list[CopheneticResult]:
-        """
-        Cophenetic correlations for Ward, complete, and average linkage
-        on the same coordinates.
-
-            r = corr(Z_coph, pdist(X))
-
-        where `Z_coph` is the cophenetic distance matrix derived from each
-        linkage. Computes `pdist` and two additional linkage matrices on
-        demand. Results are not cached, so repeated calls refit.
-
-        Returns:
-            One `CopheneticResult` per linkage method.
-        """
-        distances = pdist(self.coordinates)
-        return [
-            CopheneticResult(
-                correlation = cophenet(z, distances)[0],
-                method      = method
-            )
-            for method, z in [
-                ("average",  self.linkage),
-                ("complete", linkage(self.coordinates, method = "complete")),
-                ("ward",     linkage(self.coordinates, method = "ward"))
-            ]
-        ]
-
-    def dendrogram_data(self, title_map: dict[str, str] | None = None) -> dict:
-        """
-        Dendrogram structure for rendering without plotting.
-
-        Returns the scipy dendrogram dict with `icoord`, `dcoord`, `ivl`,
-        and `color_list` keys. When `title_map` is provided, leaf labels
-        are mapped from document identifiers to display titles.
-
-        Args:
-            title_map: Optional mapping from document identifier to
-                       display title for leaf labeling.
-
-        Returns:
-            Scipy dendrogram dictionary.
-        """
-        return dendrogram(
-            self.linkage,
-            labels  = [
-                title_map.get(doc, doc) for doc in self.document_ids
-            ] if title_map else self.document_ids,
-            no_plot = True
-        )
 
     def labels(
         self,

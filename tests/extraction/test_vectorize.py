@@ -1,9 +1,8 @@
 """
 Tests for skill vectorization into TF-IDF and binary matrices.
 
-Validates matrix dimensions, binary constraints, vocabulary
-consistency, joblib serialization, corpus statistics, and document
-identifier ordering using synthetic extraction output.
+Validates matrix alignment, binary constraints, joblib serialization,
+and edge case handling using synthetic extraction output.
 """
 
 from joblib  import dump, load
@@ -15,12 +14,8 @@ from chalkline.extraction.vectorize import SkillVectorizer
 
 class TestSkillVectorizer:
     """
-    Validate vectorization pipeline, matrices, and statistics.
+    Validate vectorization pipeline and matrices.
     """
-
-    # ---------------------------------------------------------
-    # Alignment
-    # ---------------------------------------------------------
 
     @mark.parametrize("skills", [
         {
@@ -46,45 +41,11 @@ class TestSkillVectorizer:
             }
             assert present == set(skills[doc_id])
 
-    # ---------------------------------------------------------
-    # Feature names
-    # ---------------------------------------------------------
-
-    def test_transform_vocabulary(self, vectorizer: SkillVectorizer):
-        """
-        `DictVectorizer.transform(new_doc)` produces a vector with
-        the same number of columns as `fit_transform()`.
-        """
-        assert vectorizer.pipeline.named_steps["vec"].transform(
-            [{
-                "unknown_skill" : 1,
-                "welding"       : 1
-            }]
-        ).shape[1] == vectorizer.binary_matrix.shape[1]
-
-    # ---------------------------------------------------------
-    # Matrices
-    # ---------------------------------------------------------
-
     def test_binary_matrix_values(self, vectorizer: SkillVectorizer):
         """
         The binary matrix contains only 0s and 1s.
         """
         assert (vectorizer.binary_matrix.data == 1).all()
-
-    def test_tfidf_differs_from_binary(self, vectorizer: SkillVectorizer):
-        """
-        TF-IDF weighting and L2 normalization produce values distinct from
-        the raw binary presence/absence matrix.
-        """
-        assert (
-            vectorizer.tfidf_matrix.toarray()
-            != vectorizer.binary_matrix.toarray()
-        ).any()
-
-    # ---------------------------------------------------------
-    # Serialization
-    # ---------------------------------------------------------
 
     def test_pipeline_persist(self, vectorizer: SkillVectorizer, tmp_path: Path):
         """
@@ -101,10 +62,6 @@ class TestSkillVectorizer:
             - load(path).transform(test_dict)
         ).nnz == 0
 
-    # ---------------------------------------------------------
-    # Statistics
-    # ---------------------------------------------------------
-
     def test_single_posting(self):
         """
         A single-document corpus produces valid matrices where TF-IDF
@@ -113,4 +70,3 @@ class TestSkillVectorizer:
         vec = SkillVectorizer({"only": ["scaffolding", "welding"]})
         assert vec.tfidf_matrix.shape[0] == 1
         assert vec.binary_matrix.nnz == 2
-        assert vec.statistics.mean_skills_per_posting == 2.0

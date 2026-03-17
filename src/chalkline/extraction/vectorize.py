@@ -14,15 +14,12 @@ resume must also use binary skill dicts to match the training
 distribution.
 """
 
-from collections                     import Counter
 from functools                       import cached_property
 from scipy.sparse                    import spmatrix
 from sklearn.feature_extraction      import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline                import Pipeline
 from sklearn.preprocessing           import Normalizer
-
-from chalkline.extraction.schemas import CorpusStatistics
 
 
 class SkillVectorizer:
@@ -92,24 +89,3 @@ class SkillVectorizer:
         """
         return self.pipeline.named_steps["vec"].get_feature_names_out().tolist()
 
-    @cached_property
-    def statistics(self) -> CorpusStatistics:
-        """
-        Aggregate corpus statistics from the fitted vectorization.
-
-        Reports vocabulary size, matrix sparsity, mean skills per
-        posting, and per-skill frequency counts across the corpus.
-
-        Returns:
-            Populated `CorpusStatistics` model instance.
-        """
-        binary     = self.binary_matrix
-        rows, cols = binary.shape
-        frequency  = Counter(skill for d in self.dicts for skill in d)
-
-        return CorpusStatistics(
-            matrix_sparsity         = 1 - binary.nnz / (rows * cols),
-            mean_skills_per_posting = sum(map(len, self.dicts)) / len(self.dicts),
-            skill_frequency         = dict(sorted(frequency.items())),
-            vocabulary_size         = cols
-        )

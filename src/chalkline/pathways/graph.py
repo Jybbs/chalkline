@@ -18,15 +18,13 @@ from json            import dumps, loads
 from kneed           import KneeLocator
 from logging         import getLogger
 from pathlib         import Path
-from sklearn.metrics import adjusted_rand_score
 from typing          import TYPE_CHECKING, Self
 
 if TYPE_CHECKING:
     from scipy.sparse import csr_array
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
-from chalkline.pathways.schemas         import AlignmentDiagnostics, GraphExport
-from chalkline.pathways.schemas         import LongestPath
+from chalkline.pathways.schemas         import GraphExport, LongestPath
 from chalkline.pipeline.schemas         import ApprenticeshipContext
 from chalkline.pipeline.schemas         import ClusterProfile, ProgramRecommendation
 
@@ -135,52 +133,6 @@ class CareerPathwayGraph:
         return instance
 
     @cached_property
-    def alignment(self) -> AlignmentDiagnostics:
-        """
-        ARI between Louvain communities and HAC cluster partitions
-        projected onto the shared skill space.
-
-        For each skill present in both the NPMI graph and at least
-        one cluster, assigns a Louvain community ID and an HAC
-        cluster ID. The adjusted Rand index quantifies agreement
-        between these two partitions. Modularity is computed on the
-        Louvain partition as a standalone quality measure. Returns
-        empty diagnostics when the network is unavailable (after
-        deserialization).
-        """
-        if self.network is None:
-            return AlignmentDiagnostics()
-
-        louvain = self.network.partition_map
-        hac     = self.skill_to_cluster
-        shared  = louvain.keys() & hac.keys()
-
-        if not shared:
-            logger.warning("No shared skills for ARI computation")
-            return AlignmentDiagnostics()
-
-        if len(self.profiles) > len(shared) / 2:
-            logger.warning(
-                f"ARI computed with {len(self.profiles)} clusters "
-                f"against {len(shared)} shared skills; "
-                f"near-singleton clustering makes ARI "
-                f"structurally near-zero"
-            )
-
-        labels = [(louvain[s], hac[s]) for s in shared]
-        result = AlignmentDiagnostics(
-            ari = adjusted_rand_score(*zip(*labels))
-        )
-
-        if (skill_graph := self.network.graph()).size():
-            result.modularity = nx.community.modularity(
-                skill_graph,
-                communities = self.network.partition,
-                weight      = "weight"
-            )
-        return result
-
-    @cached_property
     def longest_path(self) -> LongestPath:
         """
         Longest weighted path through the career graph.
@@ -196,22 +148,6 @@ class CareerPathwayGraph:
             path        = path,
             path_weight = nx.path_weight(self.graph, path, "weight")
         )
-
-    @cached_property
-    def skill_to_cluster(self) -> dict[str, int]:
-        """
-        Inverse mapping from skill name to owning cluster ID.
-
-        For skills present in multiple clusters, the highest cluster
-        ID wins. Used by `alignment` to project the HAC partition
-        onto the shared skill space for ARI comparison against
-        Louvain communities.
-        """
-        return {
-            s: p.cluster_id
-            for p in self.profiles.values()
-            for s in p.skills
-        }
 
     def _build_graph(self) -> nx.DiGraph:
         """

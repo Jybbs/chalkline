@@ -1,12 +1,10 @@
 """
-Schemas for lexicon validation, skill extraction, and corpus
-statistics.
+Schemas for lexicon validation and skill extraction.
 
 Defines confidence tiers for Aho-Corasick matching, the certification
-model for CareerOneStop entries, corpus-level statistics computed after
-vectorization, and the O*NET element type taxonomy, skill entry structure,
-and occupation profile model that `onet.json` is validated against at load
-time.
+model for CareerOneStop entries, and the O*NET element type taxonomy,
+skill entry structure, and occupation profile model that `onet.json`
+is validated against at load time.
 """
 
 from enum     import StrEnum
@@ -47,20 +45,6 @@ class ConfidenceTier(StrEnum):
     ABBREVIATION = "abbreviation"
     MULTI_WORD   = "multi_word"
     SINGLE_WORD  = "single_word"
-
-
-class CorpusStatistics(BaseModel, extra="forbid"):
-    """
-    Aggregate statistics computed after IDF-weighted vectorization.
-
-    Captures vocabulary coverage, matrix density, and per-posting
-    skill counts for downstream diagnostics and threshold tuning.
-    """
-
-    matrix_sparsity         : float
-    mean_skills_per_posting : float
-    skill_frequency         : dict[str, int]
-    vocabulary_size         : int
 
 
 class OnetSkillType(StrEnum):

@@ -1,8 +1,7 @@
 """
-Schemas for career pathway graph diagnostics, routing, and export.
+Schemas for career pathway graph routing and export.
 
-Defines alignment diagnostics between Louvain communities and HAC
-clusters, centrality metrics, career route and transition step models
+Defines centrality metrics, career route and transition step models
 for widest-path routing, longest-path results, progressive learning
 plans, and export artifact paths.
 """
@@ -12,20 +11,6 @@ from pathlib   import Path
 from pydantic  import BaseModel, Field
 
 from chalkline.pipeline.schemas import ApprenticeshipContext, ProgramRecommendation
-
-
-class AlignmentDiagnostics(BaseModel, extra="forbid"):
-    """
-    Diagnostic alignment between Louvain communities and HAC clusters.
-
-    Captures the adjusted Rand index between the two partitions projected
-    onto the shared skill space, plus the standalone Louvain modularity on
-    the NPMI skill graph. An ARI above 0.3 indicates sufficient alignment
-    between the geometric and co-occurrence views of the career landscape.
-    """
-
-    ari        : float        = 0.0
-    modularity : float | None = None
 
 
 class TransitionStep(BaseModel, extra="forbid"):
