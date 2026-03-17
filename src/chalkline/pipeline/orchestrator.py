@@ -8,17 +8,17 @@ cached in memory and optionally persisted to disk via `save()` so
 that `match()` can project resumes without re-fitting.
 """
 
-import joblib
 import pandas as pd
 
 from collections               import Counter, defaultdict
 from contextlib                import contextmanager
 from datetime                  import datetime, timezone
+from joblib                    import dump, load
 from json                      import dumps, loads
 from logging                   import getLogger
 from pathlib                   import Path
 from pydantic                  import TypeAdapter
-from sklearn.pipeline          import Pipeline as SklearnPipeline
+from sklearn.pipeline          import Pipeline
 from sklearn.utils.validation  import check_is_fitted
 from time                      import perf_counter
 from typing                    import Self
@@ -28,8 +28,7 @@ from chalkline.clustering.hierarchical  import HierarchicalClusterer
 from chalkline.clustering.schemas       import ClusterLabel
 from chalkline.collection.storage       import CorpusStorage
 from chalkline.extraction.lexicons      import LexiconRegistry
-from chalkline.extraction.loaders       import load_certifications, load_onet
-from chalkline.extraction.loaders       import load_osha, load_supplement
+from chalkline.extraction.loaders       import LexiconLoader
 from chalkline.extraction.occupations   import OccupationIndex
 from chalkline.extraction.skills        import SkillExtractor
 from chalkline.extraction.vectorize     import SkillVectorizer
@@ -111,7 +110,7 @@ def build_profiles(
 def compose_geometry(
     reducer    : PcaReducer,
     vectorizer : SkillVectorizer
-) -> SklearnPipeline:
+) -> Pipeline:
     """
     Chain fitted vectorization and reduction steps into a single
     sklearn `Pipeline` for resume projection.
@@ -131,7 +130,7 @@ def compose_geometry(
     """
     vec_steps = vectorizer.pipeline.named_steps
     pca_steps = reducer.pipeline.named_steps
-    return SklearnPipeline([
+    return Pipeline([
         ("vec",    vec_steps["vec"]),
         ("tfidf",  vec_steps["tfidf"]),
         ("norm",   vec_steps["norm"]),
@@ -168,7 +167,7 @@ def compute_sector_labels(
         for doc in document_ids
     ]
 
-class Pipeline:
+class Chalkline:
     """
     End-to-end orchestrator for the Chalkline career mapping pipeline.
 
@@ -190,7 +189,7 @@ class Pipeline:
         self.clusterer         : HierarchicalClusterer | None    = None
         self.extractor         : SkillExtractor | None           = None
         self.extracted_skills  : dict[str, list[str]]            = {}
-        self.geometry_pipeline : SklearnPipeline | None          = None
+        self.geometry_pipeline : Pipeline | None          = None
         self.graph             : CareerPathwayGraph | None       = None
         self.matcher           : ResumeMatcher | None            = None
         self.ppmi_df           : pd.DataFrame | None             = None
@@ -232,17 +231,11 @@ class Pipeline:
         postings = CorpusStorage(self.config.postings_dir).load()
         return {p.id: p.description for p in postings}
 
-    def _load_registry(self) -> LexiconRegistry:
+    def _load_lexicons(self) -> LexiconLoader:
         """
-        Build a `LexiconRegistry` from the four lexicon files.
+        Load all lexicon files from the configured directory.
         """
-        d = self.config.lexicon_dir
-        return LexiconRegistry(
-            certifications   = load_certifications(d / "certifications.json"),
-            occupations      = load_onet(d / "onet.json"),
-            osha_terms       = load_osha(d / "osha.json"),
-            supplement_terms = load_supplement(d / "supplement.json")
-        )
+        return LexiconLoader(self.config.lexicon_dir)
 
     def _load_trades(self) -> TradeIndex:
         """
@@ -312,19 +305,18 @@ class Pipeline:
         """
         self._validate_data()
 
-        d            = self.config.lexicon_dir
-        occupations  = load_onet(d / "onet.json")
-        registry     = LexiconRegistry(
-            certifications   = load_certifications(d / "certifications.json"),
-            occupations      = occupations,
-            osha_terms       = load_osha(d / "osha.json"),
-            supplement_terms = load_supplement(d / "supplement.json")
+        lexicons         = self._load_lexicons()
+        registry         = LexiconRegistry(
+            certifications   = lexicons.certifications,
+            occupations      = lexicons.occupations,
+            osha_terms       = lexicons.osha_terms,
+            supplement_terms = lexicons.supplement_terms
         )
 
         self.extractor   = SkillExtractor(registry)
         self.trades      = self._load_trades()
         corpus           = self._load_corpus()
-        occupation_index = OccupationIndex(occupations)
+        occupation_index = OccupationIndex(lexicons.occupations)
 
         with self._timed("Extraction"):
             self.extracted_skills = self.extractor.extract(corpus)
@@ -400,7 +392,7 @@ class Pipeline:
         cls,
         config       : PipelineConfig,
         artifact_dir : Path | None = None
-    ) -> "Pipeline":
+    ) -> Self:
         """
         Load a fitted pipeline from serialized artifacts.
 
@@ -415,20 +407,26 @@ class Pipeline:
                            Defaults to `config.output_dir / "pipeline"`.
 
         Returns:
-            A fitted `Pipeline` ready for `match()` calls.
+            A fitted `Chalkline` ready for `match()` calls.
         """
         d = artifact_dir or config.output_dir / "pipeline"
 
         pipe                   = cls(config)
-        pipe.extractor         = SkillExtractor(pipe._load_registry())
-        pipe.geometry_pipeline = joblib.load(d / "geometry.joblib")
+        lexicons               = pipe._load_lexicons()
+        pipe.extractor         = SkillExtractor(LexiconRegistry(
+            certifications   = lexicons.certifications,
+            occupations      = lexicons.occupations,
+            osha_terms       = lexicons.osha_terms,
+            supplement_terms = lexicons.supplement_terms
+        ))
+        pipe.geometry_pipeline = load(d / "geometry.joblib")
         pipe.extracted_skills  = loads(
             (d / "extracted_skills.json").read_text()
         )
 
         check_is_fitted(pipe.geometry_pipeline)
 
-        pipe.clusterer      = joblib.load(d / "clusterer.joblib")
+        pipe.clusterer      = load(d / "clusterer.joblib")
         pipe.cluster_labels = [
             ClusterLabel(**raw)
             for raw in loads((d / "cluster_labels.json").read_text())
@@ -441,12 +439,12 @@ class Pipeline:
         }
 
         pipe.graph = CareerPathwayGraph(
-            graph    = joblib.load(d / "graph.joblib"),
+            graph    = load(d / "graph.joblib"),
             profiles = pipe.profiles
         )
 
         pipe.trades = pipe._load_trades()
-        pipe.ppmi_df = joblib.load(d / "ppmi.joblib")
+        pipe.ppmi_df = load(d / "ppmi.joblib")
 
         pipe.router = CareerRouter(
             graph    = pipe.graph.graph,
@@ -516,9 +514,9 @@ class Pipeline:
         d = artifact_dir or self.config.output_dir / "pipeline"
         d.mkdir(parents=True, exist_ok=True)
 
-        joblib.dump(self.clusterer, d / "clusterer.joblib")
-        joblib.dump(self.geometry_pipeline, d / "geometry.joblib")
-        joblib.dump(self.ppmi_df, d / "ppmi.joblib")
+        dump(self.clusterer, d / "clusterer.joblib")
+        dump(self.geometry_pipeline, d / "geometry.joblib")
+        dump(self.ppmi_df, d / "ppmi.joblib")
 
         (d / "extracted_skills.json").write_text(
             dumps(self.extracted_skills, indent=2)
@@ -533,7 +531,7 @@ class Pipeline:
             indent=2
         ))
 
-        joblib.dump(self.graph.graph, d / "graph.joblib")
+        dump(self.graph.graph, d / "graph.joblib")
 
         manifest = PipelineManifest(
             corpus_size     = len(self.extracted_skills),

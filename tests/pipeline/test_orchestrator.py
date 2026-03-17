@@ -17,8 +17,8 @@ from chalkline.clustering.schemas      import ClusterLabel
 from chalkline.extraction.occupations  import OccupationIndex
 from chalkline.extraction.vectorize    import SkillVectorizer
 from chalkline.matching.schemas        import MatchResult
-from chalkline.pipeline.orchestrator   import build_profiles, compose_geometry
-from chalkline.pipeline.orchestrator   import Pipeline
+from chalkline.pipeline.orchestrator   import build_profiles, Chalkline
+from chalkline.pipeline.orchestrator   import compose_geometry
 from chalkline.pipeline.schemas        import PipelineConfig
 from chalkline.pipeline.trades         import TradeIndex
 from chalkline.reduction.pca           import PcaReducer
@@ -165,7 +165,7 @@ class TestPipeline:
             output_dir   = tmp_path,
             postings_dir = tmp_path
         )
-        pipe = Pipeline(config)
+        pipe = Chalkline(config)
         with raises(RuntimeError, match="not fitted"):
             pipe.match("some resume text")
 
@@ -178,7 +178,7 @@ class TestPipeline:
             output_dir   = tmp_path,
             postings_dir = tmp_path
         )
-        assert not Pipeline(config).fitted
+        assert not Chalkline(config).fitted
 
     def test_match_result_has_coords(
         self,

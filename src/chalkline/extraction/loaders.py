@@ -1,93 +1,64 @@
 """
-Lexicon file loading for certifications, OSHA, O*NET, and supplement
-data.
+Lexicon file loading for the extraction pipeline.
 
-Deserializes and validates JSON lexicon files, returning empty
-collections on missing files so that downstream normalization can
-proceed with whichever lexicons are available.
+Deserializes and validates JSON lexicon files from a directory,
+returning empty collections for missing files so that downstream
+normalization can proceed with whichever lexicons are available.
+File names are derived from labels via `slugify`.
 """
 
 from logging  import getLogger
 from pathlib  import Path
 from pydantic import TypeAdapter
+from slugify  import slugify
 
 from chalkline                    import NonEmptyStr
 from chalkline.extraction.schemas import Certification, OnetOccupation
 
-
-Certifications  = TypeAdapter(list[Certification])
-Occupations     = TypeAdapter(list[OnetOccupation])
-OshaTerms       = TypeAdapter(list[NonEmptyStr])
-SupplementTerms = TypeAdapter(list[NonEmptyStr])
-logger          = getLogger(__name__)
+logger = getLogger(__name__)
 
 
-def _load(adapter: TypeAdapter, label: str, path: Path) -> list:
+class LexiconLoader:
     """
-    Validate a JSON lexicon file, returning an empty list on missing files.
+    Load and validate lexicon files from a directory.
 
-    Args:
-        adapter : Pydantic `TypeAdapter` for the target schema.
-        label   : Human-readable lexicon name for the warning message.
-        path    : Path to the JSON file.
-
-    Returns:
-        Validated list of lexicon entries.
+    Each attribute holds the validated contents of one lexicon
+    file, falling back to an empty list if the file is missing.
+    File names are derived from the label via `slugify` to match
+    the canonical layout in `data/lexicons/`.
     """
-    try:
-        return adapter.validate_json(path.read_bytes())
-    except FileNotFoundError:
-        logger.warning(f"{label} lexicon not found at {path}")
-        return []
 
+    def __init__(self, lexicon_dir: Path):
+        """
+        Args:
+            lexicon_dir: Directory containing the lexicon JSON
+                         files.
+        """
+        self.lexicon_dir      = lexicon_dir
+        self.certifications   = self._load(list[Certification],  "Certifications")
+        self.occupations      = self._load(list[OnetOccupation], "O*NET")
+        self.osha_terms       = self._load(list[NonEmptyStr],    "OSHA")
+        self.supplement_terms = self._load(list[NonEmptyStr],    "Supplement")
 
-def load_certifications(path: Path) -> list[Certification]:
-    """
-    Load and validate the certifications lexicon file.
+    def _load(self, schema: type, label: str) -> list:
+        """
+        Validate a JSON lexicon file, returning an empty list
+        if missing.
 
-    Args:
-        path: Path to the certifications JSON file.
+        Derives the filename from `label` via `slugify` so that
+        callers specify only the human-readable lexicon name.
 
-    Returns:
-        Validated certification records, or empty list if missing.
-    """
-    return _load(Certifications, "Certifications", path)
+        Args:
+            schema : Element type for the `TypeAdapter`.
+            label  : Human-readable lexicon name.
 
+        Returns:
+            Validated list of lexicon entries.
+        """
+        path = self.lexicon_dir / f"{slugify(label, separator='')}.json"
+        try:
+            return TypeAdapter(schema).validate_json(path.read_bytes())
 
-def load_onet(path: Path) -> list[OnetOccupation]:
-    """
-    Load and validate the O*NET lexicon file.
-
-    Args:
-        path: Path to the O*NET JSON file.
-
-    Returns:
-        Validated occupation records, or empty list if missing.
-    """
-    return _load(Occupations, "O*NET", path)
-
-
-def load_osha(path: Path) -> list[str]:
-    """
-    Load and validate the OSHA lexicon file.
-
-    Args:
-        path: Path to the OSHA JSON file.
-
-    Returns:
-        Validated OSHA term strings, or empty list if missing.
-    """
-    return _load(OshaTerms, "OSHA", path)
-
-
-def load_supplement(path: Path) -> list[str]:
-    """
-    Load and validate the supplement lexicon file.
-
-    Args:
-        path: Path to the supplement JSON file.
-
-    Returns:
-        Validated supplement terms, or empty list if missing.
-    """
-    return _load(SupplementTerms, "Supplement", path)
+        except FileNotFoundError:
+            logger.warning(f"{label} lexicon not found at {path}")
+            return []

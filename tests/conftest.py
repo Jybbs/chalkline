@@ -30,8 +30,7 @@ from chalkline.clustering.hierarchical   import HierarchicalClusterer
 from chalkline.clustering.schemas        import ClusterLabel
 from chalkline.collection.schemas        import Posting
 from chalkline.extraction.lexicons       import LexiconRegistry
-from chalkline.extraction.loaders        import load_certifications, load_onet
-from chalkline.extraction.loaders        import load_osha, load_supplement
+from chalkline.extraction.loaders        import LexiconLoader
 from chalkline.extraction.occupations    import OccupationIndex
 from chalkline.extraction.schemas        import Certification, OnetOccupation
 from chalkline.extraction.skills         import SkillExtractor
@@ -60,13 +59,6 @@ def _postings() -> list[Posting]:
     ]
 
 @fixture
-def certifications() -> list[Certification]:
-    """
-    Load synthetic certifications from fixture data.
-    """
-    return load_certifications(FIXTURES / "extraction" / "certifications.json")
-
-@fixture
 def lexicon_dir(tmp_path: Path) -> Path:
     """
     Write synthetic lexicon files to a temporary directory.
@@ -83,25 +75,39 @@ def lexicon_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 @fixture
-def occupations() -> list[OnetOccupation]:
+def lexicon_loader(lexicon_dir: Path) -> LexiconLoader:
     """
-    Parse synthetic O*NET data into validated occupation records.
+    Load all synthetic lexicon files via `LexiconLoader`.
     """
-    return load_onet(FIXTURES / "extraction" / "onet_occupations.json")
+    return LexiconLoader(lexicon_dir)
 
 @fixture
-def osha_terms() -> list[str]:
+def certifications(lexicon_loader: LexiconLoader) -> list[Certification]:
     """
-    Load synthetic OSHA terms from fixture data.
+    Synthetic certification records from the loader.
     """
-    return load_osha(FIXTURES / "extraction" / "osha_terms.json")
+    return lexicon_loader.certifications
 
 @fixture
-def supplement_terms() -> list[str]:
+def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
     """
-    Load synthetic supplement terms from fixture data.
+    Synthetic O*NET occupation records from the loader.
     """
-    return load_supplement(FIXTURES / "extraction" / "supplement_terms.json")
+    return lexicon_loader.occupations
+
+@fixture
+def osha_terms(lexicon_loader: LexiconLoader) -> list[str]:
+    """
+    Synthetic OSHA term strings from the loader.
+    """
+    return lexicon_loader.osha_terms
+
+@fixture
+def supplement_terms(lexicon_loader: LexiconLoader) -> list[str]:
+    """
+    Synthetic supplement term strings from the loader.
+    """
+    return lexicon_loader.supplement_terms
 
 @fixture
 def corpus() -> dict[str, str]:
