@@ -12,7 +12,7 @@ progression rather than the fewest transitions.
 import networkx as nx
 
 from itertools import accumulate, takewhile
-from logging   import getLogger
+from loguru    import logger
 
 from chalkline.pathways.schemas import CareerRoute, CentralityMetrics
 from chalkline.pathways.schemas import LearningPlan, TransitionStep
@@ -20,7 +20,6 @@ from chalkline.pipeline.schemas import ClusterProfile
 from chalkline.pipeline.trades  import TradeIndex
 
 
-logger = getLogger(__name__)
 
 
 class CareerRouter:
@@ -64,6 +63,10 @@ class CareerRouter:
         self.trades     = trades
         self._compute_centrality()
         self._compute_edge_enrichment()
+
+        logger.info(
+            f"Router enriched {self.graph.number_of_edges()} edges"
+        )
 
     def _build_step(self, source: int, target: int) -> TransitionStep:
         """

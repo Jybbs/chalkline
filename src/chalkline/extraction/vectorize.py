@@ -15,6 +15,7 @@ distribution.
 """
 
 from functools                       import cached_property
+from loguru                          import logger
 from scipy.sparse                    import spmatrix
 from sklearn.feature_extraction      import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
@@ -62,6 +63,11 @@ class SkillVectorizer:
         ])
 
         self.tfidf_matrix = self.pipeline.fit_transform(self.dicts)
+
+        logger.info(
+            f"Vectorized {len(self.document_ids)} postings, "
+            f"{self.tfidf_matrix.shape[1]} features"
+        )
 
     @cached_property
     def binary_matrix(self) -> spmatrix:

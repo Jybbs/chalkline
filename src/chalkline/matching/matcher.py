@@ -13,6 +13,7 @@ import numpy  as np
 import pandas as pd
 
 from functools         import cached_property
+from loguru            import logger
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline  import Pipeline
 
@@ -114,6 +115,10 @@ class ResumeMatcher:
             ])
         )
 
+        logger.info(
+            f"Fitted centroid NN for {len(self.cluster_ids)} clusters"
+        )
+
     @cached_property
     def centroid_scope(self) -> dict[int, set[str]]:
         """
@@ -193,7 +198,7 @@ class ResumeMatcher:
             scores.
         """
         if cluster_id in self.family_nn:
-            doc_ids, nn = self.family_nn[cluster_id]
+            doc_ids, nn   = self.family_nn[cluster_id]
             dists, nn_idx = nn.kneighbors(coords)
 
             return [
@@ -206,6 +211,10 @@ class ResumeMatcher:
                 for dist, idx in zip(dists[0], nn_idx[0])
             ]
 
+        logger.debug(
+            f"Cluster {cluster_id} has <5 members, "
+            f"falling back to corpus-wide Jaccard"
+        )
         return [
             NeighborMatch(
                 distance    = 1.0 - sim,

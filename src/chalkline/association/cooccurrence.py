@@ -14,12 +14,10 @@ import pandas   as pd
 
 from functools                import cached_property
 from kneed                    import KneeLocator
-from logging                  import getLogger
+from loguru                   import logger
 from math                     import ceil
 from scipy.sparse             import csc_array, csr_array, spmatrix
 
-
-logger = getLogger(__name__)
 
 
 class CooccurrenceNetwork:

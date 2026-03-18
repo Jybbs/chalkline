@@ -14,6 +14,7 @@ Euclidean in downstream matching.
 
 import numpy as np
 
+from loguru                import logger
 from scipy.sparse          import csr_matrix
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline      import Pipeline
@@ -81,3 +82,8 @@ class PcaReducer:
             ("scaler", StandardScaler(with_mean=False))
         ])
         self.coordinates = self.pipeline.fit_transform(tfidf_matrix)
+
+        logger.info(
+            f"PCA selected {self.n_selected}/{effective_max} components, "
+            f"{np.sum(variance_profile[:self.n_selected]):.1%} variance"
+        )

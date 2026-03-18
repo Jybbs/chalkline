@@ -8,6 +8,7 @@ extractor because `Path.read_text` with tolerant encoding suffices.
 
 import pdfplumber
 
+from loguru  import logger
 from pathlib import Path
 from re      import sub
 
@@ -52,6 +53,7 @@ def extract_pdf(path: Path) -> str:
         found.
     """
     with pdfplumber.open(path) as pdf:
+        logger.debug(f"Extracting {path.name}: {len(pdf.pages)} pages")
         return "\n".join(
             text for page in pdf.pages
             if (text := page.extract_text())

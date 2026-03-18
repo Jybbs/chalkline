@@ -15,7 +15,7 @@ from dataclasses                   import dataclass, fields
 from hamilton                      import driver
 from hamilton.plugins.h_threadpool import FutureAdapter
 from hamilton.plugins.h_tqdm       import ProgressBar
-from logging                       import getLogger
+from loguru                        import logger
 from sklearn.pipeline              import Pipeline
 from typing                        import Self
 
@@ -32,7 +32,6 @@ from chalkline.pipeline.schemas        import ClusterProfile, PipelineConfig
 from chalkline.pipeline.schemas        import PipelineManifest
 from chalkline.pipeline.trades         import TradeIndex
 
-logger = getLogger(__name__)
 
 
 @dataclass(kw_only=True)
@@ -50,6 +49,7 @@ class Chalkline:
     cluster_labels    : list[ClusterLabel]
     clusterer         : HierarchicalClusterer
     config            : PipelineConfig
+    density           : dict
     extracted_skills  : SkillMap
     extractor         : SkillExtractor
     geometry_pipeline : Pipeline
@@ -106,14 +106,16 @@ class Chalkline:
         Returns:
             A fully fitted `Chalkline` instance.
         """
-        return Chalkline(**(
-            driver.Builder()
-            .with_modules(steps)
-            .with_adapters(FutureAdapter(), ProgressBar("chalkline"))
-            .with_cache(path=str(config.pipeline_dir / ".cache"))
-            .build()
-            .execute(
-                [f.name for f in fields(Chalkline)],
-                inputs={"pipeline_config": config}
+        return Chalkline(
+            **(
+                driver.Builder()
+                .with_modules(steps)
+                .with_adapters(FutureAdapter(), ProgressBar("chalkline"))
+                .with_cache(path=str(config.pipeline_dir / ".cache"))
+                .build()
+                .execute(
+                    [f.name for f in fields(Chalkline)],
+                    inputs={"pipeline_config": config}
+                )
             )
-        ))
+        )

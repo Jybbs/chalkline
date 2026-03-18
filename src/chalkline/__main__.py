@@ -4,12 +4,10 @@ Launch the Marimo reactive notebook.
 Entry point for the `chalkline` console script defined in pyproject.toml.
 """
 
-from logging    import getLogger
+from loguru     import logger
 from pathlib    import Path
 from subprocess import run
 from sys        import executable, exit
-
-logger = getLogger(__name__)
 
 
 def main():

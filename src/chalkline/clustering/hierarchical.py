@@ -10,6 +10,7 @@ coordinates and TF-IDF label derivation as on-demand methods.
 import numpy as np
 
 from functools               import cached_property
+from loguru                  import logger
 from scipy.cluster.hierarchy import fcluster, leaders, linkage
 from scipy.sparse            import spmatrix
 
@@ -58,7 +59,11 @@ class HierarchicalClusterer:
         self.assignments = fcluster(
             self.linkage,
             criterion = "maxclust",
-            t         = self._select_k()
+            t         = (k := self._select_k())
+        )
+
+        logger.info(
+            f"HAC partitioned {len(document_ids)} postings into {k} clusters"
         )
 
     @cached_property

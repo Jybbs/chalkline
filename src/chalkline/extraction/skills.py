@@ -10,7 +10,7 @@ skill names.
 
 from ahocorasick_rs import AhoCorasick, MatchKind
 from html           import unescape
-from logging        import getLogger
+from loguru         import logger
 from nltk.stem      import PorterStemmer
 from re             import IGNORECASE, MULTILINE, search, sub
 from typing         import NamedTuple
@@ -19,7 +19,6 @@ from chalkline                     import SkillMap
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
 
-logger = getLogger(__name__)
 
 class PatternMeta(NamedTuple):
     """
@@ -58,6 +57,11 @@ class SkillExtractor:
         patterns, self.metadata = self._build_patterns()
         self.pattern_chars      = frozenset(c for p in patterns for c in p)
         self.automaton          = AhoCorasick(patterns, MatchKind.LeftmostLongest)
+
+        logger.info(
+            f"Built automaton with {len(patterns)} patterns "
+            f"from {len(self.vocabulary)} canonical skills"
+        )
 
     @property
     def vocabulary(self) -> set[str]:

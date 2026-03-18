@@ -6,14 +6,12 @@ appending without overwriting. Deduplication retains the most recently
 collected version when duplicate IDs appear.
 """
 
-from logging  import getLogger
+from loguru   import logger
 from pathlib  import Path
 from pydantic import TypeAdapter
 
 from chalkline.collection.schemas import Posting
 
-
-logger = getLogger(__name__)
 
 
 class CorpusStorage:
@@ -67,7 +65,10 @@ class CorpusStorage:
             The deserialized list of postings.
         """
         try:
-            return self.Postings.validate_json(self.corpus_path.read_bytes())
+            result = self.Postings.validate_json(self.corpus_path.read_bytes())
+            logger.info(f"Loaded {len(result)} postings from {self.corpus_path}")
+            return result
+
         except FileNotFoundError:
             return []
 

@@ -13,21 +13,14 @@ license         = { text = "MIT" }
 dependencies    = [
     "ahocorasick-rs",
     "kneed",
+    "loguru",
     "marimo",
-    "matplotlib",
     "mlxtend",
     "networkx",
     "nltk",
-    "numpy",
-    "pandas",
     "pdfplumber",
-    "plotly",
-    "pydantic",
     "python-jobspy",
     "python-slugify",
-    "scikit-learn",
-    "scipy",
-    "seaborn",
     "sf-hamilton[diskcache]",
     "wordfreq",
 ]
@@ -46,6 +39,11 @@ chalkline = "chalkline.__main__:main"
 dev = [
     "openpyxl",
     "pytest",
+    "pytest-loguru",
+]
+viz = [
+    "plotly",
+    "seaborn",
 ]
 
 [tool.hatch.build]

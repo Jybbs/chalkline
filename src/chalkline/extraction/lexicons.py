@@ -10,6 +10,7 @@ posting text.
 """
 
 from functools import cache
+from loguru    import logger
 from nltk      import download
 from nltk.data import find
 from nltk.stem import WordNetLemmatizer
@@ -68,6 +69,8 @@ class LexiconRegistry:
             | self._build_onet_index(occupations)
             | self._index_terms(osha_terms)
         )
+
+        logger.info(f"Lexicon registry built with {len(self.lemma_index)} terms")
 
     def _build_onet_index(self, occupations: list[OnetOccupation]) -> dict[str, str]:
         """

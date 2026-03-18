@@ -10,6 +10,7 @@ import numpy as np
 
 from collections            import Counter
 from functools              import cached_property
+from loguru                 import logger
 from scipy.spatial.distance import cdist
 from statistics             import median
 
@@ -36,6 +37,10 @@ class OccupationIndex:
         self.occupation_map: dict[str, OnetOccupation] = {
             o.soc_code: o for o in occupations
         }
+        logger.info(
+            f"Occupation index built with "
+            f"{len(self.occupation_map)} SOC codes"
+        )
 
     @cached_property
     def bare_to_full(self) -> dict[str, str]:

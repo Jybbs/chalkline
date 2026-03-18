@@ -14,6 +14,7 @@ import pandas as pd
 from collections                 import Counter, defaultdict
 from datetime                    import datetime, timezone
 from hamilton.function_modifiers import extract_fields
+from loguru                      import logger
 from pydantic                    import TypeAdapter
 from sklearn.pipeline            import Pipeline
 
@@ -35,6 +36,7 @@ from chalkline.pipeline.schemas         import PipelineConfig, PipelineManifest
 from chalkline.pipeline.schemas         import ProgramRecommendation
 from chalkline.pipeline.trades          import TradeIndex
 from chalkline.reduction.pca            import PcaReducer
+
 
 
 def cluster_labels(
@@ -88,6 +90,41 @@ def corpus(pipeline_config: PipelineConfig) -> dict[str, str]:
             f"No postings found in {pipeline_config.postings_dir}"
         )
     return result
+
+
+def density(
+    binary_matrix    : object,
+    extracted_skills : SkillMap
+) -> dict:
+    """
+    Evaluate feature density of the lexicon-matching extraction
+    paradigm.
+
+    Logs vocabulary size, mean skills per posting, and the
+    fraction of posting pairs with zero skill overlap to assess
+    whether the feature space supports meaningful clustering
+    and gap ranking.
+    """
+    n_docs     = len(extracted_skills)
+    vocab_size = len({s for skills in extracted_skills.values() for s in skills})
+    mean_skills = np.mean([len(s) for s in extracted_skills.values()])
+
+    overlap = binary_matrix @ binary_matrix.T
+    overlap.setdiag(0)
+    n_pairs      = n_docs * (n_docs - 1) // 2
+    zero_overlap = 1.0 - (overlap.nnz // 2) / n_pairs
+
+    logger.info(
+        f"Feature density: {vocab_size} vocabulary, "
+        f"{mean_skills:.1f} mean skills/posting, "
+        f"{zero_overlap:.1%} zero-overlap pairs"
+    )
+
+    return {
+        "mean_skills_per_posting" : float(mean_skills),
+        "vocabulary_size"         : vocab_size,
+        "zero_overlap_fraction"   : float(zero_overlap)
+    }
 
 
 def extracted_skills(

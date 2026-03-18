@@ -5,9 +5,7 @@ Validates graceful handling of missing files and successful loading of
 valid certifications, OSHA, O*NET, and supplement lexicon data.
 """
 
-from logging import WARNING
 from pathlib import Path
-from pytest  import LogCaptureFixture
 
 from chalkline.extraction.loaders import LexiconLoader
 
@@ -50,19 +48,14 @@ class TestLexiconLoader:
         assert len(loader.supplement_terms) == 3
         assert "rebar" in loader.supplement_terms
 
-    def test_missing_file_warns(
-        self,
-        caplog   : LogCaptureFixture,
-        tmp_path : Path
-    ):
+    def test_missing_file_warns(self, caplog, tmp_path: Path):
         """
         Missing lexicon files log warnings and produce empty lists.
         """
-        with caplog.at_level(WARNING):
-            loader = LexiconLoader(tmp_path)
-        assert loader.certifications == []
-        assert loader.occupations    == []
-        assert loader.osha_terms     == []
+        loader = LexiconLoader(tmp_path)
+        assert loader.certifications   == []
+        assert loader.occupations      == []
+        assert loader.osha_terms       == []
         assert loader.supplement_terms == []
         assert "Certifications lexicon not found" in caplog.text
         assert "O*NET lexicon not found"          in caplog.text

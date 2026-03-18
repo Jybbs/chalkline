@@ -15,14 +15,12 @@ import numpy    as np
 from functools import cached_property
 from itertools import combinations
 from kneed     import KneeLocator
-from logging   import getLogger
+from loguru    import logger
 
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.pathways.schemas         import LongestPath
 from chalkline.pipeline.schemas         import ClusterProfile
 
-
-logger = getLogger(__name__)
 
 
 class CareerPathwayGraph:
@@ -66,6 +64,11 @@ class CareerPathwayGraph:
         self.network     = network
         self.profiles    = profiles
         self.graph       = graph or self._build_graph()
+
+        logger.info(
+            f"Career graph: {self.graph.number_of_nodes()} nodes, "
+            f"{self.graph.number_of_edges()} edges"
+        )
 
     @cached_property
     def longest_path(self) -> LongestPath:

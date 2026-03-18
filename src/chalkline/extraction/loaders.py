@@ -7,15 +7,13 @@ normalization can proceed with whichever lexicons are available.
 File names are derived from labels via `slugify`.
 """
 
-from logging  import getLogger
+from loguru   import logger
 from pathlib  import Path
 from pydantic import TypeAdapter
 from slugify  import slugify
 
 from chalkline                    import NonEmptyStr
 from chalkline.extraction.schemas import Certification, OnetOccupation
-
-logger = getLogger(__name__)
 
 
 class LexiconLoader:
