@@ -39,9 +39,9 @@ from chalkline.matching.matcher          import ResumeMatcher
 from chalkline.matching.schemas          import MatchResult
 from chalkline.pathways.graph            import CareerPathwayGraph
 from chalkline.pathways.routing          import CareerRouter
-from chalkline.pipeline.orchestrator     import build_profiles, compose_geometry
-from chalkline.pipeline.orchestrator     import compute_sector_labels
+from chalkline.pipeline                  import steps
 from chalkline.pipeline.schemas          import ApprenticeshipContext, ClusterProfile
+from chalkline.pipeline.schemas          import PipelineConfig
 from chalkline.pipeline.schemas          import ProgramRecommendation
 from chalkline.pipeline.trades           import TradeIndex
 from chalkline.reduction.pca             import PcaReducer
@@ -297,7 +297,7 @@ def sector_labels(
     """
     Sector labels aligned with vectorizer document order.
     """
-    return compute_sector_labels(
+    return steps.sector_labels(
         document_ids     = vectorizer.document_ids,
         extracted_skills = extracted_skills,
         occupation_index = occupation_index
@@ -338,7 +338,10 @@ def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> P
     """
     Combined geometry pipeline from vectorization through scaling.
     """
-    return compose_geometry(reducer=pca_reducer, vectorizer=vectorizer)
+    return steps.geometry_pipeline(
+        reducer_pipeline    = pca_reducer.pipeline,
+        vectorizer_pipeline = vectorizer.pipeline
+    )
 
 @fixture
 def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResult:
@@ -349,26 +352,26 @@ def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResul
 
 @fixture
 def matcher(
+    cluster_labels    : list[ClusterLabel],
     clusterer         : HierarchicalClusterer,
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,
     ppmi_df           : pd.DataFrame,
-    trades            : TradeIndex,
-    vectorizer        : SkillVectorizer
+    trades            : TradeIndex
 ) -> ResumeMatcher:
     """
     Build a resume matcher from the full fixture pipeline.
     """
-    cluster_labels_50 = clusterer.labels(
-        feature_names = vectorizer.feature_names,
-        tfidf_matrix  = vectorizer.tfidf_matrix,
-        top_n         = 50
-    )
-    return ResumeMatcher(
-        cluster_labels    = cluster_labels_50,
+    return steps.matcher(
+        cluster_labels    = cluster_labels,
         clusterer         = clusterer,
         extracted_skills  = extracted_skills,
         geometry_pipeline = geometry_pipeline,
+        pipeline_config   = PipelineConfig(
+            lexicon_dir  = Path(),
+            output_dir   = Path(),
+            postings_dir = Path()
+        ),
         ppmi_df           = ppmi_df,
         trades            = trades
     )
@@ -403,7 +406,7 @@ def profiles(
     """
     Enriched cluster profiles from the full fixture pipeline.
     """
-    return build_profiles(
+    return steps.profiles(
         cluster_labels   = cluster_labels,
         clusterer        = clusterer,
         extracted_skills = extracted_skills,
