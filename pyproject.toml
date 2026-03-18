@@ -28,7 +28,7 @@ dependencies    = [
     "scikit-learn",
     "scipy",
     "seaborn",
-    "sf-hamilton",
+    "sf-hamilton[diskcache]",
     "wordfreq",
 ]
 

@@ -73,12 +73,12 @@ class MatchResult(BaseModel, extra="forbid"):
     cluster_distances : list[ClusterDistance]
     cluster_id        : int = Field(ge = 0)
     nearest_neighbors : list[NeighborMatch]
-    resume_skills     : list[str]
+    skills            : list[str]
 
-    pca_coordinates : list[float]                = Field(default_factory = list)
+    pca_coordinates : list[float]                 = Field(default_factory = list)
     programs        : list[ProgramRecommendation] = Field(default_factory = list)
     ranked_gaps     : list[RankedGap]             = Field(default_factory = list)
     sector          : str | None                  = None
     skill_gaps      : list[str]                   = Field(default_factory = list)
-    trade_paths     : list[ApprenticeshipContext]  = Field(default_factory = list)
+    trade_paths     : list[ApprenticeshipContext] = Field(default_factory = list)
     unrankable_gaps : list[str]                   = Field(default_factory = list)

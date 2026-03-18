@@ -122,7 +122,7 @@ class CareerRouter:
         """
         for s, t, data in self.graph.edges(data=True):
             bridging    = sorted(self.profiles[t].skills - self.profiles[s].skills)
-            apps, progs = self.trades.match(bridging)
+            apps, progs = self.trades.lookup(bridging)
             app_s       = self.profiles[s].apprenticeship
             app_t       = self.profiles[t].apprenticeship
 

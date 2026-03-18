@@ -36,7 +36,7 @@ class TradeIndex:
         self.apprenticeships = apprenticeships
         self.programs        = programs
 
-    def match(
+    def lookup(
         self,
         terms: Iterable[str]
     ) -> tuple[list[ApprenticeshipContext], list[ProgramRecommendation]]:

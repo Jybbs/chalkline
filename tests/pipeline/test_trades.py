@@ -26,7 +26,7 @@ class TestTradeIndex:
             )],
             programs = []
         )
-        apps, _ = trades.match(["welding"])
+        apps, _ = trades.lookup(["welding"])
         assert len(apps) == 1
 
     def test_no_match(self):
@@ -42,7 +42,7 @@ class TestTradeIndex:
             )],
             programs = []
         )
-        apps, _ = trades.match(["concrete"])
+        apps, _ = trades.lookup(["concrete"])
         assert apps == []
 
     def test_short_words_excluded(self):
@@ -60,8 +60,8 @@ class TestTradeIndex:
             )],
             programs = []
         )
-        apps, _ = trades.match(["the NEC code"])
+        apps, _ = trades.lookup(["the NEC code"])
         assert len(apps) == 1
 
-        apps, _ = trades.match(["on"])
+        apps, _ = trades.lookup(["on"])
         assert apps == []

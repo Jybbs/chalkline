@@ -16,10 +16,12 @@ from functools         import cached_property
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline  import Pipeline
 
+from chalkline                         import SkillMap
 from chalkline.clustering.hierarchical import HierarchicalClusterer
 from chalkline.clustering.schemas      import ClusterLabel
 from chalkline.matching.schemas        import ClusterDistance, MatchResult
 from chalkline.matching.schemas        import NeighborMatch, RankedGap
+from chalkline.pipeline.schemas        import ClusterProfile
 from chalkline.pipeline.trades         import TradeIndex
 
 def jaccard(a: set[str], b: set[str]) -> float:
@@ -57,9 +59,10 @@ class ResumeMatcher:
         self,
         cluster_labels    : list[ClusterLabel],
         clusterer         : HierarchicalClusterer,
-        extracted_skills  : dict[str, list[str]],
+        extracted_skills  : SkillMap,
         geometry_pipeline : Pipeline,
         ppmi_df           : pd.DataFrame,
+        profiles          : dict[int, ClusterProfile],
         trades            : TradeIndex,
         metric            : str = "euclidean",
         top_k_gaps        : int = 10
@@ -70,7 +73,7 @@ class ResumeMatcher:
         The `clusterer` provides assignments, coordinates, and
         document identifiers from the HAC step. The `trades`
         index carries precomputed prefix lookup dicts for
-        apprenticeship and program matching, while `ppmi_df`
+        apprenticeship and program lookup, while `ppmi_df`
         provides the PPMI DataFrame for gap ranking. The geometry
         pipeline must be a fitted sklearn `Pipeline` chaining
         `DictVectorizer`, `TfidfTransformer`, `Normalizer`,
@@ -86,6 +89,7 @@ class ResumeMatcher:
             extracted_skills  : Skills per document identifier.
             geometry_pipeline : Fitted vectorization pipeline.
             ppmi_df           : PPMI DataFrame for gap ranking.
+            profiles          : Cluster profiles with sector data.
             trades            : Precomputed prefix lookup index.
             metric            : sklearn distance metric string.
             top_k_gaps        : Default number of ranked gaps.
@@ -95,6 +99,7 @@ class ResumeMatcher:
         self.extracted_skills  = extracted_skills
         self.geometry_pipeline = geometry_pipeline
         self.ppmi_df           = ppmi_df
+        self.profiles          = profiles
         self.trades            = trades
         self.metric            = metric
         self.top_k_gaps        = top_k_gaps
@@ -286,13 +291,13 @@ class ResumeMatcher:
                 skill           = gap
             )
             for gap, rel in positive.items()
-            for apps, progs in [self.trades.match([gap])]
+            for apps, progs in [self.trades.lookup([gap])]
         ], skill_gaps - set(positive.index)
 
     def match(
         self,
-        resume_skills : list[str],
-        top_k         : int | None = None
+        skills : list[str],
+        top_k  : int | None = None
     ) -> MatchResult:
         """
         Project a resume into PCA space and match to career families.
@@ -305,22 +310,22 @@ class ResumeMatcher:
         apprenticeships computed at construction time.
 
         Args:
-            resume_skills : Sorted canonical skill names from
-                            `SkillExtractor.extract()`.
-            top_k         : Override for the default `top_k_gaps`.
-                            Returns at most this many ranked gaps.
+            skills : Sorted canonical skill names from
+                     `SkillExtractor.extract()`.
+            top_k  : Override for the default `top_k_gaps`.
+                     Returns at most this many ranked gaps.
 
         Returns:
             Full `MatchResult` with cluster assignment, neighbors,
             gaps, and recommendations.
         """
         coords = self.geometry_pipeline.transform(
-            [dict.fromkeys(resume_skills, 1)]
+            [dict.fromkeys(skills, 1)]
         )
 
         distances, indices = self.centroid_nn.kneighbors(coords)
         cluster_id = self.cluster_ids[indices[0, 0]]
-        resume_set = set(resume_skills)
+        resume_set = set(skills)
         neighbors  = self._nearest_in_family(
             cluster_id = cluster_id,
             coords     = coords,
@@ -350,7 +355,8 @@ class ResumeMatcher:
                 for gap in ranked_gaps for p in gap.programs
             }.values()),
             ranked_gaps       = ranked_gaps,
-            resume_skills     = sorted(resume_skills),
+            sector            = self.profiles[cluster_id].sector,
+            skills            = sorted(skills),
             skill_gaps        = sorted(
                 {g.skill for g in ranked_gaps} | unrankable
             ),

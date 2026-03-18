@@ -357,6 +357,7 @@ def matcher(
     extracted_skills  : dict[str, list[str]],
     geometry_pipeline : Pipeline,
     ppmi_df           : pd.DataFrame,
+    profiles          : dict[int, ClusterProfile],
     trades            : TradeIndex
 ) -> ResumeMatcher:
     """
@@ -373,6 +374,7 @@ def matcher(
             postings_dir = Path()
         ),
         ppmi_df           = ppmi_df,
+        profiles          = profiles,
         trades            = trades
     )
 

@@ -11,11 +11,13 @@ enabling parallel execution of independent branches.
 import numpy  as np
 import pandas as pd
 
-from collections                import Counter, defaultdict
+from collections                 import Counter, defaultdict
+from datetime                    import datetime, timezone
 from hamilton.function_modifiers import extract_fields
-from pydantic                   import TypeAdapter
-from sklearn.pipeline           import Pipeline
+from pydantic                    import TypeAdapter
+from sklearn.pipeline            import Pipeline
 
+from chalkline                          import SkillMap
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.clustering.hierarchical  import HierarchicalClusterer
 from chalkline.clustering.schemas       import ClusterLabel
@@ -29,7 +31,8 @@ from chalkline.matching.matcher         import ResumeMatcher
 from chalkline.pathways.graph           import CareerPathwayGraph
 from chalkline.pathways.routing         import CareerRouter
 from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas         import PipelineConfig, ProgramRecommendation
+from chalkline.pipeline.schemas         import PipelineConfig, PipelineManifest
+from chalkline.pipeline.schemas         import ProgramRecommendation
 from chalkline.pipeline.trades          import TradeIndex
 from chalkline.reduction.pca            import PcaReducer
 
@@ -77,11 +80,10 @@ def corpus(pipeline_config: PipelineConfig) -> dict[str, str]:
         FileNotFoundError: When no JSON postings exist in the
             configured directory.
     """
-    result = {
+    if not (result := {
         p.id: p.description
         for p in CorpusStorage(pipeline_config.postings_dir).load()
-    }
-    if not result:
+    }):
         raise FileNotFoundError(
             f"No postings found in {pipeline_config.postings_dir}"
         )
@@ -91,7 +93,7 @@ def corpus(pipeline_config: PipelineConfig) -> dict[str, str]:
 def extracted_skills(
     corpus    : dict[str, str],
     extractor : SkillExtractor
-) -> dict[str, list[str]]:
+) -> SkillMap:
     """
     Extract canonical skills from each posting via
     Aho-Corasick pattern matching.
@@ -154,13 +156,29 @@ def lexicons(pipeline_config: PipelineConfig) -> LexiconLoader:
     return LexiconLoader(pipeline_config.lexicon_dir)
 
 
+def manifest(
+    extracted_skills  : SkillMap,
+    geometry_pipeline : Pipeline
+) -> PipelineManifest:
+    """
+    Build provenance metadata from fitted artifacts.
+    """
+    return PipelineManifest(
+        corpus_size     = len(extracted_skills),
+        geometry_params = geometry_pipeline.get_params(deep=True),
+        posting_ids     = sorted(extracted_skills),
+        timestamp       = datetime.now(timezone.utc).isoformat()
+    )
+
+
 def matcher(
     cluster_labels    : list[ClusterLabel],
     clusterer         : HierarchicalClusterer,
-    extracted_skills  : dict[str, list[str]],
+    extracted_skills  : SkillMap,
     geometry_pipeline : Pipeline,
     pipeline_config   : PipelineConfig,
     ppmi_df           : pd.DataFrame,
+    profiles          : dict[int, ClusterProfile],
     trades            : TradeIndex
 ) -> ResumeMatcher:
     """
@@ -174,6 +192,7 @@ def matcher(
         geometry_pipeline = geometry_pipeline,
         metric            = pipeline_config.distance_metric,
         ppmi_df           = ppmi_df,
+        profiles          = profiles,
         top_k_gaps        = pipeline_config.top_k_gaps,
         trades            = trades
     )
@@ -213,7 +232,7 @@ def ppmi_df(network: CooccurrenceNetwork) -> pd.DataFrame:
 def profiles(
     cluster_labels   : list[ClusterLabel],
     clusterer        : HierarchicalClusterer,
-    extracted_skills : dict[str, list[str]],
+    extracted_skills : SkillMap,
     occupation_index : OccupationIndex,
     sector_labels    : list[str],
     trades           : TradeIndex
@@ -254,7 +273,7 @@ def profiles(
         )
         for label       in cluster_labels
         for skills      in [cluster_skills[label.cluster_id]]
-        for apps, progs in [trades.match([*label.terms, *skills])]
+        for apps, progs in [trades.lookup([*label.terms, *skills])]
     }
 
 
@@ -315,7 +334,7 @@ def router(
 
 def sector_labels(
     document_ids     : list[str],
-    extracted_skills : dict[str, list[str]],
+    extracted_skills : SkillMap,
     occupation_index : OccupationIndex
 ) -> list[str]:
     """
@@ -358,7 +377,7 @@ def trades(pipeline_config: PipelineConfig) -> TradeIndex:
     "vectorizer_pipeline" : Pipeline
 })
 def vectorizer(
-    extracted_skills: dict[str, list[str]]
+    extracted_skills: SkillMap
 ) -> dict:
     """
     Fit TF-IDF vectorization and expose intermediate matrices.

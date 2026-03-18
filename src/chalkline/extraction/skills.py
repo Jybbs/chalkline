@@ -15,6 +15,7 @@ from nltk.stem      import PorterStemmer
 from re             import IGNORECASE, MULTILINE, search, sub
 from typing         import NamedTuple
 
+from chalkline                     import SkillMap
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import ConfidenceTier
 
@@ -228,7 +229,7 @@ class SkillExtractor:
             for word in text.lower().split()
         )
 
-    def extract(self, postings: dict[str, str]) -> dict[str, list[str]]:
+    def extract(self, postings: dict[str, str]) -> SkillMap:
         """
         Extract canonical skill names from a corpus of posting
         texts.

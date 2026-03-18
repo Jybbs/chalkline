@@ -21,6 +21,9 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline                import Pipeline
 from sklearn.preprocessing           import Normalizer
 
+from chalkline import SkillMap
+
+
 class SkillVectorizer:
     """
     IDF-weighted and binary matrix builder from extracted skill
@@ -37,7 +40,7 @@ class SkillVectorizer:
     weighting.
     """
 
-    def __init__(self, skills: dict[str, list[str]]):
+    def __init__(self, skills: SkillMap):
         """
         Fit the vectorization pipeline on extracted skill lists.
 
