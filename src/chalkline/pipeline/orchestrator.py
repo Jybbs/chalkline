@@ -11,10 +11,13 @@ code and config.
 
 import pandas as pd
 
-from dataclasses              import dataclass, fields
-from hamilton                 import driver
-from logging                  import getLogger
-from sklearn.pipeline         import Pipeline
+from dataclasses                   import dataclass, fields
+from hamilton                      import driver
+from hamilton.plugins.h_threadpool import FutureAdapter
+from hamilton.plugins.h_tqdm       import ProgressBar
+from logging                       import getLogger
+from sklearn.pipeline              import Pipeline
+from typing                        import Self
 
 from chalkline                         import SkillMap
 from chalkline.clustering.hierarchical import HierarchicalClusterer
@@ -30,37 +33,6 @@ from chalkline.pipeline.schemas        import PipelineManifest
 from chalkline.pipeline.trades         import TradeIndex
 
 logger = getLogger(__name__)
-
-
-def fit(config: PipelineConfig) -> Chalkline:
-    """
-    Execute all pipeline steps and return a fitted pipeline.
-
-    Builds a Hamilton DAG from the node functions in `steps`
-    with disk caching enabled. First call computes every node
-    and persists results. Subsequent calls with unchanged code
-    and config serve from cache, making `fit()` idempotent.
-    Hamilton resolves the dependency graph from function
-    parameter names, forking the geometry and co-occurrence
-    tracks after vectorization and merging them at the pathway
-    graph.
-
-    Args:
-        config: End-to-end pipeline configuration.
-
-    Returns:
-        A fully fitted `Chalkline` instance.
-    """
-    return Chalkline(**(
-        driver.Builder()
-        .with_modules(steps)
-        .with_cache(path=str(config.pipeline_dir / ".cache"))
-        .build()
-        .execute(
-            [f.name for f in fields(Chalkline)],
-            inputs={"pipeline_config": config}
-        )
-    ))
 
 
 @dataclass(kw_only=True)
@@ -113,3 +85,35 @@ class Chalkline:
             skills = self.extractor.extract({"resume": resume_text})["resume"],
             top_k  = top_k
         )
+
+
+    @staticmethod
+    def fit(config: PipelineConfig) -> Self:
+        """
+        Execute all pipeline steps and return a fitted pipeline.
+
+        Builds a Hamilton DAG from the node functions in `steps`
+        with disk caching and parallel thread execution enabled.
+        First call computes every node and persists results.
+        Subsequent calls with unchanged code and config serve
+        from cache, making `fit()` idempotent. Independent
+        branches (geometry and co-occurrence tracks) run
+        concurrently via `FutureAdapter`.
+
+        Args:
+            config: End-to-end pipeline configuration.
+
+        Returns:
+            A fully fitted `Chalkline` instance.
+        """
+        return Chalkline(**(
+            driver.Builder()
+            .with_modules(steps)
+            .with_adapters(FutureAdapter(), ProgressBar("chalkline"))
+            .with_cache(path=str(config.pipeline_dir / ".cache"))
+            .build()
+            .execute(
+                [f.name for f in fields(Chalkline)],
+                inputs={"pipeline_config": config}
+            )
+        ))
