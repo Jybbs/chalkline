@@ -1,35 +1,23 @@
 """
 Skill extraction from job posting text via Aho-Corasick matching.
 
-Builds surface form variants for each lexicon term, loads them into an
-`ahocorasick_rs` automaton with `LeftmostLongest` semantics, and runs a
+Builds surface form variants for each lexicon term, loads them into a
+`pyahocorasick` automaton with longest-match semantics, and runs a
 single-pass match per posting with word boundary enforcement. The output
 is a mapping from document identifiers to deduplicated, sorted canonical
 skill names.
 """
 
-from ahocorasick_rs import AhoCorasick, MatchKind
-from html           import unescape
-from loguru         import logger
-from nltk.stem      import PorterStemmer
-from re             import IGNORECASE, MULTILINE, search, sub
-from typing         import NamedTuple
+from ahocorasick import Automaton
+from html        import unescape
+from loguru      import logger
+from nltk.stem   import PorterStemmer
+from re          import IGNORECASE, MULTILINE, search, sub
 
 from chalkline                     import SkillMap
 from chalkline.extraction.lexicons import LexiconRegistry
-from chalkline.extraction.schemas  import ConfidenceTier
+from chalkline.extraction.schemas  import PatternBundle
 
-
-class PatternMeta(NamedTuple):
-    """
-    Metadata for a single surface form pattern in the automaton.
-
-    Tracks which canonical skill name a pattern resolves to and
-    its confidence tier for conflict resolution.
-    """
-
-    canonical : str
-    tier      : ConfidenceTier
 
 class SkillExtractor:
     """
@@ -37,10 +25,10 @@ class SkillExtractor:
 
     Generates lowercased, lemmatized, stemmed, and inverted bigram
     variants for each lexicon term, loads them into a
-    `LeftmostLongest` automaton, and provides a single `extract()`
-    method that preprocesses posting text, lemmatizes, matches with
-    word boundary enforcement, and returns deduplicated canonical
-    skill names per document.
+    `pyahocorasick` automaton, and provides a single `extract()`
+    method that preprocesses posting text, lemmatizes, matches
+    with word boundary enforcement via `iter_long()`, and returns
+    deduplicated canonical skill names per document.
     """
 
     def __init__(self, registry: LexiconRegistry):
@@ -51,15 +39,13 @@ class SkillExtractor:
             registry: Lexicon registry with merged `lemma_index`
                       and `lemmatize` method.
         """
-        self.registry = registry
-        self.stemmer  = PorterStemmer()
-
-        patterns, self.metadata = self._build_patterns()
-        self.pattern_chars      = frozenset(c for p in patterns for c in p)
-        self.automaton          = AhoCorasick(patterns, MatchKind.LeftmostLongest)
+        self.registry  = registry
+        self.stemmer   = PorterStemmer()
+        self.bundle    = self._build_pattern_bundle()
+        self.automaton = self._build_automaton()
 
         logger.info(
-            f"Built automaton with {len(patterns)} patterns "
+            f"Built automaton with {len(self.bundle.patterns)} patterns "
             f"from {len(self.vocabulary)} canonical skills"
         )
 
@@ -72,25 +58,45 @@ class SkillExtractor:
         Returns:
             Unique canonical names across all loaded patterns.
         """
-        return {m.canonical for m in self.metadata}
+        return set(self.bundle.canonicals)
 
-    def _build_patterns(self) -> tuple[list[str], list[PatternMeta]]:
+    def _build_automaton(self) -> Automaton:
         """
-        Generate augmented surface forms with parallel metadata.
+        Load all surface form patterns into an Aho-Corasick automaton.
+
+        Each pattern is keyed by its positional index into
+        `self.bundle.patterns` and `self.bundle.metadata`,
+        enabling O(1) metadata lookup during matching.
+
+        Returns:
+            A finalized automaton ready for `iter_long()` queries.
+        """
+        automaton = Automaton()
+        for idx, p in enumerate(self.bundle.patterns):
+            automaton.add_word(p, idx)
+
+        automaton.make_automaton()
+        return automaton
+
+    def _build_pattern_bundle(self) -> PatternBundle:
+        """
+        Generate augmented surface forms with parallel canonicals.
 
         For each unique canonical name in the registry's
         `lemma_index`, produces lowercased canonical, all
         lemmatized keys, Porter-stemmed variants, and inverted
-        bigrams for two-word skills. Each pattern gets metadata
-        tracking its canonical name and confidence tier.
+        bigrams for two-word skills. The character set is
+        accumulated during iteration for use as a preprocessing
+        filter.
 
         Returns:
-            A parallel pair of pattern strings and their
-            metadata.
+            A `PatternBundle` of pattern strings, their canonical
+            names, and the set of all characters in patterns.
         """
-        patterns = []
-        metadata = []
-        seen     = set()
+        canonicals = []
+        chars      = set()
+        patterns   = []
+        seen       = set()
 
         canonical_to_lemmas = {}
         for lemma, canonical in self.registry.lemma_index.items():
@@ -108,50 +114,14 @@ class SkillExtractor:
             forms -= seen | {""}
             seen  |= forms
             for form in sorted(forms):
+                chars.update(form)
+                canonicals.append(canonical)
                 patterns.append(form)
-                metadata.append(PatternMeta(
-                    canonical = canonical,
-                    tier      = self._classify_tier(canonical, form)
-                ))
 
-        return patterns, metadata
-
-    def _classify_tier(self, canonical: str, form: str) -> ConfidenceTier:
-        """
-        Assign a confidence tier based on form characteristics.
-
-        Args:
-            canonical : Original canonical name for abbreviation detection.
-            form      : The lowercased surface form string.
-
-        Returns:
-            The appropriate confidence tier.
-        """
-        if " " in form:
-            return ConfidenceTier.MULTI_WORD
-        if canonical.isupper() and 2 <= len(canonical) <= 6:
-            return ConfidenceTier.ABBREVIATION
-        return ConfidenceTier.SINGLE_WORD
-
-    def _is_word_boundary(self, end: int, start: int, text: str) -> bool:
-        """
-        Check whether a match span falls on word boundaries.
-
-        After preprocessing, all non-pattern characters have been
-        replaced with spaces, so a valid boundary is simply a
-        space or string edge.
-
-        Args:
-            end   : End position (exclusive) of the match.
-            start : Start position of the match.
-            text  : The full text being searched.
-
-        Returns:
-            `True` if both boundaries are valid.
-        """
-        return (
-            (start == 0 or text[start - 1] == " ")
-            and (end == len(text) or text[end] == " ")
+        return PatternBundle(
+            canonicals = canonicals,
+            chars      = chars,
+            patterns   = patterns,
         )
 
     def _match(self, text: str) -> list[str]:
@@ -159,10 +129,8 @@ class SkillExtractor:
         Run the automaton and return deduplicated canonical names.
 
         Matches are filtered for word boundaries and then
-        deduplicated by canonical name. When multiple surface
-        forms of the same canonical name match, the highest-
-        confidence tier wins, though `LeftmostLongest` already
-        prefers longer multi-word matches at each position.
+        deduplicated by canonical name. `iter_long()` already
+        prefers longer matches at each position.
 
         Args:
             text: Lemmatized posting text.
@@ -170,15 +138,14 @@ class SkillExtractor:
         Returns:
             Sorted list of unique canonical skill names.
         """
-        hits = {}
-        for pattern_idx, start, end in self.automaton.find_matches_as_indexes(text):
-            if not self._is_word_boundary(end, start, text):
-                continue
-            canonical = (meta := self.metadata[pattern_idx]).canonical
-            if canonical not in hits or meta.tier.value < hits[canonical].value:
-                hits[canonical] = meta.tier
+        matched = set()
+        text    = f" {text} "
+        for end, idx in self.automaton.iter_long(text):
+            start, stop = self.bundle.span_of(end, idx)
+            if text[start - 1] == " " and text[stop] == " ":
+                matched.add(self.bundle.canonicals[idx])
 
-        return sorted(hits)
+        return sorted(matched)
 
     def _preprocess(self, text: str) -> str:
         """
@@ -215,7 +182,7 @@ class SkillExtractor:
         text = unescape(text)
         text = sub(r"([a-z])([A-Z])", r"\1 \2", text)
         text = text.lower().strip()
-        text = "".join(c if c in self.pattern_chars else " " for c in text)
+        text = "".join(c if c in self.bundle.chars else " " for c in text)
         return sub(r"\s+", " ", text)
 
     def _stem(self, text: str) -> str:

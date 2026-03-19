@@ -7,6 +7,7 @@ docs/
 data/stakeholder/
 
 # Development
+.cache/
 *.lock
 !uv.lock
 .DS_Store

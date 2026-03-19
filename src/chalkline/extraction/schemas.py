@@ -1,14 +1,15 @@
 """
 Schemas for lexicon validation and skill extraction.
 
-Defines confidence tiers for Aho-Corasick matching, the certification
-model for CareerOneStop entries, and the O*NET element type taxonomy,
-skill entry structure, and occupation profile model that `onet.json`
-is validated against at load time.
+Defines the certification model for CareerOneStop entries, the O*NET
+element type taxonomy, skill entry structure, and occupation profile
+model that `onet.json` is validated against at load time, and the
+pattern bundle that groups surface forms for Aho-Corasick matching.
 """
 
 from enum     import StrEnum
 from pydantic import BaseModel, Field
+from typing   import NamedTuple
 
 from chalkline import NonEmptyStr
 
@@ -30,21 +31,6 @@ class Certification(BaseModel, extra="forbid"):
     organization : str | None       = None
     phrases      : list[str] | None = None
     type         : str | None       = None
-
-
-class ConfidenceTier(StrEnum):
-    """
-    Match confidence for Aho-Corasick surface form hits.
-
-    Multi-word matches are the most specific, abbreviation matches
-    carry moderate confidence, and single-word matches are the most
-    ambiguous. When two matches conflict at the same position, the
-    higher-confidence tier wins.
-    """
-
-    ABBREVIATION = "abbreviation"
-    MULTI_WORD   = "multi_word"
-    SINGLE_WORD  = "single_word"
 
 
 class OnetSkillType(StrEnum):
@@ -115,3 +101,30 @@ class OnetOccupation(BaseModel, extra="forbid"):
     skills   : list[OnetSkill]
     soc_code : NonEmptyStr
     title    : NonEmptyStr
+
+
+class PatternBundle(NamedTuple):
+    """
+    Complete output of surface form generation.
+
+    Groups the parallel pattern and canonical name lists with
+    the character set derived from all patterns, used as a
+    preprocessing filter during extraction.
+    """
+
+    canonicals : list[str]
+    chars      : set[str]
+    patterns   : list[str]
+
+    def span_of(self, end: int, idx: int) -> tuple[int, int]:
+        """
+        Convert `iter_long` output to a start/end span.
+
+        Args:
+            end: End position (inclusive) returned by `iter_long`.
+            idx: Pattern index returned by `iter_long`.
+
+        Returns:
+            A (start, exclusive end) pair for boundary checking.
+        """
+        return end - len(self.patterns[idx]) + 1, end + 1
