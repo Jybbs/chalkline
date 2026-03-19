@@ -22,6 +22,7 @@ dependencies    = [
     "python-jobspy",
     "python-slugify",
     "sf-hamilton[diskcache]",
+    "typer",
     "wordfreq",
 ]
 
@@ -33,7 +34,7 @@ override-dependencies = [
 ]
 
 [project.scripts]
-chalkline = "chalkline.__main__:main"
+chalkline = "chalkline.cli:app"
 
 [dependency-groups]
 dev = [

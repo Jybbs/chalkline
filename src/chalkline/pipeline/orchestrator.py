@@ -60,6 +60,37 @@ class Chalkline:
     router            : CareerRouter
     trades            : TradeIndex
 
+    def __repr__(self) -> str:
+        """
+        Compact one-line summary of fitted pipeline dimensions.
+        """
+        return (
+            f"Chalkline("
+            f"{len(self.extractor.vocabulary):,} skills, "
+            f"{len(self.extracted_skills):,} postings, "
+            f"{self.density['vocabulary_size']:,} features, "
+            f"{len(self.profiles):,} clusters, "
+            f"{self.graph.graph.number_of_edges()} edges)"
+        )
+
+    def __str__(self) -> str:
+        """
+        Multi-line summary of fitted pipeline metrics with ANSI bold
+        formatting and Unicode bullets.
+        """
+        b, r = "\033[1m", "\033[0m"
+        d    = self.density
+        return "\n".join([
+            f"{b}Chalkline Pipeline{r}",
+            f"  · {b}{len(self.extractor.vocabulary):,}{r} canonical skills in vocabulary",
+            f"  · {b}{len(self.extracted_skills):,}{r} postings extracted",
+            f"  · {b}{d['vocabulary_size']:,}{r} features in the TF-IDF matrix",
+            f"  · {b}{len(self.profiles):,}{r} clusters from HAC",
+            f"  · {b}{self.graph.graph.number_of_edges()}{r} graph edges",
+            f"  · {b}{d['mean_skills_per_posting']:.1f}{r} mean skills/posting,"
+            f" {b}{d['zero_overlap_fraction']:.1%}{r} zero-overlap fraction"
+        ])
+
     def match(
         self,
         resume_text : str,
