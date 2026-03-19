@@ -11,8 +11,6 @@ from enum     import StrEnum
 from pydantic import BaseModel, Field
 from typing   import NamedTuple
 
-from chalkline import NonEmptyStr
-
 
 class Certification(BaseModel, extra="forbid"):
     """
@@ -24,7 +22,7 @@ class Certification(BaseModel, extra="forbid"):
     time.
     """
 
-    name      : NonEmptyStr
+    name      : str
     soc_codes : list[str]
 
     acronym      : str | None       = None
@@ -80,7 +78,7 @@ class OnetSkill(BaseModel, extra="forbid"):
     POS-based chunking performed at curation time.
     """
 
-    name : NonEmptyStr
+    name : str
     type : OnetSkillType
 
     importance : float | None     = None
@@ -97,10 +95,10 @@ class OnetOccupation(BaseModel, extra="forbid"):
     """
 
     job_zone : int = Field(ge=1, le=5)
-    sector   : NonEmptyStr
+    sector   : str
     skills   : list[OnetSkill]
-    soc_code : NonEmptyStr
-    title    : NonEmptyStr
+    soc_code : str
+    title    : str
 
 
 class PatternBundle(NamedTuple):

@@ -10,8 +10,6 @@ from functools import cached_property
 from pathlib   import Path
 from pydantic  import BaseModel, Field
 
-from chalkline import UnitInterval
-
 
 class ApprenticeshipContext(BaseModel, extra="forbid"):
     """
@@ -96,7 +94,7 @@ class PipelineConfig(BaseModel, extra="forbid"):
     min_cooccurrence   : float | str  = "auto"
     random_seed        : int          = 42
     top_k_gaps         : int          = 10
-    variance_threshold : UnitInterval = 0.85
+    variance_threshold : float        = Field(default=0.85, gt=0, le=1)
 
     @cached_property
     def hamilton_cache_dir(self) -> Path:

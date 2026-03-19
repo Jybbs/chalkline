@@ -21,7 +21,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline                import Pipeline
 from sklearn.preprocessing           import Normalizer
 
-from chalkline import SkillMap
+from chalkline.extraction.skills import SkillMap
 
 
 class SkillVectorizer:

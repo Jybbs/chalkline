@@ -11,8 +11,8 @@ from chalkline.cli.fit    import fit
 from chalkline.cli.launch import launch
 
 app = typer.Typer(
-    add_completion = False,
-    no_args_is_help = True,
+    add_completion   = False,
+    no_args_is_help  = True,
     rich_markup_mode = "rich",
 )
 

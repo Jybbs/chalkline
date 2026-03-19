@@ -9,8 +9,6 @@ from pydantic import BaseModel, BeforeValidator, Field, model_validator
 from slugify  import slugify
 from typing   import Annotated, Self
 
-from chalkline import NonEmptyStr
-
 
 class Posting(BaseModel, extra="forbid"):
     """
@@ -21,18 +19,18 @@ class Posting(BaseModel, extra="forbid"):
     construction time, `id` is auto-computed from the sibling fields.
     """
 
-    company     : NonEmptyStr
+    company     : str
     date_posted : Annotated[
                       date | None,
                       BeforeValidator(lambda v: v[:10] if isinstance(v, str) else v)
                   ]
     description : Annotated[str, Field(min_length=50)]
-    source_url  : NonEmptyStr
-    title       : NonEmptyStr
+    source_url  : str
+    title       : str
 
     date_collected : date = Field(default_factory=date.today)
-    id             : NonEmptyStr | None = None
-    location       : NonEmptyStr | None = None
+    id             : str | None = None
+    location       : str | None = None
 
     @model_validator(mode="after")
     def _auto_id(self) -> Self:

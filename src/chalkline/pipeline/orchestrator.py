@@ -18,7 +18,7 @@ from loguru                        import logger
 from sklearn.pipeline              import Pipeline
 from typing                        import Self
 
-from chalkline                         import SkillMap
+from chalkline.extraction.skills       import SkillMap
 from chalkline.clustering.hierarchical import HierarchicalClusterer
 from chalkline.clustering.schemas      import ClusterLabel
 from chalkline.extraction.skills       import SkillExtractor

@@ -70,7 +70,7 @@ class TestPipelineConfig:
     @mark.parametrize("threshold", [0.0, 1.5])
     def test_variance_threshold_boundary(self, threshold: float, tmp_path: Path):
         """
-        Values at or beyond `UnitInterval` bounds are rejected.
+        Values at or beyond variance threshold bounds are rejected.
         """
         with raises(Exception):
             self._config(tmp_path, variance_threshold=threshold)

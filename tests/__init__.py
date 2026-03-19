@@ -1,3 +1,0 @@
-"""
-Chalkline test suite.
-"""

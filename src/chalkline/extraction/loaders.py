@@ -12,7 +12,6 @@ from pathlib  import Path
 from pydantic import TypeAdapter
 from slugify  import slugify
 
-from chalkline                    import NonEmptyStr
 from chalkline.extraction.schemas import Certification, OnetOccupation
 
 
@@ -34,8 +33,8 @@ class LexiconLoader:
         self.lexicon_dir      = lexicon_dir
         self.certifications   = self._load(list[Certification],  "Certifications")
         self.occupations      = self._load(list[OnetOccupation], "O*NET")
-        self.osha_terms       = self._load(list[NonEmptyStr],    "OSHA")
-        self.supplement_terms = self._load(list[NonEmptyStr],    "Supplement")
+        self.osha_terms       = self._load(list[str],    "OSHA")
+        self.supplement_terms = self._load(list[str],    "Supplement")
 
     def _load(self, schema: type, label: str) -> list:
         """

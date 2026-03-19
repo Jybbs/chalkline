@@ -38,14 +38,6 @@ class TestPosting:
         assert posting.id is not None
         assert "2026-03-01" in posting.id
 
-    @mark.parametrize("field", ["company", "source_url", "title"])
-    def test_empty_string(self, sample_posting: Posting, field: str):
-        """
-        Empty strings on `NonEmptyStr` fields raise `ValidationError`.
-        """
-        with raises(Exception, match="at least 1 character"):
-            Posting.model_validate(sample_posting.model_dump() | {field: ""})
-
     def test_explicit_id(self):
         """
         An explicitly provided `id` is not overwritten by auto-generation.

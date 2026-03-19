@@ -14,9 +14,10 @@ from loguru      import logger
 from nltk.stem   import PorterStemmer
 from re          import IGNORECASE, MULTILINE, search, sub
 
-from chalkline                     import SkillMap
 from chalkline.extraction.lexicons import LexiconRegistry
 from chalkline.extraction.schemas  import PatternBundle
+
+SkillMap = dict[str, list[str]]
 
 
 class SkillExtractor:

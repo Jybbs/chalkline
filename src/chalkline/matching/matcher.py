@@ -17,7 +17,7 @@ from loguru            import logger
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline  import Pipeline
 
-from chalkline                         import SkillMap
+from chalkline.extraction.skills       import SkillMap
 from chalkline.clustering.hierarchical import HierarchicalClusterer
 from chalkline.clustering.schemas      import ClusterLabel
 from chalkline.matching.schemas        import ClusterDistance, MatchResult

@@ -18,7 +18,7 @@ from loguru                      import logger
 from pydantic                    import TypeAdapter
 from sklearn.pipeline            import Pipeline
 
-from chalkline                          import SkillMap
+from chalkline.extraction.skills        import SkillMap
 from chalkline.association.cooccurrence import CooccurrenceNetwork
 from chalkline.clustering.hierarchical  import HierarchicalClusterer
 from chalkline.clustering.schemas       import ClusterLabel
