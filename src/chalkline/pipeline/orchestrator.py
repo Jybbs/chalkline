@@ -81,7 +81,7 @@ class Chalkline:
         b, r = "\033[1m", "\033[0m"
         d    = self.density
         return "\n".join([
-            f"{b}Chalkline Pipeline{r}",
+            f"{b}Chalkline{r}",
             f"  · {b}{len(self.extractor.vocabulary):,}{r} canonical skills in vocabulary",
             f"  · {b}{len(self.extracted_skills):,}{r} postings extracted",
             f"  · {b}{d['vocabulary_size']:,}{r} features in the TF-IDF matrix",
@@ -140,7 +140,7 @@ class Chalkline:
                 driver.Builder()
                 .with_modules(steps)
                 .with_adapters(FutureAdapter(), ProgressBar("chalkline"))
-                .with_cache(path=str(config.pipeline_dir / ".cache"))
+                .with_cache(path=str(config.hamilton_cache_dir))
                 .build()
                 .execute(
                     [f.name for f in fields(Chalkline)],

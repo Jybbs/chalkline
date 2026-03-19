@@ -12,7 +12,6 @@ data/stakeholder/
 !uv.lock
 .DS_Store
 .ipynb_checkpoints
-.pytest_cache
 .venv
 .vscode
 

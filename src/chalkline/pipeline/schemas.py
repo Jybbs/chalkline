@@ -99,6 +99,13 @@ class PipelineConfig(BaseModel, extra="forbid"):
     variance_threshold : UnitInterval = 0.85
 
     @cached_property
+    def hamilton_cache_dir(self) -> Path:
+        """
+        Hamilton disk cache directory for fitted node results.
+        """
+        return Path(".cache") / "hamilton"
+
+    @cached_property
     def pipeline_dir(self) -> Path:
         """
         Default directory for serialized pipeline artifacts.
