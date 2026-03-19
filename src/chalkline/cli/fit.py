@@ -21,14 +21,23 @@ def fit(
         Path,
         typer.Option(help="🗄️ Directory containing the posting corpus.")
     ] = Path("data/postings"),
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="🔩 Show diagnostic logs.")
+    ] = False,
 ):
     """
     🪚 [bold]Fit[/bold] the pipeline and print a summary.
 
     Runs extraction, vectorization, PCA, clustering, PMI, and graph
-    construction. Results are cached so subsequent calls with unchanged code
-    and config serve instantly.
+    construction. Results are cached so subsequent calls with unchanged
+    code and config serve instantly.
     """
+    from loguru import logger
+
+    if not verbose:
+        logger.disable("chalkline")
+
     from chalkline.pipeline.orchestrator import Chalkline
     from chalkline.pipeline.schemas      import PipelineConfig
 
@@ -37,4 +46,4 @@ def fit(
         output_dir   = output_dir,
         postings_dir = postings_dir,
     )
-    typer.echo(Chalkline.fit(config))
+    typer.echo(f"\n{Chalkline.fit(config)}")
