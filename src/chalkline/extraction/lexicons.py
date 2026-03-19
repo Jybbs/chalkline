@@ -32,14 +32,14 @@ def _ensure_nltk_data():
 
 class LexiconRegistry:
     """
-    Normalization index merging OSHA, O*NET, certification, and
-    supplement lexicons.
+    Normalization index merging OSHA, O*NET, certification, and supplement
+    lexicons.
 
     Builds lemmatized lookup indices from all lexicon sources using
     pre-decomposed sub-phrases for O*NET Tasks and DWAs, certification
     names, acronyms, and description phrases, and exposes a merged
-    `lemma_index` with OSHA > O*NET > certifications > supplement
-    priority for pattern matching.
+    `lemma_index` with OSHA > O*NET > certifications > supplement priority
+    for pattern matching.
     """
 
     def __init__(
@@ -76,10 +76,10 @@ class LexiconRegistry:
         """
         Build the O*NET normalization index from concrete types.
 
-        Decomposable types read pre-computed sub-phrases from the
-        `phrases` field populated at curation time, mapping each
-        phrase to itself as a canonical name. Non-decomposable
-        concrete types are indexed directly by `skill.name`.
+        Decomposable types read pre-computed sub-phrases from the `phrases`
+        field populated at curation time, mapping each phrase to itself as a
+        canonical name. Non-decomposable concrete types are indexed directly
+        by `skill.name`.
 
         Args:
             occupations: O*NET occupation records to index.
@@ -102,16 +102,14 @@ class LexiconRegistry:
         terms: list[str] | list[Certification] | None
     ) -> dict[str, str]:
         """
-        Build a dual-key mapping from terms to their canonical
-        forms.
+        Build a dual-key mapping from terms to their canonical forms.
 
-        Accepts either plain string terms or `Certification`
-        records. Each string term is stored under both its lemmatized
-        form and its lowercased original for robust lookup when
-        lemmatization produces an unexpected variant. For
-        certifications, names and description phrases are dual-key
-        indexed, and acronyms are mapped by lowercase to the
-        certification name.
+        Accepts either plain string terms or `Certification` records. Each
+        string term is stored under both its lemmatized form and its
+        lowercased original for robust lookup when lemmatization produces an
+        unexpected variant. For certifications, names and description
+        phrases are dual-key indexed, and acronyms are mapped by lowercase
+        to the certification name.
 
         Args:
             terms: Canonical skill names or certification records to index.
@@ -144,12 +142,11 @@ class LexiconRegistry:
         """
         Lowercase and lemmatize a term using noun-default WordNet.
 
-        All tokens are lemmatized as nouns because construction
-        skill terms are overwhelmingly nominal and the matching
-        contract requires only that index construction and
-        extraction-time lemmatization agree, not that they be
-        linguistically exact. A word-level cache avoids redundant
-        lemmatization across postings that share vocabulary.
+        All tokens are lemmatized as nouns because construction skill terms
+        are overwhelmingly nominal and the matching contract requires only
+        that index construction and extraction-time lemmatization agree, not
+        that they be linguistically exact. A word-level cache avoids
+        redundant lemmatization across postings that share vocabulary.
 
         Args:
             text: Raw skill term or phrase.
@@ -169,8 +166,8 @@ class LexiconRegistry:
         """
         Resolve a raw term to its canonical lexicon form.
 
-        Lemmatizes the input and looks it up in the merged index,
-        where OSHA entries take priority over O*NET.
+        Lemmatizes the input and looks it up in the merged index, where OSHA
+        entries take priority over O*NET.
 
         Args:
             raw_term: Unprocessed skill term from posting text.

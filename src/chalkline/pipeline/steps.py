@@ -1,11 +1,11 @@
 """
 Hamilton DAG node functions for the Chalkline pipeline.
 
-Each function is a node whose parameter names declare dependencies
-that Hamilton resolves automatically. The geometry track
-(vectorization, PCA, clustering) and co-occurrence track (PMI
-network) fork after vectorization and merge at the pathway graph,
-enabling parallel execution of independent branches.
+Each function is a node whose parameter names declare dependencies that
+Hamilton resolves automatically. The geometry track (vectorization, PCA,
+clustering) and co-occurrence track (PMI network) fork after vectorization
+and merge at the pathway graph, enabling parallel execution of independent
+branches.
 """
 
 import numpy  as np
@@ -79,8 +79,8 @@ def corpus(pipeline_config: PipelineConfig) -> dict[str, str]:
     Load posting texts from the corpus directory.
 
     Raises:
-        FileNotFoundError: When no JSON postings exist in the
-            configured directory.
+        FileNotFoundError: When no JSON postings exist in the configured
+                           directory.
     """
     if not (result := {
         p.id: p.description
@@ -97,13 +97,11 @@ def density(
     extracted_skills : SkillMap
 ) -> dict:
     """
-    Evaluate feature density of the lexicon-matching extraction
-    paradigm.
+    Evaluate feature density of the lexicon-matching extraction paradigm.
 
-    Logs vocabulary size, mean skills per posting, and the
-    fraction of posting pairs with zero skill overlap to assess
-    whether the feature space supports meaningful clustering
-    and gap ranking.
+    Logs vocabulary size, mean skills per posting, and the fraction of
+    posting pairs with zero skill overlap to assess whether the feature
+    space supports meaningful clustering and gap ranking.
     """
     n_docs     = len(extracted_skills)
     vocab_size = len({s for skills in extracted_skills.values() for s in skills})
@@ -132,8 +130,8 @@ def extracted_skills(
     extractor : SkillExtractor
 ) -> SkillMap:
     """
-    Extract canonical skills from each posting via
-    Aho-Corasick pattern matching.
+    Extract canonical skills from each posting via Aho-Corasick pattern
+    matching.
     """
     return extractor.extract(corpus)
 
@@ -150,14 +148,14 @@ def geometry_pipeline(
     vectorizer_pipeline : Pipeline
 ) -> Pipeline:
     """
-    Chain fitted vectorization and reduction into a single
-    sklearn `Pipeline` for resume projection.
+    Chain fitted vectorization and reduction into a single sklearn
+    `Pipeline` for resume projection.
 
-    Extracts the named steps from the vectorizer pipeline
-    (DictVectorizer, TfidfTransformer, Normalizer) and the
-    reducer pipeline (TruncatedSVD, StandardScaler) into one
-    five-step `Pipeline` whose `transform([skill_dict])`
-    projects a resume directly into PCA-scaled coordinates.
+    Extracts the named steps from the vectorizer pipeline (DictVectorizer,
+    TfidfTransformer, Normalizer) and the reducer pipeline (TruncatedSVD,
+    StandardScaler) into one five-step `Pipeline` whose
+    `transform([skill_dict])` projects a resume directly into PCA-scaled
+    coordinates.
     """
     pca_steps = reducer_pipeline.named_steps
     vec_steps = vectorizer_pipeline.named_steps
@@ -176,8 +174,8 @@ def graph(
     profiles        : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
     """
-    Build the career pathway DAG from cluster profiles and
-    PMI co-occurrence edges.
+    Build the career pathway DAG from cluster profiles and PMI co-occurrence
+    edges.
     """
     return CareerPathwayGraph(
         max_density = pipeline_config.max_graph_density,
@@ -219,8 +217,8 @@ def matcher(
     trades            : TradeIndex
 ) -> ResumeMatcher:
     """
-    Fit nearest-neighbor models on cluster centroids for
-    single-resume inference.
+    Fit nearest-neighbor models on cluster centroids for single-resume
+    inference.
     """
     return ResumeMatcher(
         cluster_labels    = cluster_labels,
@@ -241,8 +239,8 @@ def network(
     pipeline_config : PipelineConfig
 ) -> CooccurrenceNetwork:
     """
-    Build the PMI co-occurrence network from the binary
-    skill-presence matrix.
+    Build the PMI co-occurrence network from the binary skill-presence
+    matrix.
     """
     return CooccurrenceNetwork(
         binary_matrix    = binary_matrix,
@@ -275,14 +273,13 @@ def profiles(
     trades           : TradeIndex
 ) -> dict[int, ClusterProfile]:
     """
-    Enrich HAC clusters with sector, Job Zone, apprenticeship,
-    and program annotations.
+    Enrich HAC clusters with sector, Job Zone, apprenticeship, and program
+    annotations.
 
-    Aggregates the union skill set per cluster from extracted
-    skills, resolves sector via majority vote on SOC-matched
-    labels, assigns Job Zone via overlap coefficient against
-    concrete O*NET profiles, and links apprenticeships and
-    programs via the shared `TradeIndex` prefix lookups.
+    Aggregates the union skill set per cluster from extracted skills,
+    resolves sector via majority vote on SOC-matched labels, assigns Job
+    Zone via overlap coefficient against concrete O*NET profiles, and links
+    apprenticeships and programs via the shared `TradeIndex` prefix lookups.
     """
     cluster_sectors = defaultdict(list)
     cluster_skills  = defaultdict(set)
@@ -323,11 +320,11 @@ def reducer(
     tfidf_matrix    : object
 ) -> dict:
     """
-    Fit PCA via TruncatedSVD and expose coordinates and the
-    fitted sklearn pipeline.
+    Fit PCA via TruncatedSVD and expose coordinates and the fitted sklearn
+    pipeline.
 
-    The `coordinates` feed the clusterer while the
-    `reducer_pipeline` feeds geometry pipeline composition.
+    The `coordinates` feed the clusterer while the `reducer_pipeline` feeds
+    geometry pipeline composition.
     """
     r = PcaReducer(
         max_components     = pipeline_config.max_components,
@@ -359,8 +356,7 @@ def router(
     trades   : TradeIndex
 ) -> CareerRouter:
     """
-    Build the career router with centrality and edge
-    enrichment.
+    Build the career router with centrality and edge enrichment.
     """
     return CareerRouter(
         graph    = graph.graph,
@@ -377,10 +373,9 @@ def sector_labels(
     """
     Map postings to SOC codes via Jaccard-nearest occupation.
 
-    For each document in row order, finds the O*NET occupation
-    whose skill profile has maximum Jaccard overlap with the
-    posting's canonical skill set, then returns that
-    occupation's SOC code.
+    For each document in row order, finds the O*NET occupation whose skill
+    profile has maximum Jaccard overlap with the posting's canonical skill
+    set, then returns that occupation's SOC code.
     """
     return [
         occupation_index.get(
@@ -392,8 +387,7 @@ def sector_labels(
 
 def trades(pipeline_config: PipelineConfig) -> TradeIndex:
     """
-    Load apprenticeship and program reference data into a
-    `TradeIndex`.
+    Load apprenticeship and program reference data into a `TradeIndex`.
     """
     d = pipeline_config.lexicon_dir
     return TradeIndex(
@@ -420,10 +414,9 @@ def vectorizer(
     Fit TF-IDF vectorization and expose intermediate matrices.
 
     Returns fields consumed independently by downstream nodes:
-    `tfidf_matrix` for PCA and cluster labeling,
-    `binary_matrix` for co-occurrence, `document_ids` and
-    `feature_names` for alignment, and `vectorizer_pipeline`
-    for geometry composition.
+    `tfidf_matrix` for PCA and cluster labeling, `binary_matrix` for
+    co-occurrence, `document_ids` and `feature_names` for alignment, and
+    `vectorizer_pipeline` for geometry composition.
     """
     v = SkillVectorizer(extracted_skills)
     return {

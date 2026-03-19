@@ -1,6 +1,6 @@
 """
-Average-linkage hierarchical agglomerative clustering with
-TF-IDF centroid labeling.
+Average-linkage hierarchical agglomerative clustering with TF-IDF centroid
+labeling.
 
 Fits average linkage on PCA-reduced coordinates, selects a flat partition
 via the merge-height acceleration criterion, and exposes centroid
@@ -23,8 +23,7 @@ class HierarchicalClusterer:
 
     Computes the average linkage matrix with optimal leaf ordering and
     selects a flat partition via the merge-height acceleration criterion,
-    which finds the largest second derivative of the merge height
-    sequence:
+    which finds the largest second derivative of the merge height sequence:
 
         k = argmax{d^2 h_i} + 2
 
@@ -40,9 +39,9 @@ class HierarchicalClusterer:
         """
         Fit average-linkage HAC and derive cluster assignments.
 
-        Computes the linkage matrix with optimal leaf ordering,
-        selects k via merge-height acceleration, and cuts the
-        tree at the selected partition.
+        Computes the linkage matrix with optimal leaf ordering, selects k
+        via merge-height acceleration, and cuts the tree at the selected
+        partition.
 
         Args:
             coordinates  : PCA output, shape `(n_postings, n_selected)`.
@@ -77,10 +76,9 @@ class HierarchicalClusterer:
         """
         Select the number of clusters via merge-height acceleration.
 
-        Finds the largest second derivative of the merge height
-        sequence, scanning from the right (fewest clusters) toward
-        finer partitions. Falls back to k=2 when the tree has
-        fewer than 4 leaves.
+        Finds the largest second derivative of the merge height sequence,
+        scanning from the right (fewest clusters) toward finer partitions.
+        Falls back to k=2 when the tree has fewer than 4 leaves.
 
         Returns:
             Optimal cluster count.
@@ -98,11 +96,10 @@ class HierarchicalClusterer:
         """
         Human-readable labels from top TF-IDF centroid terms.
 
-        Averages the TF-IDF vectors of each cluster's members
-        (aligned with `document_ids` row order) and extracts the
-        `top_n` highest-weighted terms. Centroid computation
-        stays sparse per cluster rather than materializing the
-        full dense matrix.
+        Averages the TF-IDF vectors of each cluster's members (aligned with
+        `document_ids` row order) and extracts the `top_n` highest-weighted
+        terms. Centroid computation stays sparse per cluster rather than
+        materializing the full dense matrix.
 
         Args:
             feature_names : TF-IDF vocabulary in column order.

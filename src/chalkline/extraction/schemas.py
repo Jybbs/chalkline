@@ -1,10 +1,10 @@
 """
 Schemas for lexicon validation and skill extraction.
 
-Defines the certification model for CareerOneStop entries, the O*NET
-element type taxonomy, skill entry structure, and occupation profile
-model that `onet.json` is validated against at load time, and the
-pattern bundle that groups surface forms for Aho-Corasick matching.
+Defines the certification model for CareerOneStop entries, the O*NET element
+type taxonomy, skill entry structure, and occupation profile model that
+`onet.json` is validated against at load time, and the pattern bundle that
+groups surface forms for Aho-Corasick matching.
 """
 
 from enum     import StrEnum
@@ -18,10 +18,10 @@ class Certification(BaseModel, extra="forbid"):
     """
     A CareerOneStop certification linked to stakeholder SOC codes.
 
-    Each certification contributes its name and acronym (when present
-    and non-ambiguous) as Aho-Corasick patterns. Descriptions are
-    decomposed into matchable sub-phrases via POS-based NP/VP
-    chunking at curation time.
+    Each certification contributes its name and acronym (when present and
+    non-ambiguous) as Aho-Corasick patterns. Descriptions are decomposed
+    into matchable sub-phrases via POS-based NP/VP chunking at curation
+    time.
     """
 
     name      : NonEmptyStr
@@ -57,8 +57,8 @@ class OnetSkillType(StrEnum):
         Whether this type feeds the normalization index.
 
         Concrete types carry matchable text that appears in posting
-        descriptions. Abstract KSA types are excluded from normalization
-        but remain available for Jaccard matching.
+        descriptions. Abstract KSA types are excluded from normalization but
+        remain available for Jaccard matching.
 
         Returns:
             `True` if this type is concrete, `False` for KSA types.
@@ -75,9 +75,9 @@ class OnetSkill(BaseModel, extra="forbid"):
     A single skill entry within an O*NET occupation.
 
     Concrete element types carry `None` for `importance` and `level`,
-    whereas abstract KSA types populate both fields with numeric
-    ratings. Decomposable types (Tasks, DWAs) carry pre-computed
-    sub-phrases from POS-based chunking performed at curation time.
+    whereas abstract KSA types populate both fields with numeric ratings.
+    Decomposable types (Tasks, DWAs) carry pre-computed sub-phrases from
+    POS-based chunking performed at curation time.
     """
 
     name : NonEmptyStr
@@ -92,8 +92,8 @@ class OnetOccupation(BaseModel, extra="forbid"):
     """
     An O*NET occupation with its full skill profile.
 
-    Each of the 21 stakeholder SOC codes maps to one occupation
-    containing skills across all 8 element types.
+    Each of the 21 stakeholder SOC codes maps to one occupation containing
+    skills across all 8 element types.
     """
 
     job_zone : int = Field(ge=1, le=5)
@@ -107,9 +107,9 @@ class PatternBundle(NamedTuple):
     """
     Complete output of surface form generation.
 
-    Groups the parallel pattern and canonical name lists with
-    the character set derived from all patterns, used as a
-    preprocessing filter during extraction.
+    Groups the parallel pattern and canonical name lists with the character
+    set derived from all patterns, used as a preprocessing filter during
+    extraction.
     """
 
     canonicals : list[str]

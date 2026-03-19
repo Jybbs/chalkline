@@ -1,10 +1,10 @@
 """
 Lexicon file loading for the extraction pipeline.
 
-Deserializes and validates JSON lexicon files from a directory,
-returning empty collections for missing files so that downstream
-normalization can proceed with whichever lexicons are available.
-File names are derived from labels via `slugify`.
+Deserializes and validates JSON lexicon files from a directory, returning
+empty collections for missing files so that downstream normalization can
+proceed with whichever lexicons are available. File names are derived from
+labels via `slugify`.
 """
 
 from loguru   import logger
@@ -20,17 +20,16 @@ class LexiconLoader:
     """
     Load and validate lexicon files from a directory.
 
-    Each attribute holds the validated contents of one lexicon
-    file, falling back to an empty list if the file is missing.
-    File names are derived from the label via `slugify` to match
-    the canonical layout in `data/lexicons/`.
+    Each attribute holds the validated contents of one lexicon file, falling
+    back to an empty list if the file is missing. File names are derived
+    from the label via `slugify` to match the canonical layout in
+    `data/lexicons/`.
     """
 
     def __init__(self, lexicon_dir: Path):
         """
         Args:
-            lexicon_dir: Directory containing the lexicon JSON
-                         files.
+            lexicon_dir: Directory containing the lexicon JSON files.
         """
         self.lexicon_dir      = lexicon_dir
         self.certifications   = self._load(list[Certification],  "Certifications")
@@ -40,11 +39,10 @@ class LexiconLoader:
 
     def _load(self, schema: type, label: str) -> list:
         """
-        Validate a JSON lexicon file, returning an empty list
-        if missing.
+        Validate a JSON lexicon file, returning an empty list if missing.
 
-        Derives the filename from `label` via `slugify` so that
-        callers specify only the human-readable lexicon name.
+        Derives the filename from `label` via `slugify` so that callers
+        specify only the human-readable lexicon name.
 
         Args:
             schema : Element type for the `TypeAdapter`.

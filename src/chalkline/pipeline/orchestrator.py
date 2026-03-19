@@ -1,12 +1,11 @@
 """
 End-to-end pipeline orchestrator for Chalkline career mapping.
 
-Coordinates the geometry track (extraction, vectorization, PCA,
-clustering) and co-occurrence track (PMI network, Louvain communities)
-into a fitted `Chalkline` instance constructed via `fit()`. Hamilton
-resolves the DAG from function parameter names, caches every node
-result, and serves from cache on subsequent calls with unchanged
-code and config.
+Coordinates the geometry track (extraction, vectorization, PCA, clustering)
+and co-occurrence track (PMI network, Louvain communities) into a fitted
+`Chalkline` instance constructed via `fit()`. Hamilton resolves the DAG from
+function parameter names, caches every node result, and serves from cache on
+subsequent calls with unchanged code and config.
 """
 
 import pandas as pd
@@ -40,10 +39,10 @@ class Chalkline:
     Fitted career mapping pipeline.
 
     Coordinates the geometry track (extraction, vectorization, PCA,
-    clustering) and co-occurrence track (PMI network, Louvain
-    communities) into a fitted landscape. Call `fit()` to compute
-    from scratch or restore from cache, then access fitted artifacts
-    directly or call `match()` for single-resume inference.
+    clustering) and co-occurrence track (PMI network, Louvain communities)
+    into a fitted landscape. Call `fit()` to compute from scratch or restore
+    from cache, then access fitted artifacts directly or call `match()` for
+    single-resume inference.
     """
 
     cluster_labels    : list[ClusterLabel]
@@ -67,12 +66,12 @@ class Chalkline:
         top_k       : int | None = None
     ) -> MatchResult:
         """
-        Project a resume into the fitted career landscape and
-        return a full match result with gap analysis.
+        Project a resume into the fitted career landscape and return a full
+        match result with gap analysis.
 
         Extracts skills from the resume text via the fitted
-        `SkillExtractor`, then delegates projection, cluster
-        assignment, and gap ranking to the `ResumeMatcher`.
+        `SkillExtractor`, then delegates projection, cluster assignment, and
+        gap ranking to the `ResumeMatcher`.
 
         Args:
             resume_text : Raw resume text (post-PDF extraction).
@@ -92,12 +91,11 @@ class Chalkline:
         """
         Execute all pipeline steps and return a fitted pipeline.
 
-        Builds a Hamilton DAG from the node functions in `steps`
-        with disk caching and parallel thread execution enabled.
-        First call computes every node and persists results.
-        Subsequent calls with unchanged code and config serve
-        from cache, making `fit()` idempotent. Independent
-        branches (geometry and co-occurrence tracks) run
+        Builds a Hamilton DAG from the node functions in `steps` with disk
+        caching and parallel thread execution enabled. First call computes
+        every node and persists results. Subsequent calls with unchanged
+        code and config serve from cache, making `fit()` idempotent.
+        Independent branches (geometry and co-occurrence tracks) run
         concurrently via `FutureAdapter`.
 
         Args:

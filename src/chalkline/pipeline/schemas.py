@@ -15,13 +15,12 @@ from chalkline import UnitInterval
 
 class ApprenticeshipContext(BaseModel, extra="forbid"):
     """
-    AGC-registered apprenticeship program from curated reference
-    data.
+    AGC-registered apprenticeship program from curated reference data.
 
     Each record represents a RAPIDS-coded trade with pre-computed
-    `min_hours` and 4-character prefix sets for runtime matching.
-    Used by the pathway graph for node enrichment and by the
-    resume matcher for gap-to-trade linking.
+    `min_hours` and 4-character prefix sets for runtime matching. Used by
+    the pathway graph for node enrichment and by the resume matcher for
+    gap-to-trade linking.
     """
 
     min_hours   : int
@@ -34,10 +33,10 @@ class ClusterProfile(BaseModel, extra="forbid"):
     """
     Domain characteristics of a single career cluster.
 
-    Aggregates the Job Zone, sector, posting count, and union skill
-    set for a cluster identified by hierarchical agglomerative
-    clustering. Consumed by the pathway graph for node construction
-    and by the career report for cluster display.
+    Aggregates the Job Zone, sector, posting count, and union skill set for
+    a cluster identified by hierarchical agglomerative clustering. Consumed
+    by the pathway graph for node construction and by the career report for
+    cluster display.
     """
 
     cluster_id : int      = Field(ge=0)
@@ -55,8 +54,8 @@ class ClusterProfile(BaseModel, extra="forbid"):
         """
         Sort key for edge direction: (Job Zone, cluster ID).
 
-        Lower rank is the edge source in the career DAG, ensuring
-        edges flow from entry-level to advanced roles.
+        Lower rank is the edge source in the career DAG, ensuring edges flow
+        from entry-level to advanced roles.
         """
         return (self.job_zone, self.cluster_id)
 
@@ -65,12 +64,11 @@ class PipelineManifest(BaseModel, extra="forbid"):
     """
     Provenance metadata for serialized pipeline artifacts.
 
-    Tracks which corpus and configuration produced the fitted
-    artifacts so that stale caches can be detected on reload.
-    The `geometry_params` field stores the output of
-    `Chalkline.geometry_pipeline.get_params(deep=True)` for
-    ground-truth reproducibility without manually mirroring
-    config values.
+    Tracks which corpus and configuration produced the fitted artifacts so
+    that stale caches can be detected on reload. The `geometry_params` field
+    stores the output of `Chalkline.geometry_pipeline.get_params(deep=True)`
+    for ground-truth reproducibility without manually mirroring config
+    values.
     """
 
     corpus_size     : int
@@ -84,8 +82,8 @@ class PipelineConfig(BaseModel, extra="forbid"):
     End-to-end configuration for the Chalkline pipeline.
 
     Required path fields locate the corpus, lexicons, and output
-    directories. Optional fields control hyperparameters with
-    defaults tuned for the 922-posting Maine construction corpus.
+    directories. Optional fields control hyperparameters with defaults tuned
+    for the 922-posting Maine construction corpus.
     """
 
     lexicon_dir  : Path
@@ -112,9 +110,9 @@ class ProgramRecommendation(BaseModel, extra="forbid"):
     """
     Normalized educational program recommendation.
 
-    Unifies community college programs and university programs
-    into a consistent schema with pre-computed 4-character prefix
-    sets for runtime matching via `TradeIndex`.
+    Unifies community college programs and university programs into a
+    consistent schema with pre-computed 4-character prefix sets for runtime
+    matching via `TradeIndex`.
     """
 
     credential  : str

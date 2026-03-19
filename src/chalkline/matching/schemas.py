@@ -16,9 +16,9 @@ class ClusterDistance(BaseModel, extra="forbid"):
     """
     Distance from the resume to a single cluster centroid.
 
-    Provides both the cluster identifier and the geometric distance
-    in PCA space, enabling the career report to show proximity to
-    all career families rather than only the assigned one.
+    Provides both the cluster identifier and the geometric distance in PCA
+    space, enabling the career report to show proximity to all career
+    families rather than only the assigned one.
     """
 
     cluster_id : int = Field(ge = 0)
@@ -27,12 +27,11 @@ class ClusterDistance(BaseModel, extra="forbid"):
 
 class NeighborMatch(BaseModel, extra="forbid"):
     """
-    A single nearest-neighbor posting within the assigned career
-    family.
+    A single nearest-neighbor posting within the assigned career family.
 
     Carries both the geometric distance in PCA space and the Jaccard
-    similarity on discrete skill sets, giving two complementary views
-    of how closely the resume resembles the posting.
+    similarity on discrete skill sets, giving two complementary views of how
+    closely the resume resembles the posting.
     """
 
     distance    : float
@@ -45,11 +44,10 @@ class RankedGap(BaseModel, extra="forbid"):
     """
     A single skill gap ranked by PPMI relevance to the resume.
 
-    The relevance score is the mean PPMI between the gap skill and
-    the resume's existing skills, scoped to the matched cluster's
-    TF-IDF centroid terms. Apprenticeship and program annotations
-    provide actionable next steps when the gap aligns with a known
-    training pathway.
+    The relevance score is the mean PPMI between the gap skill and the
+    resume's existing skills, scoped to the matched cluster's TF-IDF
+    centroid terms. Apprenticeship and program annotations provide
+    actionable next steps when the gap aligns with a known training pathway.
     """
 
     relevance : float
@@ -61,13 +59,13 @@ class RankedGap(BaseModel, extra="forbid"):
 
 class MatchResult(BaseModel, extra="forbid"):
     """
-    Full result of projecting a resume into PCA space and matching
-    to career families.
+    Full result of projecting a resume into PCA space and matching to career
+    families.
 
-    Captures the nearest career family, distances to all clusters,
-    top-5 nearest postings with Jaccard scores, the raw skill gap,
-    PPMI-ranked gaps with enrichment annotations, and aggregate
-    apprenticeship and program recommendations across all gaps.
+    Captures the nearest career family, distances to all clusters, top-5
+    nearest postings with Jaccard scores, the raw skill gap, PPMI-ranked
+    gaps with enrichment annotations, and aggregate apprenticeship and
+    program recommendations across all gaps.
     """
 
     cluster_distances : list[ClusterDistance]

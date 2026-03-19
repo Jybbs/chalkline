@@ -1,10 +1,10 @@
 """
 Trade index for apprenticeship and program matching.
 
-Holds pre-normalized apprenticeship and educational program reference
-data and matches skill strings against both via 4-character prefix
-overlap. Each record carries a pre-computed `prefixes` set from
-curation, and the `TradeIndex` class handles the query side.
+Holds pre-normalized apprenticeship and educational program reference data
+and matches skill strings against both via 4-character prefix overlap. Each
+record carries a pre-computed `prefixes` set from curation, and the
+`TradeIndex` class handles the query side.
 """
 
 from collections.abc import Iterable
@@ -15,12 +15,12 @@ from chalkline.pipeline.schemas import ProgramRecommendation
 
 class TradeIndex:
     """
-    Matches skill strings against apprenticeship trades and
-    educational programs via 4-character prefix overlap.
+    Matches skill strings against apprenticeship trades and educational
+    programs via 4-character prefix overlap.
 
-    Built once by the orchestrator, then passed to
-    `build_profiles`, `ResumeMatcher`, and `CareerRouter` so
-    that each consumer shares the same reference lists.
+    Built once by the orchestrator, then passed to `build_profiles`,
+    `ResumeMatcher`, and `CareerRouter` so that each consumer shares the
+    same reference lists.
     """
 
     def __init__(
@@ -41,21 +41,19 @@ class TradeIndex:
         terms: Iterable[str]
     ) -> tuple[list[ApprenticeshipContext], list[ProgramRecommendation]]:
         """
-        All apprenticeships and programs whose names share
-        prefixes with the given terms.
+        All apprenticeships and programs whose names share prefixes with the
+        given terms.
 
-        Computes the query prefix set once and matches against
-        both reference collections in a single pass. Each
-        record's pre-computed `prefixes` field provides the
-        reference-side prefix set.
+        Computes the query prefix set once and matches against both
+        reference collections in a single pass. Each record's pre-computed
+        `prefixes` field provides the reference-side prefix set.
 
         Args:
-            terms: Skill names, cluster labels, or other text
-                   to match against reference records.
+            terms: Skill names, cluster labels, or other text to match
+                   against reference records.
 
         Returns:
-            Tuple of (matching apprenticeships, matching
-            programs).
+            Tuple of (matching apprenticeships, matching programs).
         """
         query = {
             w[:4] for term in terms

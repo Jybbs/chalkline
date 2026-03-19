@@ -3,9 +3,9 @@ Skill extraction from job posting text via Aho-Corasick matching.
 
 Builds surface form variants for each lexicon term, loads them into a
 `pyahocorasick` automaton with longest-match semantics, and runs a
-single-pass match per posting with word boundary enforcement. The output
-is a mapping from document identifiers to deduplicated, sorted canonical
-skill names.
+single-pass match per posting with word boundary enforcement. The output is
+a mapping from document identifiers to deduplicated, sorted canonical skill
+names.
 """
 
 from ahocorasick import Automaton
@@ -23,12 +23,11 @@ class SkillExtractor:
     """
     Aho-Corasick skill extractor with surface form augmentation.
 
-    Generates lowercased, lemmatized, stemmed, and inverted bigram
-    variants for each lexicon term, loads them into a
-    `pyahocorasick` automaton, and provides a single `extract()`
-    method that preprocesses posting text, lemmatizes, matches
-    with word boundary enforcement via `iter_long()`, and returns
-    deduplicated canonical skill names per document.
+    Generates lowercased, lemmatized, stemmed, and inverted bigram variants
+    for each lexicon term, loads them into a `pyahocorasick` automaton, and
+    provides a single `extract()` method that preprocesses posting text,
+    lemmatizes, matches with word boundary enforcement via `iter_long()`,
+    and returns deduplicated canonical skill names per document.
     """
 
     def __init__(self, registry: LexiconRegistry):
@@ -36,8 +35,8 @@ class SkillExtractor:
         Build skill automaton from registry data.
 
         Args:
-            registry: Lexicon registry with merged `lemma_index`
-                      and `lemmatize` method.
+            registry: Lexicon registry with merged `lemma_index` and
+                      `lemmatize` method.
         """
         self.registry  = registry
         self.stemmer   = PorterStemmer()
@@ -52,8 +51,7 @@ class SkillExtractor:
     @property
     def vocabulary(self) -> set[str]:
         """
-        The set of all canonical skill names loadable by this
-        extractor.
+        The set of all canonical skill names loadable by this extractor.
 
         Returns:
             Unique canonical names across all loaded patterns.
@@ -65,8 +63,8 @@ class SkillExtractor:
         Load all surface form patterns into an Aho-Corasick automaton.
 
         Each pattern is keyed by its positional index into
-        `self.bundle.patterns` and `self.bundle.metadata`,
-        enabling O(1) metadata lookup during matching.
+        `self.bundle.patterns` and `self.bundle.metadata`, enabling O(1)
+        metadata lookup during matching.
 
         Returns:
             A finalized automaton ready for `iter_long()` queries.
@@ -82,16 +80,15 @@ class SkillExtractor:
         """
         Generate augmented surface forms with parallel canonicals.
 
-        For each unique canonical name in the registry's
-        `lemma_index`, produces lowercased canonical, all
-        lemmatized keys, Porter-stemmed variants, and inverted
-        bigrams for two-word skills. The character set is
-        accumulated during iteration for use as a preprocessing
+        For each unique canonical name in the registry's `lemma_index`,
+        produces lowercased canonical, all lemmatized keys, Porter-stemmed
+        variants, and inverted bigrams for two-word skills. The character
+        set is accumulated during iteration for use as a preprocessing
         filter.
 
         Returns:
-            A `PatternBundle` of pattern strings, their canonical
-            names, and the set of all characters in patterns.
+            A `PatternBundle` of pattern strings, their canonical names, and
+            the set of all characters in patterns.
         """
         canonicals = []
         chars      = set()
@@ -128,9 +125,9 @@ class SkillExtractor:
         """
         Run the automaton and return deduplicated canonical names.
 
-        Matches are filtered for word boundaries and then
-        deduplicated by canonical name. `iter_long()` already
-        prefers longer matches at each position.
+        Matches are filtered for word boundaries and then deduplicated by
+        canonical name. `iter_long()` already prefers longer matches at each
+        position.
 
         Args:
             text: Lemmatized posting text.
@@ -151,14 +148,13 @@ class SkillExtractor:
         """
         Normalize raw posting text for skill matching.
 
-        Drops preamble text before the first structural marker and
-        EEO boilerplate after the first equal-opportunity marker,
-        strips HTML tags, splits camelCase terms, lowercases,
-        removes characters absent from lexicon patterns, and
-        collapses whitespace. The allowed character set is derived
-        at init time from the automaton patterns themselves, so the
-        filter is always consistent with whatever the lexicons
-        contain.
+        Drops preamble text before the first structural marker and EEO
+        boilerplate after the first equal-opportunity marker, strips HTML
+        tags, splits camelCase terms, lowercases, removes characters absent
+        from lexicon patterns, and collapses whitespace. The allowed
+        character set is derived at init time from the automaton patterns
+        themselves, so the filter is always consistent with whatever the
+        lexicons contain.
 
         Args:
             text: Raw posting description.
@@ -202,19 +198,18 @@ class SkillExtractor:
 
     def extract(self, postings: dict[str, str]) -> SkillMap:
         """
-        Extract canonical skill names from a corpus of posting
-        texts.
+        Extract canonical skill names from a corpus of posting texts.
 
-        Each posting is preprocessed, lemmatized, and matched
-        against the skill automaton. Postings with zero matched
-        skills are excluded from the output.
+        Each posting is preprocessed, lemmatized, and matched against the
+        skill automaton. Postings with zero matched skills are excluded from
+        the output.
 
         Args:
             postings: Mapping from document identifier to raw text.
 
         Returns:
-            Mapping from document identifier to sorted canonical
-            skill names, excluding documents with no matches.
+            Mapping from document identifier to sorted canonical skill
+            names, excluding documents with no matches.
         """
         results = {}
 

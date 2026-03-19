@@ -1,12 +1,12 @@
 """
 Career routing with centrality analysis and widest-path computation.
 
-Consumes a career pathway DAG and cluster profiles, computes
-four centrality measures as node attributes, and provides on-demand
-widest-path routing with skill gap bridging and enrichment annotation
-per transition step. The widest-path algorithm maximizes the minimum
-edge weight along the route, identifying the most achievable career
-progression rather than the fewest transitions.
+Consumes a career pathway DAG and cluster profiles, computes four centrality
+measures as node attributes, and provides on-demand widest-path routing with
+skill gap bridging and enrichment annotation per transition step. The
+widest-path algorithm maximizes the minimum edge weight along the route,
+identifying the most achievable career progression rather than the fewest
+transitions.
 """
 
 import networkx as nx
@@ -26,13 +26,12 @@ class CareerRouter:
     """
     Centrality analysis and widest-path routing on the career DAG.
 
-    Accepts a NetworkX DiGraph and cluster profiles directly,
-    computes betweenness, in-degree, out-degree, and PageRank
-    centrality at construction time, and exposes on-demand
-    widest-path routing with progressive learning plan generation.
-    Bridging skills and enrichment annotations are precomputed per
-    edge during construction for downstream assembly into
-    transition steps.
+    Accepts a NetworkX DiGraph and cluster profiles directly, computes
+    betweenness, in-degree, out-degree, and PageRank centrality at
+    construction time, and exposes on-demand widest-path routing with
+    progressive learning plan generation. Bridging skills and enrichment
+    annotations are precomputed per edge during construction for downstream
+    assembly into transition steps.
     """
 
     def __init__(
@@ -44,18 +43,17 @@ class CareerRouter:
         """
         Compute centrality and edge enrichment attributes eagerly.
 
-        Both passes are negligible at the expected graph scale
-        (5-21 nodes under healthy clustering). Centrality scores
-        are stored as node attributes, while bridging skills and
-        enrichment matches are stored as edge attributes. The
-        shared `TradeIndex` provides precomputed prefix lookup
-        dicts for apprenticeship and program matching, eliminating
-        redundant prefix dict construction.
+        Both passes are negligible at the expected graph scale (5-21 nodes
+        under healthy clustering). Centrality scores are stored as node
+        attributes, while bridging skills and enrichment matches are stored
+        as edge attributes. The shared `TradeIndex` provides precomputed
+        prefix lookup dicts for apprenticeship and program matching,
+        eliminating redundant prefix dict construction.
 
         Args:
             graph       : Career DAG with weighted edges.
-            profiles    : Enriched cluster characteristics keyed
-                          by cluster ID.
+            profiles    : Enriched cluster characteristics keyed by cluster
+                          ID.
             trades : Precomputed prefix lookup index.
         """
         self.graph      = graph
@@ -70,8 +68,7 @@ class CareerRouter:
 
     def _build_step(self, source: int, target: int) -> TransitionStep:
         """
-        Assemble a `TransitionStep` from precomputed edge
-        attributes.
+        Assemble a `TransitionStep` from precomputed edge attributes.
 
         Args:
             source : Source cluster ID.
@@ -93,8 +90,8 @@ class CareerRouter:
 
     def _compute_centrality(self):
         """
-        Compute four centrality measures and store as node
-        attributes on the career DAG.
+        Compute four centrality measures and store as node attributes on the
+        career DAG.
         """
         if not self.graph.number_of_edges():
             n = self.graph.number_of_nodes()
@@ -117,11 +114,11 @@ class CareerRouter:
         """
         Precompute bridging skills and enrichment per edge.
 
-        For each edge, stores the skill set difference between
-        target and source cluster profiles, matched apprenticeships,
-        matched programs, and estimated training hours. Enrichment
-        matching delegates to the shared `TradeIndex` prefix
-        lookups rather than rebuilding them locally.
+        For each edge, stores the skill set difference between target and
+        source cluster profiles, matched apprenticeships, matched programs,
+        and estimated training hours. Enrichment matching delegates to the
+        shared `TradeIndex` prefix lookups rather than rebuilding them
+        locally.
         """
         for s, t, data in self.graph.edges(data=True):
             bridging    = sorted(self.profiles[t].skills - self.profiles[s].skills)
@@ -140,8 +137,8 @@ class CareerRouter:
         """
         Build a `CareerRoute` from an ordered list of cluster IDs.
 
-        Constructs `TransitionStep` records for each adjacent pair
-        and derives the bottleneck weight as the minimum step weight.
+        Constructs `TransitionStep` records for each adjacent pair and
+        derives the bottleneck weight as the minimum step weight.
 
         Args:
             path: Ordered cluster IDs from source to target.
@@ -164,20 +161,19 @@ class CareerRouter:
         """
         Progressive learning plan along the widest career route.
 
-        Delegates route construction to `widest_path`, then
-        aggregates bridging skills and estimated hours across
-        transition steps. Logs when the widest and shortest paths
-        diverge across pairs with multiple simple paths, since the
-        divergence reveals where the two optimization objectives
-        disagree.
+        Delegates route construction to `widest_path`, then aggregates
+        bridging skills and estimated hours across transition steps. Logs
+        when the widest and shortest paths diverge across pairs with
+        multiple simple paths, since the divergence reveals where the two
+        optimization objectives disagree.
 
         Args:
             source : Source cluster ID (from resume match).
             target : Target cluster ID (career goal).
 
         Returns:
-            Learning plan with per-step detail, or `None` if the
-            target is unreachable from the source.
+            Learning plan with per-step detail, or `None` if the target is
+            unreachable from the source.
         """
         if (route := self.widest_path(source, target)) is None:
             return None
@@ -193,20 +189,20 @@ class CareerRouter:
 
     def widest_path(self, source: int, target: int) -> CareerRoute | None:
         """
-        Widest (maximum bottleneck) career route between two
-        clusters via topological DP.
+        Widest (maximum bottleneck) career route between two clusters via
+        topological DP.
 
-        Walks nodes in topological order, relaxing each edge with
-        max-min bottleneck semantics in O(V + E). DAG acyclicity
-        guarantees a single topological pass suffices.
+        Walks nodes in topological order, relaxing each edge with max-min
+        bottleneck semantics in O(V + E). DAG acyclicity guarantees a single
+        topological pass suffices.
 
         Args:
             source : Source cluster ID.
             target : Target cluster ID.
 
         Returns:
-            Career route with bottleneck weight and transition
-            steps, or `None` if unreachable.
+            Career route with bottleneck weight and transition steps, or
+            `None` if unreachable.
         """
         best = {source: (float("inf"), None)}
 

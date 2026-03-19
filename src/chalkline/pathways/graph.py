@@ -2,11 +2,11 @@
 Career pathway graph from HAC clusters and NPMI co-occurrence edges.
 
 Constructs a directed weighted DiGraph where nodes are job clusters from
-hierarchical agglomerative clustering and edges connect clusters whose
-skill profiles share significant NPMI co-occurrence. Edge weights are
-bounded to [0, 1] for interpretability in downstream widest-path routing
-and career report display. Edge direction follows a strict total order on
-(Job Zone, cluster ID), guaranteeing acyclicity.
+hierarchical agglomerative clustering and edges connect clusters whose skill
+profiles share significant NPMI co-occurrence. Edge weights are bounded to
+[0, 1] for interpretability in downstream widest-path routing and career
+report display. Edge direction follows a strict total order on (Job Zone,
+cluster ID), guaranteeing acyclicity.
 """
 
 import networkx as nx
@@ -44,21 +44,18 @@ class CareerPathwayGraph:
         Build or accept a pre-built career pathway graph.
 
         When `network` is provided, edges are computed via NPMI
-        co-occurrence and thresholded by knee detection with a
-        `max_density` ceiling. When `graph` is provided instead,
-        the DiGraph is used directly without rebuilding, as in
-        the `Pipeline.load()` path.
+        co-occurrence and thresholded by knee detection with a `max_density`
+        ceiling. When `graph` is provided instead, the DiGraph is used
+        directly without rebuilding, as in the `Pipeline.load()` path.
 
         Args:
-            profiles    : Enriched cluster characteristics from
-                          the orchestrator.
-            graph       : Pre-built DiGraph from deserialized
-                          artifacts. Skips `_build_graph` when
-                          provided.
+            profiles    : Enriched cluster characteristics from the
+                          orchestrator.
+            graph       : Pre-built DiGraph from deserialized artifacts.
+                          Skips `_build_graph` when provided.
             max_density : Density ceiling for edge pruning.
-            network     : NPMI matrix, vocabulary, and Louvain
-                          partition. Required when `graph` is
-                          not provided.
+            network     : NPMI matrix, vocabulary, and Louvain partition.
+                          Required when `graph` is not provided.
         """
         self.max_density = max_density
         self.network     = network
@@ -97,8 +94,8 @@ class CareerPathwayGraph:
     @cached_property
     def skill_indices(self) -> dict[int, list[int]]:
         """
-        Vocab-mapped column indices per cluster, precomputed for
-        pairwise NPMI lookups in `_edge_weight`.
+        Vocab-mapped column indices per cluster, precomputed for pairwise
+        NPMI lookups in `_edge_weight`.
         """
         return {
             cid: [self.vocab[s] for s in profile.skills if s in self.vocab]
@@ -163,11 +160,11 @@ class CareerPathwayGraph:
         """
         Top-k mean NPMI for a cluster pair.
 
-        Uses NPMI rather than PPMI so that edge weights are bounded to
-        [0, 1] and interpretable as association strength independent of
-        skill frequency. The top-k aggregation retains the strongest
-        inter-cluster bridges where k = min(10, |Ci|, |Cj|). Operates
-        directly on the sparse NPMI matrix to avoid dense materialization.
+        Uses NPMI rather than PPMI so that edge weights are bounded to [0,
+        1] and interpretable as association strength independent of skill
+        frequency. The top-k aggregation retains the strongest inter-cluster
+        bridges where k = min(10, |Ci|, |Cj|). Operates directly on the
+        sparse NPMI matrix to avoid dense materialization.
 
         Args:
             ci : First cluster ID.

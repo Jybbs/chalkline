@@ -16,8 +16,8 @@ class Posting(BaseModel, extra="forbid"):
     """
     Canonical schema for a collected job posting.
 
-    The `id` field is a composite key derived from company slug, title
-    slug, and date, enabling deterministic deduplication. When omitted at
+    The `id` field is a composite key derived from company slug, title slug,
+    and date, enabling deterministic deduplication. When omitted at
     construction time, `id` is auto-computed from the sibling fields.
     """
 

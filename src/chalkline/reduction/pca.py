@@ -1,15 +1,14 @@
 """
-Dimensionality reduction via TruncatedSVD with variance-based
-component selection.
+Dimensionality reduction via TruncatedSVD with variance-based component
+selection.
 
-Fits an initial TruncatedSVD at `max_components` to profile the
-explained variance spectrum, selects the effective rank by cumulative
-variance threshold, then refits a production `Pipeline` at the
-selected rank.
+Fits an initial TruncatedSVD at `max_components` to profile the explained
+variance spectrum, selects the effective rank by cumulative variance
+threshold, then refits a production `Pipeline` at the selected rank.
 
-A `StandardScaler(with_mean=False)` is applied so each component has
-unit variance, making Euclidean distance equivalent to standardized
-Euclidean in downstream matching.
+A `StandardScaler(with_mean=False)` is applied so each component has unit
+variance, making Euclidean distance equivalent to standardized Euclidean in
+downstream matching.
 """
 
 import numpy as np
@@ -25,19 +24,18 @@ class PcaReducer:
     """
     TruncatedSVD reduction with automatic component selection.
 
-    Performs two SVD fits against the input IDF-weighted matrix.
-    The first fit at `max_components` produces the full explained
-    variance profile for scree analysis. The second fit at the
-    selected rank feeds a production `Pipeline` whose output has
-    exactly `n_selected` columns with unit variance per component.
+    Performs two SVD fits against the input IDF-weighted matrix. The first
+    fit at `max_components` produces the full explained variance profile for
+    scree analysis. The second fit at the selected rank feeds a production
+    `Pipeline` whose output has exactly `n_selected` columns with unit
+    variance per component.
 
-    Component selection finds the smallest k where cumulative
-    explained variance exceeds the threshold:
+    Component selection finds the smallest k where cumulative explained
+    variance exceeds the threshold:
 
         k = argmin{sum_i=1..k lambda_i / sum lambda >= tau}
 
-    where lambda_i are the singular values and tau is
-    `variance_threshold`.
+    where lambda_i are the singular values and tau is `variance_threshold`.
     """
 
     def __init__(
@@ -48,13 +46,12 @@ class PcaReducer:
         variance_threshold : float
     ):
         """
-        Fit the analysis SVD and production pipeline on the
-        sparse TF-IDF matrix from `SkillVectorizer`.
+        Fit the analysis SVD and production pipeline on the sparse TF-IDF
+        matrix from `SkillVectorizer`.
 
-        The maximum component count is capped at one below the
-        matrix rank to avoid rank-deficient decomposition, and
-        both SVD fits share the same random seed for
-        reproducibility.
+        The maximum component count is capped at one below the matrix rank
+        to avoid rank-deficient decomposition, and both SVD fits share the
+        same random seed for reproducibility.
 
         Args:
             max_components     : Upper bound on components.
