@@ -2,7 +2,7 @@
 Tests for lexicon file loading.
 
 Validates graceful handling of missing files and successful loading of
-valid certifications, OSHA, O*NET, and supplement lexicon data.
+valid certifications and O*NET lexicon data.
 """
 
 from pathlib import Path
@@ -32,32 +32,12 @@ class TestLexiconLoader:
         assert len(loader.occupations) == 2
         assert loader.occupations[0].soc_code == "47-2111.00"
 
-    def test_load_osha(self, lexicon_dir: Path):
-        """
-        Valid OSHA JSON deserializes into a list of strings.
-        """
-        loader = LexiconLoader(lexicon_dir)
-        assert len(loader.osha_terms) == 5
-        assert "fall protection" in loader.osha_terms
-
-    def test_load_supplement(self, lexicon_dir: Path):
-        """
-        Valid supplement JSON deserializes into a list of strings.
-        """
-        loader = LexiconLoader(lexicon_dir)
-        assert len(loader.supplement_terms) == 3
-        assert "rebar" in loader.supplement_terms
-
     def test_missing_file_warns(self, caplog, tmp_path: Path):
         """
         Missing lexicon files log warnings and produce empty lists.
         """
         loader = LexiconLoader(tmp_path)
-        assert loader.certifications   == []
-        assert loader.occupations      == []
-        assert loader.osha_terms       == []
-        assert loader.supplement_terms == []
+        assert loader.certifications == []
+        assert loader.occupations    == []
         assert "Certifications lexicon not found" in caplog.text
         assert "O*NET lexicon not found"          in caplog.text
-        assert "OSHA lexicon not found"           in caplog.text
-        assert "Supplement lexicon not found"     in caplog.text

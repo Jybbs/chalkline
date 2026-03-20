@@ -29,9 +29,10 @@ def fit(
     """
     🪚 [bold]Fit[/bold] the pipeline and print a summary.
 
-    Runs extraction, vectorization, PCA, clustering, PMI, and graph
-    construction. Results are cached so subsequent calls with unchanged
-    code and config serve instantly.
+    Encodes postings with a sentence transformer, clusters with Ward
+    HAC, builds a stepwise career graph with credential enrichment.
+    Results are cached so subsequent calls with unchanged code and
+    config serve instantly.
     """
     from loguru import logger
 

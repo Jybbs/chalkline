@@ -1,10 +1,10 @@
 """
-Lexicon file loading for the extraction pipeline.
+Lexicon file loading for the embedding pipeline.
 
 Deserializes and validates JSON lexicon files from a directory, returning
-empty collections for missing files so that downstream normalization can
-proceed with whichever lexicons are available. File names are derived from
-labels via `slugify`.
+empty collections for missing files so that downstream encoding and SOC
+assignment can proceed with whichever lexicons are available. File names
+are derived from labels via `slugify`.
 """
 
 from loguru   import logger
@@ -30,11 +30,9 @@ class LexiconLoader:
         Args:
             lexicon_dir: Directory containing the lexicon JSON files.
         """
-        self.lexicon_dir      = lexicon_dir
-        self.certifications   = self._load(list[Certification],  "Certifications")
-        self.occupations      = self._load(list[OnetOccupation], "O*NET")
-        self.osha_terms       = self._load(list[str],    "OSHA")
-        self.supplement_terms = self._load(list[str],    "Supplement")
+        self.lexicon_dir    = lexicon_dir
+        self.certifications = self._load(list[Certification],  "Certifications")
+        self.occupations    = self._load(list[OnetOccupation], "O*NET")
 
     def _load(self, schema: type, label: str) -> list:
         """
