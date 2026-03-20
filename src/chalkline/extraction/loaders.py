@@ -8,6 +8,7 @@ derived from labels via `slugify`.
 """
 
 from loguru   import logger
+from numpy    import argmax, ndarray
 from pathlib  import Path
 from pydantic import TypeAdapter
 from slugify  import slugify
@@ -55,3 +56,15 @@ class LexiconLoader:
         except FileNotFoundError:
             logger.warning(f"{label} lexicon not found at {path}")
             return []
+
+    def nearest_occupation(self, similarity_row: ndarray) -> OnetOccupation:
+        """
+        O*NET occupation most similar to a cluster's embedding.
+
+        Args:
+            similarity_row: Cosine similarities against all occupations.
+
+        Returns:
+            The occupation with highest cosine similarity.
+        """
+        return self.occupations[argmax(similarity_row)]

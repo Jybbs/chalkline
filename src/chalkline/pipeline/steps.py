@@ -124,11 +124,7 @@ def credentials(
         )
         for record in trades.programs
     ] + [
-        (
-            f"{(acronym := record.acronym or '')} {record.name}".strip(),
-            f"{acronym} {record.name} {record.organization or ''}".strip(),
-            "certification"
-        )
+        (record.display_label, record.embedding_text, "certification")
         for record in lexicons.certifications
     ]
 
@@ -264,14 +260,11 @@ def soc_vectors(lexicons: LexiconLoader, model: SentenceTransformer) -> np.ndarr
     Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
     cosine similarity against cluster centroids.
     """
-    soc_texts = [
-        f"{occupation.title}: {', '.join(
-            skill.name for skill in occupation.skills
-            if skill.type.value in ('task', 'dwa')
-        )}" for occupation in lexicons.occupations
-    ]
-    logger.info(f"Encoding {len(soc_texts)} occupations...")
-    return normalize(model.encode(soc_texts, show_progress_bar=False))
+    logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
+    return normalize(model.encode(
+        [occ.embedding_text for occ in lexicons.occupations],
+        show_progress_bar = False
+    ))
 
 
 @extract_fields({
@@ -292,13 +285,10 @@ def occupation_tasks(
     individual embeddings for per-task gap scoring.
     """
     task_data = {
-        cluster_id: [task.name for task in tasks]
+        cluster_id: [t.name for t in nearest.task_elements]
         for cluster_id in range(len(soc_similarity))
-        for nearest in [lexicons.occupations[np.argmax(soc_similarity[cluster_id])]]
-        if (tasks := [
-            skill for skill in nearest.skills
-            if skill.type.value in ("task", "dwa")
-        ])
+        for nearest in [lexicons.nearest_occupation(soc_similarity[cluster_id])]
+        if nearest.task_elements
     }
     return {
         "task_labels"  : task_data,
@@ -333,7 +323,7 @@ def profiles(
             soc_title   = nearest.title
         )
         for cluster_id in sorted(set(assignments))
-        for nearest in [lexicons.occupations[np.argmax(soc_similarity[cluster_id])]]
+        for nearest in [lexicons.nearest_occupation(soc_similarity[cluster_id])]
         for members in [np.where(assignments == cluster_id)[0]]
     }
 

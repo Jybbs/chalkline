@@ -30,6 +30,28 @@ class Certification(BaseModel, extra="forbid"):
     phrases      : list[str] | None = None
     type         : str | None       = None
 
+    @property
+    def display_label(self) -> str:
+        """
+        Human-readable label combining acronym and name.
+
+        Returns:
+            `"CWI Certified Welding Inspector"` or just the name
+            when no acronym is present.
+        """
+        return f"{self.acronym or ''} {self.name}".strip()
+
+    @property
+    def embedding_text(self) -> str:
+        """
+        Text representation for sentence encoding, including the
+        issuing organization when available.
+
+        Returns:
+            Acronym, name, and organization concatenated.
+        """
+        return f"{self.acronym or ''} {self.name} {self.organization or ''}".strip()
+
 
 class OnetSkillType(StrEnum):
     """
@@ -99,6 +121,37 @@ class OnetOccupation(BaseModel, extra="forbid"):
     skills   : list[OnetSkill]
     soc_code : str
     title    : str
+
+    @property
+    def embedding_text(self) -> str:
+        """
+        Canonical text representation for sentence encoding.
+
+        Concatenates the occupation title with its Task and DWA element
+        names, producing the input string for the sentence transformer
+        during SOC vector construction.
+
+        Returns:
+            `"{title}: {task1}, {task2}, ..."` format.
+        """
+        return f"{self.title}: {', '.join(s.name for s in self.task_elements)}"
+
+    @property
+    def task_elements(self) -> list[OnetSkill]:
+        """
+        Task and DWA elements from this occupation's skill profile.
+
+        These are the concrete work-activity elements that describe what
+        workers actually do, as opposed to KSA abstractions or
+        technology/tool listings.
+
+        Returns:
+            Skills where type is `TASK` or `DWA`.
+        """
+        return [
+            s for s in self.skills
+            if s.type in {OnetSkillType.TASK, OnetSkillType.DWA}
+        ]
 
 
 class PatternBundle(NamedTuple):
