@@ -1,8 +1,8 @@
 """
 Tests for lexicon file loading.
 
-Validates graceful handling of missing files and successful loading of
-valid certifications and O*NET lexicon data.
+Validates graceful handling of missing files and successful loading of valid
+certifications and O*NET lexicon data.
 """
 
 from pathlib import Path
@@ -17,8 +17,7 @@ class TestLexiconLoader:
 
     def test_load_certifications(self, lexicon_dir: Path):
         """
-        Valid certifications JSON deserializes into certification
-        records.
+        Valid certifications JSON deserializes into certification records.
         """
         loader = LexiconLoader(lexicon_dir)
         assert len(loader.certifications) == 2

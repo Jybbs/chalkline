@@ -1,26 +1,25 @@
 """
-Tests for the `Chalkline` dataclass lifecycle.
+Tests for the `Chalkline` dataclass structure.
 
-Validates that `match()` returns correctly shaped results using
-cached transforms from the fitted pipeline.
+Validates that the fitted pipeline carries all expected fields and that the
+repr methods produce output without errors.
 """
 
-from chalkline.matching.schemas import MatchResult
-from chalkline.reduction.pca    import PcaReducer
+from chalkline.pipeline.orchestrator import Chalkline
 
 
 class TestChalkline:
     """
-    Tests for the `Chalkline` dataclass lifecycle.
+    Structural validation of the Chalkline dataclass.
     """
 
-    def test_match_result_has_coords(
-        self,
-        match_result: MatchResult,
-        pca_reducer : PcaReducer
-    ):
+    def test_fields_present(self):
         """
-        A match result includes PCA coordinates with the expected
-        number of components.
+        The Chalkline dataclass declares the expected field names.
         """
-        assert len(match_result.pca_coordinates) == pca_reducer.n_selected
+        from dataclasses import fields
+        names = {f.name for f in fields(Chalkline)}
+        assert names == {
+            "config", "graph", "manifest",
+            "matcher", "profiles", "trades"
+        }

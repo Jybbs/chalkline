@@ -1,36 +1,25 @@
 """
 End-to-end pipeline orchestrator for Chalkline career mapping.
 
-Coordinates the geometry track (extraction, vectorization, PCA, clustering)
-and co-occurrence track (PMI network, Louvain communities) into a fitted
-`Chalkline` instance constructed via `fit()`. Hamilton resolves the DAG from
-function parameter names, caches every node result, and serves from cache on
-subsequent calls with unchanged code and config.
+Coordinates the embedding pipeline (sentence-transformer encoding, SVD
+reduction, Ward HAC clustering, stepwise k-NN career graph with per-edge
+credential enrichment) into a fitted `Chalkline` instance constructed via
+`fit()`. Hamilton resolves the DAG from function parameter names, caches
+every node result, and serves from cache on subsequent calls with unchanged
+code and config.
 """
 
-import pandas as pd
+from dataclasses             import dataclass, fields
+from hamilton                import driver
+from hamilton.plugins.h_tqdm import ProgressBar
+from sentence_transformers   import SentenceTransformer
 
-from dataclasses                   import dataclass, fields
-from hamilton                      import driver
-from hamilton.plugins.h_threadpool import FutureAdapter
-from hamilton.plugins.h_tqdm       import ProgressBar
-from loguru                        import logger
-from sklearn.pipeline              import Pipeline
-from typing                        import Self
-
-from chalkline.extraction.skills       import SkillMap
-from chalkline.clustering.hierarchical import HierarchicalClusterer
-from chalkline.clustering.schemas      import ClusterLabel
-from chalkline.extraction.skills       import SkillExtractor
-from chalkline.matching.matcher        import ResumeMatcher
-from chalkline.matching.schemas        import MatchResult
-from chalkline.pathways.graph          import CareerPathwayGraph
-from chalkline.pathways.routing        import CareerRouter
-from chalkline.pipeline                import steps
-from chalkline.pipeline.schemas        import ClusterProfile, PipelineConfig
-from chalkline.pipeline.schemas        import PipelineManifest
-from chalkline.pipeline.trades         import TradeIndex
-
+from chalkline.matching.matcher import ResumeMatcher
+from chalkline.matching.schemas import MatchResult
+from chalkline.pipeline         import steps
+from chalkline.pipeline.graph   import CareerPathwayGraph
+from chalkline.pipeline.schemas import ClusterProfile, PipelineConfig, PipelineManifest
+from chalkline.pipeline.trades  import TradeIndex
 
 
 @dataclass(kw_only=True)
@@ -38,27 +27,18 @@ class Chalkline:
     """
     Fitted career mapping pipeline.
 
-    Coordinates the geometry track (extraction, vectorization, PCA,
-    clustering) and co-occurrence track (PMI network, Louvain communities)
-    into a fitted landscape. Call `fit()` to compute from scratch or restore
-    from cache, then access fitted artifacts directly or call `match()` for
-    single-resume inference.
+    Coordinates embedding, clustering, career graph construction, and
+    credential enrichment into a fitted landscape. Call `fit()` to compute
+    from scratch or restore from cache, then call `match()` for
+    single-resume inference with neighborhood exploration.
     """
 
-    cluster_labels    : list[ClusterLabel]
-    clusterer         : HierarchicalClusterer
-    config            : PipelineConfig
-    density           : dict
-    extracted_skills  : SkillMap
-    extractor         : SkillExtractor
-    geometry_pipeline : Pipeline
-    graph             : CareerPathwayGraph
-    manifest          : PipelineManifest
-    matcher           : ResumeMatcher
-    ppmi_df           : pd.DataFrame
-    profiles          : dict[int, ClusterProfile]
-    router            : CareerRouter
-    trades            : TradeIndex
+    config   : PipelineConfig
+    graph    : CareerPathwayGraph
+    manifest : PipelineManifest
+    matcher  : ResumeMatcher
+    profiles : dict[int, ClusterProfile]
+    trades   : TradeIndex
 
     def __repr__(self) -> str:
         """
@@ -66,11 +46,9 @@ class Chalkline:
         """
         return (
             f"Chalkline("
-            f"{len(self.extractor.vocabulary):,} skills, "
-            f"{len(self.extracted_skills):,} postings, "
-            f"{self.density['vocabulary_size']:,} features, "
             f"{len(self.profiles):,} clusters, "
-            f"{self.graph.graph.number_of_edges()} edges)"
+            f"{self.graph.graph.number_of_edges()} edges, "
+            f"{self.manifest.corpus_size:,} postings)"
         )
 
     def __str__(self) -> str:
@@ -78,18 +56,53 @@ class Chalkline:
         Multi-line summary of fitted pipeline metrics with ANSI bold
         formatting and Unicode bullets.
         """
-        b, r = "\033[1m", "\033[0m"
-        d    = self.density
+        bold, reset = "\033[1m", "\033[0m"
         return "\n".join([
-            f"{b}Chalkline{r}",
-            f"  · {b}{len(self.extractor.vocabulary):,}{r} canonical skills in vocabulary",
-            f"  · {b}{len(self.extracted_skills):,}{r} postings extracted",
-            f"  · {b}{d['vocabulary_size']:,}{r} features in the TF-IDF matrix",
-            f"  · {b}{len(self.profiles):,}{r} clusters from HAC",
-            f"  · {b}{self.graph.graph.number_of_edges()}{r} graph edges",
-            f"  · {b}{d['mean_skills_per_posting']:.1f}{r} mean skills/posting,"
-            f" {b}{d['zero_overlap_fraction']:.1%}{r} zero-overlap fraction"
+            f"{bold}Chalkline{reset}",
+            f"  \u00b7 {bold}{self.manifest.corpus_size:,}{reset}"
+            f" postings encoded"
+            f" with {self.manifest.embedding_model}",
+            f"  \u00b7 {bold}{len(self.profiles):,}{reset}"
+            f" clusters at d={self.manifest.component_count}",
+            f"  \u00b7 {bold}"
+            f"{self.graph.graph.number_of_edges()}{reset}"
+            f" graph edges with credential enrichment"
         ])
+
+    @staticmethod
+    def fit(config: PipelineConfig) -> Chalkline:
+        """
+        Execute all pipeline steps and return a fitted pipeline.
+
+        Loads the sentence transformer model outside the Hamilton DAG to
+        avoid caching the ~400MB model weights. The model is passed as an
+        input alongside the config, and all encoding node outputs (numpy
+        arrays) cache normally via Hamilton's disk persistence.
+
+        Args:
+            config: Hyperparameters, directory paths, and embedding model name.
+
+        Returns:
+            A fully fitted `Chalkline` instance.
+        """
+        model = SentenceTransformer(config.embedding_model)
+
+        return Chalkline(
+            **(
+                driver.Builder()
+                .with_modules(steps)
+                .with_adapters(ProgressBar("chalkline"))
+                .with_cache(path=str(config.hamilton_cache_dir))
+                .build()
+                .execute(
+                    [f.name for f in fields(Chalkline)],
+                    inputs={
+                        "config" : config,
+                        "model"  : model
+                    }
+                )
+            )
+        )
 
     def match(
         self,
@@ -98,53 +111,16 @@ class Chalkline:
     ) -> MatchResult:
         """
         Project a resume into the fitted career landscape and return a full
-        match result with gap analysis.
-
-        Extracts skills from the resume text via the fitted
-        `SkillExtractor`, then delegates projection, cluster assignment, and
-        gap ranking to the `ResumeMatcher`.
+        match result with gap analysis and neighborhood view.
 
         Args:
             resume_text : Raw resume text (post-PDF extraction).
-            top_k       : Override for the default `top_k_gaps`.
+            top_k       : Override for the default `max_gaps`.
 
         Returns:
-            `MatchResult` with cluster, gaps, and sector.
+            `MatchResult` with cluster, gaps, and neighborhood.
         """
         return self.matcher.match(
-            skills = self.extractor.extract({"resume": resume_text})["resume"],
-            top_k  = top_k
-        )
-
-
-    @staticmethod
-    def fit(config: PipelineConfig) -> Self:
-        """
-        Execute all pipeline steps and return a fitted pipeline.
-
-        Builds a Hamilton DAG from the node functions in `steps` with disk
-        caching and parallel thread execution enabled. First call computes
-        every node and persists results. Subsequent calls with unchanged
-        code and config serve from cache, making `fit()` idempotent.
-        Independent branches (geometry and co-occurrence tracks) run
-        concurrently via `FutureAdapter`.
-
-        Args:
-            config: End-to-end pipeline configuration.
-
-        Returns:
-            A fully fitted `Chalkline` instance.
-        """
-        return Chalkline(
-            **(
-                driver.Builder()
-                .with_modules(steps)
-                .with_adapters(FutureAdapter(), ProgressBar("chalkline"))
-                .with_cache(path=str(config.hamilton_cache_dir))
-                .build()
-                .execute(
-                    [f.name for f in fields(Chalkline)],
-                    inputs={"pipeline_config": config}
-                )
-            )
+            resume_text = resume_text,
+            top_k       = top_k
         )

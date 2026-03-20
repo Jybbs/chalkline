@@ -3,7 +3,7 @@ Pipeline configuration and shared reference data schemas.
 
 Centralizes pipeline hyperparameters alongside shared data models for
 apprenticeship and educational program reference data consumed across
-matching, pathways, and report generation modules.
+matching, graph construction, and report generation modules.
 """
 
 from functools import cached_property
@@ -17,8 +17,8 @@ class ApprenticeshipContext(BaseModel, extra="forbid"):
 
     Each record represents a RAPIDS-coded trade with pre-computed
     `min_hours` and 4-character prefix sets for runtime matching. Used by
-    the pathway graph for node enrichment and by the resume matcher for
-    gap-to-trade linking.
+    the pathway graph for credential enrichment and by the career report for
+    trade display.
     """
 
     min_hours   : int
@@ -31,48 +31,18 @@ class ClusterProfile(BaseModel, extra="forbid"):
     """
     Domain characteristics of a single career cluster.
 
-    Aggregates the Job Zone, sector, posting count, and union skill set for
-    a cluster identified by hierarchical agglomerative clustering. Consumed
-    by the pathway graph for node construction and by the career report for
-    cluster display.
+    Aggregates the Job Zone, sector, posting count, and representative
+    titles for a cluster identified by Ward-linkage HAC on sentence
+    embeddings. Consumed by the pathway graph for node construction and by
+    the career report for cluster display.
     """
 
-    cluster_id : int      = Field(ge=0)
-    job_zone   : int      = Field(ge=1, le=5)
-    sector     : str
-    size       : int      = Field(ge=1)
-    skills     : set[str]
-    terms      : list[str] = Field(default_factory=list)
-
-    apprenticeship : ApprenticeshipContext | None = None
-    programs       : list[ProgramRecommendation]  = Field(default_factory=list)
-
-    @cached_property
-    def rank(self) -> tuple[int, int]:
-        """
-        Sort key for edge direction: (Job Zone, cluster ID).
-
-        Lower rank is the edge source in the career DAG, ensuring edges flow
-        from entry-level to advanced roles.
-        """
-        return (self.job_zone, self.cluster_id)
-
-
-class PipelineManifest(BaseModel, extra="forbid"):
-    """
-    Provenance metadata for serialized pipeline artifacts.
-
-    Tracks which corpus and configuration produced the fitted artifacts so
-    that stale caches can be detected on reload. The `geometry_params` field
-    stores the output of `Chalkline.geometry_pipeline.get_params(deep=True)`
-    for ground-truth reproducibility without manually mirroring config
-    values.
-    """
-
-    corpus_size     : int
-    geometry_params : dict
-    posting_ids     : list[str]
-    timestamp       : str
+    cluster_id  : int = Field(ge=0)
+    job_zone    : int = Field(ge=1, le=5)
+    modal_title : str
+    sector      : str
+    size        : int = Field(ge=1)
+    soc_title   : str
 
 
 class PipelineConfig(BaseModel, extra="forbid"):
@@ -88,13 +58,16 @@ class PipelineConfig(BaseModel, extra="forbid"):
     output_dir   : Path
     postings_dir : Path
 
-    distance_metric    : str          = "euclidean"
-    max_components     : int          = 20
-    max_graph_density  : float        = 0.05
-    min_cooccurrence   : float | str  = "auto"
-    random_seed        : int          = 42
-    top_k_gaps         : int          = 10
-    variance_threshold : float        = Field(default=0.85, gt=0, le=1)
+    cluster_count          : int = 20
+    component_count        : int = 10
+    destination_percentile : int = 5
+    embedding_model        : str = "all-mpnet-base-v2"
+    lateral_neighbors      : int = 2
+    max_gaps               : int = 10
+    random_seed            : int = 42
+    soc_neighbors          : int = 3
+    source_percentile      : int = 75
+    upward_neighbors       : int = 2
 
     @cached_property
     def hamilton_cache_dir(self) -> Path:
@@ -109,6 +82,21 @@ class PipelineConfig(BaseModel, extra="forbid"):
         Default directory for serialized pipeline artifacts.
         """
         return self.output_dir / "pipeline"
+
+
+class PipelineManifest(BaseModel, extra="forbid"):
+    """
+    Provenance metadata for serialized pipeline artifacts.
+
+    Tracks which corpus, embedding model, and configuration produced the
+    fitted artifacts so that stale caches can be detected on reload.
+    """
+
+    component_count : int
+    corpus_size     : int
+    embedding_model : str
+    posting_ids     : list[str]
+    timestamp       : str
 
 
 class ProgramRecommendation(BaseModel, extra="forbid"):

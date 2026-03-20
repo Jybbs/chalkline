@@ -8,14 +8,14 @@ from chalkline.pipeline.trades  import TradeIndex
 
 class TestTradeIndex:
     """
-    Validate prefix-based matching between skill strings and
-    reference records.
+    Validate prefix-based matching between skill strings and reference
+    records.
     """
 
     def test_inflection_match(self):
         """
-        4-char prefix overlap catches inflectional variants,
-        matching "welding" against a trade titled "Welder".
+        4-char prefix overlap catches inflectional variants, matching
+        "welding" against a trade titled "Welder".
         """
         trades = TradeIndex(
             apprenticeships = [ApprenticeshipContext(
@@ -47,9 +47,8 @@ class TestTradeIndex:
 
     def test_short_words_excluded(self):
         """
-        Words shorter than 4 characters are excluded from prefix
-        matching to avoid false positives on articles and
-        prepositions.
+        Words shorter than 4 characters are excluded from prefix matching to
+        avoid false positives on articles and prepositions.
         """
         trades = TradeIndex(
             apprenticeships = [ApprenticeshipContext(

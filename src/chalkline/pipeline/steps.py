@@ -1,428 +1,407 @@
 """
-Hamilton DAG node functions for the Chalkline pipeline.
+Hamilton DAG node functions for the Chalkline embedding pipeline.
 
 Each function is a node whose parameter names declare dependencies that
-Hamilton resolves automatically. The geometry track (vectorization, PCA,
-clustering) and co-occurrence track (PMI network) fork after vectorization
-and merge at the pathway graph, enabling parallel execution of independent
-branches.
+Hamilton resolves automatically. The pipeline encodes posting descriptions
+with a sentence transformer, reduces with SVD, clusters with Ward HAC,
+assigns Job Zones via O*NET cosine matching, builds a stepwise k-NN career
+graph with per-edge credential enrichment, and fits a resume matcher for
+single-resume inference.
 """
 
-import numpy  as np
-import pandas as pd
+import numpy as np
 
-from collections                 import Counter, defaultdict
+from collections                 import Counter
 from datetime                    import datetime, timezone
 from hamilton.function_modifiers import extract_fields
+from json                        import loads
 from loguru                      import logger
 from pydantic                    import TypeAdapter
-from sklearn.pipeline            import Pipeline
+from sentence_transformers       import SentenceTransformer
+from sklearn.cluster             import AgglomerativeClustering
+from sklearn.decomposition       import TruncatedSVD
+from sklearn.metrics.pairwise    import cosine_similarity
+from sklearn.preprocessing       import normalize
 
-from chalkline.extraction.skills        import SkillMap
-from chalkline.association.cooccurrence import CooccurrenceNetwork
-from chalkline.clustering.hierarchical  import HierarchicalClusterer
-from chalkline.clustering.schemas       import ClusterLabel
-from chalkline.collection.storage       import CorpusStorage
-from chalkline.extraction.lexicons      import LexiconRegistry
-from chalkline.extraction.loaders       import LexiconLoader
-from chalkline.extraction.occupations   import OccupationIndex
-from chalkline.extraction.skills        import SkillExtractor
-from chalkline.extraction.vectorize     import SkillVectorizer
-from chalkline.matching.matcher         import ResumeMatcher
-from chalkline.pathways.graph           import CareerPathwayGraph
-from chalkline.pathways.routing         import CareerRouter
-from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas         import PipelineConfig, PipelineManifest
-from chalkline.pipeline.schemas         import ProgramRecommendation
-from chalkline.pipeline.trades          import TradeIndex
-from chalkline.reduction.pca            import PcaReducer
+from chalkline.collection.storage import CorpusStorage
+from chalkline.extraction.loaders import LexiconLoader
+from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.pipeline.graph     import CareerPathwayGraph
+from chalkline.pipeline.schemas   import ApprenticeshipContext, ClusterProfile
+from chalkline.pipeline.schemas   import PipelineConfig, PipelineManifest
+from chalkline.pipeline.schemas   import ProgramRecommendation
+from chalkline.pipeline.trades    import TradeIndex
 
 
-
-def cluster_labels(
-    clusterer     : HierarchicalClusterer,
-    feature_names : list[str],
-    tfidf_matrix  : object
-) -> list[ClusterLabel]:
+def assignments(
+    config      : PipelineConfig,
+    coordinates : np.ndarray
+) -> np.ndarray:
     """
-    Generate TF-IDF centroid labels for each cluster.
+    Fit Ward-linkage HAC on SVD coordinates.
     """
-    return clusterer.labels(
-        feature_names = feature_names,
-        tfidf_matrix  = tfidf_matrix,
-        top_n         = 50
-    )
+    return AgglomerativeClustering(
+        linkage    = "ward",
+        n_clusters = config.cluster_count
+    ).fit_predict(coordinates)
 
 
-def clusterer(
-    coordinates  : np.ndarray,
-    document_ids : list[str]
-) -> HierarchicalClusterer:
+def centroids(
+    assignments : np.ndarray,
+    coordinates : np.ndarray
+) -> np.ndarray:
     """
-    Fit Ward-linkage HAC on PCA coordinates.
+    Mean SVD coordinates per cluster for resume distance computation.
     """
-    return HierarchicalClusterer(
-        coordinates  = coordinates,
-        document_ids = document_ids
-    )
+    cluster_ids = sorted(set(assignments))
+    return np.stack([
+        coordinates[assignments == cluster_id].mean(axis=0)
+        for cluster_id in cluster_ids
+    ])
 
 
-def config(pipeline_config: PipelineConfig) -> PipelineConfig:
+def cluster_vectors(
+    assignments : np.ndarray,
+    raw_vectors : np.ndarray
+) -> np.ndarray:
     """
-    Pass pipeline configuration through as a DAG node.
+    Mean posting embedding per cluster in the full embedding space,
+    L2-normalized for cosine similarity against occupations and credentials.
     """
-    return pipeline_config
+    cluster_ids = sorted(set(assignments))
+    return np.stack([
+        normalize(
+            raw_vectors[assignments == cluster_id].mean(axis=0, keepdims=True)
+        )[0]
+        for cluster_id in cluster_ids
+    ])
 
 
-def corpus(pipeline_config: PipelineConfig) -> dict[str, str]:
+def corpus(config: PipelineConfig) -> dict[str, str]:
     """
     Load posting texts from the corpus directory.
 
     Raises:
-        FileNotFoundError: When no JSON postings exist in the configured
-                           directory.
+        FileNotFoundError: When no JSON postings exist in the configured directory.
     """
-    if not (result := {
-        p.id: p.description
-        for p in CorpusStorage(pipeline_config.postings_dir).load()
-    }):
-        raise FileNotFoundError(
-            f"No postings found in {pipeline_config.postings_dir}"
-        )
+    postings = CorpusStorage(config.postings_dir).load()
+    if not (result := {p.id: p.description for p in postings if p.id is not None}):
+        raise FileNotFoundError(f"No postings found in {config.postings_dir}")
     return result
 
 
-def density(
-    binary_matrix    : object,
-    extracted_skills : SkillMap
-) -> dict:
+def corpus_titles(config: PipelineConfig) -> dict[str, str]:
     """
-    Evaluate feature density of the lexicon-matching extraction paradigm.
-
-    Logs vocabulary size, mean skills per posting, and the fraction of
-    posting pairs with zero skill overlap to assess whether the feature
-    space supports meaningful clustering and gap ranking.
+    Load posting titles for cluster labeling.
     """
-    n_docs     = len(extracted_skills)
-    vocab_size = len({s for skills in extracted_skills.values() for s in skills})
-    mean_skills = np.mean([len(s) for s in extracted_skills.values()])
-
-    overlap = binary_matrix @ binary_matrix.T
-    overlap.setdiag(0)
-    n_pairs      = n_docs * (n_docs - 1) // 2
-    zero_overlap = 1.0 - (overlap.nnz // 2) / n_pairs
-
-    logger.info(
-        f"Feature density: {vocab_size} vocabulary, "
-        f"{mean_skills:.1f} mean skills/posting, "
-        f"{zero_overlap:.1%} zero-overlap pairs"
-    )
-
     return {
-        "mean_skills_per_posting" : float(mean_skills),
-        "vocabulary_size"         : vocab_size,
-        "zero_overlap_fraction"   : float(zero_overlap)
+        p.id: p.title
+        for p in CorpusStorage(config.postings_dir).load()
+        if p.id is not None
     }
 
 
-def extracted_skills(
-    corpus    : dict[str, str],
-    extractor : SkillExtractor
-) -> SkillMap:
+@extract_fields({
+    "credential_labels"  : list,
+    "credential_types"   : list,
+    "credential_vectors" : np.ndarray
+})
+def credentials(
+    config   : PipelineConfig,
+    lexicons : LexiconLoader,
+    model    : SentenceTransformer
+) -> dict:
     """
-    Extract canonical skills from each posting via Aho-Corasick pattern
-    matching.
+    Encode the credential catalog (apprenticeships, programs,
+    certifications) with the sentence transformer and return parallel lists
+    of embeddings, labels, and type strings.
     """
-    return extractor.extract(corpus)
+    labels      = []
+    texts       = []
+    types       = []
+    lexicon_dir = config.lexicon_dir
+
+    apprenticeships = loads((lexicon_dir / "apprenticeships.json").read_text())
+    for record in apprenticeships:
+        labels.append(record["title"])
+        texts.append(record["title"])
+        types.append("apprenticeship")
+
+    programs = loads((lexicon_dir / "programs.json").read_text())
+    for record in programs:
+        labels.append(f"{record['program']} ({record['institution']})")
+        texts.append(
+            f"{record['credential']} {record['program']} "
+            f"{record['institution']}"
+        )
+        types.append("program")
+
+    certifications = loads((lexicon_dir / "certifications.json").read_text())
+    for record in certifications:
+        acronym = record.get("acronym") or ""
+        labels.append(f"{acronym} {record['name']}".strip())
+        texts.append(
+            f"{acronym} {record['name']} "
+            f"{record['organization']}".strip()
+        )
+        types.append("certification")
+
+    logger.info(f"Encoding {len(texts)} credentials...")
+    encoded = normalize(model.encode(texts, show_progress_bar=False))
+    return {
+        "credential_labels"  : labels,
+        "credential_types"   : types,
+        "credential_vectors" : encoded
+    }
 
 
-def extractor(registry: LexiconRegistry) -> SkillExtractor:
+@extract_fields({
+    "coordinates" : np.ndarray,
+    "svd"         : TruncatedSVD
+})
+def reduction(
+    config       : PipelineConfig,
+    unit_vectors : np.ndarray
+) -> dict:
     """
-    Build an Aho-Corasick skill extractor from the registry.
+    Fit TruncatedSVD on L2-normalized embeddings and expose both the reduced
+    coordinates and the fitted SVD for resume projection.
     """
-    return SkillExtractor(registry)
-
-
-def geometry_pipeline(
-    reducer_pipeline    : Pipeline,
-    vectorizer_pipeline : Pipeline
-) -> Pipeline:
-    """
-    Chain fitted vectorization and reduction into a single sklearn
-    `Pipeline` for resume projection.
-
-    Extracts the named steps from the vectorizer pipeline (DictVectorizer,
-    TfidfTransformer, Normalizer) and the reducer pipeline (TruncatedSVD,
-    StandardScaler) into one five-step `Pipeline` whose
-    `transform([skill_dict])` projects a resume directly into PCA-scaled
-    coordinates.
-    """
-    pca_steps = reducer_pipeline.named_steps
-    vec_steps = vectorizer_pipeline.named_steps
-    return Pipeline([
-        ("vec",    vec_steps["vec"]),
-        ("tfidf",  vec_steps["tfidf"]),
-        ("norm",   vec_steps["norm"]),
-        ("svd",    pca_steps["svd"]),
-        ("scaler", pca_steps["scaler"])
-    ])
+    svd = TruncatedSVD(
+        n_components = config.component_count,
+        random_state = config.random_seed
+    )
+    return {
+        "coordinates" : svd.fit_transform(unit_vectors),
+        "svd"         : svd
+    }
 
 
 def graph(
-    network         : CooccurrenceNetwork,
-    pipeline_config : PipelineConfig,
-    profiles        : dict[int, ClusterProfile]
+    centroids          : np.ndarray,
+    cluster_vectors    : np.ndarray,
+    config             : PipelineConfig,
+    credential_labels  : list[str],
+    credential_types   : list[str],
+    credential_vectors : np.ndarray,
+    job_zone_map       : dict[int, int],
+    profiles           : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
     """
-    Build the career pathway DAG from cluster profiles and PMI co-occurrence
-    edges.
+    Build the career pathway graph with stepwise k-NN backbone and per-edge
+    credential enrichment.
     """
     return CareerPathwayGraph(
-        max_density = pipeline_config.max_graph_density,
-        network     = network,
-        profiles    = profiles
+        cluster_centroids  = centroids,
+        cluster_vectors    = cluster_vectors,
+        config             = config,
+        credential_labels  = credential_labels,
+        credential_types   = credential_types,
+        credential_vectors = credential_vectors,
+        job_zone_map       = job_zone_map,
+        profiles           = profiles
     )
 
 
-def lexicons(pipeline_config: PipelineConfig) -> LexiconLoader:
+def job_zone_map(
+    cluster_vectors : np.ndarray,
+    config          : PipelineConfig,
+    lexicons        : LexiconLoader,
+    soc_vectors     : np.ndarray
+) -> dict[int, int]:
     """
-    Load all lexicon files from the configured directory.
+    Assign Job Zones to clusters via top-k median cosine against O*NET
+    Task+DWA embeddings.
     """
-    return LexiconLoader(pipeline_config.lexicon_dir)
+    cosine_similarities = cosine_similarity(cluster_vectors, soc_vectors)
+    soc_profiles        = lexicons.occupations
+    top_k               = config.soc_neighbors
+    return {
+        c: int(np.median([
+            soc_profiles[i].job_zone
+            for i in np.argsort(cosine_similarities[c])[-top_k:]
+        ]))
+        for c in range(len(cluster_vectors))
+    }
+
+
+def lexicons(config: PipelineConfig) -> LexiconLoader:
+    """
+    Load lexicon files from the configured directory.
+    """
+    return LexiconLoader(config.lexicon_dir)
 
 
 def manifest(
-    extracted_skills  : SkillMap,
-    geometry_pipeline : Pipeline
+    config : PipelineConfig,
+    corpus : dict[str, str]
 ) -> PipelineManifest:
     """
     Build provenance metadata from fitted artifacts.
     """
     return PipelineManifest(
-        corpus_size     = len(extracted_skills),
-        geometry_params = geometry_pipeline.get_params(deep=True),
-        posting_ids     = sorted(extracted_skills),
+        component_count = config.component_count,
+        corpus_size     = len(corpus),
+        embedding_model = config.embedding_model,
+        posting_ids     = sorted(corpus),
         timestamp       = datetime.now(timezone.utc).isoformat()
     )
 
 
 def matcher(
-    cluster_labels    : list[ClusterLabel],
-    clusterer         : HierarchicalClusterer,
-    extracted_skills  : SkillMap,
-    geometry_pipeline : Pipeline,
-    pipeline_config   : PipelineConfig,
-    ppmi_df           : pd.DataFrame,
-    profiles          : dict[int, ClusterProfile],
-    trades            : TradeIndex
+    centroids    : np.ndarray,
+    config       : PipelineConfig,
+    graph        : CareerPathwayGraph,
+    model        : SentenceTransformer,
+    profiles     : dict[int, ClusterProfile],
+    svd          : TruncatedSVD,
+    task_labels  : dict[int, list[str]],
+    task_vectors : dict[int, np.ndarray]
 ) -> ResumeMatcher:
     """
-    Fit nearest-neighbor models on cluster centroids for single-resume
+    Build the resume matcher with all artifacts needed for single-resume
     inference.
     """
     return ResumeMatcher(
-        cluster_labels    = cluster_labels,
-        clusterer         = clusterer,
-        extracted_skills  = extracted_skills,
-        geometry_pipeline = geometry_pipeline,
-        metric            = pipeline_config.distance_metric,
-        ppmi_df           = ppmi_df,
-        profiles          = profiles,
-        top_k_gaps        = pipeline_config.top_k_gaps,
-        trades            = trades
+        centroids    = centroids,
+        cluster_ids  = sorted(profiles),
+        graph        = graph,
+        max_gaps     = config.max_gaps,
+        model        = model,
+        profiles     = profiles,
+        svd          = svd,
+        task_labels  = task_labels,
+        task_vectors = task_vectors
     )
 
 
-def network(
-    binary_matrix   : object,
-    feature_names   : list[str],
-    pipeline_config : PipelineConfig
-) -> CooccurrenceNetwork:
+def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     """
-    Build the PMI co-occurrence network from the binary skill-presence
-    matrix.
+    L2-normalize raw posting embeddings for SVD input.
     """
-    return CooccurrenceNetwork(
-        binary_matrix    = binary_matrix,
-        feature_names    = feature_names,
-        min_cooccurrence = pipeline_config.min_cooccurrence,
-        random_seed      = pipeline_config.random_seed
-    )
+    return normalize(raw_vectors)
 
 
-def occupation_index(lexicons: LexiconLoader) -> OccupationIndex:
+def soc_vectors(
+    lexicons : LexiconLoader,
+    model    : SentenceTransformer
+) -> np.ndarray:
     """
-    Build an O*NET occupation index from loaded lexicon data.
+    Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
+    cosine similarity against cluster centroids.
     """
-    return OccupationIndex(lexicons.occupations)
+    soc_texts = [
+        f"{occ.title}: {', '.join(
+            s.name for s in occ.skills
+            if s.type.value in ('task', 'dwa')
+        )}" for occ in lexicons.occupations
+    ]
+    logger.info(f"Encoding {len(soc_texts)} occupations...")
+    return normalize(model.encode(soc_texts, show_progress_bar=False))
 
 
-def ppmi_df(network: CooccurrenceNetwork) -> pd.DataFrame:
+@extract_fields({
+    "task_labels"  : dict,
+    "task_vectors" : dict
+})
+def occ_tasks(
+    cluster_vectors : np.ndarray,
+    job_zone_map    : dict[int, int],
+    lexicons        : LexiconLoader,
+    model           : SentenceTransformer,
+    soc_vectors     : np.ndarray
+) -> dict:
     """
-    Materialize the positive PMI DataFrame for gap ranking.
+    Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
+
+    For each cluster, identifies the nearest occupation via cosine
+    similarity, then encodes that occupation's Task+DWA elements as
+    individual embeddings for per-task gap scoring.
     """
-    return network.ppmi_dataframe()
+    cosine_similarities = cosine_similarity(cluster_vectors, soc_vectors)
+    soc_profiles        = lexicons.occupations
+    task_labels         = {}
+    task_vectors        = {}
+
+    for cluster_id in range(len(cluster_vectors)):
+        nearest_soc = soc_profiles[np.argmax(cosine_similarities[cluster_id])]
+        tasks = [
+            s for s in nearest_soc.skills
+            if s.type.value in ("task", "dwa")
+        ]
+        if tasks:
+            names = [t.name for t in tasks]
+            task_labels[cluster_id]  = names
+            task_vectors[cluster_id] = normalize(
+                model.encode(names, show_progress_bar=False)
+            )
+
+    return {
+        "task_labels"  : task_labels,
+        "task_vectors" : task_vectors
+    }
 
 
 def profiles(
-    cluster_labels   : list[ClusterLabel],
-    clusterer        : HierarchicalClusterer,
-    extracted_skills : SkillMap,
-    occupation_index : OccupationIndex,
-    sector_labels    : list[str],
-    trades           : TradeIndex
+    assignments     : np.ndarray,
+    cluster_vectors : np.ndarray,
+    corpus_titles   : dict[str, str],
+    job_zone_map    : dict[int, int],
+    lexicons        : LexiconLoader,
+    soc_vectors     : np.ndarray
 ) -> dict[int, ClusterProfile]:
     """
-    Enrich HAC clusters with sector, Job Zone, apprenticeship, and program
-    annotations.
-
-    Aggregates the union skill set per cluster from extracted skills,
-    resolves sector via majority vote on SOC-matched labels, assigns Job
-    Zone via overlap coefficient against concrete O*NET profiles, and links
-    apprenticeships and programs via the shared `TradeIndex` prefix lookups.
+    Build cluster profiles with Job Zone, sector, occupation title, and
+    modal posting title for each cluster.
     """
-    cluster_sectors = defaultdict(list)
-    cluster_skills  = defaultdict(set)
-    for doc, soc, cid in zip(
-        clusterer.document_ids, sector_labels, clusterer.assignments
-    ):
-        cluster_sectors[cid].append(occupation_index.get(soc).sector)
-        cluster_skills[cid].update(extracted_skills.get(doc, []))
+    doc_ids               = sorted(corpus_titles)
+    cosine_similarities   = cosine_similarity(cluster_vectors, soc_vectors)
+    soc_profiles          = lexicons.occupations
+    cluster_ids           = sorted(set(assignments))
 
-    majority_sector = {
-        cid: Counter(sectors).most_common(1)[0][0]
-        for cid, sectors in cluster_sectors.items()
-    }
+    result = {}
+    for cluster_id in cluster_ids:
+        nearest_soc    = soc_profiles[np.argmax(cosine_similarities[cluster_id])]
+        member_indices = np.where(assignments == cluster_id)[0]
+        modal_title = Counter(
+            corpus_titles[doc_ids[i]] for i in member_indices
+        ).most_common(1)[0][0]
 
-    return {
-        label.cluster_id: ClusterProfile(
-            apprenticeship = next(iter(apps), None),
-            cluster_id     = label.cluster_id,
-            job_zone       = occupation_index.job_zone_for_skills(skills),
-            programs       = progs,
-            sector         = majority_sector[label.cluster_id],
-            size           = label.size,
-            skills         = skills,
-            terms          = label.terms
+        result[cluster_id] = ClusterProfile(
+            cluster_id  = cluster_id,
+            job_zone    = job_zone_map[cluster_id],
+            modal_title = modal_title,
+            sector      = nearest_soc.sector,
+            size        = len(member_indices),
+            soc_title   = nearest_soc.title
         )
-        for label       in cluster_labels
-        for skills      in [cluster_skills[label.cluster_id]]
-        for apps, progs in [trades.lookup([*label.terms, *skills])]
-    }
+
+    return result
 
 
-@extract_fields({
-    "coordinates"      : np.ndarray,
-    "reducer_pipeline" : Pipeline
-})
-def reducer(
-    pipeline_config : PipelineConfig,
-    tfidf_matrix    : object
-) -> dict:
+def raw_vectors(
+    corpus : dict[str, str],
+    model  : SentenceTransformer
+) -> np.ndarray:
     """
-    Fit PCA via TruncatedSVD and expose coordinates and the fitted sklearn
-    pipeline.
-
-    The `coordinates` feed the clusterer while the `reducer_pipeline` feeds
-    geometry pipeline composition.
+    Encode all posting descriptions with the sentence transformer.
     """
-    r = PcaReducer(
-        max_components     = pipeline_config.max_components,
-        random_seed        = pipeline_config.random_seed,
-        tfidf_matrix       = tfidf_matrix,
-        variance_threshold = pipeline_config.variance_threshold
-    )
-    return {
-        "coordinates"      : r.coordinates,
-        "reducer_pipeline" : r.pipeline
-    }
+    doc_ids = sorted(corpus)
+    texts   = [corpus[d] for d in doc_ids]
+    logger.info(f"Encoding {len(texts)} postings...")
+    return model.encode(texts, show_progress_bar=False)
 
 
-def registry(lexicons: LexiconLoader) -> LexiconRegistry:
-    """
-    Build a `LexiconRegistry` from loaded lexicon data.
-    """
-    return LexiconRegistry(
-        certifications   = lexicons.certifications,
-        occupations      = lexicons.occupations,
-        osha_terms       = lexicons.osha_terms,
-        supplement_terms = lexicons.supplement_terms
-    )
-
-
-def router(
-    graph    : CareerPathwayGraph,
-    profiles : dict[int, ClusterProfile],
-    trades   : TradeIndex
-) -> CareerRouter:
-    """
-    Build the career router with centrality and edge enrichment.
-    """
-    return CareerRouter(
-        graph    = graph.graph,
-        profiles = profiles,
-        trades   = trades
-    )
-
-
-def sector_labels(
-    document_ids     : list[str],
-    extracted_skills : SkillMap,
-    occupation_index : OccupationIndex
-) -> list[str]:
-    """
-    Map postings to SOC codes via Jaccard-nearest occupation.
-
-    For each document in row order, finds the O*NET occupation whose skill
-    profile has maximum Jaccard overlap with the posting's canonical skill
-    set, then returns that occupation's SOC code.
-    """
-    return [
-        occupation_index.get(
-            occupation_index.nearest(set(extracted_skills[doc]))
-        ).soc_code
-        for doc in document_ids
-    ]
-
-
-def trades(pipeline_config: PipelineConfig) -> TradeIndex:
+def trades(config: PipelineConfig) -> TradeIndex:
     """
     Load apprenticeship and program reference data into a `TradeIndex`.
     """
-    d = pipeline_config.lexicon_dir
+    lexicon_dir = config.lexicon_dir
     return TradeIndex(
         apprenticeships = TypeAdapter(
             list[ApprenticeshipContext]
-        ).validate_json((d / "apprenticeships.json").read_bytes()),
+        ).validate_json((lexicon_dir / "apprenticeships.json").read_bytes()),
         programs = TypeAdapter(
             list[ProgramRecommendation]
-        ).validate_json((d / "programs.json").read_bytes())
+        ).validate_json((lexicon_dir / "programs.json").read_bytes())
     )
-
-
-@extract_fields({
-    "binary_matrix"       : object,
-    "document_ids"        : list,
-    "feature_names"       : list,
-    "tfidf_matrix"        : object,
-    "vectorizer_pipeline" : Pipeline
-})
-def vectorizer(
-    extracted_skills: SkillMap
-) -> dict:
-    """
-    Fit TF-IDF vectorization and expose intermediate matrices.
-
-    Returns fields consumed independently by downstream nodes:
-    `tfidf_matrix` for PCA and cluster labeling, `binary_matrix` for
-    co-occurrence, `document_ids` and `feature_names` for alignment, and
-    `vectorizer_pipeline` for geometry composition.
-    """
-    v = SkillVectorizer(extracted_skills)
-    return {
-        "binary_matrix"       : v.binary_matrix,
-        "document_ids"        : v.document_ids,
-        "feature_names"       : v.feature_names,
-        "tfidf_matrix"        : v.tfidf_matrix,
-        "vectorizer_pipeline" : v.pipeline
-    }

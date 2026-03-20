@@ -3,8 +3,8 @@ Lexicon file loading for the embedding pipeline.
 
 Deserializes and validates JSON lexicon files from a directory, returning
 empty collections for missing files so that downstream encoding and SOC
-assignment can proceed with whichever lexicons are available. File names
-are derived from labels via `slugify`.
+assignment can proceed with whichever lexicons are available. File names are
+derived from labels via `slugify`.
 """
 
 from loguru   import logger
@@ -28,7 +28,7 @@ class LexiconLoader:
     def __init__(self, lexicon_dir: Path):
         """
         Args:
-            lexicon_dir: Directory containing the lexicon JSON files.
+            lexicon_dir: Must contain `onet.json` and `certifications.json`.
         """
         self.lexicon_dir    = lexicon_dir
         self.certifications = self._load(list[Certification],  "Certifications")
@@ -43,7 +43,7 @@ class LexiconLoader:
 
         Args:
             schema : Element type for the `TypeAdapter`.
-            label  : Human-readable lexicon name.
+            label  : Slugified to derive the filename.
 
         Returns:
             Validated list of lexicon entries.

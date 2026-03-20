@@ -30,8 +30,8 @@ class TradeIndex:
     ):
         """
         Args:
-            apprenticeships : Apprenticeship reference records.
-            programs        : Educational program records.
+            apprenticeships : With pre-computed 4-char prefix sets from curation.
+            programs        : With pre-computed 4-char prefix sets from curation.
         """
         self.apprenticeships = apprenticeships
         self.programs        = programs
@@ -49,8 +49,8 @@ class TradeIndex:
         `prefixes` field provides the reference-side prefix set.
 
         Args:
-            terms: Skill names, cluster labels, or other text to match
-                   against reference records.
+            terms: Skill names, cluster labels, or other text to match against reference
+                   records.
 
         Returns:
             Tuple of (matching apprenticeships, matching programs).
