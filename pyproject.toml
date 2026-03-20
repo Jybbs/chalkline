@@ -21,6 +21,7 @@ dependencies    = [
     "pdfplumber",
     "python-jobspy",
     "python-slugify",
+    "sentence-transformers",
     "sf-hamilton[diskcache]",
     "typer",
     "wordfreq",
