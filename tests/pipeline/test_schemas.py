@@ -37,7 +37,6 @@ class TestPipelineConfig:
         ("destination_percentile", 5),
         ("embedding_model",        "all-mpnet-base-v2"),
         ("lateral_neighbors",      2),
-        ("max_gaps",               10),
         ("random_seed",            42),
         ("soc_neighbors",          3),
         ("source_percentile",      75),

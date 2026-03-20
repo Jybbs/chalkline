@@ -6,12 +6,10 @@ when fed synthetic fixture data, catching transform contract violations that
 would silently corrupt downstream results.
 """
 
-import numpy as np
-
 from pathlib import Path
 from pytest  import raises
 
-from chalkline.pipeline import steps
+from chalkline.pipeline         import steps
 from chalkline.pipeline.schemas import PipelineConfig
 
 
@@ -25,13 +23,12 @@ class TestCorpus:
         An empty postings directory raises `FileNotFoundError`.
         """
         (tmp_path / "corpus.json").write_text("[]")
-        config = PipelineConfig(
-            lexicon_dir  = tmp_path,
-            output_dir   = tmp_path,
-            postings_dir = tmp_path
-        )
         with raises(FileNotFoundError):
-            steps.corpus(config)
+            steps.corpus_data(PipelineConfig(
+                lexicon_dir  = tmp_path,
+                output_dir   = tmp_path,
+                postings_dir = tmp_path
+            ))
 
 
 class TestProfiles:

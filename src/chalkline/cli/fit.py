@@ -45,6 +45,6 @@ def fit(
     config = PipelineConfig(
         lexicon_dir  = lexicon_dir,
         output_dir   = output_dir,
-        postings_dir = postings_dir,
+        postings_dir = postings_dir
     )
     typer.echo(f"\n{Chalkline.fit(config)}")

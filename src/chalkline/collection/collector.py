@@ -18,7 +18,6 @@ from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import CorpusStorage
 
 
-
 class Collector:
     """
     Corpus collector that queries job aggregators via JobSpy.

@@ -63,7 +63,6 @@ class PipelineConfig(BaseModel, extra="forbid"):
     destination_percentile : int = 5
     embedding_model        : str = "all-mpnet-base-v2"
     lateral_neighbors      : int = 2
-    max_gaps               : int = 10
     random_seed            : int = 42
     soc_neighbors          : int = 3
     source_percentile      : int = 75

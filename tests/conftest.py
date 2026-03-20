@@ -13,20 +13,22 @@ independently tappable by any test module:
 
 import numpy as np
 
-from json                  import loads
 from pathlib               import Path
+from pydantic              import TypeAdapter
 from pytest                import fixture, FixtureRequest
 from sklearn.cluster       import AgglomerativeClustering
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
+from typing                import Any
 
-from chalkline.collection.schemas import Posting
-from chalkline.extraction.loaders import LexiconLoader
-from chalkline.extraction.schemas import Certification, OnetOccupation
-from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas   import PipelineConfig, ProgramRecommendation
-from chalkline.pipeline.trades    import TradeIndex
+from chalkline.collection.schemas  import Posting
+from chalkline.extraction.loaders  import LexiconLoader
+from chalkline.extraction.schemas  import Certification, OnetOccupation
+from chalkline.matching.matcher    import ResumeMatcher
+from chalkline.pipeline.graph      import CareerPathwayGraph
+from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterProfile
+from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
+from chalkline.pipeline.trades     import TradeIndex
 
 
 FIXTURES        = Path(__file__).resolve().parent / "fixtures"
@@ -48,18 +50,29 @@ class MockEncoder:
         Return deterministic (len(texts), EMBEDDING_DIM) embeddings seeded
         by input length for reproducibility.
         """
-        rng = np.random.RandomState(len(texts))
-        return rng.randn(len(texts), EMBEDDING_DIM).astype(np.float32)
+        return np.random.RandomState(len(texts)).randn(
+            len(texts), EMBEDDING_DIM
+        ).astype(np.float32)
+
+
+_load = lambda schema, path: TypeAdapter(schema).validate_json(
+    (FIXTURES / path).read_bytes()
+)
+
+
+def _embeddings(rows: int, seed: int, unit: bool = False) -> np.ndarray:
+    """
+    Deterministic random embeddings for test fixtures.
+    """
+    vectors = np.random.RandomState(seed).randn(rows, EMBEDDING_DIM).astype(np.float32)
+    return normalize(vectors) if unit else vectors
 
 
 def _postings() -> list[Posting]:
     """
     Load posting fixtures from JSON.
     """
-    return [
-        Posting(**raw)
-        for raw in loads((FIXTURES / "collection" / "postings.json").read_text())
-    ]
+    return _load(list[Posting], "collection/postings.json")
 
 
 # ── Collection fixtures ─────────────────────────────────────────────
@@ -177,9 +190,7 @@ def cluster_vectors(
     EMBEDDING_DIM).
     """
     return np.stack([
-        normalize(
-            raw_vectors[assignments == cluster_id].mean(axis=0, keepdims=True)
-        )[0]
+        normalize(raw_vectors[assignments == cluster_id].mean(axis=0, keepdims=True))[0]
         for cluster_id in cluster_ids
     ])
 
@@ -200,13 +211,13 @@ def config(tmp_path: Path) -> PipelineConfig:
 
 @fixture
 def coordinates(
-    svd_model    : TruncatedSVD,
+    svd          : TruncatedSVD,
     unit_vectors : np.ndarray
 ) -> np.ndarray:
     """
     SVD-reduced coordinates (CORPUS_SIZE, COMPONENT_COUNT).
     """
-    return svd_model.transform(unit_vectors)
+    return svd.transform(unit_vectors)
 
 
 @fixture
@@ -214,8 +225,7 @@ def credential_vectors() -> np.ndarray:
     """
     Synthetic credential embeddings (10 credentials, EMBEDDING_DIM).
     """
-    rng = np.random.RandomState(77)
-    return normalize(rng.randn(10, EMBEDDING_DIM).astype(np.float32))
+    return _embeddings(10, 77, unit=True)
 
 
 @fixture
@@ -257,7 +267,7 @@ def pathway_graph(
     """
     credential_count = len(credential_vectors)
     return CareerPathwayGraph(
-        cluster_centroids  = centroids,
+        centroids          = centroids,
         cluster_vectors    = cluster_vectors,
         config             = config,
         credential_labels  = [f"Credential {i}" for i in range(credential_count)],
@@ -295,8 +305,37 @@ def raw_vectors() -> np.ndarray:
     """
     Synthetic posting embeddings (CORPUS_SIZE, EMBEDDING_DIM).
     """
-    rng = np.random.RandomState(42)
-    return rng.randn(CORPUS_SIZE, EMBEDDING_DIM).astype(np.float32)
+    return _embeddings(CORPUS_SIZE, 42)
+
+
+@fixture
+def resume_matcher(
+    centroids     : np.ndarray,
+    cluster_ids   : list[int],
+    pathway_graph : CareerPathwayGraph,
+    profiles      : dict[int, ClusterProfile],
+    svd           : TruncatedSVD
+) -> ResumeMatcher:
+    """
+    Resume matcher built from synthetic embeddings with mock encoder.
+    """
+    mock: Any = MockEncoder()
+    return ResumeMatcher(
+        centroids    = centroids,
+        cluster_ids  = cluster_ids,
+        graph        = pathway_graph,
+        model        = mock,
+        profiles     = profiles,
+        svd          = svd,
+        task_labels  = {
+            cluster_id: [f"Task {cluster_id}-{i}" for i in range(5)]
+            for cluster_id in cluster_ids
+        },
+        task_vectors = {
+            cluster_id: _embeddings(5, cluster_id, unit=True)
+            for cluster_id in cluster_ids
+        }
+    )
 
 
 @fixture
@@ -304,18 +343,15 @@ def soc_vectors() -> np.ndarray:
     """
     Synthetic occupation embeddings (5 occupations, EMBEDDING_DIM).
     """
-    rng = np.random.RandomState(99)
-    return normalize(rng.randn(5, EMBEDDING_DIM).astype(np.float32))
+    return _embeddings(5, 99, unit=True)
 
 
 @fixture
-def svd_model(unit_vectors: np.ndarray) -> TruncatedSVD:
+def svd(unit_vectors: np.ndarray) -> TruncatedSVD:
     """
     Fitted TruncatedSVD for resume projection tests.
     """
-    fitted = TruncatedSVD(n_components=COMPONENT_COUNT, random_state=42)
-    fitted.fit(unit_vectors)
-    return fitted
+    return TruncatedSVD(n_components=COMPONENT_COUNT, random_state=42).fit(unit_vectors)
 
 
 @fixture
@@ -334,10 +370,7 @@ def apprenticeships() -> list[ApprenticeshipContext]:
     """
     Synthetic apprenticeship reference data for matching tests.
     """
-    return [
-        ApprenticeshipContext(**raw)
-        for raw in loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
-    ]
+    return _load(list[ApprenticeshipContext], "matching/apprenticeships.json")
 
 
 @fixture
@@ -345,10 +378,7 @@ def programs() -> list[ProgramRecommendation]:
     """
     Load synthetic educational program fixtures.
     """
-    return [
-        ProgramRecommendation(**raw)
-        for raw in loads((FIXTURES / "matching" / "programs.json").read_text())
-    ]
+    return _load(list[ProgramRecommendation], "matching/programs.json")
 
 
 @fixture

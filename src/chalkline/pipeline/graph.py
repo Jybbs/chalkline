@@ -11,75 +11,66 @@ dual-threshold filter on destination selectivity and source relevance.
 import networkx as nx
 import numpy    as np
 
-from loguru                   import logger
+from dataclasses              import dataclass, field
+from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas import CareerEdge, Neighborhood
 from chalkline.pipeline.schemas import ClusterProfile, PipelineConfig
 
 
+@dataclass(kw_only=True)
 class CareerPathwayGraph:
     """
     Directed weighted career graph with per-edge credential enrichment.
 
     Accepts cluster centroids in both reduced and full embedding spaces,
-    credential embeddings, and Job Zone assignments. Builds a stepwise k-NN
-    backbone with bidirectional lateral edges and unidirectional upward
-    edges, then enriches each edge with credentials filtered by destination
-    selectivity and source relevance thresholds.
+    credential embeddings, and Job Zone assignments. Builds a stepwise
+    k-NN backbone with bidirectional lateral edges and unidirectional
+    upward edges, then enriches each edge with credentials filtered by
+    destination selectivity and source relevance thresholds.
+
+    Args:
+        centroids          : (n_clusters, n_components) in SVD-reduced space.
+        cluster_vectors    : (n_clusters, embedding_dim) L2-normalized.
+        config             : Pipeline hyperparameters for graph construction.
+        credential_labels  : Parallel with `credential_vectors`.
+        credential_types   : "apprenticeship", "program", or "certification".
+        credential_vectors : (n_credentials, embedding_dim) L2-normalized.
+        job_zone_map       : Cluster ID → Job Zone.
+        profiles           : For node construction and neighborhood display.
     """
 
-    def __init__(
-        self,
-        cluster_centroids  : np.ndarray,
-        cluster_vectors    : np.ndarray,
-        config             : PipelineConfig,
-        credential_labels  : list[str],
-        credential_types   : list[str],
-        credential_vectors : np.ndarray,
-        job_zone_map       : dict[int, int],
-        profiles           : dict[int, ClusterProfile]
-    ):
+    centroids          : np.ndarray
+    cluster_vectors    : np.ndarray
+    config             : PipelineConfig
+    credential_labels  : list[str]
+    credential_types   : list[str]
+    credential_vectors : np.ndarray
+    job_zone_map       : dict[int, int]
+    profiles           : dict[int, ClusterProfile]
+
+    graph: nx.DiGraph = field(init=False)
+
+    def __post_init__(self):
         """
-        Build the career pathway graph with credential-enriched edges.
-
-        Args:
-            cluster_centroids  : (n_clusters, n_components) in SVD-reduced space.
-            cluster_vectors    : (n_clusters, embedding_dim) L2-normalized.
-            config             : Pipeline hyperparameters for graph construction.
-            credential_labels  : Parallel with `credential_vectors`.
-            credential_types   : "apprenticeship", "program", or "certification".
-            credential_vectors : (n_credentials, embedding_dim) L2-normalized.
-            job_zone_map       : Cluster ID → Job Zone.
-            profiles           : For node construction and neighborhood display.
+        Compute similarity matrices, build the stepwise backbone, and
+        attach credential metadata to every edge.
         """
-        self.cluster_centroids  = cluster_centroids
-        self.cluster_vectors    = cluster_vectors
-        self.config             = config
-        self.credential_labels  = credential_labels
-        self.credential_types   = credential_types
-        self.credential_vectors = credential_vectors
-        self.job_zone_map       = job_zone_map
-        self.profiles           = profiles
-
-        self.cluster_sim = cosine_similarity(cluster_centroids)
-        np.fill_diagonal(self.cluster_sim, 0)
-
-        self.credential_similarity = cosine_similarity(
-            credential_vectors, cluster_vectors
+        self.graph = nx.DiGraph()
+        self.graph.add_nodes_from(
+            (c, self.profiles[c].model_dump(mode="json"))
+            for c in sorted(self.profiles)
         )
 
-        self.graph = self._build_backbone()
-        self._enrich_edges()
-
-        logger.info(
-            f"Career graph: {self.graph.number_of_nodes()} nodes, "
-            f"{self.graph.number_of_edges()} edges"
+        self._add_edges(cosine_similarity(self.centroids))
+        self._enrich_edges(
+            cosine_similarity(self.credential_vectors, self.cluster_vectors)
         )
 
-    def _build_backbone(self) -> nx.DiGraph:
+    def _add_edges(self, pairwise: np.ndarray):
         """
-        Construct the stepwise k-NN backbone.
+        Add stepwise k-NN backbone edges to the graph.
 
         Each cluster gets `lateral_neighbors` bidirectional edges to
         its most similar same-JZ clusters and `upward_neighbors`
@@ -87,135 +78,96 @@ class CareerPathwayGraph:
         JZ level. The stepwise constraint prevents tier-skipping
         shortcuts.
         """
-        cluster_ids = sorted(self.profiles)
-        graph       = nx.DiGraph()
-        graph.add_nodes_from(
-            (cluster_id, self.profiles[cluster_id].model_dump(mode="json"))
-            for cluster_id in cluster_ids
-        )
+        similarity  = pairwise - np.eye(len(pairwise))
+        ids         = np.array(sorted(self.profiles))
+        zones       = np.array([self.job_zone_map[c] for c in ids])
+        zone_levels = sorted(set(zones))
+        next_zone   = dict(zip(zone_levels, zone_levels[1:]))
 
-        job_zone_levels = sorted(set(self.job_zone_map.values()))
-        next_zone       = dict(zip(job_zone_levels, job_zone_levels[1:]))
-
-        for source in cluster_ids:
+        for source in ids:
             source_zone = self.job_zone_map[source]
+            lateral     = ids[(zones == source_zone) & (ids > source)]
+            proximity   = similarity[source, lateral]
 
-            same_zone = [
-                target for target in cluster_ids
-                if self.job_zone_map[target] == source_zone
-                and target > source
-            ]
-            same_zone.sort(
-                key     = lambda target: self.cluster_sim[source, target],
-                reverse = True
-            )
-            for target in same_zone[:self.config.lateral_neighbors]:
-                weight = self.cluster_sim[source, target]
-                graph.add_edge(source, target, weight=weight)
-                graph.add_edge(target, source, weight=weight)
+            for i in np.argsort(-proximity)[:self.config.lateral_neighbors]:
+                self.graph.add_edge(source, lateral[i], weight=proximity[i])
+                self.graph.add_edge(lateral[i], source, weight=proximity[i])
 
             if source_zone in next_zone:
-                upward = [
-                    target for target in cluster_ids
-                    if self.job_zone_map[target] == next_zone[source_zone]
-                ]
-                upward.sort(
-                    key     = lambda target: self.cluster_sim[source, target],
-                    reverse = True
-                )
-                for target in upward[:self.config.upward_neighbors]:
-                    weight = self.cluster_sim[source, target]
-                    graph.add_edge(source, target, weight=weight)
+                upward    = ids[zones == next_zone[source_zone]]
+                proximity = similarity[source, upward]
+                
+                for i in np.argsort(-proximity)[:self.config.upward_neighbors]:
+                    self.graph.add_edge(source, upward[i], weight=proximity[i])
 
-        return graph
-
-    def _enrich_edges(self):
+    def _enrich_edges(self, credential_similarity: np.ndarray):
         """
-        Attach per-edge credential metadata using the dual-threshold filter.
+        Attach per-edge credential metadata using the dual-threshold
+        filter.
 
-        For each edge (source → target), a credential 𝐜 passes when both
-        conditions hold:
+        For each edge (source → target), a credential 𝐜 passes when
+        both conditions hold:
 
             cos(𝐜, 𝐭) ≥ P₁₀₀₋ₚ(cos(·, 𝐭))
             cos(𝐜, 𝐬) ≥ Pₛ(cos(·, ·))
 
         The first threshold selects credentials with high destination
-        affinity. The second ensures source relevance against the global
-        credential-to-cluster distribution.
+        affinity. The second ensures source relevance against the
+        global credential-to-cluster distribution.
         """
-        all_similarities = self.credential_similarity.flatten()
-        source_floor = np.percentile(
-            all_similarities, self.config.source_percentile
+        mask = credential_similarity >= np.percentile(
+            a = credential_similarity,
+            q = self.config.source_percentile
+        )
+        affinity_floors = np.percentile(
+            a    = credential_similarity,
+            q    = 100 - self.config.destination_percentile,
+            axis = 0
         )
 
-        for source, target, edge_data in self.graph.edges(data=True):
-            destination_threshold = np.percentile(
-                self.credential_similarity[:, target], 100 - self.config.destination_percentile
-            )
+        types  = np.array(self.credential_types)
+        labels = np.array(self.credential_labels, dtype=object)
 
-            dest_column = self.credential_similarity[:, target]
-            src_column  = self.credential_similarity[:, source]
-            passing_mask = (
-                (dest_column >= destination_threshold)
-                & (src_column >= source_floor)
-            )
-            passing_indices = np.flatnonzero(passing_mask)
-            ranked_indices = passing_indices[
-                np.argsort(dest_column[passing_indices])[::-1]
-            ]
+        for s, t, edge_data in self.graph.edges(data=True):
+            affinity = credential_similarity[:, t]
+            passing  = np.flatnonzero((affinity >= affinity_floors[t]) & mask[:, s])
+            ranked   = passing[np.argsort(-affinity[passing])]
+            kinds    = types[ranked]
 
-            apprenticeships = []
-            certifications  = []
-            programs        = []
-
-            for idx in ranked_indices:
-                label = self.credential_labels[idx]
-                match self.credential_types[idx]:
-                    case "apprenticeship" : apprenticeships.append(label)
-                    case "certification"  : certifications.append(label)
-                    case "program"        : programs.append(label)
-
-            edge_data["apprenticeships"] = apprenticeships
-            edge_data["certifications"]  = certifications
-            edge_data["programs"]        = programs
+            edge_data.update({
+                f"{kind}s": labels[ranked[kinds == kind]].tolist()
+                for kind in ("apprenticeship", "certification", "program")
+            })
 
     def neighborhood(self, cluster_id: int) -> Neighborhood:
         """
         Local neighborhood exploration from a given cluster.
 
-        Returns advancement paths (edges to higher JZ clusters) and lateral
-        pivots (edges to same JZ clusters) with their per-edge credential
-        metadata sorted by edge weight.
+        Returns advancement paths (edges to higher JZ clusters) and
+        lateral pivots (edges to same JZ clusters) with their per-edge
+        credential metadata sorted by edge weight.
         """
-        source_zone = self.job_zone_map[cluster_id]
-        advancement = []
-        lateral     = []
-
-        for target in self.graph.successors(cluster_id):
-            edge_data   = self.graph[cluster_id][target]
-            target_zone = self.job_zone_map[target]
-            profile     = self.profiles[target]
-
-            career_edge = CareerEdge(
-                apprenticeships = edge_data.get("apprenticeships", []),
-                certifications  = edge_data.get("certifications", []),
-                cluster_id      = target,
-                modal_title     = profile.modal_title,
-                programs        = edge_data.get("programs", []),
-                size            = profile.size,
-                soc_title       = profile.soc_title,
-                weight          = edge_data["weight"]
+        edges = [
+            CareerEdge(
+                cluster_id  = target,
+                modal_title = (profile := self.profiles[target]).modal_title,
+                size        = profile.size,
+                soc_title   = profile.soc_title,
+                **self.graph[cluster_id][target]
             )
+            for target in self.graph.successors(cluster_id)
+        ]
 
-            if target_zone > source_zone:
-                advancement.append(career_edge)
-            elif target_zone == source_zone:
-                lateral.append(career_edge)
-
-        advancement.sort(key=lambda e: -e.weight)
-        lateral.sort(key=lambda e: -e.weight)
+        ranked = lambda compare: sorted(
+            [e for e in edges if compare(
+                self.job_zone_map[e.cluster_id],
+                self.job_zone_map[cluster_id]
+            )],
+            key     = lambda edge: edge.weight,
+            reverse = True
+        )
 
         return Neighborhood(
-            advancement = advancement,
-            lateral     = lateral
+            advancement = ranked(gt),
+            lateral     = ranked(eq)
         )

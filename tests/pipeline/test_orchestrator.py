@@ -5,6 +5,8 @@ Validates that the fitted pipeline carries all expected fields and that the
 repr methods produce output without errors.
 """
 
+from dataclasses import fields
+
 from chalkline.pipeline.orchestrator import Chalkline
 
 
@@ -17,9 +19,7 @@ class TestChalkline:
         """
         The Chalkline dataclass declares the expected field names.
         """
-        from dataclasses import fields
-        names = {f.name for f in fields(Chalkline)}
-        assert names == {
+        assert {f.name for f in fields(Chalkline)} == {
             "config", "graph", "manifest",
             "matcher", "profiles", "trades"
         }

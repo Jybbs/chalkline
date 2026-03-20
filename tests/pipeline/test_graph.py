@@ -7,6 +7,8 @@ neighborhood exploration if broken, including edge directionality, JZ
 ordering, backbone connectivity, and credential metadata attachment.
 """
 
+from networkx import number_weakly_connected_components
+
 from chalkline.pipeline.graph import CareerPathwayGraph
 
 
@@ -20,9 +22,7 @@ class TestCareerPathwayGraph:
         The stepwise backbone must produce exactly one weakly connected
         component so every cluster is reachable.
         """
-        import networkx as nx
-        components = nx.number_weakly_connected_components(pathway_graph.graph)
-        assert components == 1
+        assert number_weakly_connected_components(pathway_graph.graph) == 1
 
     def test_credential_metadata(self, pathway_graph: CareerPathwayGraph):
         """

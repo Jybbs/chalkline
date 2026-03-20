@@ -10,7 +10,7 @@ metadata.
 
 import numpy as np
 
-from loguru                   import logger
+from dataclasses              import dataclass
 from sentence_transformers    import SentenceTransformer
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
@@ -21,73 +21,55 @@ from chalkline.pipeline.graph   import CareerPathwayGraph
 from chalkline.pipeline.schemas import ClusterProfile
 
 
+@dataclass(kw_only=True)
 class ResumeMatcher:
     """
     Embedding-based resume matching with neighborhood exploration.
 
-    Holds the sentence transformer model, fitted SVD, cluster centroids, and
-    per-cluster O*NET task embeddings. The `match()` method encodes resume
-    text, projects it into the reduced space, assigns it to the nearest
-    cluster, computes per-task gap analysis, and queries the career graph
-    for the local neighborhood view.
+    Holds the sentence transformer model, fitted SVD, cluster centroids,
+    and per-cluster O*NET task embeddings. The `match()` method encodes
+    resume text, projects it into the reduced space, assigns it to the
+    nearest cluster, computes per-task gap analysis, and queries the
+    career graph for the local neighborhood view.
+
+    Args:
+        centroids    : (n_clusters, n_components) in SVD-reduced space.
+        cluster_ids  : Aligned with centroid rows.
+        graph        : For neighborhood queries post-match.
+        model        : For encoding resume text into embedding space.
+        profiles     : For sector lookup on the matched cluster.
+        svd          : For projecting resume embeddings into reduced space.
+        task_labels  : Per-cluster Task+DWA names aligned with vector rows.
+        task_vectors : Per-cluster (n_tasks, embedding_dim) L2-normalized.
     """
 
-    def __init__(
-        self,
-        centroids    : np.ndarray,
-        cluster_ids  : list[int],
-        graph        : CareerPathwayGraph,
-        model        : SentenceTransformer,
-        profiles     : dict[int, ClusterProfile],
-        svd          : TruncatedSVD,
-        task_labels  : dict[int, list[str]],
-        task_vectors : dict[int, np.ndarray],
-        max_gaps     : int = 10
-    ):
-        """
-        Args:
-            centroids    : (n_clusters, n_components) in SVD-reduced space.
-            cluster_ids  : Aligned with centroid rows.
-            graph        : For neighborhood queries post-match.
-            model        : For encoding resume text into embedding space.
-            profiles     : For sector lookup on the matched cluster.
-            svd          : For projecting resume embeddings into reduced space.
-            task_labels  : Per-cluster Task+DWA names aligned with vector rows.
-            task_vectors : Per-cluster (n_tasks, embedding_dim) L2-normalized.
-            max_gaps     : Maximum number of gaps to return.
-        """
-        self.centroids    = centroids
-        self.cluster_ids  = cluster_ids
-        self.graph        = graph
-        self.max_gaps     = max_gaps
-        self.model        = model
-        self.profiles     = profiles
-        self.svd          = svd
-        self.task_labels  = task_labels
-        self.task_vectors = task_vectors
+    centroids    : np.ndarray
+    cluster_ids  : list[int]
+    graph        : CareerPathwayGraph
+    model        : SentenceTransformer
+    profiles     : dict[int, ClusterProfile]
+    svd          : TruncatedSVD
+    task_labels  : dict[int, list[str]]
+    task_vectors : dict[int, np.ndarray]
 
-        logger.info(f"Matcher ready for {len(cluster_ids)} clusters")
-
-    def _task_gap_analysis(
+    def _gap_analysis(
         self,
         cluster_id  : int,
-        resume_unit : np.ndarray,
-        top_k       : int
+        resume_unit : np.ndarray
     ) -> tuple[list[TaskGap], list[TaskGap]]:
         """
-        Split O*NET tasks into demonstrated and gap categories via per-task
-        cosine similarity against the resume embedding.
+        Partition O*NET tasks into demonstrated and gap lists via
+        median-split cosine similarity against the resume embedding.
 
             cos(𝐫, 𝐭ᵢ) ≥ S̃  →  demonstrated
             cos(𝐫, 𝐭ᵢ) < S̃  →  gap
 
-        Both lists are sorted by similarity, descending for demonstrated and
-        ascending for gaps.
+        Demonstrated are sorted descending (strongest first), gaps
+        ascending (largest deficits first).
 
         Args:
             cluster_id  : For Task+DWA occupation lookup.
             resume_unit : L2-normalized resume embedding (1, embedding_dim).
-            top_k       : Maximum number of gaps to return.
 
         Returns:
             Tuple of (demonstrated tasks, gap tasks).
@@ -95,80 +77,59 @@ class ResumeMatcher:
         if cluster_id not in self.task_vectors:
             return [], []
 
-        embeddings   = self.task_vectors[cluster_id]
-        names        = self.task_labels[cluster_id]
-        similarities = cosine_similarity(resume_unit, embeddings)[0]
+        similarities = cosine_similarity(resume_unit, self.task_vectors[cluster_id])[0]
         threshold    = np.median(similarities)
 
-        demonstrated = sorted(
-            [
-                TaskGap(name=name, similarity=score)
-                for name, score in zip(names, similarities)
-                if score >= threshold
-            ],
-            key=lambda gap: -gap.similarity
+        tasks = [
+            TaskGap(name=name, similarity=float(score))
+            for name, score in zip(self.task_labels[cluster_id], similarities)
+        ]
+        rank = lambda above: sorted(
+            [t for t in tasks if (t.similarity >= threshold) == above],
+            key     = lambda t: t.similarity,
+            reverse = above
         )
+        return rank(True), rank(False)
 
-        gaps = sorted(
-            [
-                TaskGap(name=name, similarity=score)
-                for name, score in zip(names, similarities)
-                if score < threshold
-            ],
-            key=lambda gap: gap.similarity
-        )[:top_k]
-
-        return demonstrated, gaps
-
-    def match(
-        self,
-        resume_text : str,
-        top_k       : int | None = None
-    ) -> MatchResult:
+    def match(self, resume_text: str) -> MatchResult:
         """
         Project resume text into the career landscape and return a full
         match result with gap analysis and neighborhood view.
 
         Encodes the resume with the sentence transformer, L2-normalizes,
         projects through the fitted SVD, assigns to the nearest cluster
-        centroid via Euclidean distance, then computes per-task cosine gaps
-        and queries the career graph for neighborhood options with
+        centroid via Euclidean distance, then computes per-task cosine
+        gaps and queries the career graph for neighborhood options with
         credential metadata.
 
             k* = argmin_k ‖𝐫 − 𝐜ₖ‖₂
 
         Args:
-            resume_text : Raw resume text (post-PDF extraction).
-            top_k       : Override for the default `max_gaps`.
+            resume_text: Raw resume text (post-PDF extraction).
 
         Returns:
             `MatchResult` with cluster, gaps, and neighborhood.
         """
-        resume_embedding   = self.model.encode([resume_text], show_progress_bar=False)
-        resume_unit        = normalize(resume_embedding)
-        resume_coordinates = self.svd.transform(resume_unit)[0]
-
-        distances       = np.linalg.norm(self.centroids - resume_coordinates, axis=1)
-        ranked_indices  = np.argsort(distances)
-        nearest_cluster = self.cluster_ids[ranked_indices[0]]
-
-        demonstrated, gaps = self._task_gap_analysis(
-            cluster_id  = nearest_cluster,
-            resume_unit = resume_unit,
-            top_k       = top_k or self.max_gaps
+        embedding   = self.model.encode([resume_text], show_progress_bar=False)
+        resume_unit = normalize(embedding)
+        distances   = np.linalg.norm(
+            x    = self.centroids - self.svd.transform(resume_unit)[0],
+            axis = 1
         )
 
+        cluster_id         = self.cluster_ids[(ranked := np.argsort(distances))[0]]
+        demonstrated, gaps = self._gap_analysis(cluster_id, resume_unit)
         return MatchResult(
             cluster_distances = [
                 ClusterDistance(
                     cluster_id = self.cluster_ids[index],
                     distance   = distances[index]
                 )
-                for index in ranked_indices
+                for index in ranked
             ],
-            cluster_id   = nearest_cluster,
+            cluster_id   = cluster_id,
             demonstrated = demonstrated,
             gaps         = gaps,
-            neighborhood = self.graph.neighborhood(nearest_cluster),
-            sector       = self.profiles[nearest_cluster].sector
+            neighborhood = self.graph.neighborhood(cluster_id),
+            sector       = self.profiles[cluster_id].sector
         )

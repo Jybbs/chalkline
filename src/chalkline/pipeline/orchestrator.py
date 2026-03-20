@@ -85,42 +85,30 @@ class Chalkline:
         Returns:
             A fully fitted `Chalkline` instance.
         """
-        model = SentenceTransformer(config.embedding_model)
-
-        return Chalkline(
-            **(
-                driver.Builder()
-                .with_modules(steps)
-                .with_adapters(ProgressBar("chalkline"))
-                .with_cache(path=str(config.hamilton_cache_dir))
-                .build()
-                .execute(
-                    [f.name for f in fields(Chalkline)],
-                    inputs={
-                        "config" : config,
-                        "model"  : model
-                    }
-                )
+        results = (driver.Builder()
+            .with_modules(steps)
+            .with_adapters(ProgressBar("chalkline"))
+            .with_cache(str(config.hamilton_cache_dir))
+            .build()
+            .execute(
+                final_vars = [f.name for f in fields(Chalkline)],
+                inputs     = {
+                    "config" : config,
+                    "model"  : SentenceTransformer(config.embedding_model)
+                }
             )
         )
+        return Chalkline(**results)
 
-    def match(
-        self,
-        resume_text : str,
-        top_k       : int | None = None
-    ) -> MatchResult:
+    def match(self, resume_text: str) -> MatchResult:
         """
-        Project a resume into the fitted career landscape and return a full
-        match result with gap analysis and neighborhood view.
+        Project a resume into the fitted career landscape and return a
+        full match result with gap analysis and neighborhood view.
 
         Args:
-            resume_text : Raw resume text (post-PDF extraction).
-            top_k       : Override for the default `max_gaps`.
+            resume_text: Raw resume text (post-PDF extraction).
 
         Returns:
             `MatchResult` with cluster, gaps, and neighborhood.
         """
-        return self.matcher.match(
-            resume_text = resume_text,
-            top_k       = top_k
-        )
+        return self.matcher.match(resume_text)

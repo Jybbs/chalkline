@@ -9,8 +9,7 @@ record carries a pre-computed `prefixes` set from curation, and the
 
 from collections.abc import Iterable
 
-from chalkline.pipeline.schemas import ApprenticeshipContext
-from chalkline.pipeline.schemas import ProgramRecommendation
+from chalkline.pipeline.schemas import ApprenticeshipContext, ProgramRecommendation
 
 
 class TradeIndex:

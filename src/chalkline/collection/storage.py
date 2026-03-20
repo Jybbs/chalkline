@@ -13,7 +13,6 @@ from pydantic import TypeAdapter
 from chalkline.collection.schemas import Posting
 
 
-
 class CorpusStorage:
     """
     JSON-backed persistence for the posting corpus.
@@ -86,7 +85,7 @@ class CorpusStorage:
         self.corpus_path.write_bytes(
             self.Postings.dump_json(
                 merged := self.deduplicate(self.load() + postings),
-                indent=2
+                indent  = 2
             )
         )
         logger.info(f"Saved {len(merged)} postings to {self.corpus_path}")
