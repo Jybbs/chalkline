@@ -27,7 +27,8 @@ from chalkline.extraction.schemas  import Certification, OnetOccupation
 from chalkline.matching.matcher    import ResumeMatcher
 from chalkline.pipeline.graph      import CareerPathwayGraph
 from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
+from chalkline.pipeline.schemas    import Credentials, PipelineConfig
+from chalkline.pipeline.schemas    import ProgramRecommendation
 from chalkline.pipeline.trades     import TradeIndex
 
 
@@ -221,11 +222,36 @@ def coordinates(
 
 
 @fixture
-def credential_vectors() -> np.ndarray:
+def credential_records(
+    apprenticeships : list[ApprenticeshipContext],
+    programs        : list[ProgramRecommendation]
+) -> list:
     """
-    Synthetic credential embeddings (10 credentials, EMBEDDING_DIM).
+    Mixed credential records from trade fixtures (4 + 6 = 10).
     """
-    return _embeddings(10, 77, unit=True)
+    return apprenticeships + programs
+
+
+@fixture
+def credential_vectors(credential_records: list) -> np.ndarray:
+    """
+    Synthetic credential embeddings aligned with `credential_records`.
+    """
+    return _embeddings(len(credential_records), 77, unit=True)
+
+
+@fixture
+def credentials(
+    credential_records : list,
+    credential_vectors : np.ndarray
+) -> Credentials:
+    """
+    Bundled credential records and vectors for graph construction.
+    """
+    return Credentials(
+        records = credential_records,
+        vectors = credential_vectors
+    )
 
 
 @fixture
@@ -255,26 +281,23 @@ def mock_encoder() -> MockEncoder:
 
 @fixture
 def pathway_graph(
-    centroids          : np.ndarray,
-    cluster_vectors    : np.ndarray,
-    config             : PipelineConfig,
-    credential_vectors : np.ndarray,
-    job_zone_map       : dict[int, int],
-    profiles           : dict[int, ClusterProfile]
+    centroids       : np.ndarray,
+    cluster_vectors : np.ndarray,
+    config          : PipelineConfig,
+    credentials     : Credentials,
+    job_zone_map    : dict[int, int],
+    profiles        : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
     """
     Career pathway graph built from synthetic embeddings.
     """
-    credential_count = len(credential_vectors)
     return CareerPathwayGraph(
-        centroids          = centroids,
-        cluster_vectors    = cluster_vectors,
-        config             = config,
-        credential_labels  = [f"Credential {i}" for i in range(credential_count)],
-        credential_types   = ["certification"] * credential_count,
-        credential_vectors = credential_vectors,
-        job_zone_map       = job_zone_map,
-        profiles           = profiles
+        centroids       = centroids,
+        cluster_vectors = cluster_vectors,
+        config          = config,
+        credentials     = credentials,
+        job_zone_map    = job_zone_map,
+        profiles        = profiles
     )
 
 

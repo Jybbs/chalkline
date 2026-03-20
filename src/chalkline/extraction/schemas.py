@@ -9,7 +9,7 @@ groups surface forms for Aho-Corasick matching.
 
 from enum     import StrEnum
 from pydantic import BaseModel, Field
-from typing   import NamedTuple
+from typing   import Literal, NamedTuple
 
 
 class Certification(BaseModel, extra="forbid"):
@@ -25,10 +25,11 @@ class Certification(BaseModel, extra="forbid"):
     name      : str
     soc_codes : list[str]
 
-    acronym      : str | None       = None
-    organization : str | None       = None
-    phrases      : list[str] | None = None
-    type         : str | None       = None
+    acronym         : str | None               = None
+    credential_kind : Literal["certification"] = "certification"
+    organization    : str | None               = None
+    phrases         : list[str] | None         = None
+    type            : str | None               = None
 
     @property
     def display_label(self) -> str:

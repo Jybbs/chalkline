@@ -16,7 +16,7 @@ from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas import CareerEdge, Neighborhood
-from chalkline.pipeline.schemas import ClusterProfile, PipelineConfig
+from chalkline.pipeline.schemas import ClusterProfile, Credentials, PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -31,24 +31,20 @@ class CareerPathwayGraph:
     destination selectivity and source relevance thresholds.
 
     Args:
-        centroids          : (n_clusters, n_components) in SVD-reduced space.
-        cluster_vectors    : (n_clusters, embedding_dim) L2-normalized.
-        config             : Pipeline hyperparameters for graph construction.
-        credential_labels  : Parallel with `credential_vectors`.
-        credential_types   : "apprenticeship", "program", or "certification".
-        credential_vectors : (n_credentials, embedding_dim) L2-normalized.
-        job_zone_map       : Cluster ID → Job Zone.
-        profiles           : For node construction and neighborhood display.
+        centroids       : (n_clusters, n_components) in SVD-reduced space.
+        cluster_vectors : (n_clusters, embedding_dim) L2-normalized.
+        config          : Pipeline hyperparameters for graph construction.
+        credentials     : Typed records with aligned embedding vectors.
+        job_zone_map    : Cluster ID → Job Zone.
+        profiles        : For node construction and neighborhood display.
     """
 
-    centroids          : np.ndarray
-    cluster_vectors    : np.ndarray
-    config             : PipelineConfig
-    credential_labels  : list[str]
-    credential_types   : list[str]
-    credential_vectors : np.ndarray
-    job_zone_map       : dict[int, int]
-    profiles           : dict[int, ClusterProfile]
+    centroids       : np.ndarray
+    cluster_vectors : np.ndarray
+    config          : PipelineConfig
+    credentials     : Credentials
+    job_zone_map    : dict[int, int]
+    profiles        : dict[int, ClusterProfile]
 
     graph: nx.DiGraph = field(init=False)
 
@@ -65,7 +61,7 @@ class CareerPathwayGraph:
 
         self._add_edges(cosine_similarity(self.centroids))
         self._enrich_edges(
-            cosine_similarity(self.credential_vectors, self.cluster_vectors)
+            cosine_similarity(self.credentials.vectors, self.cluster_vectors)
         )
 
     def _add_edges(self, pairwise: np.ndarray):
@@ -125,17 +121,20 @@ class CareerPathwayGraph:
             axis = 0
         )
 
-        types  = np.array(self.credential_types)
-        labels = np.array(self.credential_labels, dtype=object)
+        records = np.array(self.credentials.records, dtype=object)
+        kinds   = np.array([r.credential_kind for r in self.credentials.records])
 
         for s, t, edge_data in self.graph.edges(data=True):
             affinity = credential_similarity[:, t]
             passing  = np.flatnonzero((affinity >= affinity_floors[t]) & mask[:, s])
             ranked   = passing[np.argsort(-affinity[passing])]
-            kinds    = types[ranked]
+            matched  = kinds[ranked]
 
             edge_data.update({
-                f"{kind}s": labels[ranked[kinds == kind]].tolist()
+                f"{kind}s": [
+                    r.model_dump(mode="json")
+                    for r in records[ranked[matched == kind]]
+                ]
                 for kind in ("apprenticeship", "certification", "program")
             })
 

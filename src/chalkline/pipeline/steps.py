@@ -27,8 +27,8 @@ from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pipeline.graph     import CareerPathwayGraph
 from chalkline.pipeline.schemas   import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas   import PipelineConfig, PipelineManifest
-from chalkline.pipeline.schemas   import ProgramRecommendation
+from chalkline.pipeline.schemas   import Credentials, PipelineConfig
+from chalkline.pipeline.schemas   import PipelineManifest, ProgramRecommendation
 from chalkline.pipeline.trades    import TradeIndex
 
 
@@ -98,43 +98,26 @@ def corpus_data(config: PipelineConfig) -> dict:
     }
 
 
-@extract_fields({
-    "credential_labels"  : list,
-    "credential_types"   : list,
-    "credential_vectors" : np.ndarray
-})
 def credentials(
     lexicons : LexiconLoader,
     model    : SentenceTransformer,
     trades   : TradeIndex
-) -> dict:
+) -> Credentials:
     """
     Encode the credential catalog (apprenticeships, programs,
-    certifications) with the sentence transformer and return parallel lists
-    of embeddings, labels, and type strings.
+    certifications) with the sentence transformer. Returns a
+    `Credentials` bundling the typed records with their embedding
+    vectors so the graph can attach full credential metadata to edges.
     """
-    entries = [
-        (record.title, record.title, "apprenticeship")
-        for record in trades.apprenticeships
-    ] + [
-        (
-            f"{record.program} ({record.institution})",
-            f"{record.credential} {record.program} {record.institution}",
-            "program"
-        )
-        for record in trades.programs
-    ] + [
-        (record.display_label, record.embedding_text, "certification")
-        for record in lexicons.certifications
-    ]
-
-    labels, texts, types = map(list, zip(*entries)) if entries else ([], [], [])
-    logger.info(f"Encoding {len(texts)} credentials...")
-    return {
-        "credential_labels"  : labels,
-        "credential_types"   : types,
-        "credential_vectors" : normalize(model.encode(texts, show_progress_bar=False))
-    }
+    records = trades.apprenticeships + trades.programs + lexicons.certifications
+    logger.info(f"Encoding {len(records)} credentials...")
+    return Credentials(
+        records = records,
+        vectors = normalize(model.encode(
+            [r.embedding_text for r in records],
+            show_progress_bar = False
+        ))
+    )
 
 
 @extract_fields({
@@ -154,28 +137,24 @@ def reduction(config: PipelineConfig, unit_vectors: np.ndarray) -> dict:
 
 
 def graph(
-    centroids          : np.ndarray,
-    cluster_vectors    : np.ndarray,
-    config             : PipelineConfig,
-    credential_labels  : list[str],
-    credential_types   : list[str],
-    credential_vectors : np.ndarray,
-    job_zone_map       : dict[int, int],
-    profiles           : dict[int, ClusterProfile]
+    centroids       : np.ndarray,
+    cluster_vectors : np.ndarray,
+    config          : PipelineConfig,
+    credentials     : Credentials,
+    job_zone_map    : dict[int, int],
+    profiles        : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
     """
     Build the career pathway graph with stepwise k-NN backbone and per-edge
     credential enrichment.
     """
     result = CareerPathwayGraph(
-        centroids          = centroids,
-        cluster_vectors    = cluster_vectors,
-        config             = config,
-        credential_labels  = credential_labels,
-        credential_types   = credential_types,
-        credential_vectors = credential_vectors,
-        job_zone_map       = job_zone_map,
-        profiles           = profiles
+        centroids       = centroids,
+        cluster_vectors = cluster_vectors,
+        config          = config,
+        credentials     = credentials,
+        job_zone_map    = job_zone_map,
+        profiles        = profiles
     )
     logger.info(
         f"Career graph: {result.graph.number_of_nodes()} nodes, "

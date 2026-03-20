@@ -7,8 +7,10 @@ matching, graph construction, and report generation modules.
 """
 
 from functools import cached_property
-from pathlib   import Path
-from pydantic  import BaseModel, Field
+from numpy    import ndarray
+from pathlib  import Path
+from pydantic import BaseModel, Field
+from typing   import Literal, NamedTuple
 
 
 class ApprenticeshipContext(BaseModel, extra="forbid"):
@@ -25,6 +27,15 @@ class ApprenticeshipContext(BaseModel, extra="forbid"):
     prefixes    : set[str]
     rapids_code : str
     title       : str
+
+    credential_kind : Literal["apprenticeship"] = "apprenticeship"
+
+    @property
+    def embedding_text(self) -> str:
+        """
+        Text representation for sentence encoding.
+        """
+        return self.title
 
 
 class ClusterProfile(BaseModel, extra="forbid"):
@@ -43,6 +54,19 @@ class ClusterProfile(BaseModel, extra="forbid"):
     sector      : str
     size        : int = Field(ge=1)
     soc_title   : str
+
+
+class Credentials(NamedTuple):
+    """
+    Bundled credential records with their sentence-transformer embeddings.
+
+    Produced by the `credentials` Hamilton node and consumed by the graph
+    constructor, which unpacks `records` for edge metadata and `vectors`
+    for cosine similarity against cluster centroids.
+    """
+
+    records : list
+    vectors : ndarray
 
 
 class PipelineConfig(BaseModel, extra="forbid"):
@@ -112,3 +136,15 @@ class ProgramRecommendation(BaseModel, extra="forbid"):
     prefixes    : set[str]
     program     : str
     url         : str
+
+    credential_kind : Literal["program"] = "program"
+
+    @property
+    def embedding_text(self) -> str:
+        """
+        Text representation for sentence encoding.
+
+        Concatenates credential level, program name, and institution
+        so the sentence transformer captures the full program identity.
+        """
+        return f"{self.credential} {self.program} {self.institution}"

@@ -8,7 +8,8 @@ embeddings.
 
 from pydantic import BaseModel, Field
 
-from chalkline.pipeline.schemas import ApprenticeshipContext, ProgramRecommendation
+from chalkline.extraction.schemas import Certification
+from chalkline.pipeline.schemas   import ApprenticeshipContext, ProgramRecommendation
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -28,7 +29,7 @@ class CareerEdge(BaseModel, extra="forbid"):
     weight      : float
 
     apprenticeships : list[ApprenticeshipContext] = Field(default_factory=list)
-    certifications  : list[str]                   = Field(default_factory=list)
+    certifications  : list[Certification]         = Field(default_factory=list)
     programs        : list[ProgramRecommendation] = Field(default_factory=list)
 
 
