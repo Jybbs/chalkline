@@ -6,11 +6,17 @@ apprenticeship and educational program reference data consumed across
 matching, graph construction, and report generation modules.
 """
 
-from functools import cached_property
-from numpy    import ndarray
-from pathlib  import Path
-from pydantic import BaseModel, Field
-from typing   import Literal, NamedTuple
+import numpy as np
+
+from dataclasses           import dataclass, field
+from functools             import cached_property
+from pathlib               import Path
+from pydantic              import BaseModel, Field
+from sentence_transformers import SentenceTransformer
+from sklearn.preprocessing import normalize
+from typing                import Literal, NamedTuple
+
+from chalkline.collection.schemas import Posting
 
 
 class ApprenticeshipContext(BaseModel, extra="forbid"):
@@ -38,6 +44,30 @@ class ApprenticeshipContext(BaseModel, extra="forbid"):
         return self.title
 
 
+@dataclass(slots=True)
+class ClusterAssignments:
+    """
+    Ward-linkage HAC results with eagerly-derived cluster structure.
+
+    Accepts the raw label array from `AgglomerativeClustering.fit_predict`
+    and derives the sorted unique IDs and per-cluster member indices once at
+    construction, so downstream consumers access structural properties
+    rather than reimplementing boolean masking.
+    """
+
+    labels : np.ndarray
+
+    cluster_ids : list[int]             = field(init=False)
+    members     : dict[int, np.ndarray] = field(init=False)
+
+    def __post_init__(self):
+        self.cluster_ids = sorted(set(self.labels))
+        self.members = {
+            cid: np.where(self.labels == cid)[0]
+            for cid in self.cluster_ids
+        }
+
+
 class ClusterProfile(BaseModel, extra="forbid"):
     """
     Domain characteristics of a single career cluster.
@@ -56,17 +86,67 @@ class ClusterProfile(BaseModel, extra="forbid"):
     soc_title   : str
 
 
+@dataclass(slots=True)
+class Corpus:
+    """
+    Filtered posting corpus with eagerly-derived key ordering.
+
+    Keeps `Posting` objects intact so downstream consumers access
+    `.description` and `.title` through the posting rather than through
+    parallel dicts. The sorted key list is computed once at construction for
+    deterministic encoding and manifest ordering.
+    """
+
+    postings    : dict[str, Posting]
+    posting_ids : list[str] = field(init=False)
+
+    def __post_init__(self):
+        self.posting_ids = sorted(self.postings)
+
+    @property
+    def descriptions(self) -> list[str]:
+        """
+        Posting descriptions in deterministic sorted-key order for sentence
+        encoding.
+        """
+        return [self.postings[pid].description for pid in self.posting_ids]
+
+
 class Credentials(NamedTuple):
     """
     Bundled credential records with their sentence-transformer embeddings.
 
     Produced by the `credentials` Hamilton node and consumed by the graph
-    constructor, which unpacks `records` for edge metadata and `vectors`
-    for cosine similarity against cluster centroids.
+    constructor, which unpacks `records` for edge metadata and `vectors` for
+    cosine similarity against cluster centroids.
     """
 
     records : list
-    vectors : ndarray
+    vectors : np.ndarray
+
+
+@dataclass(slots=True)
+class Encoder:
+    """
+    L2-normalizing sentence-transformer wrapper.
+
+    Encodes text into embedding vectors, L2-normalized by default for cosine
+    similarity. Pass `unit=False` for unnormalized output when downstream
+    nodes handle normalization separately.
+    """
+
+    model: SentenceTransformer
+
+    def encode(self, texts: list[str], unit: bool = True) -> np.ndarray:
+        """
+        Encode texts with the sentence transformer.
+
+        Args:
+            texts : Strings to encode.
+            unit  : L2-normalize output for cosine similarity (default True).
+        """
+        vectors = self.model.encode(texts, show_progress_bar=False)
+        return normalize(vectors) if unit else vectors
 
 
 class PipelineConfig(BaseModel, extra="forbid"):
@@ -144,7 +224,7 @@ class ProgramRecommendation(BaseModel, extra="forbid"):
         """
         Text representation for sentence encoding.
 
-        Concatenates credential level, program name, and institution
-        so the sentence transformer captures the full program identity.
+        Concatenates credential level, program name, and institution so the
+        sentence transformer captures the full program identity.
         """
         return f"{self.credential} {self.program} {self.institution}"

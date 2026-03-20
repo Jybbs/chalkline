@@ -15,7 +15,6 @@ from collections                 import Counter
 from datetime                    import datetime, timezone
 from hamilton.function_modifiers import extract_fields
 from loguru                      import logger
-from sentence_transformers       import SentenceTransformer
 from sklearn.cluster             import AgglomerativeClustering
 from sklearn.decomposition       import TruncatedSVD
 from sklearn.metrics.pairwise    import cosine_similarity
@@ -25,41 +24,40 @@ from chalkline.collection.storage import CorpusStorage
 from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ClusterProfile, Credentials
+from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pipeline.schemas   import Corpus, Credentials, Encoder
 from chalkline.pipeline.schemas   import PipelineConfig, PipelineManifest
 from chalkline.pipeline.trades    import TradeIndex
 
 
-def assignments(config: PipelineConfig, coordinates: np.ndarray) -> np.ndarray:
+def assignments(config: PipelineConfig, coordinates: np.ndarray) -> ClusterAssignments:
     """
     Fit Ward-linkage HAC on SVD coordinates.
     """
-    return AgglomerativeClustering(
+    return ClusterAssignments(AgglomerativeClustering(
         linkage    = "ward",
         n_clusters = config.cluster_count
-    ).fit_predict(coordinates)
+    ).fit_predict(coordinates))
 
 
-def centroids(assignments: np.ndarray, coordinates: np.ndarray) -> np.ndarray:
+def centroids(assignments: ClusterAssignments, coordinates: np.ndarray) -> np.ndarray:
     """
     Mean SVD coordinates per cluster for resume distance computation.
     """
-    cluster_ids = sorted(set(assignments))
     return np.stack([
-        coordinates[assignments == cluster_id].mean(axis=0)
-        for cluster_id in cluster_ids
+        coordinates[assignments.members[cid]].mean(axis=0)
+        for cid in assignments.cluster_ids
     ])
 
 
-def cluster_vectors(assignments: np.ndarray, raw_vectors: np.ndarray) -> np.ndarray:
+def cluster_vectors(assignments: ClusterAssignments, raw_vectors: np.ndarray) -> np.ndarray:
     """
     Mean posting embedding per cluster in the full embedding space,
     L2-normalized for cosine similarity against occupations and credentials.
     """
-    cluster_ids = sorted(set(assignments))
     return np.stack([
-        normalize(raw_vectors[assignments == cluster_id].mean(axis=0, keepdims=True))[0]
-        for cluster_id in cluster_ids
+        normalize(raw_vectors[assignments.members[cid]].mean(axis=0, keepdims=True))[0]
+        for cid in assignments.cluster_ids
     ])
 
 
@@ -70,51 +68,35 @@ def soc_similarity(cluster_vectors: np.ndarray, soc_vectors: np.ndarray) -> np.n
     return cosine_similarity(cluster_vectors, soc_vectors)
 
 
-@extract_fields({
-    "corpus"        : dict,
-    "corpus_titles" : dict
-})
-def corpus_data(config: PipelineConfig) -> dict:
+def corpus(config: PipelineConfig) -> Corpus:
     """
-    Load posting texts and titles from the corpus directory.
+    Load the posting corpus from the configured directory.
 
     Raises:
-        FileNotFoundError: When no JSON postings exist in the configured directory.
+        FileNotFoundError: When no valid postings exist.
     """
     postings = CorpusStorage(config.postings_dir).load()
-    if not (corpus := {
-        posting.id: posting.description
-        for posting in postings if posting.id is not None
-    }):
+    if not postings:
         raise FileNotFoundError(f"No postings found in {config.postings_dir}")
-    return {
-        "corpus"        : corpus,
-        "corpus_titles" : {
-            posting.id: posting.title
-            for posting in postings if posting.id is not None
-        }
-    }
+    return Corpus({p.id: p for p in postings})
 
 
 def credentials(
     lexicons : LexiconLoader,
-    model    : SentenceTransformer,
+    model    : Encoder,
     trades   : TradeIndex
 ) -> Credentials:
     """
     Encode the credential catalog (apprenticeships, programs,
-    certifications) with the sentence transformer. Returns a
-    `Credentials` bundling the typed records with their embedding
-    vectors so the graph can attach full credential metadata to edges.
+    certifications) with the sentence transformer. Returns a `Credentials`
+    bundling the typed records with their embedding vectors so the graph can
+    attach full credential metadata to edges.
     """
     records = trades.apprenticeships + trades.programs + lexicons.certifications
     logger.info(f"Encoding {len(records)} credentials...")
     return Credentials(
         records = records,
-        vectors = normalize(model.encode(
-            [r.embedding_text for r in records],
-            show_progress_bar = False
-        ))
+        vectors = model.encode([r.embedding_text for r in records])
     )
 
 
@@ -162,6 +144,7 @@ def graph(
 
 
 def job_zone_map(
+    assignments    : ClusterAssignments,
     config         : PipelineConfig,
     lexicons       : LexiconLoader,
     soc_similarity : np.ndarray
@@ -171,11 +154,11 @@ def job_zone_map(
     Task+DWA embeddings.
     """
     return {
-        cluster_id: int(np.median([
+        cid: int(np.median([
             lexicons.occupations[i].job_zone
-            for i in np.argsort(soc_similarity[cluster_id])[-config.soc_neighbors:]
+            for i in np.argsort(soc_similarity[cid])[-config.soc_neighbors:]
         ]))
-        for cluster_id in range(len(soc_similarity))
+        for cid in assignments.cluster_ids
     }
 
 
@@ -186,24 +169,24 @@ def lexicons(config: PipelineConfig) -> LexiconLoader:
     return LexiconLoader(config.lexicon_dir)
 
 
-def manifest(config: PipelineConfig, corpus: dict[str, str]) -> PipelineManifest:
+def manifest(config: PipelineConfig, corpus: Corpus) -> PipelineManifest:
     """
     Build provenance metadata from fitted artifacts.
     """
     return PipelineManifest(
         component_count = config.component_count,
-        corpus_size     = len(corpus),
+        corpus_size     = len(corpus.postings),
         embedding_model = config.embedding_model,
-        posting_ids     = sorted(corpus),
+        posting_ids     = corpus.posting_ids,
         timestamp       = datetime.now(timezone.utc).isoformat()
     )
 
 
 def matcher(
+    assignments  : ClusterAssignments,
     centroids    : np.ndarray,
-    config       : PipelineConfig,
     graph        : CareerPathwayGraph,
-    model        : SentenceTransformer,
+    model        : Encoder,
     profiles     : dict[int, ClusterProfile],
     svd          : TruncatedSVD,
     task_labels  : dict[int, list[str]],
@@ -215,7 +198,7 @@ def matcher(
     """
     return ResumeMatcher(
         centroids    = centroids,
-        cluster_ids  = sorted(profiles),
+        cluster_ids  = assignments.cluster_ids,
         graph        = graph,
         model        = model,
         profiles     = profiles,
@@ -232,26 +215,25 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     return normalize(raw_vectors)
 
 
-def soc_vectors(lexicons: LexiconLoader, model: SentenceTransformer) -> np.ndarray:
+def soc_vectors(lexicons: LexiconLoader, model: Encoder) -> np.ndarray:
     """
     Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
     cosine similarity against cluster centroids.
     """
     logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
-    return normalize(model.encode(
-        [occ.embedding_text for occ in lexicons.occupations],
-        show_progress_bar = False
-    ))
+    return model.encode(
+        [occupation.embedding_text for occupation in lexicons.occupations]
+    )
 
 
 @extract_fields({
     "task_labels"  : dict,
     "task_vectors" : dict
 })
-def occupation_tasks(
-    job_zone_map   : dict[int, int],
+def soc_tasks(
+    assignments    : ClusterAssignments,
     lexicons       : LexiconLoader,
-    model          : SentenceTransformer,
+    model          : Encoder,
     soc_similarity : np.ndarray
 ) -> dict:
     """
@@ -262,23 +244,23 @@ def occupation_tasks(
     individual embeddings for per-task gap scoring.
     """
     task_data = {
-        cluster_id: [t.name for t in nearest.task_elements]
-        for cluster_id in range(len(soc_similarity))
-        for nearest in [lexicons.nearest_occupation(soc_similarity[cluster_id])]
+        cid: [t.name for t in nearest.task_elements]
+        for cid in assignments.cluster_ids
+        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
         if nearest.task_elements
     }
     return {
         "task_labels"  : task_data,
         "task_vectors" : {
-            cluster_id: normalize(model.encode(names, show_progress_bar=False))
+            cluster_id: model.encode(names)
             for cluster_id, names in task_data.items()
         }
     }
 
 
 def profiles(
-    assignments    : np.ndarray,
-    corpus_titles  : dict[str, str],
+    assignments    : ClusterAssignments,
+    corpus         : Corpus,
     job_zone_map   : dict[int, int],
     lexicons       : LexiconLoader,
     soc_similarity : np.ndarray
@@ -287,31 +269,29 @@ def profiles(
     Build cluster profiles with Job Zone, sector, occupation title, and
     modal posting title for each cluster.
     """
-    doc_ids      = sorted(corpus_titles)
     return {
-        cluster_id: ClusterProfile(
-            cluster_id  = cluster_id,
-            job_zone    = job_zone_map[cluster_id],
+        cid: ClusterProfile(
+            cluster_id  = cid,
+            job_zone    = job_zone_map[cid],
             modal_title = Counter(
-                corpus_titles[doc_ids[i]] for i in members
+                corpus.postings[corpus.posting_ids[i]].title
+                for i in assignments.members[cid]
             ).most_common(1)[0][0],
             sector      = nearest.sector,
-            size        = len(members),
+            size        = len(assignments.members[cid]),
             soc_title   = nearest.title
         )
-        for cluster_id in sorted(set(assignments))
-        for nearest in [lexicons.nearest_occupation(soc_similarity[cluster_id])]
-        for members in [np.where(assignments == cluster_id)[0]]
+        for cid     in assignments.cluster_ids
+        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
     }
 
 
-def raw_vectors(corpus: dict[str, str], model: SentenceTransformer) -> np.ndarray:
+def raw_vectors(corpus: Corpus, model: Encoder) -> np.ndarray:
     """
     Encode all posting descriptions with the sentence transformer.
     """
-    texts = [corpus[doc_id] for doc_id in sorted(corpus)]
-    logger.info(f"Encoding {len(texts)} postings...")
-    return model.encode(texts, show_progress_bar=False)
+    logger.info(f"Encoding {len(corpus.posting_ids)} postings...")
+    return model.encode(corpus.descriptions, unit=False)
 
 
 def trades(config: PipelineConfig) -> TradeIndex:

@@ -37,16 +37,16 @@ class Certification(BaseModel, extra="forbid"):
         Human-readable label combining acronym and name.
 
         Returns:
-            `"CWI Certified Welding Inspector"` or just the name
-            when no acronym is present.
+            `"CWI Certified Welding Inspector"` or just the name when no acronym is
+            present.
         """
         return f"{self.acronym or ''} {self.name}".strip()
 
     @property
     def embedding_text(self) -> str:
         """
-        Text representation for sentence encoding, including the
-        issuing organization when available.
+        Text representation for sentence encoding, including the issuing
+        organization when available.
 
         Returns:
             Acronym, name, and organization concatenated.

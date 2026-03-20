@@ -24,7 +24,7 @@ class TestCorpus:
         """
         (tmp_path / "corpus.json").write_text("[]")
         with raises(FileNotFoundError):
-            steps.corpus_data(PipelineConfig(
+            steps.corpus(PipelineConfig(
                 lexicon_dir  = tmp_path,
                 output_dir   = tmp_path,
                 postings_dir = tmp_path

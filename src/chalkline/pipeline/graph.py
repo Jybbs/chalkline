@@ -19,16 +19,16 @@ from chalkline.matching.schemas import CareerEdge, Neighborhood
 from chalkline.pipeline.schemas import ClusterProfile, Credentials, PipelineConfig
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, slots=True)
 class CareerPathwayGraph:
     """
     Directed weighted career graph with per-edge credential enrichment.
 
     Accepts cluster centroids in both reduced and full embedding spaces,
-    credential embeddings, and Job Zone assignments. Builds a stepwise
-    k-NN backbone with bidirectional lateral edges and unidirectional
-    upward edges, then enriches each edge with credentials filtered by
-    destination selectivity and source relevance thresholds.
+    credential embeddings, and Job Zone assignments. Builds a stepwise k-NN
+    backbone with bidirectional lateral edges and unidirectional upward
+    edges, then enriches each edge with credentials filtered by destination
+    selectivity and source relevance thresholds.
 
     Args:
         centroids       : (n_clusters, n_components) in SVD-reduced space.
@@ -50,8 +50,8 @@ class CareerPathwayGraph:
 
     def __post_init__(self):
         """
-        Compute similarity matrices, build the stepwise backbone, and
-        attach credential metadata to every edge.
+        Compute similarity matrices, build the stepwise backbone, and attach
+        credential metadata to every edge.
         """
         self.graph = nx.DiGraph()
         self.graph.add_nodes_from(
@@ -68,11 +68,10 @@ class CareerPathwayGraph:
         """
         Add stepwise k-NN backbone edges to the graph.
 
-        Each cluster gets `lateral_neighbors` bidirectional edges to
-        its most similar same-JZ clusters and `upward_neighbors`
-        unidirectional edges to its most similar clusters at the next
-        JZ level. The stepwise constraint prevents tier-skipping
-        shortcuts.
+        Each cluster gets `lateral_neighbors` bidirectional edges to its
+        most similar same-JZ clusters and `upward_neighbors` unidirectional
+        edges to its most similar clusters at the next JZ level. The
+        stepwise constraint prevents tier-skipping shortcuts.
         """
         similarity  = pairwise - np.eye(len(pairwise))
         ids         = np.array(sorted(self.profiles))
@@ -98,18 +97,17 @@ class CareerPathwayGraph:
 
     def _enrich_edges(self, credential_similarity: np.ndarray):
         """
-        Attach per-edge credential metadata using the dual-threshold
-        filter.
+        Attach per-edge credential metadata using the dual-threshold filter.
 
-        For each edge (source → target), a credential 𝐜 passes when
-        both conditions hold:
+        For each edge (source → target), a credential 𝐜 passes when both
+        conditions hold:
 
             cos(𝐜, 𝐭) ≥ P₁₀₀₋ₚ(cos(·, 𝐭))
             cos(𝐜, 𝐬) ≥ Pₛ(cos(·, ·))
 
         The first threshold selects credentials with high destination
-        affinity. The second ensures source relevance against the
-        global credential-to-cluster distribution.
+        affinity. The second ensures source relevance against the global
+        credential-to-cluster distribution.
         """
         mask = credential_similarity >= np.percentile(
             a = credential_similarity,
@@ -142,9 +140,9 @@ class CareerPathwayGraph:
         """
         Local neighborhood exploration from a given cluster.
 
-        Returns advancement paths (edges to higher JZ clusters) and
-        lateral pivots (edges to same JZ clusters) with their per-edge
-        credential metadata sorted by edge weight.
+        Returns advancement paths (edges to higher JZ clusters) and lateral
+        pivots (edges to same JZ clusters) with their per-edge credential
+        metadata sorted by edge weight.
         """
         edges = [
             CareerEdge(

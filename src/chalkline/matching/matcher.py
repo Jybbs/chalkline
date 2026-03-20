@@ -11,26 +11,24 @@ metadata.
 import numpy as np
 
 from dataclasses              import dataclass
-from sentence_transformers    import SentenceTransformer
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing    import normalize
 
-from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
-from chalkline.pipeline.graph   import CareerPathwayGraph
-from chalkline.pipeline.schemas import ClusterProfile
+from chalkline.matching.schemas  import ClusterDistance, MatchResult, TaskGap
+from chalkline.pipeline.graph    import CareerPathwayGraph
+from chalkline.pipeline.schemas  import ClusterProfile, Encoder
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, slots=True)
 class ResumeMatcher:
     """
     Embedding-based resume matching with neighborhood exploration.
 
-    Holds the sentence transformer model, fitted SVD, cluster centroids,
-    and per-cluster O*NET task embeddings. The `match()` method encodes
-    resume text, projects it into the reduced space, assigns it to the
-    nearest cluster, computes per-task gap analysis, and queries the
-    career graph for the local neighborhood view.
+    Holds the sentence transformer model, fitted SVD, cluster centroids, and
+    per-cluster O*NET task embeddings. The `match()` method encodes resume
+    text, projects it into the reduced space, assigns it to the nearest
+    cluster, computes per-task gap analysis, and queries the career graph
+    for the local neighborhood view.
 
     Args:
         centroids    : (n_clusters, n_components) in SVD-reduced space.
@@ -46,7 +44,7 @@ class ResumeMatcher:
     centroids    : np.ndarray
     cluster_ids  : list[int]
     graph        : CareerPathwayGraph
-    model        : SentenceTransformer
+    model        : Encoder
     profiles     : dict[int, ClusterProfile]
     svd          : TruncatedSVD
     task_labels  : dict[int, list[str]]
@@ -64,8 +62,8 @@ class ResumeMatcher:
             cos(𝐫, 𝐭ᵢ) ≥ S̃  →  demonstrated
             cos(𝐫, 𝐭ᵢ) < S̃  →  gap
 
-        Demonstrated are sorted descending (strongest first), gaps
-        ascending (largest deficits first).
+        Demonstrated are sorted descending (strongest first), gaps ascending
+        (largest deficits first).
 
         Args:
             cluster_id  : For Task+DWA occupation lookup.
@@ -98,8 +96,8 @@ class ResumeMatcher:
 
         Encodes the resume with the sentence transformer, L2-normalizes,
         projects through the fitted SVD, assigns to the nearest cluster
-        centroid via Euclidean distance, then computes per-task cosine
-        gaps and queries the career graph for neighborhood options with
+        centroid via Euclidean distance, then computes per-task cosine gaps
+        and queries the career graph for neighborhood options with
         credential metadata.
 
             k* = argmin_k ‖𝐫 − 𝐜ₖ‖₂
@@ -110,8 +108,7 @@ class ResumeMatcher:
         Returns:
             `MatchResult` with cluster, gaps, and neighborhood.
         """
-        embedding   = self.model.encode([resume_text], show_progress_bar=False)
-        resume_unit = normalize(embedding)
+        resume_unit = self.model.encode([resume_text])
         distances   = np.linalg.norm(
             x    = self.centroids - self.svd.transform(resume_unit)[0],
             axis = 1

@@ -18,7 +18,8 @@ from chalkline.matching.matcher import ResumeMatcher
 from chalkline.matching.schemas import MatchResult
 from chalkline.pipeline         import steps
 from chalkline.pipeline.graph   import CareerPathwayGraph
-from chalkline.pipeline.schemas import ClusterProfile, PipelineConfig, PipelineManifest
+from chalkline.pipeline.schemas import ClusterProfile, Encoder
+from chalkline.pipeline.schemas import PipelineConfig, PipelineManifest
 from chalkline.pipeline.trades  import TradeIndex
 
 
@@ -94,7 +95,7 @@ class Chalkline:
                 final_vars = [f.name for f in fields(Chalkline)],
                 inputs     = {
                     "config" : config,
-                    "model"  : SentenceTransformer(config.embedding_model)
+                    "model"  : Encoder(SentenceTransformer(config.embedding_model))
                 }
             )
         )
@@ -102,8 +103,8 @@ class Chalkline:
 
     def match(self, resume_text: str) -> MatchResult:
         """
-        Project a resume into the fitted career landscape and return a
-        full match result with gap analysis and neighborhood view.
+        Project a resume into the fitted career landscape and return a full
+        match result with gap analysis and neighborhood view.
 
         Args:
             resume_text: Raw resume text (post-PDF extraction).

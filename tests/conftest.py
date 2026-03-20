@@ -13,22 +13,23 @@ independently tappable by any test module:
 
 import numpy as np
 
+from datetime              import date
 from pathlib               import Path
 from pydantic              import TypeAdapter
 from pytest                import fixture, FixtureRequest
 from sklearn.cluster       import AgglomerativeClustering
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
-from typing                import Any
+from typing                import Any, Callable
 
 from chalkline.collection.schemas  import Posting
 from chalkline.extraction.loaders  import LexiconLoader
 from chalkline.extraction.schemas  import Certification, OnetOccupation
 from chalkline.matching.matcher    import ResumeMatcher
 from chalkline.pipeline.graph      import CareerPathwayGraph
-from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas    import Credentials, PipelineConfig
-from chalkline.pipeline.schemas    import ProgramRecommendation
+from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterAssignments
+from chalkline.pipeline.schemas    import ClusterProfile, Credentials
+from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
 from chalkline.pipeline.trades     import TradeIndex
 
 
@@ -41,19 +42,20 @@ EMBEDDING_DIM   = 16
 
 class MockEncoder:
     """
-    Deterministic fake encoder producing fixed-size embeddings for tests.
+    Deterministic fake encoder matching the `Encoder` interface.
 
-    Replaces SentenceTransformer so tests never load the 400MB model.
+    Replaces the real encoder so tests never load the 400MB model.
     """
 
-    def encode(self, texts, show_progress_bar=False):
+    def encode(self, texts, unit=True):
         """
-        Return deterministic (len(texts), EMBEDDING_DIM) embeddings seeded
-        by input length for reproducibility.
+        Return deterministic (len(texts), EMBEDDING_DIM) embeddings
+        seeded by input length for reproducibility.
         """
-        return np.random.RandomState(len(texts)).randn(
+        vectors = np.random.RandomState(len(texts)).randn(
             len(texts), EMBEDDING_DIM
         ).astype(np.float32)
+        return normalize(vectors) if unit else vectors
 
 
 _load = lambda schema, path: TypeAdapter(schema).validate_json(
@@ -77,6 +79,26 @@ def _postings() -> list[Posting]:
 
 
 # ── Collection fixtures ─────────────────────────────────────────────
+
+
+@fixture
+def posting() -> Callable[..., Posting]:
+    """
+    Factory for `Posting` instances with overridable identity fields.
+    """
+    def _build(
+        company     : str         = "Test Co",
+        date_posted : date | None = date(2026, 1, 1),
+        title       : str         = "Worker"
+    ) -> Posting:
+        return Posting(
+            company     = company,
+            date_posted = date_posted,
+            description = "x" * 50,
+            source_url  = "https://example.com",
+            title       = title
+        )
+    return _build
 
 
 @fixture
@@ -147,43 +169,41 @@ def soc(request: FixtureRequest) -> str:
 
 
 @fixture
-def assignments(coordinates: np.ndarray) -> np.ndarray:
+def assignments(coordinates: np.ndarray) -> ClusterAssignments:
     """
     Ward-linkage HAC assignments at k=CLUSTER_COUNT.
     """
-    return AgglomerativeClustering(
+    return ClusterAssignments(AgglomerativeClustering(
         linkage    = "ward",
         n_clusters = CLUSTER_COUNT
-    ).fit_predict(coordinates)
+    ).fit_predict(coordinates))
 
 
 @fixture
 def centroids(
-    assignments : np.ndarray,
-    cluster_ids : list[int],
+    assignments : ClusterAssignments,
     coordinates : np.ndarray
 ) -> np.ndarray:
     """
     Mean SVD coordinates per cluster (CLUSTER_COUNT, COMPONENT_COUNT).
     """
     return np.stack([
-        coordinates[assignments == cluster_id].mean(axis=0)
-        for cluster_id in cluster_ids
+        coordinates[assignments.members[cid]].mean(axis=0)
+        for cid in assignments.cluster_ids
     ])
 
 
 @fixture
-def cluster_ids(assignments: np.ndarray) -> list[int]:
+def cluster_ids(assignments: ClusterAssignments) -> list[int]:
     """
     Sorted unique cluster IDs from assignments.
     """
-    return sorted(set(assignments))
+    return assignments.cluster_ids
 
 
 @fixture
 def cluster_vectors(
-    assignments : np.ndarray,
-    cluster_ids : list[int],
+    assignments : ClusterAssignments,
     raw_vectors : np.ndarray
 ) -> np.ndarray:
     """
@@ -191,8 +211,8 @@ def cluster_vectors(
     EMBEDDING_DIM).
     """
     return np.stack([
-        normalize(raw_vectors[assignments == cluster_id].mean(axis=0, keepdims=True))[0]
-        for cluster_id in cluster_ids
+        normalize(raw_vectors[assignments.members[cid]].mean(axis=0, keepdims=True))[0]
+        for cid in assignments.cluster_ids
     ])
 
 
@@ -303,23 +323,22 @@ def pathway_graph(
 
 @fixture
 def profiles(
-    assignments  : np.ndarray,
-    cluster_ids  : list[int],
+    assignments  : ClusterAssignments,
     job_zone_map : dict[int, int]
 ) -> dict[int, ClusterProfile]:
     """
     Minimal cluster profiles for graph and matcher tests.
     """
     return {
-        cluster_id: ClusterProfile(
-            cluster_id  = cluster_id,
-            job_zone    = job_zone_map[cluster_id],
-            modal_title = f"Title {cluster_id}",
-            sector      = f"Sector {cluster_id % 2}",
-            size        = int((assignments == cluster_id).sum()),
-            soc_title   = f"Occupation {cluster_id}"
+        cid: ClusterProfile(
+            cluster_id  = cid,
+            job_zone    = job_zone_map[cid],
+            modal_title = f"Title {cid}",
+            sector      = f"Sector {cid % 2}",
+            size        = len(assignments.members[cid]),
+            soc_title   = f"Occupation {cid}"
         )
-        for cluster_id in cluster_ids
+        for cid in assignments.cluster_ids
     }
 
 
