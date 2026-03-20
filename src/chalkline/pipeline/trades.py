@@ -8,6 +8,8 @@ record carries a pre-computed `prefixes` set from curation, and the
 """
 
 from collections.abc import Iterable
+from pathlib         import Path
+from pydantic        import TypeAdapter
 
 from chalkline.pipeline.schemas import ApprenticeshipContext, ProgramRecommendation
 
@@ -34,6 +36,25 @@ class TradeIndex:
         """
         self.apprenticeships = apprenticeships
         self.programs        = programs
+
+    @classmethod
+    def from_directory(cls, lexicon_dir: Path) -> "TradeIndex":
+        """
+        Load apprenticeship and program reference data from a directory.
+
+        Args:
+            lexicon_dir: Must contain `apprenticeships.json` and `programs.json`.
+
+        Returns:
+            Populated `TradeIndex` for prefix-based matching.
+        """
+        load = lambda schema, name: TypeAdapter(schema).validate_json(
+            (lexicon_dir / name).read_bytes()
+        )
+        return cls(
+            apprenticeships = load(list[ApprenticeshipContext], "apprenticeships.json"),
+            programs        = load(list[ProgramRecommendation], "programs.json")
+        )
 
     def lookup(
         self,

@@ -15,7 +15,6 @@ from collections                 import Counter
 from datetime                    import datetime, timezone
 from hamilton.function_modifiers import extract_fields
 from loguru                      import logger
-from pydantic                    import TypeAdapter
 from sentence_transformers       import SentenceTransformer
 from sklearn.cluster             import AgglomerativeClustering
 from sklearn.decomposition       import TruncatedSVD
@@ -26,9 +25,8 @@ from chalkline.collection.storage import CorpusStorage
 from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas   import Credentials, PipelineConfig
-from chalkline.pipeline.schemas   import PipelineManifest, ProgramRecommendation
+from chalkline.pipeline.schemas   import ClusterProfile, Credentials
+from chalkline.pipeline.schemas   import PipelineConfig, PipelineManifest
 from chalkline.pipeline.trades    import TradeIndex
 
 
@@ -320,10 +318,4 @@ def trades(config: PipelineConfig) -> TradeIndex:
     """
     Load apprenticeship and program reference data into a `TradeIndex`.
     """
-    load = lambda schema, name: TypeAdapter(schema).validate_json(
-        (config.lexicon_dir / name).read_bytes()
-    )
-    return TradeIndex(
-        apprenticeships = load(list[ApprenticeshipContext], "apprenticeships.json"),
-        programs        = load(list[ProgramRecommendation], "programs.json")
-    )
+    return TradeIndex.from_directory(config.lexicon_dir)
