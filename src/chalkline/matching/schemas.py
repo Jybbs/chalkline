@@ -59,8 +59,16 @@ class MatchResult(BaseModel, extra="forbid"):
     neighborhood      : Neighborhood
     sector            : str
 
+    coordinates  : list[float]   = Field(default_factory=list)
     demonstrated : list[TaskGap] = Field(default_factory=list)
     gaps         : list[TaskGap] = Field(default_factory=list)
+
+    @property
+    def match_distance(self) -> float:
+        """
+        Euclidean distance to the nearest cluster centroid.
+        """
+        return self.cluster_distances[0].distance
 
 
 class Neighborhood(BaseModel, extra="forbid"):
@@ -74,6 +82,13 @@ class Neighborhood(BaseModel, extra="forbid"):
 
     advancement : list[CareerEdge] = Field(default_factory=list)
     lateral     : list[CareerEdge] = Field(default_factory=list)
+
+    @property
+    def all_edges(self) -> list[CareerEdge]:
+        """
+        Combined advancement and lateral edges.
+        """
+        return self.advancement + self.lateral
 
 
 class TaskGap(BaseModel, extra="forbid"):

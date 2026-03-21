@@ -38,7 +38,7 @@ class TestCareerPathwayGraph:
         The graph must have at least one edge from the stepwise k-NN
         backbone.
         """
-        assert pathway_graph.graph.number_of_edges() > 0
+        assert pathway_graph.edge_count > 0
 
     def test_neighborhood_types(self, pathway_graph: CareerPathwayGraph):
         """

@@ -19,7 +19,7 @@ from chalkline.matching.schemas import CareerEdge, Neighborhood
 from chalkline.pipeline.schemas import ClusterProfile, Credentials, PipelineConfig
 
 
-@dataclass(kw_only=True, slots=True)
+@dataclass(kw_only=True)
 class CareerPathwayGraph:
     """
     Directed weighted career graph with per-edge credential enrichment.
@@ -66,6 +66,13 @@ class CareerPathwayGraph:
         self._enrich_edges(
             cosine_similarity(self.credentials.vectors, self.cluster_vectors)
         )
+
+    @property
+    def edge_count(self) -> int:
+        """
+        Number of edges in the career pathway graph.
+        """
+        return self.graph.number_of_edges()
 
     def _add_edges(self, pairwise: np.ndarray):
         """

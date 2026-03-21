@@ -42,7 +42,7 @@ EMBEDDING_DIM   = 16
 
 class MockEncoder:
     """
-    Deterministic fake encoder matching the `Encoder` interface.
+    Deterministic fake matching the `Encoder.encode` interface.
 
     Replaces the real encoder so tests never load the 400MB model.
     """

@@ -9,17 +9,18 @@ every node result, and serves from cache on subsequent calls with unchanged
 code and config.
 """
 
-from dataclasses             import dataclass, fields
-from hamilton                import driver
-from hamilton.plugins.h_tqdm import ProgressBar
-from sentence_transformers   import SentenceTransformer
+from dataclasses  import dataclass, fields
+from hamilton     import driver
+from transformers import MPNetModel
 
 from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
 from chalkline.pipeline           import steps
 from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ClusterProfile, Encoder, PipelineConfig
+from chalkline.pipeline.progress  import PipelineProgress
+from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pipeline.schemas   import Corpus, Encoder, PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -30,13 +31,17 @@ class Chalkline:
     Coordinates embedding, clustering, career graph construction, and
     credential enrichment into a fitted landscape. Call `fit()` to compute
     from scratch or restore from cache, then call `match()` for
-    single-resume inference with neighborhood exploration.
+    single-resume inference with neighborhood exploration. Retains cluster
+    assignments and the posting corpus so the notebook can cross-reference
+    companies per cluster for the employer panel.
     """
 
-    config   : PipelineConfig
-    graph    : CareerPathwayGraph
-    matcher  : ResumeMatcher
-    profiles : dict[int, ClusterProfile]
+    assignments : ClusterAssignments
+    config      : PipelineConfig
+    corpus      : Corpus
+    graph       : CareerPathwayGraph
+    matcher     : ResumeMatcher
+    profiles    : dict[int, ClusterProfile]
 
     def __repr__(self) -> str:
         """
@@ -45,37 +50,26 @@ class Chalkline:
         return (
             f"Chalkline("
             f"{len(self.profiles):,} clusters, "
-            f"{self.graph.graph.number_of_edges()} edges, "
+            f"{self.graph.edge_count} edges, "
             f"{self.corpus_size:,} postings)"
         )
-
-    def __str__(self) -> str:
-        """
-        Multi-line summary of fitted pipeline metrics with ANSI bold
-        formatting and Unicode bullets.
-        """
-        bold, reset = "\033[1m", "\033[0m"
-        return "\n".join([
-            f"{bold}Chalkline{reset}",
-            f"  \u00b7 {bold}{self.corpus_size:,}{reset}"
-            f" postings encoded"
-            f" with {self.config.embedding_model}",
-            f"  \u00b7 {bold}{len(self.profiles):,}{reset}"
-            f" clusters at d={self.config.component_count}",
-            f"  \u00b7 {bold}"
-            f"{self.graph.graph.number_of_edges()}{reset}"
-            f" graph edges with credential enrichment"
-        ])
 
     @property
     def corpus_size(self) -> int:
         """
-        Total postings across all clusters.
+        Total postings in the fitted corpus.
         """
-        return sum(p.size for p in self.profiles.values())
+        return len(self.corpus.posting_ids)
+
+    @property
+    def sector_count(self) -> int:
+        """
+        Number of distinct sectors across cluster profiles.
+        """
+        return len({p.sector for p in self.profiles.values()})
 
     @staticmethod
-    def fit(config: PipelineConfig) -> Chalkline:
+    def fit(config: PipelineConfig, log_level: str = "INFO") -> Chalkline:
         """
         Execute all pipeline steps and return a fitted pipeline.
 
@@ -85,14 +79,19 @@ class Chalkline:
         arrays) cache normally via Hamilton's disk persistence.
 
         Args:
-            config: Hyperparameters, directory paths, and embedding model name.
+            config    : Hyperparameters, directory paths, and embedding
+                        model name.
+            log_level : Minimum loguru level during execution. Pass
+                        `"DEBUG"` for verbose output.
 
         Returns:
             A fully fitted `Chalkline` instance.
         """
+        MPNetModel._keys_to_ignore_on_load_unexpected = [r"position_ids"]
+
         results = (driver.Builder()
             .with_modules(steps)
-            .with_adapters(ProgressBar("chalkline"))
+            .with_adapters(PipelineProgress(level=log_level))
             .with_cache(str(config.hamilton_cache_dir))
             .build()
             .execute(
@@ -100,7 +99,7 @@ class Chalkline:
                 inputs     = {
                     "config"   : config,
                     "lexicons" : LexiconLoader(config.lexicon_dir),
-                    "model"    : Encoder(SentenceTransformer(config.embedding_model))
+                    "model"    : Encoder(config.embedding_model)
                 }
             )
         )

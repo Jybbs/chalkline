@@ -1,0 +1,97 @@
+[
+  {
+    "rapids_code": "595",
+    "title": "Arborist",
+    "term_hours": "6000"
+  },
+  {
+    "rapids_code": "90380",
+    "title": "Bridge Carpenter/Heavy Highway",
+    "term_hours": "4000"
+  },
+  {
+    "rapids_code": "90415",
+    "title": "Construction Carpenter",
+    "term_hours": "5000"
+  },
+  {
+    "rapids_code": "90708",
+    "title": "Construction Craft Concrete Laborer",
+    "term_hours": "2000"
+  },
+  {
+    "rapids_code": "90699",
+    "title": "Construction Craft Heavy / Highway Laborer",
+    "term_hours": "2000"
+  },
+  {
+    "rapids_code": "90050",
+    "title": "Construction Equipment Operator",
+    "term_hours": "6000"
+  },
+  {
+    "rapids_code": "91055",
+    "title": "Construction Specialist",
+    "term_hours": "4000"
+  },
+  {
+    "rapids_code": "90885",
+    "title": "Crane Mechanic",
+    "term_hours": "4500 - 5000"
+  },
+  {
+    "rapids_code": "90949",
+    "title": "Crane Operator",
+    "term_hours": "4000 - 6000"
+  },
+  {
+    "rapids_code": "90966",
+    "title": "Earthworks Laborer",
+    "term_hours": "2000"
+  },
+  {
+    "rapids_code": "90046",
+    "title": "Electrician",
+    "term_hours": "8000"
+  },
+  {
+    "rapids_code": "91066",
+    "title": "Fencing Installer",
+    "term_hours": "4000"
+  },
+  {
+    "rapids_code": "91123",
+    "title": "Firestopping Installer",
+    "term_hours": "2000"
+  },
+  {
+    "rapids_code": "91124",
+    "title": "Firestopping Technician",
+    "term_hours": "2000"
+  },
+  {
+    "rapids_code": "91056",
+    "title": "Foreman",
+    "term_hours": "4000"
+  },
+  {
+    "rapids_code": "91014",
+    "title": "Lead Logging Equipment Operator",
+    "term_hours": "6000"
+  },
+  {
+    "rapids_code": "91125",
+    "title": "Marine Carpenter - Heavy Civil",
+    "term_hours": "4000"
+  },
+  {
+    "rapids_code": "90700",
+    "title": "Solar Mechanical Installation Technician",
+    "term_hours": "2000"
+  },
+  {
+    "rapids_code": "90884",
+    "title": "Welder",
+    "term_hours": "6000"
+  }
+]

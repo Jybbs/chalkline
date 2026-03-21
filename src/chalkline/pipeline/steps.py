@@ -245,6 +245,4 @@ def soc_vectors(lexicons: LexiconLoader, model: Encoder) -> np.ndarray:
     cosine similarity against cluster centroids.
     """
     logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
-    return model.encode(
-        [occupation.embedding_text for occupation in lexicons.occupations]
-    )
+    return model.encode([o.embedding_text for o in lexicons.occupations])

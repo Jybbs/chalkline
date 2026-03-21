@@ -8,13 +8,14 @@ matching, graph construction, and report generation modules.
 
 import numpy as np
 
-from dataclasses           import dataclass, field
-from functools             import cached_property
-from pathlib               import Path
-from pydantic              import BaseModel, Field
-from sentence_transformers import SentenceTransformer
-from sklearn.preprocessing import normalize
-from typing                import Literal, NamedTuple
+from dataclasses                     import dataclass, field
+from functools                       import cached_property
+from hamilton.caching.fingerprinting import hash_value, hash_primitive
+from pathlib                         import Path
+from pydantic                        import BaseModel, Field
+from sentence_transformers           import SentenceTransformer
+from sklearn.preprocessing           import normalize
+from typing                          import Literal, NamedTuple
 
 from chalkline.collection.schemas import Posting
 
@@ -44,7 +45,7 @@ class ApprenticeshipContext(BaseModel, extra="forbid"):
         return self.title
 
 
-@dataclass(slots=True)
+@dataclass
 class ClusterAssignments:
     """
     Ward-linkage HAC results with eagerly-derived cluster structure.
@@ -57,11 +58,11 @@ class ClusterAssignments:
 
     labels : np.ndarray
 
-    cluster_ids : np.ndarray            = field(init=False)
+    cluster_ids : list[int]             = field(init=False)
     members     : dict[int, np.ndarray] = field(init=False)
 
     def __post_init__(self):
-        self.cluster_ids = np.array(sorted(set(self.labels)))
+        self.cluster_ids = sorted(set(int(c) for c in self.labels))
         self.members = {
             cid: np.where(self.labels == cid)[0]
             for cid in self.cluster_ids
@@ -113,8 +114,18 @@ class ClusterProfile(BaseModel, extra="forbid"):
     size        : int = Field(ge=1)
     soc_title   : str
 
+    @property
+    def display_label(self) -> str:
+        """
+        Human-readable cluster identifier for dropdown labels.
+        """
+        return (
+            f"Cluster {self.cluster_id}: {self.soc_title} "
+            f"(JZ {self.job_zone})"
+        )
 
-@dataclass(slots=True)
+
+@dataclass
 class Corpus:
     """
     Filtered posting corpus with eagerly-derived key ordering.
@@ -166,17 +177,21 @@ class Credentials(NamedTuple):
     vectors : np.ndarray
 
 
-@dataclass(slots=True)
+@dataclass
 class Encoder:
     """
-    L2-normalizing sentence-transformer wrapper.
+    Sentence-transformer wrapper for the Hamilton pipeline.
 
-    Encodes text into embedding vectors, L2-normalized by default for cosine
-    similarity. Pass `unit=False` for unnormalized output when downstream
-    nodes handle normalization separately.
+    Defaults to L2-normalized output and enabled progress bars so
+    call sites stay clean. The `name` field records the HuggingFace
+    model identifier for Hamilton cache fingerprinting.
     """
 
-    model: SentenceTransformer
+    name  : str
+    model : SentenceTransformer = field(init=False)
+
+    def __post_init__(self):
+        self.model = SentenceTransformer(self.name)
 
     def encode(self, texts: list[str], unit: bool = True) -> np.ndarray:
         """
@@ -184,10 +199,21 @@ class Encoder:
 
         Args:
             texts : Strings to encode.
-            unit  : L2-normalize output for cosine similarity (default True).
+            unit  : L2-normalize output (default True).
         """
-        vectors = self.model.encode(texts, show_progress_bar=False)
-        return normalize(vectors) if unit else vectors
+        return self.model.encode(
+            texts,
+            normalize_embeddings = unit,
+            show_progress_bar    = True
+        )
+
+
+@hash_value.register(Encoder)
+def _hash_encoder(obj, *args, **kwargs) -> str:
+    """
+    Fingerprint an encoder by its model name for Hamilton caching.
+    """
+    return hash_primitive(obj.name)
 
 
 class PipelineConfig(BaseModel, extra="forbid"):

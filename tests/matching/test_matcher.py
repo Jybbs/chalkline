@@ -35,6 +35,14 @@ class TestResumeMatcher:
         result = resume_matcher.match("Electrical wiring specialist")
         assert len(result.demonstrated) + len(result.gaps) == 5
 
+    def test_coordinates_shape(self, resume_matcher):
+        """
+        SVD coordinates have one entry per component for landscape
+        plotting.
+        """
+        result = resume_matcher.match("Structural steel welder")
+        assert len(result.coordinates) == 4
+
     def test_sector_assigned(self, profiles, resume_matcher):
         """
         Match result carries a sector string from the assigned cluster

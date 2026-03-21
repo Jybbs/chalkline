@@ -14,12 +14,12 @@ from dataclasses              import dataclass
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.matching.schemas  import ClusterDistance, MatchResult, TaskGap
-from chalkline.pipeline.graph    import CareerPathwayGraph
-from chalkline.pipeline.schemas  import ClusterProfile, ClusterTasks, Encoder
+from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
+from chalkline.pipeline.graph   import CareerPathwayGraph
+from chalkline.pipeline.schemas import ClusterProfile, ClusterTasks, Encoder
 
 
-@dataclass(kw_only=True, slots=True)
+@dataclass(kw_only=True)
 class ResumeMatcher:
     """
     Embedding-based resume matching with neighborhood exploration.
@@ -41,7 +41,7 @@ class ResumeMatcher:
     """
 
     centroids   : np.ndarray
-    cluster_ids : np.ndarray
+    cluster_ids : list[int]
     graph       : CareerPathwayGraph
     model       : Encoder
     profiles    : dict[int, ClusterProfile]
@@ -108,12 +108,14 @@ class ResumeMatcher:
             `MatchResult` with cluster, gaps, and neighborhood.
         """
         resume_unit = self.model.encode([resume_text])
+        resume_svd  = self.svd.transform(resume_unit)[0]
         distances   = np.linalg.norm(
-            x    = self.centroids - self.svd.transform(resume_unit)[0],
+            x    = self.centroids - resume_svd,
             axis = 1
         )
 
-        cluster_id         = self.cluster_ids[(ranked := np.argsort(distances))[0]]
+        ranked             = np.argsort(distances)
+        cluster_id         = self.cluster_ids[ranked[0]]
         demonstrated, gaps = self._gap_analysis(cluster_id, resume_unit)
         return MatchResult(
             cluster_distances = [
@@ -124,6 +126,7 @@ class ResumeMatcher:
                 for index in ranked
             ],
             cluster_id   = cluster_id,
+            coordinates  = resume_svd.tolist(),
             demonstrated = demonstrated,
             gaps         = gaps,
             neighborhood = self.graph.neighborhood(cluster_id),

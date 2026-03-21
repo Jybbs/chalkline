@@ -1,0 +1,138 @@
+{
+  "maine": [
+    {
+      "category": "Government",
+      "name": "MaineDOT Careers",
+      "focus": "Public Infrastructure",
+      "best_for": "Transportation Engineers, Highway Crews, Bridge Ops"
+    },
+    {
+      "category": "Government",
+      "name": "Maine Turnpike Authority",
+      "focus": "Toll & Highway Systems",
+      "best_for": "Maintenance, Civil Inspectors, Tolling Tech"
+    },
+    {
+      "category": "Government",
+      "name": "Maine.gov Job Board",
+      "focus": "State-level Engineering",
+      "best_for": "Environmental Engineering (DEP), Project Managers"
+    },
+    {
+      "category": "Industry Association",
+      "name": "AGC Maine",
+      "focus": "Commercial & Heavy Civil",
+      "best_for": "General Contractors, Trades, Safety Officers"
+    },
+    {
+      "category": "Industry Association",
+      "name": "NSPE-Maine",
+      "focus": "Professional Engineering",
+      "best_for": "Licensed PEs, EITs, Design Engineers"
+    },
+    {
+      "category": "Private Sector",
+      "name": "Cianbro",
+      "focus": "Industrial & Heavy Civil",
+      "best_for": "Heavy Structural, Electrical, Large-scale Power"
+    },
+    {
+      "category": "Private Sector",
+      "name": "Sargent",
+      "focus": "Earthwork & Highway",
+      "best_for": "Heavy Equipment Ops, Site Supervisors, Paving"
+    },
+    {
+      "category": "Private Sector",
+      "name": "Reed & Reed",
+      "focus": "Bridges & Wind Energy",
+      "best_for": "Specialized Civil, Crane Ops, Renewable Energy"
+    },
+    {
+      "category": "Private Sector",
+      "name": "Sebago Technics",
+      "focus": "Civil Engineering / Survey",
+      "best_for": "Land Development, Surveyors, CAD Technicians"
+    },
+    {
+      "category": "Private Sector",
+      "name": "Haley Ward",
+      "focus": "Environmental / Building",
+      "best_for": "Consulting Engineers, Surveyors, Architects"
+    },
+    {
+      "category": "Regional Board",
+      "name": "Live-and-Work-in-Maine",
+      "focus": "Professional Careers",
+      "best_for": "Relocation support, Mid-to-Senior level roles"
+    },
+    {
+      "category": "Veteran Support",
+      "name": "Maine Hire-A-Vet",
+      "focus": "General Trades & Mgmt",
+      "best_for": "Veterans transitioning into skilled trades"
+    }
+  ],
+  "national": [
+    {
+      "category": "Industry Specific",
+      "name": "ConstructionJobs.com",
+      "focus": "All Construction Roles",
+      "best_for": "Search by specific project type (Commercial, Heavy Civil, etc.)"
+    },
+    {
+      "category": "Industry Specific",
+      "name": "iHireConstruction",
+      "focus": "Management & Skilled Trades",
+      "best_for": "Clean interface that filters out \"junk\" non-industry listings."
+    },
+    {
+      "category": "Engineering",
+      "name": "ASCE Career Connections",
+      "focus": "Civil & Structural Engineers",
+      "best_for": "Hosted by the American Society of Civil Engineers; high-level roles."
+    },
+    {
+      "category": "Engineering",
+      "name": "EngineerJobs.com",
+      "focus": "All Engineering Disciplines",
+      "best_for": "The world’s largest dedicated engineering job board."
+    },
+    {
+      "category": "Management",
+      "name": "CMAA Career HQ",
+      "focus": "Construction Managers (CMs)",
+      "best_for": "Focused on professionalized project management and PM certifications."
+    },
+    {
+      "category": "Transportation",
+      "name": "AASHTO Jobs",
+      "focus": "State Highway/DOT Roles",
+      "best_for": "The gold standard for highway and bridge engineering careers."
+    },
+    {
+      "category": "Transportation",
+      "name": "ITE Hire",
+      "focus": "Traffic & Transit Planning",
+      "best_for": "Specialized in \"Smart Cities,\" traffic flow, and urban transport."
+    },
+    {
+      "category": "Infrastructure",
+      "name": "RoadTechs",
+      "focus": "Heavy Civil & Energy",
+      "best_for": "Focuses on large-scale infrastructure and industrial field work."
+    },
+    {
+      "category": "Executive",
+      "name": "Michael Page Construction",
+      "focus": "Senior PMs & Executives",
+      "best_for": "High-salary, specialized recruitment for major firms."
+    },
+    {
+      "category": "Government/Public",
+      "name": "USAJobs.gov",
+      "focus": "Federal Infrastructure",
+      "best_for": "Use for Army Corps of Engineers or Federal Highway Admin roles."
+    }
+  ]
+}
