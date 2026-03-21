@@ -1,66 +1,57 @@
 """
-Schemas for lexicon validation, skill extraction, and corpus
-statistics.
+Schemas for lexicon validation and skill extraction.
 
-Defines confidence tiers for Aho-Corasick matching, the certification
-model for CareerOneStop entries, corpus-level statistics computed after
-vectorization, and the O*NET element type taxonomy, skill entry structure,
-and occupation profile model that `onet.json` is validated against at load
-time.
+Defines the certification model for CareerOneStop entries, the O*NET element
+type taxonomy, skill entry structure, and occupation profile model that
+`onet.json` is validated against at load time, and the pattern bundle that
+groups surface forms for Aho-Corasick matching.
 """
 
 from enum     import StrEnum
 from pydantic import BaseModel, Field
-
-from chalkline import NonEmptyStr
+from typing   import Literal, NamedTuple
 
 
 class Certification(BaseModel, extra="forbid"):
     """
     A CareerOneStop certification linked to stakeholder SOC codes.
 
-    Each certification contributes its name and acronym (when present
-    and non-ambiguous) as Aho-Corasick patterns. Descriptions are
-    decomposed into matchable sub-phrases via POS-based NP/VP
-    chunking at curation time.
+    Each certification contributes its name and acronym (when present and
+    non-ambiguous) as Aho-Corasick patterns. Descriptions are decomposed
+    into matchable sub-phrases via POS-based NP/VP chunking at curation
+    time.
     """
 
-    name      : NonEmptyStr
+    name      : str
     soc_codes : list[str]
 
-    acronym      : str | None       = None
-    organization : str | None       = None
-    phrases      : list[str] | None = None
-    type         : str | None       = None
+    acronym         : str | None               = None
+    credential_kind : Literal["certification"] = "certification"
+    organization    : str | None               = None
+    phrases         : list[str] | None         = None
+    type            : str | None               = None
 
+    @property
+    def display_label(self) -> str:
+        """
+        Human-readable label combining acronym and name.
 
-class ConfidenceTier(StrEnum):
-    """
-    Match confidence for Aho-Corasick surface form hits.
+        Returns:
+            `"CWI Certified Welding Inspector"` or just the name when no acronym is
+            present.
+        """
+        return f"{self.acronym or ''} {self.name}".strip()
 
-    Multi-word matches are the most specific, abbreviation matches
-    carry moderate confidence, and single-word matches are the most
-    ambiguous. When two matches conflict at the same position, the
-    higher-confidence tier wins.
-    """
+    @property
+    def embedding_text(self) -> str:
+        """
+        Text representation for sentence encoding, including the issuing
+        organization when available.
 
-    ABBREVIATION = "abbreviation"
-    MULTI_WORD   = "multi_word"
-    SINGLE_WORD  = "single_word"
-
-
-class CorpusStatistics(BaseModel, extra="forbid"):
-    """
-    Aggregate statistics computed after IDF-weighted vectorization.
-
-    Captures vocabulary coverage, matrix density, and per-posting
-    skill counts for downstream diagnostics and threshold tuning.
-    """
-
-    matrix_sparsity         : float
-    mean_skills_per_posting : float
-    skill_frequency         : dict[str, int]
-    vocabulary_size         : int
+        Returns:
+            Acronym, name, and organization concatenated.
+        """
+        return f"{self.acronym or ''} {self.name} {self.organization or ''}".strip()
 
 
 class OnetSkillType(StrEnum):
@@ -87,8 +78,8 @@ class OnetSkillType(StrEnum):
         Whether this type feeds the normalization index.
 
         Concrete types carry matchable text that appears in posting
-        descriptions. Abstract KSA types are excluded from normalization
-        but remain available for Jaccard matching.
+        descriptions. Abstract KSA types are excluded from normalization but
+        remain available for Jaccard matching.
 
         Returns:
             `True` if this type is concrete, `False` for KSA types.
@@ -105,12 +96,12 @@ class OnetSkill(BaseModel, extra="forbid"):
     A single skill entry within an O*NET occupation.
 
     Concrete element types carry `None` for `importance` and `level`,
-    whereas abstract KSA types populate both fields with numeric
-    ratings. Decomposable types (Tasks, DWAs) carry pre-computed
-    sub-phrases from POS-based chunking performed at curation time.
+    whereas abstract KSA types populate both fields with numeric ratings.
+    Decomposable types (Tasks, DWAs) carry pre-computed sub-phrases from
+    POS-based chunking performed at curation time.
     """
 
-    name : NonEmptyStr
+    name : str
     type : OnetSkillType
 
     importance : float | None     = None
@@ -122,12 +113,70 @@ class OnetOccupation(BaseModel, extra="forbid"):
     """
     An O*NET occupation with its full skill profile.
 
-    Each of the 21 stakeholder SOC codes maps to one occupation
-    containing skills across all 8 element types.
+    Each of the 21 stakeholder SOC codes maps to one occupation containing
+    skills across all 8 element types.
     """
 
     job_zone : int = Field(ge=1, le=5)
-    sector   : NonEmptyStr
+    sector   : str
     skills   : list[OnetSkill]
-    soc_code : NonEmptyStr
-    title    : NonEmptyStr
+    soc_code : str
+    title    : str
+
+    @property
+    def embedding_text(self) -> str:
+        """
+        Canonical text representation for sentence encoding.
+
+        Concatenates the occupation title with its Task and DWA element
+        names, producing the input string for the sentence transformer
+        during SOC vector construction.
+
+        Returns:
+            `"{title}: {task1}, {task2}, ..."` format.
+        """
+        return f"{self.title}: {', '.join(s.name for s in self.task_elements)}"
+
+    @property
+    def task_elements(self) -> list[OnetSkill]:
+        """
+        Task and DWA elements from this occupation's skill profile.
+
+        These are the concrete work-activity elements that describe what
+        workers actually do, as opposed to KSA abstractions or
+        technology/tool listings.
+
+        Returns:
+            Skills where type is `TASK` or `DWA`.
+        """
+        return [
+            s for s in self.skills
+            if s.type in {OnetSkillType.TASK, OnetSkillType.DWA}
+        ]
+
+
+class PatternBundle(NamedTuple):
+    """
+    Complete output of surface form generation.
+
+    Groups the parallel pattern and canonical name lists with the character
+    set derived from all patterns, used as a preprocessing filter during
+    extraction.
+    """
+
+    canonicals : list[str]
+    chars      : set[str]
+    patterns   : list[str]
+
+    def span_of(self, end: int, idx: int) -> tuple[int, int]:
+        """
+        Convert `iter_long` output to a start/end span.
+
+        Args:
+            end: End position (inclusive) returned by `iter_long`.
+            idx: Pattern index returned by `iter_long`.
+
+        Returns:
+            A (start, exclusive end) pair for boundary checking.
+        """
+        return end - len(self.patterns[idx]) + 1, end + 1

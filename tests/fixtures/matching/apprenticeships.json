@@ -1,22 +1,26 @@
 [
   {
+    "min_hours"   : 6000,
+    "prefixes"    : ["cons", "equi", "oper"],
+    "rapids_code" : "90050",
+    "title"       : "Construction Equipment Operator"
+  },
+  {
+    "min_hours"   : 8000,
+    "prefixes"    : ["elec"],
     "rapids_code" : "90046",
-    "term_hours"  : "8000",
     "title"       : "Electrician"
   },
   {
-    "rapids_code" : "90884",
-    "term_hours"  : "6000",
-    "title"       : "Welder"
-  },
-  {
+    "min_hours"   : 4000,
+    "prefixes"    : ["buil", "scaf"],
     "rapids_code" : "90048",
-    "term_hours"  : "4000",
     "title"       : "Scaffold Builder"
   },
   {
-    "rapids_code" : "90050",
-    "term_hours"  : "6000",
-    "title"       : "Construction Equipment Operator"
+    "min_hours"   : 6000,
+    "prefixes"    : ["weld"],
+    "rapids_code" : "90884",
+    "title"       : "Welder"
   }
 ]

@@ -11,24 +11,15 @@ readme          = "README.md"
 requires-python = ">=3.14"
 license         = { text = "MIT" }
 dependencies    = [
-    "ahocorasick-rs",
-    "kneed",
+    "loguru",
     "marimo",
-    "matplotlib",
-    "mlxtend",
     "networkx",
-    "nltk",
-    "numpy",
-    "pandas",
     "pdfplumber",
-    "plotly",
-    "pydantic",
     "python-jobspy",
     "python-slugify",
-    "scikit-learn",
-    "scipy",
-    "seaborn",
-    "wordfreq",
+    "sentence-transformers",
+    "sf-hamilton[diskcache]",
+    "typer",
 ]
 
 [tool.uv]
@@ -39,16 +30,25 @@ override-dependencies = [
 ]
 
 [project.scripts]
-chalkline = "chalkline.__main__:main"
+chalkline = "chalkline.cli:app"
 
 [dependency-groups]
 dev = [
+    "kneed",
+    "mlxtend",
+    "nltk",
     "openpyxl",
     "pytest",
+    "pytest-loguru",
+    "wordfreq",
+]
+viz = [
+    "plotly",
+    "seaborn",
 ]
 
-[tool.hatch.build]
-sources = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/chalkline"]
 
 [tool.marimo.runtime]
 pythonpath = ["./src"]
@@ -57,5 +57,7 @@ pythonpath = ["./src"]
 extraPaths = ["src"]
 
 [tool.pytest.ini_options]
+addopts    = "--import-mode=importlib"
+cache_dir  = ".cache/pytest"
 pythonpath = ["src"]
 testpaths  = ["tests"]

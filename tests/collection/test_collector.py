@@ -22,8 +22,8 @@ class TestParseRecord:
     def test_nan_description(self):
         """
         A NaN description coerces to empty string and fails the
-        minimum-length validation, returning `None` rather than
-        allowing contentless postings into the corpus.
+        minimum-length validation, returning `None` rather than allowing
+        contentless postings into the corpus.
         """
         assert Collector._parse_record({
             "company"     : "Cianbro",

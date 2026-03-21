@@ -10,15 +10,12 @@ persist deduplicated postings through the storage layer.
 
 import pandas as pd
 
-from jobspy   import scrape_jobs
-from logging  import basicConfig, getLogger, INFO
-from pathlib  import Path
+from jobspy  import scrape_jobs
+from loguru  import logger
+from pathlib import Path
 
 from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import CorpusStorage
-
-
-logger = getLogger(__name__)
 
 
 class Collector:
@@ -65,7 +62,7 @@ class Collector:
         Returns:
             A validated `Posting`, or `None` if the row is invalid.
         """
-        clean = lambda v: v if pd.notna(v) else None
+        clean = lambda v: None if v is None or v != v else v
 
         try:
             return Posting(
@@ -118,11 +115,6 @@ class Collector:
 
 
 if __name__ == "__main__":
-
-    basicConfig(
-        format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        level  = INFO
-    )
 
     Collector(
         postings_dir = Path("data") / "postings",

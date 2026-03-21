@@ -6,24 +6,20 @@ appending without overwriting. Deduplication retains the most recently
 collected version when duplicate IDs appear.
 """
 
-from logging  import getLogger
+from loguru   import logger
 from pathlib  import Path
 from pydantic import TypeAdapter
 
 from chalkline.collection.schemas import Posting
 
 
-logger = getLogger(__name__)
-
-
 class CorpusStorage:
     """
     JSON-backed persistence for the posting corpus.
 
-    Owns the `corpus.json` lifecycle within a single directory,
-    supporting incremental collection where each `save` merges
-    new postings with the existing corpus and deduplicates by
-    composite posting ID.
+    Owns the `corpus.json` lifecycle within a single directory, supporting
+    incremental collection where each `save` merges new postings with the
+    existing corpus and deduplicates by composite posting ID.
     """
 
     Postings = TypeAdapter(list[Posting])
@@ -42,8 +38,8 @@ class CorpusStorage:
         """
         Retain the most recently collected version of each posting.
 
-        When duplicate `id` values exist, the posting with the
-        latest `date_collected` wins.
+        When duplicate `id` values exist, the posting with the latest
+        `date_collected` wins.
 
         Args:
             postings: The list of postings to deduplicate.
@@ -60,14 +56,17 @@ class CorpusStorage:
         """
         Load all postings from the corpus file.
 
-        Returns an empty list when `corpus.json` does not exist,
-        allowing the collector to bootstrap from an empty directory.
+        Returns an empty list when `corpus.json` does not exist, allowing
+        the collector to bootstrap from an empty directory.
 
         Returns:
             The deserialized list of postings.
         """
         try:
-            return self.Postings.validate_json(self.corpus_path.read_bytes())
+            result = self.Postings.validate_json(self.corpus_path.read_bytes())
+            logger.info(f"Loaded {len(result)} postings from {self.corpus_path}")
+            return result
+
         except FileNotFoundError:
             return []
 
@@ -75,8 +74,8 @@ class CorpusStorage:
         """
         Persist postings to disk with deduplication.
 
-        Merges `postings` with any existing corpus on disk,
-        deduplicates by composite `id`, and writes the result.
+        Merges `postings` with any existing corpus on disk, deduplicates by
+        composite `id`, and writes the result.
 
         Args:
             postings: The new postings to save.
@@ -86,7 +85,7 @@ class CorpusStorage:
         self.corpus_path.write_bytes(
             self.Postings.dump_json(
                 merged := self.deduplicate(self.load() + postings),
-                indent=2
+                indent  = 2
             )
         )
         logger.info(f"Saved {len(merged)} postings to {self.corpus_path}")

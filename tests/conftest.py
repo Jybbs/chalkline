@@ -1,234 +1,105 @@
 """
 Shared test fixtures for the Chalkline test suite.
 
-Fixtures form a pipeline chain where each step's output is independently
-tappable by any test module:
+Fixtures form an embedding pipeline chain where each step's output is
+independently tappable by any test module:
 
-    corpus → extracted_skills → vectorizer → pca_reducer
-           ↘                        ↓            ↓
-             sector_labels       network     clusterer → matcher
-                                    ↓            ↓
-                                 pathway_graph ←─┘
-
-Lexicon fixtures feed the extractor via the registry:
-
-    certifications ─┐
-    occupations ────┤
-    osha_terms ─────┼→ registry → extractor
-    supplement_terms┘
+    corpus → raw_vectors → unit_vectors → coordinates → assignments
+                                  ↓                          ↓
+                           soc_vectors → job_zone_map → profiles → graph
+                                                                     ↓
+                           credential_vectors ───────────────────→ matcher
 """
 
-import pandas as pd
+import numpy as np
 
-from collections      import Counter, defaultdict
-from json             import loads
-from pathlib          import Path
-from pytest           import fixture, FixtureRequest
-from sklearn.pipeline import Pipeline
+from datetime              import date
+from pathlib               import Path
+from pydantic              import TypeAdapter
+from pytest                import fixture, FixtureRequest
+from sklearn.cluster       import AgglomerativeClustering
+from sklearn.decomposition import TruncatedSVD
+from sklearn.preprocessing import normalize
+from typing                import Any, Callable
 
-from chalkline.association.apriori      import AprioriComparison
-from chalkline.association.cooccurrence import CooccurrenceNetwork
-from chalkline.clustering.comparison    import ClusterComparison
-from chalkline.clustering.hierarchical  import compute_sector_labels
-from chalkline.clustering.hierarchical  import HierarchicalClusterer
-from chalkline.clustering.schemas       import ClusterLabel
-from chalkline.collection.schemas       import Posting
-from chalkline.extraction.lexicons      import LexiconRegistry
-from chalkline.extraction.loaders       import load_certifications, load_onet
-from chalkline.extraction.loaders       import load_osha, load_supplement
-from chalkline.extraction.occupations   import OccupationIndex
-from chalkline.extraction.schemas       import Certification, OnetOccupation
-from chalkline.extraction.skills        import SkillExtractor
-from chalkline.extraction.vectorize     import SkillVectorizer
-from chalkline.matching.matcher         import ResumeMatcher
-from chalkline.matching.schemas         import MatchResult
-from chalkline.pathways.graph           import CareerPathwayGraph
-from chalkline.pathways.routing         import CareerRouter
-from chalkline.pipeline.programs        import load_programs
-from chalkline.pipeline.schemas         import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas         import DistanceMetric, ProgramRecommendation
-from chalkline.reduction.pca            import PcaReducer
+from chalkline.collection.schemas  import Posting
+from chalkline.extraction.loaders  import LexiconLoader
+from chalkline.extraction.schemas  import Certification, OnetOccupation
+from chalkline.matching.matcher    import ResumeMatcher
+from chalkline.pipeline.graph      import CareerPathwayGraph
+from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterAssignments
+from chalkline.pipeline.schemas    import ClusterProfile, ClusterTasks, Credentials
+from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
+from chalkline.pipeline.trades     import TradeIndex
 
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+FIXTURES        = Path(__file__).resolve().parent / "fixtures"
+CLUSTER_COUNT   = 4
+COMPONENT_COUNT = 4
+CORPUS_SIZE     = 20
+EMBEDDING_DIM   = 16
+
+
+class MockEncoder:
+    """
+    Deterministic fake encoder matching the `Encoder` interface.
+
+    Replaces the real encoder so tests never load the 400MB model.
+    """
+
+    def encode(self, texts, unit=True):
+        """
+        Return deterministic (len(texts), EMBEDDING_DIM) embeddings
+        seeded by input length for reproducibility.
+        """
+        vectors = np.random.RandomState(len(texts)).randn(
+            len(texts), EMBEDDING_DIM
+        ).astype(np.float32)
+        return normalize(vectors) if unit else vectors
+
+
+_load = lambda schema, path: TypeAdapter(schema).validate_json(
+    (FIXTURES / path).read_bytes()
+)
+
+
+def _embeddings(rows: int, seed: int, unit: bool = False) -> np.ndarray:
+    """
+    Deterministic random embeddings for test fixtures.
+    """
+    vectors = np.random.RandomState(seed).randn(rows, EMBEDDING_DIM).astype(np.float32)
+    return normalize(vectors) if unit else vectors
 
 
 def _postings() -> list[Posting]:
     """
     Load posting fixtures from JSON.
     """
-    return [
-        Posting(**raw)
-        for raw in loads((FIXTURES / "collection" / "postings.json").read_text())
-    ]
+    return _load(list[Posting], "collection/postings.json")
 
 
-# ---------------------------------------------------------------------
-# Lexicon loading
-# ---------------------------------------------------------------------
-
-@fixture
-def certifications() -> list[Certification]:
-    """
-    Load synthetic certifications from fixture data.
-    """
-    return load_certifications(FIXTURES / "extraction" / "certifications.json")
+# ── Collection fixtures ─────────────────────────────────────────────
 
 
 @fixture
-def lexicon_dir(tmp_path: Path) -> Path:
+def posting() -> Callable[..., Posting]:
     """
-    Write synthetic lexicon files to a temporary directory.
+    Factory for `Posting` instances with overridable identity fields.
     """
-    for src, dst in (
-        ("certifications.json",   "certifications.json"),
-        ("onet_occupations.json", "onet.json"),
-        ("osha_terms.json",       "osha.json"),
-        ("supplement_terms.json", "supplement.json")
-    ):
-        (tmp_path / dst).write_text(
-            (FIXTURES / "extraction" / src).read_text()
+    def _build(
+        company     : str         = "Test Co",
+        date_posted : date | None = date(2026, 1, 1),
+        title       : str         = "Worker"
+    ) -> Posting:
+        return Posting(
+            company     = company,
+            date_posted = date_posted,
+            description = "x" * 50,
+            source_url  = "https://example.com",
+            title       = title
         )
-    return tmp_path
+    return _build
 
-
-@fixture
-def occupations() -> list[OnetOccupation]:
-    """
-    Parse synthetic O*NET data into validated occupation records.
-    """
-    return load_onet(FIXTURES / "extraction" / "onet_occupations.json")
-
-
-@fixture
-def osha_terms() -> list[str]:
-    """
-    Load synthetic OSHA terms from fixture data.
-    """
-    return load_osha(FIXTURES / "extraction" / "osha_terms.json")
-
-
-@fixture
-def supplement_terms() -> list[str]:
-    """
-    Load synthetic supplement terms from fixture data.
-    """
-    return load_supplement(FIXTURES / "extraction" / "supplement_terms.json")
-
-
-# ---------------------------------------------------------------------
-# Extraction pipeline
-# ---------------------------------------------------------------------
-
-@fixture
-def corpus() -> dict[str, str]:
-    """
-    Twenty synthetic posting texts covering the fixture vocabulary.
-
-    Each posting targets a different skill cluster so downstream matrices
-    have enough rank for `TruncatedSVD` and enough variation for meaningful
-    clustering, PMI, and DBSCAN density estimation.
-    """
-    return {
-        "posting-01" : "Fall protection and welding are required. "
-                       "Experience with Autodesk AutoCAD preferred.",
-        "posting-02" : "Electrical safety training and scaffolding "
-                       "inspection. Must know welding techniques.",
-        "posting-03" : "Concrete finishing and excavation work. "
-                       "Rebar installation and building foundations.",
-        "posting-04" : "Operate construction equipment. Welding "
-                       "inspection and fall protection training.",
-        "posting-05" : "Electrical wiring and scaffolding. Load "
-                       "charts and rigging hardware experience.",
-        "posting-06" : "Asbestos removal and electrical systems "
-                       "maintenance. Autodesk AutoCAD drafting.",
-        "posting-07" : "Backhoe operation and spread concrete for "
-                       "building foundations. Excavation required.",
-        "posting-08" : "Certified welding inspector with rigging "
-                       "qualification. Weld quality assessment.",
-        "posting-09" : "Electrician with laptop computers for "
-                       "electrical wiring and electrical systems.",
-        "posting-10" : "Equipment operators for concrete finishing "
-                       "and scaffolding. Fall protection certified.",
-        "posting-11" : "Blueprint reading and electrical wiring for "
-                       "commercial projects. Autodesk AutoCAD drafting.",
-        "posting-12" : "Electrical safety and electrical systems "
-                       "troubleshooting. Laptop computers for "
-                       "diagnostics and welding certification.",
-        "posting-13" : "Electrical wiring and scaffolding erection. "
-                       "Autodesk AutoCAD layouts and fall protection.",
-        "posting-14" : "Backhoe and excavation for site preparation. "
-                       "Operate construction equipment and building "
-                       "foundations.",
-        "posting-15" : "Concrete finishing and rebar placement. "
-                       "Spread concrete for foundations and "
-                       "excavation grading.",
-        "posting-16" : "Operate construction equipment for building "
-                       "foundations. Concrete finishing and spread "
-                       "concrete required.",
-        "posting-17" : "Welding inspection and weld quality control. "
-                       "Rigging hardware and fall protection on site.",
-        "posting-18" : "Asbestos abatement and electrical safety "
-                       "compliance. Scaffolding and fall protection.",
-        "posting-19" : "Load charts and rigging hardware for crane "
-                       "operations. Welding and scaffolding required.",
-        "posting-20" : "Concrete finishing and fall protection. "
-                       "Scaffolding and operate construction "
-                       "equipment on highway projects."
-    }
-
-
-@fixture
-def extracted_skills(
-    corpus    : dict[str, str],
-    extractor : SkillExtractor
-) -> dict[str, list[str]]:
-    """
-    Canonical skill lists extracted from the synthetic corpus.
-
-    Mapping from document identifier to sorted, deduplicated skill names.
-    Tappable by tests that need skill lists without vectorization overhead.
-    """
-    return extractor.extract(corpus)
-
-
-@fixture
-def extractor(registry: LexiconRegistry) -> SkillExtractor:
-    """
-    Build a skill extractor from synthetic fixture data.
-    """
-    return SkillExtractor(registry)
-
-
-@fixture
-def occupation_index(occupations: list[OnetOccupation]) -> OccupationIndex:
-    """
-    Build an occupation index from synthetic fixture data.
-    """
-    return OccupationIndex(occupations)
-
-
-@fixture
-def registry(
-    certifications   : list[Certification],
-    occupations      : list[OnetOccupation],
-    osha_terms       : list[str],
-    supplement_terms : list[str]
-) -> LexiconRegistry:
-    """
-    Build a registry from synthetic fixture data.
-    """
-    return LexiconRegistry(
-        certifications   = certifications,
-        occupations      = occupations,
-        osha_terms       = osha_terms,
-        supplement_terms = supplement_terms
-    )
-
-
-# ---------------------------------------------------------------------
-# Collection
-# ---------------------------------------------------------------------
 
 @fixture
 def sample_posting() -> Posting:
@@ -246,7 +117,47 @@ def second_posting() -> Posting:
     return _postings()[1]
 
 
-@fixture(params = ["47-2111", "47-2111.00"])
+# ── Lexicon fixtures ─────────────────────────────────────────────────
+
+
+@fixture
+def certifications(lexicon_loader: LexiconLoader) -> list[Certification]:
+    """
+    Synthetic certification records from the loader.
+    """
+    return lexicon_loader.certifications
+
+
+@fixture
+def lexicon_dir(tmp_path: Path) -> Path:
+    """
+    Write synthetic lexicon files to a temporary directory.
+    """
+    for src, dst in (
+        ("certifications.json",   "certifications.json"),
+        ("onet_occupations.json", "onet.json")
+    ):
+        (tmp_path / dst).write_text((FIXTURES / "extraction" / src).read_text())
+    return tmp_path
+
+
+@fixture
+def lexicon_loader(lexicon_dir: Path) -> LexiconLoader:
+    """
+    Load all synthetic lexicon files via `LexiconLoader`.
+    """
+    return LexiconLoader(lexicon_dir)
+
+
+@fixture
+def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
+    """
+    Synthetic O*NET occupation records from the loader.
+    """
+    return lexicon_loader.occupations
+
+
+@fixture(params=["47-2111", "47-2111.00"])
 def soc(request: FixtureRequest) -> str:
     """
     Electrician SOC code in both bare and suffixed formats.
@@ -254,310 +165,272 @@ def soc(request: FixtureRequest) -> str:
     return request.param
 
 
-# ---------------------------------------------------------------------
-# Vectorization and reduction
-# ---------------------------------------------------------------------
+# ── Embedding pipeline fixtures ──────────────────────────────────────
+
 
 @fixture
-def pca_reducer(vectorizer: SkillVectorizer) -> PcaReducer:
+def assignments(coordinates: np.ndarray) -> ClusterAssignments:
     """
-    Build a PCA reducer from the shared skill vectorizer.
+    Ward-linkage HAC assignments at k=CLUSTER_COUNT.
     """
-    return PcaReducer(
-        document_ids       = vectorizer.document_ids,
-        feature_names      = vectorizer.feature_names,
-        max_components     = 4,
-        random_seed        = 42,
-        tfidf_matrix       = vectorizer.tfidf_matrix,
-        variance_threshold = 0.85
+    return ClusterAssignments(AgglomerativeClustering(
+        linkage    = "ward",
+        n_clusters = CLUSTER_COUNT
+    ).fit_predict(coordinates))
+
+
+@fixture
+def centroids(
+    assignments : ClusterAssignments,
+    coordinates : np.ndarray
+) -> np.ndarray:
+    """
+    Mean SVD coordinates per cluster (CLUSTER_COUNT, COMPONENT_COUNT).
+    """
+    return np.stack([
+        coordinates[assignments.members[cid]].mean(axis=0)
+        for cid in assignments.cluster_ids
+    ])
+
+
+@fixture
+def cluster_ids(assignments: ClusterAssignments) -> np.ndarray:
+    """
+    Sorted unique cluster IDs from assignments.
+    """
+    return assignments.cluster_ids
+
+
+@fixture
+def cluster_vectors(
+    assignments : ClusterAssignments,
+    raw_vectors : np.ndarray
+) -> np.ndarray:
+    """
+    Mean posting embedding per cluster, L2-normalized (CLUSTER_COUNT,
+    EMBEDDING_DIM).
+    """
+    return np.stack([
+        normalize(raw_vectors[assignments.members[cid]].mean(axis=0, keepdims=True))[0]
+        for cid in assignments.cluster_ids
+    ])
+
+
+@fixture
+def config(tmp_path: Path) -> PipelineConfig:
+    """
+    Minimal pipeline config for tests.
+    """
+    return PipelineConfig(
+        cluster_count   = CLUSTER_COUNT,
+        component_count = COMPONENT_COUNT,
+        lexicon_dir     = tmp_path,
+        output_dir      = tmp_path,
+        postings_dir    = tmp_path
     )
 
 
 @fixture
-def vectorizer(extracted_skills: dict[str, list[str]]) -> SkillVectorizer:
+def coordinates(
+    svd          : TruncatedSVD,
+    unit_vectors : np.ndarray
+) -> np.ndarray:
     """
-    Build a vectorizer from extracted skill lists.
+    SVD-reduced coordinates (CORPUS_SIZE, COMPONENT_COUNT).
     """
-    return SkillVectorizer(extracted_skills)
+    return svd.transform(unit_vectors)
 
-
-# ---------------------------------------------------------------------
-# Association
-# ---------------------------------------------------------------------
 
 @fixture
-def apriori(vectorizer: SkillVectorizer) -> AprioriComparison:
+def credential_records(
+    apprenticeships : list[ApprenticeshipContext],
+    programs        : list[ProgramRecommendation]
+) -> list:
     """
-    Build an Apriori comparison from the shared skill vectorizer.
+    Mixed credential records from trade fixtures (4 + 6 = 10).
     """
-    return AprioriComparison(
-        binary_matrix = vectorizer.binary_matrix,
-        feature_names = vectorizer.feature_names
+    return apprenticeships + programs
+
+
+@fixture
+def credential_vectors(credential_records: list) -> np.ndarray:
+    """
+    Synthetic credential embeddings aligned with `credential_records`.
+    """
+    return _embeddings(len(credential_records), 77, unit=True)
+
+
+@fixture
+def credentials(
+    credential_records : list,
+    credential_vectors : np.ndarray
+) -> Credentials:
+    """
+    Bundled credential records and vectors for graph construction.
+    """
+    return Credentials(
+        records = credential_records,
+        vectors = credential_vectors
     )
 
 
 @fixture
-def network(vectorizer: SkillVectorizer) -> CooccurrenceNetwork:
+def job_zone_map(cluster_ids: np.ndarray) -> dict[int, int]:
     """
-    Build a co-occurrence network from the shared skill vectorizer.
-    """
-    return CooccurrenceNetwork(
-        binary_matrix    = vectorizer.binary_matrix,
-        feature_names    = vectorizer.feature_names,
-        min_cooccurrence = 0.05,
-        random_seed      = 42
-    )
+    Deterministic Job Zone assignment for synthetic clusters.
 
-
-# ---------------------------------------------------------------------
-# Clustering
-# ---------------------------------------------------------------------
-
-@fixture
-def cluster_labels(
-    clusterer  : HierarchicalClusterer,
-    vectorizer : SkillVectorizer
-) -> list[ClusterLabel]:
+    Spreads clusters across JZ 2-4 to exercise stepwise k-NN lateral and
+    upward edge logic. Production uses top-3 median cosine against O*NET,
+    but tests use fixed values to avoid coupling to fixture occupation
+    count.
     """
-    Cluster labels from TF-IDF centroid terms, shared across label tests.
-    """
-    return clusterer.labels(
-        feature_names = vectorizer.feature_names,
-        tfidf_matrix  = vectorizer.tfidf_matrix
-    )
+    job_zone_values = [2, 2, 3, 4]
+    return {
+        cluster_id: job_zone_values[idx % len(job_zone_values)]
+        for idx, cluster_id in enumerate(cluster_ids)
+    }
 
 
 @fixture
-def clusterer(pca_reducer: PcaReducer) -> HierarchicalClusterer:
+def mock_encoder() -> MockEncoder:
     """
-    Build a hierarchical clusterer from the shared PCA reducer.
+    Deterministic mock replacing SentenceTransformer for tests.
     """
-    return HierarchicalClusterer(
-        coordinates  = pca_reducer.coordinates,
-        document_ids = pca_reducer.document_ids
-    )
+    return MockEncoder()
 
 
 @fixture
-def comparison(pca_reducer: PcaReducer) -> ClusterComparison:
+def pathway_graph(
+    centroids       : np.ndarray,
+    cluster_vectors : np.ndarray,
+    config          : PipelineConfig,
+    credentials     : Credentials,
+    job_zone_map    : dict[int, int],
+    profiles        : dict[int, ClusterProfile]
+) -> CareerPathwayGraph:
     """
-    Build a comparison runner without sector labels.
+    Career pathway graph built from synthetic embeddings.
     """
-    return ClusterComparison(
-        coordinates = pca_reducer.coordinates,
-        random_seed = 42
+    return CareerPathwayGraph(
+        centroids       = centroids,
+        cluster_vectors = cluster_vectors,
+        config          = config,
+        credentials     = credentials,
+        job_zone_map    = job_zone_map,
+        profiles        = profiles
     )
 
 
 @fixture
-def comparison_with_sectors(
-    pca_reducer   : PcaReducer,
-    sector_labels : list[str]
-) -> ClusterComparison:
+def profiles(
+    assignments  : ClusterAssignments,
+    job_zone_map : dict[int, int]
+) -> dict[int, ClusterProfile]:
     """
-    Build a comparison runner with sector labels for ARI.
+    Minimal cluster profiles for graph and matcher tests.
     """
-    return ClusterComparison(
-        coordinates   = pca_reducer.coordinates,
-        random_seed   = 42,
-        sector_labels = sector_labels
+    return {
+        cid: ClusterProfile(
+            cluster_id  = cid,
+            job_zone    = job_zone_map[cid],
+            modal_title = f"Title {cid}",
+            sector      = f"Sector {cid % 2}",
+            size        = len(assignments.members[cid]),
+            soc_title   = f"Occupation {cid}"
+        )
+        for cid in assignments.cluster_ids
+    }
+
+
+@fixture
+def raw_vectors() -> np.ndarray:
+    """
+    Synthetic posting embeddings (CORPUS_SIZE, EMBEDDING_DIM).
+    """
+    return _embeddings(CORPUS_SIZE, 42)
+
+
+@fixture
+def resume_matcher(
+    centroids     : np.ndarray,
+    cluster_ids   : np.ndarray,
+    pathway_graph : CareerPathwayGraph,
+    profiles      : dict[int, ClusterProfile],
+    svd           : TruncatedSVD
+) -> ResumeMatcher:
+    """
+    Resume matcher built from synthetic embeddings with mock encoder.
+    """
+    mock: Any = MockEncoder()
+    return ResumeMatcher(
+        centroids   = centroids,
+        cluster_ids = cluster_ids,
+        graph       = pathway_graph,
+        model       = mock,
+        profiles    = profiles,
+        soc_tasks   = {
+            cluster_id: ClusterTasks(
+                labels  = [f"Task {cluster_id}-{i}" for i in range(5)],
+                vectors = _embeddings(5, cluster_id, unit=True)
+            )
+            for cluster_id in cluster_ids
+        },
+        svd         = svd
     )
 
 
 @fixture
-def sector_labels(
-    extracted_skills : dict[str, list[str]],
-    occupation_index : OccupationIndex,
-    pca_reducer      : PcaReducer
-) -> list[str]:
+def soc_vectors() -> np.ndarray:
     """
-    Sector labels aligned with PCA reducer document order.
+    Synthetic occupation embeddings (5 occupations, EMBEDDING_DIM).
     """
-    return compute_sector_labels(
-        document_ids     = pca_reducer.document_ids,
-        extracted_skills = extracted_skills,
-        occupation_index = occupation_index
-    )
+    return _embeddings(5, 99, unit=True)
 
 
-# ---------------------------------------------------------------------
-# Matching
-# ---------------------------------------------------------------------
+@fixture
+def svd(unit_vectors: np.ndarray) -> TruncatedSVD:
+    """
+    Fitted TruncatedSVD for resume projection tests.
+    """
+    return TruncatedSVD(n_components=COMPONENT_COUNT, random_state=42).fit(unit_vectors)
+
+
+@fixture
+def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
+    """
+    L2-normalized posting embeddings.
+    """
+    return normalize(raw_vectors)
+
+
+# ── Trade fixtures ───────────────────────────────────────────────────
+
 
 @fixture
 def apprenticeships() -> list[ApprenticeshipContext]:
     """
     Synthetic apprenticeship reference data for matching tests.
     """
-    return [
-        ApprenticeshipContext(**raw)
-        for raw in loads((FIXTURES / "matching" / "apprenticeships.json").read_text())
-    ]
+    return _load(list[ApprenticeshipContext], "matching/apprenticeships.json")
 
 
 @fixture
-def geometry_pipeline(pca_reducer: PcaReducer, vectorizer: SkillVectorizer) -> Pipeline:
+def programs() -> list[ProgramRecommendation]:
     """
-    Combined geometry pipeline from vectorization through scaling.
-
-    Chains the fitted steps from `SkillVectorizer.pipeline` and
-    `PcaReducer.pipeline` into a single `Pipeline` whose
-    `transform([skill_dict])` projects a resume directly into PCA-scaled
-    coordinates.
+    Load synthetic educational program fixtures.
     """
-    vec_steps = vectorizer.pipeline.named_steps
-    pca_steps = pca_reducer.pipeline.named_steps
-    return Pipeline([
-        ("vec",    vec_steps["vec"]),
-        ("tfidf",  vec_steps["tfidf"]),
-        ("norm",   vec_steps["norm"]),
-        ("svd",    pca_steps["svd"]),
-        ("scaler", pca_steps["scaler"])
-    ])
+    return _load(list[ProgramRecommendation], "matching/programs.json")
 
 
 @fixture
-def match_result(matcher: ResumeMatcher, resume_skills: list[str]) -> MatchResult:
+def trades(
+    apprenticeships : list[ApprenticeshipContext],
+    programs        : list[ProgramRecommendation]
+) -> TradeIndex:
     """
-    Default match result from the partial resume skill set.
+    Shared trade index with prefix lookups for matching.
     """
-    return matcher.match(resume_skills)
-
-
-@fixture
-def matcher(
-    apprenticeships   : list[ApprenticeshipContext],
-    clusterer         : HierarchicalClusterer,
-    extracted_skills  : dict[str, list[str]],
-    geometry_pipeline : Pipeline,
-    network           : CooccurrenceNetwork,
-    programs          : list[ProgramRecommendation],
-    vectorizer        : SkillVectorizer
-) -> ResumeMatcher:
-    """
-    Build a resume matcher from the full fixture pipeline.
-    """
-    cluster_labels_50 = clusterer.labels(
-        feature_names = vectorizer.feature_names,
-        tfidf_matrix  = vectorizer.tfidf_matrix,
-        top_n         = 50
+    return TradeIndex(
+        apprenticeships = apprenticeships,
+        programs        = programs
     )
-    ppmi_df = pd.DataFrame(
-        network.ppmi_matrix.toarray(),
-        columns = network.feature_names,
-        index   = network.feature_names
-    )
-    return ResumeMatcher(
-        apprenticeships   = apprenticeships,
-        assignments       = clusterer.assignments,
-        cluster_labels    = cluster_labels_50,
-        coordinates       = clusterer.coordinates,
-        distance_metric   = DistanceMetric.EUCLIDEAN,
-        document_ids      = clusterer.document_ids,
-        extracted_skills  = extracted_skills,
-        geometry_pipeline = geometry_pipeline,
-        ppmi_df           = ppmi_df,
-        programs          = programs,
-        top_k_gaps        = 10
-    )
-
-
-@fixture
-def programs(tmp_path: Path) -> list[ProgramRecommendation]:
-    """
-    Load and normalize synthetic educational program fixtures.
-    """
-    for name in ("cc_programs.json", "umaine_programs.json"):
-        (tmp_path / name).write_text((FIXTURES / "matching" / name).read_text())
-    return load_programs(tmp_path)
-
-
-@fixture
-def resume_skills() -> list[str]:
-    """
-    A partial resume skill set that will produce gaps against the fixture
-    corpus.
-    """
-    return ["electrical wiring", "fall protection", "scaffolding"]
-
-
-# ---------------------------------------------------------------------
-# Pathways
-# ---------------------------------------------------------------------
-
-@fixture
-def pathway_graph(
-    apprenticeships  : list[ApprenticeshipContext],
-    cluster_labels   : list[ClusterLabel],
-    clusterer        : HierarchicalClusterer,
-    extracted_skills : dict[str, list[str]],
-    network          : CooccurrenceNetwork,
-    occupation_index : OccupationIndex,
-    programs         : list[ProgramRecommendation],
-    sector_labels    : list[str]
-) -> CareerPathwayGraph:
-    """
-    Build a career pathway graph from the full fixture pipeline.
-
-    Pre-computes fully enriched `ClusterProfile` records (including
-    apprenticeship and program matches via prefix overlap) before
-    passing them to the graph constructor.
-    """
-    cluster_skills: dict[int, set[str]] = defaultdict(set)
-    for doc, cid in zip(clusterer.document_ids, clusterer.assignments):
-        cluster_skills[int(cid)].update(extracted_skills.get(doc, []))
-
-    by_cluster: dict[int, list[str]] = defaultdict(list)
-    for soc, cid in zip(sector_labels, clusterer.assignments):
-        by_cluster[int(cid)].append(
-            occupation_index.get(soc).sector
-        )
-
-    size_map  = {cl.cluster_id: cl.size for cl in cluster_labels}
-    terms_map = {cl.cluster_id: cl.terms for cl in cluster_labels}
-
-    prefix   = lambda t: {w[:4] for w in t.lower().split() if len(w) >= 4}
-    trade_pf = {a.rapids_code: prefix(a.title) for a in apprenticeships}
-    prog_pf  = {
-        (p.institution, p.program): prefix(p.program) for p in programs
-    }
-
-    profiles: dict[int, ClusterProfile] = {}
-    for cid, skills in cluster_skills.items():
-        terms   = terms_map.get(cid, [])
-        node_pf = {p for text in (*terms, *skills) for p in prefix(text)}
-
-        matched = next(
-            (a for a in apprenticeships if node_pf & trade_pf[a.rapids_code]),
-            None
-        )
-
-        profiles[cid] = ClusterProfile(
-            cluster_id = cid,
-            job_zone   = occupation_index.job_zone_for_skills(
-                {s.lower() for s in skills}
-            ),
-            sector     = Counter(by_cluster[cid]).most_common(1)[0][0],
-            size       = size_map[cid],
-            skills     = skills,
-            terms      = terms,
-
-            apprenticeship = matched,
-            programs       = [
-                p for p in programs
-                if node_pf & prog_pf[p.institution, p.program]
-            ]
-        )
-
-    return CareerPathwayGraph(
-        network  = network,
-        profiles = profiles
-    )
-
-
-@fixture
-def router(pathway_graph: CareerPathwayGraph) -> CareerRouter:
-    """
-    Build a career router from the full fixture pipeline.
-    """
-    return CareerRouter(pathway_graph.graph, pathway_graph.profiles)
