@@ -24,7 +24,7 @@ from chalkline.collection.storage import CorpusStorage
 from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile, ClusterTasks
 from chalkline.pipeline.schemas   import Corpus, Credentials, Encoder
 from chalkline.pipeline.schemas   import PipelineConfig, PipelineManifest
 from chalkline.pipeline.trades    import TradeIndex
@@ -183,28 +183,26 @@ def manifest(config: PipelineConfig, corpus: Corpus) -> PipelineManifest:
 
 
 def matcher(
-    assignments  : ClusterAssignments,
-    centroids    : np.ndarray,
-    graph        : CareerPathwayGraph,
-    model        : Encoder,
-    profiles     : dict[int, ClusterProfile],
-    svd          : TruncatedSVD,
-    task_labels  : dict[int, list[str]],
-    task_vectors : dict[int, np.ndarray]
+    assignments : ClusterAssignments,
+    centroids   : np.ndarray,
+    graph       : CareerPathwayGraph,
+    model       : Encoder,
+    profiles    : dict[int, ClusterProfile],
+    soc_tasks   : dict[int, ClusterTasks],
+    svd         : TruncatedSVD
 ) -> ResumeMatcher:
     """
     Build the resume matcher with all artifacts needed for single-resume
     inference.
     """
     return ResumeMatcher(
-        centroids    = centroids,
-        cluster_ids  = assignments.cluster_ids,
-        graph        = graph,
-        model        = model,
-        profiles     = profiles,
-        svd          = svd,
-        task_labels  = task_labels,
-        task_vectors = task_vectors
+        centroids   = centroids,
+        cluster_ids = assignments.cluster_ids,
+        graph       = graph,
+        model       = model,
+        profiles    = profiles,
+        soc_tasks   = soc_tasks,
+        svd         = svd
     )
 
 
@@ -226,16 +224,12 @@ def soc_vectors(lexicons: LexiconLoader, model: Encoder) -> np.ndarray:
     )
 
 
-@extract_fields({
-    "task_labels"  : dict,
-    "task_vectors" : dict
-})
 def soc_tasks(
     assignments    : ClusterAssignments,
     lexicons       : LexiconLoader,
     model          : Encoder,
     soc_similarity : np.ndarray
-) -> dict:
+) -> dict[int, ClusterTasks]:
     """
     Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
 
@@ -243,18 +237,14 @@ def soc_tasks(
     similarity, then encodes that occupation's Task+DWA elements as
     individual embeddings for per-task gap scoring.
     """
-    task_data = {
-        cid: [t.name for t in nearest.task_elements]
+    return {
+        cid: ClusterTasks(
+            labels  = (names := [t.name for t in nearest.task_elements]),
+            vectors = model.encode(names)
+        )
         for cid in assignments.cluster_ids
         for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
         if nearest.task_elements
-    }
-    return {
-        "task_labels"  : task_data,
-        "task_vectors" : {
-            cluster_id: model.encode(names)
-            for cluster_id, names in task_data.items()
-        }
     }
 
 

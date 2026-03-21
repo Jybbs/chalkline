@@ -46,17 +46,20 @@ class CareerPathwayGraph:
     job_zone_map    : dict[int, int]
     profiles        : dict[int, ClusterProfile]
 
-    graph: nx.DiGraph = field(init=False)
+    graph    : nx.DiGraph  = field(init=False)
+    node_ids : np.ndarray = field(init=False)
 
     def __post_init__(self):
         """
         Compute similarity matrices, build the stepwise backbone, and attach
         credential metadata to every edge.
         """
-        self.graph = nx.DiGraph()
+        self.node_ids = np.array(sorted(self.profiles))
+        self.graph    = nx.DiGraph()
+
         self.graph.add_nodes_from(
             (c, self.profiles[c].model_dump(mode="json"))
-            for c in sorted(self.profiles)
+            for c in self.node_ids
         )
 
         self._add_edges(cosine_similarity(self.centroids))
@@ -74,14 +77,13 @@ class CareerPathwayGraph:
         stepwise constraint prevents tier-skipping shortcuts.
         """
         similarity  = pairwise - np.eye(len(pairwise))
-        ids         = np.array(sorted(self.profiles))
-        zones       = np.array([self.job_zone_map[c] for c in ids])
+        zones       = np.array([self.job_zone_map[c] for c in self.node_ids])
         zone_levels = sorted(set(zones))
         next_zone   = dict(zip(zone_levels, zone_levels[1:]))
 
-        for source in ids:
+        for source in self.node_ids:
             source_zone = self.job_zone_map[source]
-            lateral     = ids[(zones == source_zone) & (ids > source)]
+            lateral     = self.node_ids[(zones == source_zone) & (self.node_ids > source)]
             proximity   = similarity[source, lateral]
 
             for i in np.argsort(-proximity)[:self.config.lateral_neighbors]:
@@ -89,9 +91,9 @@ class CareerPathwayGraph:
                 self.graph.add_edge(lateral[i], source, weight=proximity[i])
 
             if source_zone in next_zone:
-                upward    = ids[zones == next_zone[source_zone]]
+                upward    = self.node_ids[zones == next_zone[source_zone]]
                 proximity = similarity[source, upward]
-                
+
                 for i in np.argsort(-proximity)[:self.config.upward_neighbors]:
                     self.graph.add_edge(source, upward[i], weight=proximity[i])
 
@@ -146,10 +148,7 @@ class CareerPathwayGraph:
         """
         edges = [
             CareerEdge(
-                cluster_id  = target,
-                modal_title = (profile := self.profiles[target]).modal_title,
-                size        = profile.size,
-                soc_title   = profile.soc_title,
+                profile = self.profiles[target],
                 **self.graph[cluster_id][target]
             )
             for target in self.graph.successors(cluster_id)
@@ -157,7 +156,7 @@ class CareerPathwayGraph:
 
         ranked = lambda compare: sorted(
             [e for e in edges if compare(
-                self.job_zone_map[e.cluster_id],
+                self.job_zone_map[e.profile.cluster_id],
                 self.job_zone_map[cluster_id]
             )],
             key     = lambda edge: edge.weight,

@@ -28,7 +28,7 @@ from chalkline.extraction.schemas  import Certification, OnetOccupation
 from chalkline.matching.matcher    import ResumeMatcher
 from chalkline.pipeline.graph      import CareerPathwayGraph
 from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterAssignments
-from chalkline.pipeline.schemas    import ClusterProfile, Credentials
+from chalkline.pipeline.schemas    import ClusterProfile, ClusterTasks, Credentials
 from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
 from chalkline.pipeline.trades     import TradeIndex
 
@@ -194,7 +194,7 @@ def centroids(
 
 
 @fixture
-def cluster_ids(assignments: ClusterAssignments) -> list[int]:
+def cluster_ids(assignments: ClusterAssignments) -> np.ndarray:
     """
     Sorted unique cluster IDs from assignments.
     """
@@ -275,7 +275,7 @@ def credentials(
 
 
 @fixture
-def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
+def job_zone_map(cluster_ids: np.ndarray) -> dict[int, int]:
     """
     Deterministic Job Zone assignment for synthetic clusters.
 
@@ -353,7 +353,7 @@ def raw_vectors() -> np.ndarray:
 @fixture
 def resume_matcher(
     centroids     : np.ndarray,
-    cluster_ids   : list[int],
+    cluster_ids   : np.ndarray,
     pathway_graph : CareerPathwayGraph,
     profiles      : dict[int, ClusterProfile],
     svd           : TruncatedSVD
@@ -363,20 +363,19 @@ def resume_matcher(
     """
     mock: Any = MockEncoder()
     return ResumeMatcher(
-        centroids    = centroids,
-        cluster_ids  = cluster_ids,
-        graph        = pathway_graph,
-        model        = mock,
-        profiles     = profiles,
-        svd          = svd,
-        task_labels  = {
-            cluster_id: [f"Task {cluster_id}-{i}" for i in range(5)]
+        centroids   = centroids,
+        cluster_ids = cluster_ids,
+        graph       = pathway_graph,
+        model       = mock,
+        profiles    = profiles,
+        soc_tasks   = {
+            cluster_id: ClusterTasks(
+                labels  = [f"Task {cluster_id}-{i}" for i in range(5)],
+                vectors = _embeddings(5, cluster_id, unit=True)
+            )
             for cluster_id in cluster_ids
         },
-        task_vectors = {
-            cluster_id: _embeddings(5, cluster_id, unit=True)
-            for cluster_id in cluster_ids
-        }
+        svd         = svd
     )
 
 

@@ -16,7 +16,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas  import ClusterDistance, MatchResult, TaskGap
 from chalkline.pipeline.graph    import CareerPathwayGraph
-from chalkline.pipeline.schemas  import ClusterProfile, Encoder
+from chalkline.pipeline.schemas  import ClusterProfile, ClusterTasks, Encoder
 
 
 @dataclass(kw_only=True, slots=True)
@@ -31,24 +31,22 @@ class ResumeMatcher:
     for the local neighborhood view.
 
     Args:
-        centroids    : (n_clusters, n_components) in SVD-reduced space.
-        cluster_ids  : Aligned with centroid rows.
-        graph        : For neighborhood queries post-match.
-        model        : For encoding resume text into embedding space.
-        profiles     : For sector lookup on the matched cluster.
-        svd          : For projecting resume embeddings into reduced space.
-        task_labels  : Per-cluster Task+DWA names aligned with vector rows.
-        task_vectors : Per-cluster (n_tasks, embedding_dim) L2-normalized.
+        centroids   : (n_clusters, n_components) in SVD-reduced space.
+        cluster_ids : (n_clusters,) aligned with centroid rows.
+        graph       : For neighborhood queries post-match.
+        model       : For encoding resume text into embedding space.
+        profiles    : For sector lookup on the matched cluster.
+        soc_tasks   : Per-cluster Task+DWA names and embeddings.
+        svd         : For projecting resume embeddings into reduced space.
     """
 
-    centroids    : np.ndarray
-    cluster_ids  : list[int]
-    graph        : CareerPathwayGraph
-    model        : Encoder
-    profiles     : dict[int, ClusterProfile]
-    svd          : TruncatedSVD
-    task_labels  : dict[int, list[str]]
-    task_vectors : dict[int, np.ndarray]
+    centroids   : np.ndarray
+    cluster_ids : np.ndarray
+    graph       : CareerPathwayGraph
+    model       : Encoder
+    profiles    : dict[int, ClusterProfile]
+    soc_tasks   : dict[int, ClusterTasks]
+    svd         : TruncatedSVD
 
     def _gap_analysis(
         self,
@@ -72,15 +70,16 @@ class ResumeMatcher:
         Returns:
             Tuple of (demonstrated tasks, gap tasks).
         """
-        if cluster_id not in self.task_vectors:
+        if cluster_id not in self.soc_tasks:
             return [], []
 
-        similarities = cosine_similarity(resume_unit, self.task_vectors[cluster_id])[0]
-        threshold    = np.median(similarities)
+        cluster_tasks = self.soc_tasks[cluster_id]
+        similarities  = cosine_similarity(resume_unit, cluster_tasks.vectors)[0]
+        threshold     = np.median(similarities)
 
         tasks = [
             TaskGap(name=name, similarity=float(score))
-            for name, score in zip(self.task_labels[cluster_id], similarities)
+            for name, score in zip(cluster_tasks.labels, similarities)
         ]
         rank = lambda above: sorted(
             [t for t in tasks if (t.similarity >= threshold) == above],

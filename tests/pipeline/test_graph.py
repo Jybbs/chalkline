@@ -49,9 +49,9 @@ class TestCareerPathwayGraph:
             neighborhood = pathway_graph.neighborhood(cluster_id)
             source_zone  = pathway_graph.job_zone_map[cluster_id]
             for edge in neighborhood.advancement:
-                assert pathway_graph.job_zone_map[edge.cluster_id] > source_zone
+                assert pathway_graph.job_zone_map[edge.profile.cluster_id] > source_zone
             for edge in neighborhood.lateral:
-                assert pathway_graph.job_zone_map[edge.cluster_id] == source_zone
+                assert pathway_graph.job_zone_map[edge.profile.cluster_id] == source_zone
 
     def test_node_count(self, pathway_graph: CareerPathwayGraph):
         """

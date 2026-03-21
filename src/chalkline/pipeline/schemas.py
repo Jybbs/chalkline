@@ -57,11 +57,11 @@ class ClusterAssignments:
 
     labels : np.ndarray
 
-    cluster_ids : list[int]             = field(init=False)
+    cluster_ids : np.ndarray            = field(init=False)
     members     : dict[int, np.ndarray] = field(init=False)
 
     def __post_init__(self):
-        self.cluster_ids = sorted(set(self.labels))
+        self.cluster_ids = np.array(sorted(set(self.labels)))
         self.members = {
             cid: np.where(self.labels == cid)[0]
             for cid in self.cluster_ids
@@ -110,6 +110,19 @@ class Corpus:
         encoding.
         """
         return [self.postings[pid].description for pid in self.posting_ids]
+
+
+class ClusterTasks(NamedTuple):
+    """
+    Per-cluster O*NET Task+DWA names with aligned embedding vectors.
+
+    Produced by the `soc_tasks` Hamilton node and consumed by
+    `ResumeMatcher` for per-task cosine gap analysis against resume
+    embeddings.
+    """
+
+    labels  : list[str]
+    vectors : np.ndarray
 
 
 class Credentials(NamedTuple):

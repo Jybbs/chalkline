@@ -9,7 +9,8 @@ embeddings.
 from pydantic import BaseModel, Field
 
 from chalkline.extraction.schemas import Certification
-from chalkline.pipeline.schemas   import ApprenticeshipContext, ProgramRecommendation
+from chalkline.pipeline.schemas   import ApprenticeshipContext, ClusterProfile
+from chalkline.pipeline.schemas   import ProgramRecommendation
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -17,16 +18,13 @@ class CareerEdge(BaseModel, extra="forbid"):
     A single edge in the neighborhood view with credential metadata.
 
     Each edge connects the matched cluster to a neighboring cluster,
-    carrying the cosine similarity weight and the credentials that bridge
-    the specific transition, filtered by the destination_percentile and
-    source_percentile dual-threshold rule.
+    carrying the target cluster's profile, the cosine similarity weight,
+    and the credentials that bridge the specific transition, filtered by
+    the destination_percentile and source_percentile dual-threshold rule.
     """
 
-    cluster_id  : int = Field(ge=0)
-    modal_title : str
-    size        : int = Field(ge=1)
-    soc_title   : str
-    weight      : float
+    profile : ClusterProfile
+    weight  : float
 
     apprenticeships : list[ApprenticeshipContext] = Field(default_factory=list)
     certifications  : list[Certification]         = Field(default_factory=list)
