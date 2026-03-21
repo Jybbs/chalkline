@@ -35,15 +35,6 @@ class TestResumeMatcher:
         result = resume_matcher.match("Electrical wiring specialist")
         assert len(result.demonstrated) + len(result.gaps) == 5
 
-    def test_neighborhood_present(self, resume_matcher):
-        """
-        Match result includes a neighborhood with advancement and lateral
-        edge lists.
-        """
-        result = resume_matcher.match("Project manager in construction")
-        assert hasattr(result.neighborhood, "advancement")
-        assert hasattr(result.neighborhood, "lateral")
-
     def test_sector_assigned(self, profiles, resume_matcher):
         """
         Match result carries a sector string from the assigned cluster

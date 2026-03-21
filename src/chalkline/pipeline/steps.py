@@ -12,7 +12,6 @@ single-resume inference.
 import numpy as np
 
 from collections                 import Counter
-from datetime                    import datetime, timezone
 from hamilton.function_modifiers import extract_fields
 from loguru                      import logger
 from sklearn.cluster             import AgglomerativeClustering
@@ -25,8 +24,7 @@ from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pipeline.graph     import CareerPathwayGraph
 from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile, ClusterTasks
-from chalkline.pipeline.schemas   import Corpus, Credentials, Encoder
-from chalkline.pipeline.schemas   import PipelineConfig, PipelineManifest
+from chalkline.pipeline.schemas   import Corpus, Credentials, Encoder, PipelineConfig
 from chalkline.pipeline.trades    import TradeIndex
 
 
@@ -44,10 +42,7 @@ def centroids(assignments: ClusterAssignments, coordinates: np.ndarray) -> np.nd
     """
     Mean SVD coordinates per cluster for resume distance computation.
     """
-    return np.stack([
-        coordinates[assignments.members[cid]].mean(axis=0)
-        for cid in assignments.cluster_ids
-    ])
+    return assignments.centroids(coordinates)
 
 
 def cluster_vectors(assignments: ClusterAssignments, raw_vectors: np.ndarray) -> np.ndarray:
@@ -55,17 +50,7 @@ def cluster_vectors(assignments: ClusterAssignments, raw_vectors: np.ndarray) ->
     Mean posting embedding per cluster in the full embedding space,
     L2-normalized for cosine similarity against occupations and credentials.
     """
-    return np.stack([
-        normalize(raw_vectors[assignments.members[cid]].mean(axis=0, keepdims=True))[0]
-        for cid in assignments.cluster_ids
-    ])
-
-
-def soc_similarity(cluster_vectors: np.ndarray, soc_vectors: np.ndarray) -> np.ndarray:
-    """
-    Cosine similarity between cluster centroids and O*NET occupations.
-    """
-    return cosine_similarity(cluster_vectors, soc_vectors)
+    return assignments.cluster_vectors(raw_vectors)
 
 
 def corpus(config: PipelineConfig) -> Corpus:
@@ -82,9 +67,9 @@ def corpus(config: PipelineConfig) -> Corpus:
 
 
 def credentials(
+    config   : PipelineConfig,
     lexicons : LexiconLoader,
-    model    : Encoder,
-    trades   : TradeIndex
+    model    : Encoder
 ) -> Credentials:
     """
     Encode the credential catalog (apprenticeships, programs,
@@ -92,28 +77,13 @@ def credentials(
     bundling the typed records with their embedding vectors so the graph can
     attach full credential metadata to edges.
     """
+    trades  = TradeIndex.from_directory(config.lexicon_dir)
     records = trades.apprenticeships + trades.programs + lexicons.certifications
     logger.info(f"Encoding {len(records)} credentials...")
     return Credentials(
         records = records,
         vectors = model.encode([r.embedding_text for r in records])
     )
-
-
-@extract_fields({
-    "coordinates" : np.ndarray,
-    "svd"         : TruncatedSVD
-})
-def reduction(config: PipelineConfig, unit_vectors: np.ndarray) -> dict:
-    """
-    Fit TruncatedSVD on L2-normalized embeddings and expose both the reduced
-    coordinates and the fitted SVD for resume projection.
-    """
-    svd = TruncatedSVD(n_components=config.component_count, random_state=config.random_seed)
-    return {
-        "coordinates" : svd.fit_transform(unit_vectors),
-        "svd"         : svd
-    }
 
 
 def graph(
@@ -162,26 +132,6 @@ def job_zone_map(
     }
 
 
-def lexicons(config: PipelineConfig) -> LexiconLoader:
-    """
-    Load lexicon files from the configured directory.
-    """
-    return LexiconLoader(config.lexicon_dir)
-
-
-def manifest(config: PipelineConfig, corpus: Corpus) -> PipelineManifest:
-    """
-    Build provenance metadata from fitted artifacts.
-    """
-    return PipelineManifest(
-        component_count = config.component_count,
-        corpus_size     = len(corpus.postings),
-        embedding_model = config.embedding_model,
-        posting_ids     = corpus.posting_ids,
-        timestamp       = datetime.now(timezone.utc).isoformat()
-    )
-
-
 def matcher(
     assignments : ClusterAssignments,
     centroids   : np.ndarray,
@@ -204,48 +154,6 @@ def matcher(
         soc_tasks   = soc_tasks,
         svd         = svd
     )
-
-
-def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
-    """
-    L2-normalize raw posting embeddings for SVD input.
-    """
-    return normalize(raw_vectors)
-
-
-def soc_vectors(lexicons: LexiconLoader, model: Encoder) -> np.ndarray:
-    """
-    Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
-    cosine similarity against cluster centroids.
-    """
-    logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
-    return model.encode(
-        [occupation.embedding_text for occupation in lexicons.occupations]
-    )
-
-
-def soc_tasks(
-    assignments    : ClusterAssignments,
-    lexicons       : LexiconLoader,
-    model          : Encoder,
-    soc_similarity : np.ndarray
-) -> dict[int, ClusterTasks]:
-    """
-    Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
-
-    For each cluster, identifies the nearest occupation via cosine
-    similarity, then encodes that occupation's Task+DWA elements as
-    individual embeddings for per-task gap scoring.
-    """
-    return {
-        cid: ClusterTasks(
-            labels  = (names := [t.name for t in nearest.task_elements]),
-            vectors = model.encode(names)
-        )
-        for cid in assignments.cluster_ids
-        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
-        if nearest.task_elements
-    }
 
 
 def profiles(
@@ -284,8 +192,59 @@ def raw_vectors(corpus: Corpus, model: Encoder) -> np.ndarray:
     return model.encode(corpus.descriptions, unit=False)
 
 
-def trades(config: PipelineConfig) -> TradeIndex:
+@extract_fields({
+    "coordinates" : np.ndarray,
+    "svd"         : TruncatedSVD
+})
+def reduction(config: PipelineConfig, raw_vectors: np.ndarray) -> dict:
     """
-    Load apprenticeship and program reference data into a `TradeIndex`.
+    L2-normalize raw embeddings, fit TruncatedSVD, and expose both the
+    reduced coordinates and the fitted SVD for resume projection.
     """
-    return TradeIndex.from_directory(config.lexicon_dir)
+    svd = TruncatedSVD(n_components=config.component_count, random_state=config.random_seed)
+    return {
+        "coordinates" : svd.fit_transform(normalize(raw_vectors)),
+        "svd"         : svd
+    }
+
+
+def soc_similarity(cluster_vectors: np.ndarray, soc_vectors: np.ndarray) -> np.ndarray:
+    """
+    Cosine similarity between cluster centroids and O*NET occupations.
+    """
+    return cosine_similarity(cluster_vectors, soc_vectors)
+
+
+def soc_tasks(
+    assignments    : ClusterAssignments,
+    lexicons       : LexiconLoader,
+    model          : Encoder,
+    soc_similarity : np.ndarray
+) -> dict[int, ClusterTasks]:
+    """
+    Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
+
+    For each cluster, identifies the nearest occupation via cosine
+    similarity, then encodes that occupation's Task+DWA elements as
+    individual embeddings for per-task gap scoring.
+    """
+    return {
+        cid: ClusterTasks(
+            labels  = (names := [t.name for t in nearest.task_elements]),
+            vectors = model.encode(names)
+        )
+        for cid in assignments.cluster_ids
+        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
+        if nearest.task_elements
+    }
+
+
+def soc_vectors(lexicons: LexiconLoader, model: Encoder) -> np.ndarray:
+    """
+    Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
+    cosine similarity against cluster centroids.
+    """
+    logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
+    return model.encode(
+        [occupation.embedding_text for occupation in lexicons.occupations]
+    )

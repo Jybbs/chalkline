@@ -16,7 +16,7 @@ import numpy as np
 from datetime              import date
 from pathlib               import Path
 from pydantic              import TypeAdapter
-from pytest                import fixture, FixtureRequest
+from pytest                import fixture
 from sklearn.cluster       import AgglomerativeClustering
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
@@ -157,14 +157,6 @@ def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
     return lexicon_loader.occupations
 
 
-@fixture(params=["47-2111", "47-2111.00"])
-def soc(request: FixtureRequest) -> str:
-    """
-    Electrician SOC code in both bare and suffixed formats.
-    """
-    return request.param
-
-
 # ── Embedding pipeline fixtures ──────────────────────────────────────
 
 
@@ -187,10 +179,7 @@ def centroids(
     """
     Mean SVD coordinates per cluster (CLUSTER_COUNT, COMPONENT_COUNT).
     """
-    return np.stack([
-        coordinates[assignments.members[cid]].mean(axis=0)
-        for cid in assignments.cluster_ids
-    ])
+    return assignments.centroids(coordinates)
 
 
 @fixture
@@ -210,10 +199,7 @@ def cluster_vectors(
     Mean posting embedding per cluster, L2-normalized (CLUSTER_COUNT,
     EMBEDDING_DIM).
     """
-    return np.stack([
-        normalize(raw_vectors[assignments.members[cid]].mean(axis=0, keepdims=True))[0]
-        for cid in assignments.cluster_ids
-    ])
+    return assignments.cluster_vectors(raw_vectors)
 
 
 @fixture

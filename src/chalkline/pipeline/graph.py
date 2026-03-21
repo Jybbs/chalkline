@@ -46,7 +46,7 @@ class CareerPathwayGraph:
     job_zone_map    : dict[int, int]
     profiles        : dict[int, ClusterProfile]
 
-    graph    : nx.DiGraph  = field(init=False)
+    graph    : nx.DiGraph = field(init=False)
     node_ids : np.ndarray = field(init=False)
 
     def __post_init__(self):

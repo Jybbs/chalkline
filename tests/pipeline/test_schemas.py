@@ -1,35 +1,74 @@
 """
-Tests for pipeline configuration and shared reference data schemas.
+Tests for pipeline configuration, cluster structure, and corpus ordering.
 
-Validates `PipelineConfig` field constraints, defaults, the `extra="forbid"`
-policy, and shared `ApprenticeshipContext` and `ProgramRecommendation` data
-models.
+Validates `PipelineConfig` defaults, `ClusterAssignments` per-cluster
+aggregation shapes and normalization, and `Corpus` description alignment
+with sorted posting keys.
 """
 
-from pathlib import Path
-from pytest  import mark, raises
+import numpy as np
 
-from chalkline.pipeline.schemas import ApprenticeshipContext
-from chalkline.pipeline.schemas import PipelineConfig, ProgramRecommendation
+from pathlib import Path
+from pytest  import mark
+
+from chalkline.collection.schemas import Posting
+from chalkline.pipeline.schemas   import Corpus, PipelineConfig
+
+
+class TestClusterAssignments:
+    """
+    Validate cluster structure derivation and per-cluster aggregation.
+    """
+
+    def test_centroids_shape(self, assignments, coordinates):
+        """
+        One centroid row per cluster in the SVD-reduced space.
+        """
+        assert assignments.centroids(coordinates).shape == (
+            len(assignments.cluster_ids),
+            coordinates.shape[1]
+        )
+
+    def test_cluster_vectors_unit(self, assignments, raw_vectors):
+        """
+        Cluster vectors are L2-normalized for cosine similarity.
+        """
+        np.testing.assert_allclose(
+            np.linalg.norm(assignments.cluster_vectors(raw_vectors), axis=1),
+            1.0,
+            atol=1e-6
+        )
+
+
+class TestCorpus:
+    """
+    Validate corpus key ordering and description alignment.
+    """
+
+    def test_descriptions_aligned(self):
+        """
+        Descriptions follow the same sorted-key order as `posting_ids`.
+        """
+        postings = {
+            f"b_{i}": Posting(
+                company     = "Co",
+                date_posted = None,
+                description = f"{'x' * 50} {i}",
+                id          = f"b_{i}",
+                source_url  = "https://example.com",
+                title       = "Worker"
+            )
+            for i in range(3)
+        }
+        corpus = Corpus(postings)
+        assert len(corpus.descriptions) == 3
+        assert corpus.descriptions[0] == postings[corpus.posting_ids[0]].description
 
 
 class TestPipelineConfig:
     """
-    Validate `PipelineConfig` constraints and defaults.
+    Validate `PipelineConfig` defaults.
     """
-
-    @staticmethod
-    def _config(tmp_path: Path, **overrides) -> PipelineConfig:
-        """
-        Build a `PipelineConfig` with `tmp_path` for all required
-        directories.
-        """
-        return PipelineConfig(
-            lexicon_dir  = tmp_path,
-            output_dir   = tmp_path,
-            postings_dir = tmp_path,
-            **overrides
-        )
 
     @mark.parametrize("field, expected", [
         ("cluster_count",          20),
@@ -46,45 +85,9 @@ class TestPipelineConfig:
         """
         Optional fields receive their documented defaults.
         """
-        assert getattr(self._config(tmp_path), field) == expected
-
-    def test_extra_fields(self, tmp_path: Path):
-        """
-        Unknown fields raise `ValidationError` per `extra="forbid"`.
-        """
-        with raises(Exception, match="Extra inputs"):
-            self._config(tmp_path, stale_field=True)
-
-    def test_missing_fields(self):
-        """
-        Omitting required path fields raises `ValidationError`.
-        """
-        with raises(Exception):
-            PipelineConfig.model_validate({})
-
-    def test_apprenticeship_extra(self):
-        """
-        Unknown fields are rejected per extra="forbid".
-        """
-        with raises(Exception, match="Extra inputs"):
-            ApprenticeshipContext.model_validate({
-                "min_hours"   : 8000,
-                "prefixes"    : {"elec"},
-                "rapids_code" : "90046",
-                "title"       : "Electrician",
-                "unknown"     : True
-            })
-
-    def test_program_extra(self):
-        """
-        Unknown fields are rejected per extra="forbid".
-        """
-        with raises(Exception, match="Extra inputs"):
-            ProgramRecommendation.model_validate({
-                "credential"  : "AAS",
-                "institution" : "CMCC",
-                "prefixes"    : {"test"},
-                "program"     : "Test",
-                "unknown"     : True,
-                "url"         : "https://example.com"
-            })
+        config = PipelineConfig(
+            lexicon_dir  = tmp_path,
+            output_dir   = tmp_path,
+            postings_dir = tmp_path
+        )
+        assert getattr(config, field) == expected

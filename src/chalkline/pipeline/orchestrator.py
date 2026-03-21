@@ -14,13 +14,12 @@ from hamilton                import driver
 from hamilton.plugins.h_tqdm import ProgressBar
 from sentence_transformers   import SentenceTransformer
 
-from chalkline.matching.matcher import ResumeMatcher
-from chalkline.matching.schemas import MatchResult
-from chalkline.pipeline         import steps
-from chalkline.pipeline.graph   import CareerPathwayGraph
-from chalkline.pipeline.schemas import ClusterProfile, Encoder
-from chalkline.pipeline.schemas import PipelineConfig, PipelineManifest
-from chalkline.pipeline.trades  import TradeIndex
+from chalkline.extraction.loaders import LexiconLoader
+from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.matching.schemas   import MatchResult
+from chalkline.pipeline           import steps
+from chalkline.pipeline.graph     import CareerPathwayGraph
+from chalkline.pipeline.schemas   import ClusterProfile, Encoder, PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -36,10 +35,8 @@ class Chalkline:
 
     config   : PipelineConfig
     graph    : CareerPathwayGraph
-    manifest : PipelineManifest
     matcher  : ResumeMatcher
     profiles : dict[int, ClusterProfile]
-    trades   : TradeIndex
 
     def __repr__(self) -> str:
         """
@@ -49,7 +46,7 @@ class Chalkline:
             f"Chalkline("
             f"{len(self.profiles):,} clusters, "
             f"{self.graph.graph.number_of_edges()} edges, "
-            f"{self.manifest.corpus_size:,} postings)"
+            f"{self.corpus_size:,} postings)"
         )
 
     def __str__(self) -> str:
@@ -60,15 +57,22 @@ class Chalkline:
         bold, reset = "\033[1m", "\033[0m"
         return "\n".join([
             f"{bold}Chalkline{reset}",
-            f"  \u00b7 {bold}{self.manifest.corpus_size:,}{reset}"
+            f"  \u00b7 {bold}{self.corpus_size:,}{reset}"
             f" postings encoded"
-            f" with {self.manifest.embedding_model}",
+            f" with {self.config.embedding_model}",
             f"  \u00b7 {bold}{len(self.profiles):,}{reset}"
-            f" clusters at d={self.manifest.component_count}",
+            f" clusters at d={self.config.component_count}",
             f"  \u00b7 {bold}"
             f"{self.graph.graph.number_of_edges()}{reset}"
             f" graph edges with credential enrichment"
         ])
+
+    @property
+    def corpus_size(self) -> int:
+        """
+        Total postings across all clusters.
+        """
+        return sum(p.size for p in self.profiles.values())
 
     @staticmethod
     def fit(config: PipelineConfig) -> Chalkline:
@@ -94,8 +98,9 @@ class Chalkline:
             .execute(
                 final_vars = [f.name for f in fields(Chalkline)],
                 inputs     = {
-                    "config" : config,
-                    "model"  : Encoder(SentenceTransformer(config.embedding_model))
+                    "config"   : config,
+                    "lexicons" : LexiconLoader(config.lexicon_dir),
+                    "model"    : Encoder(SentenceTransformer(config.embedding_model))
                 }
             )
         )

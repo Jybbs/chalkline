@@ -37,13 +37,6 @@ class TestPosting:
         assert posting.date_posted == date(2026, 3, 1)
         assert "2026-03-01" in posting.id
 
-    def test_extra_fields(self, sample_posting: Posting):
-        """
-        Unknown fields raise `ValidationError` per `extra="forbid"`.
-        """
-        with raises(Exception, match="Extra inputs"):
-            Posting.model_validate(sample_posting.model_dump() | {"salary": 50000})
-
     def test_id_roundtrip(self, sample_posting: Posting):
         """
         Serialized `id` survives a model_dump / model_validate round

@@ -67,6 +67,34 @@ class ClusterAssignments:
             for cid in self.cluster_ids
         }
 
+    def centroids(self, coordinates: np.ndarray) -> np.ndarray:
+        """
+        Mean SVD coordinates per cluster for resume distance computation.
+
+        Args:
+            coordinates: (n_postings, n_components) SVD-reduced space.
+        """
+        return np.stack([
+            coordinates[self.members[cid]].mean(axis=0)
+            for cid in self.cluster_ids
+        ])
+
+    def cluster_vectors(self, raw_vectors: np.ndarray) -> np.ndarray:
+        """
+        Mean posting embedding per cluster in the full embedding space,
+        L2-normalized for cosine similarity against occupations and
+        credentials.
+
+        Args:
+            raw_vectors: (n_postings, embedding_dim) unnormalized.
+        """
+        return np.stack([
+            normalize(
+                raw_vectors[self.members[cid]].mean(axis=0, keepdims=True)
+            )[0]
+            for cid in self.cluster_ids
+        ])
+
 
 class ClusterProfile(BaseModel, extra="forbid"):
     """
@@ -198,21 +226,6 @@ class PipelineConfig(BaseModel, extra="forbid"):
         Default directory for serialized pipeline artifacts.
         """
         return self.output_dir / "pipeline"
-
-
-class PipelineManifest(BaseModel, extra="forbid"):
-    """
-    Provenance metadata for serialized pipeline artifacts.
-
-    Tracks which corpus, embedding model, and configuration produced the
-    fitted artifacts so that stale caches can be detected on reload.
-    """
-
-    component_count : int
-    corpus_size     : int
-    embedding_model : str
-    posting_ids     : list[str]
-    timestamp       : str
 
 
 class ProgramRecommendation(BaseModel, extra="forbid"):
