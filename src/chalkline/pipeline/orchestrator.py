@@ -9,9 +9,7 @@ every node result, and serves from cache on subsequent calls with unchanged
 code and config.
 """
 
-from dataclasses  import dataclass, fields
-from hamilton     import driver
-from transformers import MPNetModel
+from dataclasses import dataclass, fields
 
 from chalkline.matching.matcher  import ResumeMatcher
 from chalkline.matching.schemas  import MatchResult
@@ -82,9 +80,12 @@ class Chalkline:
         Returns:
             A fully fitted `Chalkline` instance.
         """
+        from hamilton.driver import Builder
+        from transformers    import MPNetModel
+
         MPNetModel._keys_to_ignore_on_load_unexpected = [r"position_ids"]
 
-        results = (driver.Builder()
+        results = (Builder()
             .with_modules(steps)
             .with_adapters(PipelineProgress(level=log_level))
             .with_cache(str(config.hamilton_cache_dir))

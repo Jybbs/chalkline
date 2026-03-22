@@ -6,10 +6,7 @@ cluster ID, and a theme callable, exposing `dendrogram`, `landscape`, and
 `pathways` methods that each return a configured `go.Figure`.
 """
 
-import networkx as nx
-import numpy    as np
-
-import plotly.graph_objects as go
+import numpy as np
 
 from typing import Callable
 
@@ -78,7 +75,7 @@ class FigureBuilder:
             for cid in node_ids
         ]
 
-    def dendrogram(self) -> go.Figure:
+    def dendrogram(self) -> "Figure":
         """
         Ward-linkage dendrogram with the matched cluster annotated.
 
@@ -90,6 +87,7 @@ class FigureBuilder:
         Returns:
             Configured dendrogram figure.
         """
+        from plotly.graph_objects    import Figure, Scatter
         from scipy.cluster.hierarchy import dendrogram, linkage
         from sklearn.preprocessing   import normalize
 
@@ -99,7 +97,7 @@ class FigureBuilder:
             no_plot = True
         )
 
-        fig = go.Figure(go.Scatter(
+        fig = Figure(Scatter(
             hoverinfo  = "skip",
             line       = dict(color="steelblue", width=1.5),
             mode       = "lines",
@@ -133,7 +131,7 @@ class FigureBuilder:
         )
         return fig
 
-    def landscape(self, coordinates: list[float]) -> go.Figure:
+    def landscape(self, coordinates: list[float]) -> "Figure":
         """
         Scatter plot of cluster centroids in SVD space with the resume
         position overlaid.
@@ -149,11 +147,14 @@ class FigureBuilder:
         Returns:
             Configured landscape scatter figure.
         """
-        betweenness = nx.betweenness_centrality(self.pathway.graph, weight="weight")
+        from networkx             import betweenness_centrality
+        from plotly.graph_objects import Figure, Scatter
+
+        betweenness = betweenness_centrality(self.pathway.graph, weight="weight")
         cx = (c := self.pathway.clusters.centroids)[:, 0]
         cy = c[:, 1] if c.shape[1] > 1 else np.zeros(len(cx))
 
-        traces = [go.Scatter(
+        traces = [Scatter(
             hovertext = self._node_hover(self.cluster_ids),
             marker    = dict(
                 color = self._node_colors(np.array(self.cluster_ids)),
@@ -167,7 +168,7 @@ class FigureBuilder:
         )]
 
         if coordinates:
-            traces.append(go.Scatter(
+            traces.append(Scatter(
                 hovertext = ["Your Resume"],
                 marker    = dict(
                     color  = "gold",
@@ -181,7 +182,7 @@ class FigureBuilder:
                 y         = [coordinates[1]] if len(coordinates) > 1 else [0]
             ))
 
-        return go.Figure(
+        return Figure(
             data   = traces,
             layout = dict(
                 height      = 550,
@@ -194,7 +195,7 @@ class FigureBuilder:
             )
         )
 
-    def pathways(self, neighborhood: Neighborhood, target_id: int) -> go.Figure:
+    def pathways(self, neighborhood: Neighborhood, target_id: int) -> "Figure":
         """
         Spring-layout network of the target cluster's neighborhood with edge
         annotations showing apprenticeship hours.
@@ -211,11 +212,14 @@ class FigureBuilder:
         Returns:
             Configured pathways network figure.
         """
+        from networkx             import betweenness_centrality, spring_layout
+        from plotly.graph_objects import Figure, Scatter
+
         sub = self.pathway.graph.subgraph(
             {target_id} |
             {e.cluster_id for e in neighborhood.all_edges}
         )
-        pos = nx.spring_layout(sub, seed=42, weight="weight")
+        pos = spring_layout(sub, seed=42, weight="weight")
 
         apprenticeships = {
             e.cluster_id: [
@@ -241,19 +245,19 @@ class FigureBuilder:
         ]
 
         nodes       = list(sub.nodes())
-        betweenness = nx.betweenness_centrality(sub, weight="weight")
+        betweenness = betweenness_centrality(sub, weight="weight")
         colors      = self._node_colors(np.array(nodes), gold=target_id)
         sizes       = [15 + betweenness.get(n, 0) * 60 for n in nodes]
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
+        fig = Figure()
+        fig.add_trace(Scatter(
             hoverinfo = "none",
             line      = dict(color="lightgray", width=1),
             mode      = "lines",
             x         = edge_x,
             y         = edge_y
         ))
-        fig.add_trace(go.Scatter(
+        fig.add_trace(Scatter(
             hovertext    = self._node_hover(nodes),
             marker       = dict(
                 color = colors,

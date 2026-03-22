@@ -6,8 +6,6 @@ downstream tokenization. Plain-text files need no dedicated extractor
 because `Path.read_text` with tolerant encoding suffices.
 """
 
-import pdfplumber
-
 from loguru  import logger
 from pathlib import Path
 from re      import sub
@@ -50,6 +48,8 @@ def extract_pdf(path: Path) -> str:
     Returns:
         Concatenated page text, or empty string if no text is found.
     """
+    import pdfplumber
+
     with pdfplumber.open(path) as pdf:
         logger.debug(f"Extracting {path.name}: {len(pdf.pages)} pages")
         return "\n".join(

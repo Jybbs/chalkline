@@ -12,7 +12,6 @@ from functools                       import cached_property
 from hamilton.caching.fingerprinting import hash_value, hash_primitive
 from pathlib                         import Path
 from pydantic                        import BaseModel
-from sentence_transformers           import SentenceTransformer
 
 
 @dataclass
@@ -29,6 +28,8 @@ class Encoder:
     model : SentenceTransformer = field(init=False)
 
     def __post_init__(self):
+        from sentence_transformers import SentenceTransformer
+
         self.model = SentenceTransformer(self.name)
 
     def encode(self, texts: list[str], unit: bool = True) -> np.ndarray:

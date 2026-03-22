@@ -8,11 +8,10 @@ neighborhood models that together describe the fitted career landscape.
 
 import numpy as np
 
-from dataclasses           import dataclass, field
-from enum                  import StrEnum
-from pydantic              import BaseModel, Field
-from sklearn.preprocessing import normalize
-from typing                import NamedTuple
+from dataclasses import dataclass, field
+from enum        import StrEnum
+from pydantic    import BaseModel, Field
+from typing      import NamedTuple
 
 from chalkline.collection.schemas import Posting
 

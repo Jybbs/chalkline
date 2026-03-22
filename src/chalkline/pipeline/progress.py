@@ -12,18 +12,15 @@ from hamilton.lifecycle.api import GraphExecutionHook, NodeExecutionHook
 from loguru                 import logger
 from sys                    import modules
 from time                   import perf_counter
-from typing                 import Any
 
 
 def _in_marimo() -> bool:
     """
     Detect whether code is running inside a Marimo notebook runtime.
     """
-    try:
-        import marimo as mo
+    if (mo := modules.get("marimo")):
         return mo.running_in_notebook()
-    except Exception:
-        return False
+    return False
 
 
 class MarimoDisplay:
@@ -32,17 +29,20 @@ class MarimoDisplay:
     """
 
     def __init__(self, total: int):
+        
         import marimo as mo
-        self.bar: Any = mo.status.progress_bar(
-            total = total,
-            title = "Fitting pipeline"
+        self.manager = mo.status.progress_bar(
+            completion_title = "Pipeline fitted",
+            title            = "Fitting pipeline",
+            total            = total
         )
+        self.bar = self.manager.__enter__()
 
     def advance(self, node_name: str):
         """
         Increment the progress bar by one node.
         """
-        self.bar.update(increment=1)
+        self.bar.update()
 
     def start_node(self, node_name: str):
         """
@@ -51,110 +51,9 @@ class MarimoDisplay:
 
     def stop(self):
         """
-        Close the progress bar.
+        Exit the progress bar context manager.
         """
-        self.bar.close()
-
-
-class RichDisplay:
-    """
-    Dynamic Rich progress display with loguru routing.
-
-    Uses a single `Progress` instance under a `Live` display. The
-    pipeline-level task is persistent, and each executing node gets a
-    transient task that appears while running. Encoding batch progress
-    is fed by intercepted tqdm calls from sentence-transformers.
-    """
-
-    def __init__(self, level: str, total: int):
-        st_module: Any = modules["sentence_transformers.SentenceTransformer"]
-
-        from rich.live     import Live
-        from rich.logging  import RichHandler
-        from rich.progress import BarColumn, Progress, SpinnerColumn
-        from rich.progress import TaskProgressColumn, TextColumn
-        from rich.progress import TimeRemainingColumn
-        from rich.rule     import Rule
-
-        self.progress = Progress(
-            SpinnerColumn(),
-            TextColumn("{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn()
-        )
-        self.live = Live(self.progress)
-
-        logger.remove()
-        self.handler_id = logger.add(
-            RichHandler(
-                console   = self.live.console,
-                show_path = False
-            ),
-            format = "{message}",
-            level  = level
-        )
-
-        self.live.console.print(Rule())
-        self.pipeline_task = self.progress.add_task(
-            f"{'pipeline':<17}",
-            total = total
-        )
-        self.live.start()
-
-        self.active_nodes  : dict = {}
-        self.batch_context : list[str | None] = [None]
-        self.original_trange = st_module.trange
-        st_module.trange     = self._make_trange()
-
-    def _make_trange(self):
-        """
-        Build a trange replacement that routes sentence-transformer
-        batch progress through a transient task on the shared
-        Progress instance.
-        """
-        def rich_trange(*args, desc="", disable=False, **kwargs):
-            r = range(*args)
-            if disable:
-                yield from r
-                return
-            label = f"· {self.batch_context[0] or desc:<15}"
-            task  = self.progress.add_task(label, total=len(r))
-            for value in r:
-                yield value
-                self.progress.update(task, advance=1)
-            self.progress.remove_task(task)
-        return rich_trange
-
-    def advance(self, node_name: str):
-        """
-        Complete the node's task and advance the pipeline bar.
-        """
-        if node_name in self.active_nodes:
-            self.progress.remove_task(self.active_nodes.pop(node_name))
-        self.progress.update(self.pipeline_task, advance=1)
-
-    def start_node(self, node_name: str):
-        """
-        Add a transient task bar for the executing node.
-        """
-        self.active_nodes[node_name] = self.progress.add_task(
-            f"› {node_name:<15}",
-            total = None
-        )
-
-    def stop(self):
-        """
-        Finalize the pipeline bar and restore trange.
-        """
-        st_module: Any = modules["sentence_transformers.SentenceTransformer"]
-        self.progress.update(
-            self.pipeline_task,
-            description = f"{'fitted':<17}"
-        )
-        self.live.stop()
-        logger.remove(self.handler_id)
-        st_module.trange = self.original_trange
+        self.manager.__exit__(None, None, None)
 
 
 class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
@@ -173,16 +72,7 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         """
         self.level = level
 
-    def run_after_graph_execution(
-        self,
-        *,
-        error,
-        graph,
-        results,
-        run_id,
-        success,
-        **future_kwargs
-    ):
+    def run_after_graph_execution(self, *, success, **future_kwargs):
         """
         Log completion, then stop the display.
         """
@@ -195,20 +85,7 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
             )
         self.display.stop()
 
-    def run_after_node_execution(
-        self,
-        *,
-        error,
-        node_kwargs,
-        node_name,
-        node_return_type,
-        node_tags,
-        result,
-        run_id,
-        success,
-        task_id=None,
-        **future_kwargs
-    ):
+    def run_after_node_execution(self, *, node_name, **future_kwargs):
         """
         Complete the node's task bar and log elapsed time.
         """
@@ -219,17 +96,7 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         logger.info(f"· {node_name} ({elapsed:.1f} sec)")
         self.display.advance(node_name)
 
-    def run_before_graph_execution(
-        self,
-        *,
-        execution_path,
-        final_vars,
-        graph,
-        inputs,
-        overrides,
-        run_id,
-        **future_kwargs
-    ):
+    def run_before_graph_execution(self, *, execution_path, **future_kwargs):
         """
         Initialize the display backend and timing state.
 
@@ -245,28 +112,114 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
             else RichDisplay(level=self.level, total=self.node_count)
         )
 
-    def run_before_node_execution(
-        self,
-        *,
-        node_input_types,
-        node_kwargs,
-        node_name,
-        node_return_type,
-        node_tags,
-        run_id,
-        task_id=None,
-        **future_kwargs
-    ):
+    def run_before_node_execution(self, *, node_name, **future_kwargs):
         """
-        Start a task bar for the node and set the batch context label
-        for encoding nodes.
+        Record start time and create a task bar for the node.
         """
         self.timings[node_name] = perf_counter()
         self.display.start_node(node_name)
-        if isinstance(self.display, RichDisplay):
-            self.display.batch_context[0] = {
-                "credentials" : "credentials",
-                "raw_vectors" : "postings",
-                "soc_tasks"   : "tasks",
-                "soc_vectors" : "occupations"
-            }.get(node_name)
+
+
+class RichDisplay:
+    """
+    Dynamic Rich progress display with loguru routing.
+
+    `Progress` manages its own `Live` context, rendering the
+    pipeline-level task alongside transient per-node and batch bars.
+    Encoding batch progress is fed by intercepted tqdm calls from
+    sentence-transformers.
+    """
+
+    def __init__(self, level: str, total: int):
+        from rich.logging  import RichHandler
+        from rich.progress import BarColumn, Progress
+        from rich.progress import TaskProgressColumn, TextColumn, TimeRemainingColumn
+        from rich.table    import Column
+
+        self.progress = Progress(
+            TextColumn(
+                "{task.description}",
+                justify      = "right",
+                table_column = Column(min_width=19)
+            ),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn()
+        )
+
+        logger.remove()
+        self.handler_id = logger.add(
+            RichHandler(
+                console   = self.progress.console,
+                show_path = False
+            ),
+            format = "{message}",
+            level  = level
+        )
+
+        self.progress.console.rule()
+        self.pipeline_task = self.progress.add_task(
+            "[bold]pipeline[/bold]",
+            total = total
+        )
+        self.progress.start()
+
+        self.active_nodes  : dict       = {}
+        self.batch_context : str | None = None
+        self.st_module       = modules["sentence_transformers.SentenceTransformer"]
+        self.original_trange = getattr(self.st_module, "trange")
+        setattr(self.st_module, "trange", self._rich_trange)
+
+    def _rich_trange(self, *args, desc="", disable=False, **kwargs):
+        """
+        Replacement for `trange` that renders sentence-transformer
+        batches as transient Rich progress bars.
+        """
+        r = range(*args)
+        if disable:
+            yield from r
+            return
+        task = self.progress.add_task(
+            f"{self.batch_context or desc} ·",
+            total = len(r)
+        )
+        for value in r:
+            yield value
+            self.progress.update(task, advance=1)
+        self.progress.remove_task(task)
+
+    def advance(self, node_name: str):
+        """
+        Complete the node's task and advance the pipeline bar.
+        """
+        if (task := self.active_nodes.pop(node_name, None)) is not None:
+            self.progress.remove_task(task)
+        self.progress.update(self.pipeline_task, advance=1)
+
+    def start_node(self, node_name: str):
+        """
+        Add a transient task bar for the executing node. Sets the
+        batch context label for sentence-transformer encoding.
+        """
+        self.active_nodes[node_name] = self.progress.add_task(
+            f"{node_name}",
+            total = None
+        )
+        self.batch_context = {
+            "credentials" : "credentials",
+            "raw_vectors" : "postings",
+            "soc_tasks"   : "tasks",
+            "soc_vectors" : "occupations"
+        }.get(node_name)
+
+    def stop(self):
+        """
+        Finalize the pipeline bar and restore trange.
+        """
+        self.progress.update(
+            self.pipeline_task,
+            description = "[bold]fitted[/bold]"
+        )
+        self.progress.stop()
+        logger.remove(self.handler_id)
+        setattr(self.st_module, "trange", self.original_trange)
