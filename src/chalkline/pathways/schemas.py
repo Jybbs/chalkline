@@ -1,10 +1,9 @@
 """
 Schemas for the career pathway domain.
 
-Defines O*NET occupation and credential reference models, Ward-linkage
-HAC cluster structures, the unified `Cluster` dataclass, and the career
-graph edge and neighborhood models that together describe the fitted
-career landscape.
+Defines O*NET occupation and credential reference models, the unified
+`Cluster` and `Clusters` dataclasses, and the career graph edge and
+neighborhood models that together describe the fitted career landscape.
 """
 
 import numpy as np
@@ -23,10 +22,9 @@ class CareerEdge(BaseModel, extra="forbid"):
     A single edge in the neighborhood view with credential metadata.
 
     Each edge connects the matched cluster to a neighboring cluster,
-    carrying the target cluster ID, the cosine similarity weight,
-    and the credentials that bridge the specific transition, filtered
-    by the destination_percentile and source_percentile
-    dual-threshold rule.
+    carrying the target cluster ID, the cosine similarity weight, and the
+    credentials that bridge the specific transition, filtered by the
+    destination_percentile and source_percentile dual-threshold rule.
     """
 
     cluster_id  : int              = Field(ge=0)
@@ -38,22 +36,20 @@ class CareerEdge(BaseModel, extra="forbid"):
 class Cluster:
     """
     Unified per-cluster representation combining profile metadata,
-    membership indices, resolved postings, and O*NET task embeddings.
-
-    Constructed after profiling is complete, bundling data that was
-    previously spread across parallel dicts keyed by cluster ID.
+    membership indices, resolved postings, and optional O*NET task
+    embeddings for gap analysis.
     """
 
-    cluster_id  : int
-    job_zone    : int
-    members     : np.ndarray
-    modal_title : str
-    postings    : list[Posting]
-    sector      : str
-    size        : int
-    soc_title   : str
+    cluster_id   : int
+    job_zone     : int
+    members      : np.ndarray
+    modal_title  : str
+    postings     : list[Posting]
+    sector       : str
+    size         : int
+    soc_title    : str
 
-    tasks : ClusterTasks | None = None
+    tasks : list[Task] = field(default_factory=list)
 
     @property
     def display_label(self) -> str:
@@ -67,78 +63,60 @@ class Cluster:
 
 
 @dataclass
-class ClusterAssignments:
+class Clusters:
     """
-    Ward-linkage HAC results with eagerly-derived cluster structure.
+    Indexed collection of clusters with eagerly-derived matrices.
 
-    Accepts the raw label array from `AgglomerativeClustering.fit_predict`
-    and derives the sorted unique IDs and per-cluster member indices once at
-    construction, so downstream consumers access structural properties
-    rather than reimplementing boolean masking.
+    Constructed once after profiling is complete. Provides the per-cluster
+    dict for individual lookups and pre-stacked centroid and embedding
+    vector matrices for vectorized operations in graph construction, resume
+    matching, and visualization.
     """
 
-    labels : np.ndarray
+    centroids : np.ndarray
+    items     : dict[int, Cluster]
+    vectors   : np.ndarray
 
     cluster_ids : list[int] = field(init=False)
-    members     : dict[int, np.ndarray] = field(init=False)
 
     def __post_init__(self):
-        self.cluster_ids = np.unique(self.labels).tolist()
-        self.members = {
-            cid: np.where(self.labels == cid)[0]
-            for cid in self.cluster_ids
-        }
+        self.cluster_ids = sorted(self.items)
 
-    def centroids(self, coordinates: np.ndarray) -> np.ndarray:
+    def __getitem__(self, cluster_id: int) -> Cluster:
         """
-        Mean SVD coordinates per cluster for resume distance computation.
-
-        Args:
-            coordinates: (n_postings, n_components) SVD-reduced space.
+        Look up a cluster by ID.
         """
-        return np.stack([
-            coordinates[self.members[cid]].mean(axis=0)
-            for cid in self.cluster_ids
-        ])
+        return self.items[cluster_id]
 
-    def cluster_vectors(self, raw_vectors: np.ndarray) -> np.ndarray:
+    def __iter__(self):
         """
-        Mean posting embedding per cluster in the full embedding space,
-        L2-normalized for cosine similarity against occupations and
-        credentials.
-
-        Args:
-            raw_vectors: (n_postings, embedding_dim) unnormalized.
+        Iterate sorted cluster IDs.
         """
-        return normalize(np.stack([
-            raw_vectors[self.members[cid]].mean(axis=0)
-            for cid in self.cluster_ids
-        ]))
+        return iter(self.cluster_ids)
 
+    def __len__(self) -> int:
+        """
+        Number of clusters.
+        """
+        return len(self.items)
 
-class ClusterTasks(NamedTuple):
-    """
-    Per-cluster O*NET Task+DWA names with aligned embedding vectors.
-
-    Produced by the `soc_tasks` Hamilton node and consumed by
-    `ResumeMatcher` for per-task cosine gap analysis against resume
-    embeddings.
-    """
-
-    labels  : list[str]
-    vectors : np.ndarray
+    def values(self):
+        """
+        Iterate cluster objects in sorted ID order.
+        """
+        return (self.items[cid] for cid in self.cluster_ids)
 
 
 class Credential(BaseModel, extra="forbid"):
     """
     Unified credential record for the career pathway graph.
 
-    Represents an apprenticeship, certification, or educational program
-    with pre-computed `embedding_text` and `label` from curation. The
-    pipeline encodes `embedding_text` with the sentence transformer and
-    attaches the vector to each instance. The graph stores credentials
-    on edges via `model_dump`, which excludes the runtime-only vector.
-    Type-specific display fields live in `metadata`.
+    Represents an apprenticeship, certification, or educational program with
+    pre-computed `embedding_text` and `label` from curation. The pipeline
+    encodes `embedding_text` with the sentence transformer and attaches the
+    vector to each instance. The graph stores credentials on edges via
+    `model_dump`, which excludes the runtime-only vector. Type-specific
+    display fields live in `metadata`.
     """
 
     embedding_text : str
@@ -250,3 +228,15 @@ class OnetSkillType(StrEnum):
     TASK       = "task"
     TECHNOLOGY = "technology"
     TOOL       = "tool"
+
+
+class Task(NamedTuple):
+    """
+    A single O*NET Task or DWA element with its sentence embedding.
+
+    Produced during SOC task encoding and attached to `Cluster.tasks` for
+    per-task cosine gap analysis during resume matching.
+    """
+
+    name   : str
+    vector : np.ndarray

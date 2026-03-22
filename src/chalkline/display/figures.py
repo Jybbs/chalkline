@@ -1,10 +1,9 @@
 """
 Plotly figure builders for the career report panels.
 
-Provides a `FigureBuilder` that holds the fitted pathway graph,
-matched cluster ID, and a theme callable, exposing `dendrogram`,
-`landscape`, and `pathways` methods that each return a configured
-`go.Figure`.
+Provides a `FigureBuilder` that holds the fitted pathway graph, matched
+cluster ID, and a theme callable, exposing `dendrogram`, `landscape`, and
+`pathways` methods that each return a configured `go.Figure`.
 """
 
 import networkx as nx
@@ -22,10 +21,10 @@ class FigureBuilder:
     """
     Stateful Plotly figure builder for the career report.
 
-    Captures the pathway graph, matched cluster ID, and a theme
-    callable at construction so that individual figure methods
-    receive only per-panel arguments. The theme callable is
-    evaluated at render time so dark/light toggles take effect.
+    Captures the pathway graph, matched cluster ID, and a theme callable at
+    construction so that individual figure methods receive only per-panel
+    arguments. The theme callable is evaluated at render time so dark/light
+    toggles take effect.
     """
 
     def __init__(
@@ -47,13 +46,12 @@ class FigureBuilder:
 
     def _node_colors(self, node_ids: np.ndarray, **highlights: int) -> np.ndarray:
         """
-        Assign colors to nodes, with crimson for the matched
-        cluster and optional additional highlights.
+        Assign colors to nodes, with crimson for the matched cluster and
+        optional additional highlights.
 
         Args:
             node_ids     : Array of cluster IDs.
-            **highlights : Color name to cluster ID pairs
-                           (e.g., `gold=target_id`).
+            **highlights : Color name to cluster ID pairs (e.g., `gold=target_id`).
 
         Returns:
             Array of color strings aligned with `node_ids`.
@@ -84,10 +82,10 @@ class FigureBuilder:
         """
         Ward-linkage dendrogram with the matched cluster annotated.
 
-        Builds the dendrogram from scipy's `dendrogram` with
-        `no_plot=True`, then renders the U-links as a single Plotly
-        line trace. Normalizes centroids before linkage so that
-        Ward distances reflect direction rather than magnitude.
+        Builds the dendrogram from scipy's `dendrogram` with `no_plot=True`,
+        then renders the U-links as a single Plotly line trace. Normalizes
+        centroids before linkage so that Ward distances reflect direction
+        rather than magnitude.
 
         Returns:
             Configured dendrogram figure.
@@ -96,7 +94,7 @@ class FigureBuilder:
         from sklearn.preprocessing   import normalize
 
         result = dendrogram(
-            linkage(normalize(self.pathway.centroids), method="ward"),
+            linkage(normalize(self.pathway.clusters.centroids), method="ward"),
             labels  = [f"C{cid}" for cid in self.cluster_ids],
             no_plot = True
         )
@@ -137,13 +135,13 @@ class FigureBuilder:
 
     def landscape(self, coordinates: list[float]) -> go.Figure:
         """
-        Scatter plot of cluster centroids in SVD space with the
-        resume position overlaid.
+        Scatter plot of cluster centroids in SVD space with the resume
+        position overlaid.
 
-        Node sizes scale with betweenness centrality so that
-        gateway clusters bridging multiple career families appear
-        larger. The matched cluster is highlighted in crimson and
-        the resume position rendered as a gold star.
+        Node sizes scale with betweenness centrality so that gateway
+        clusters bridging multiple career families appear larger. The
+        matched cluster is highlighted in crimson and the resume position
+        rendered as a gold star.
 
         Args:
             coordinates: Resume SVD position, empty if unavailable.
@@ -152,7 +150,7 @@ class FigureBuilder:
             Configured landscape scatter figure.
         """
         betweenness = nx.betweenness_centrality(self.pathway.graph, weight="weight")
-        cx = (c := self.pathway.centroids)[:, 0]
+        cx = (c := self.pathway.clusters.centroids)[:, 0]
         cy = c[:, 1] if c.shape[1] > 1 else np.zeros(len(cx))
 
         traces = [go.Scatter(
@@ -198,17 +196,16 @@ class FigureBuilder:
 
     def pathways(self, neighborhood: Neighborhood, target_id: int) -> go.Figure:
         """
-        Spring-layout network of the target cluster's neighborhood
-        with edge annotations showing apprenticeship hours.
+        Spring-layout network of the target cluster's neighborhood with edge
+        annotations showing apprenticeship hours.
 
-        Builds a subgraph from the target and its advancement and
-        lateral neighbors, positions nodes via spring layout, and
-        annotates edges with up to two apprenticeship programs and
-        their minimum hour requirements.
+        Builds a subgraph from the target and its advancement and lateral
+        neighbors, positions nodes via spring layout, and annotates edges
+        with up to two apprenticeship programs and their minimum hour
+        requirements.
 
         Args:
-            neighborhood : Advancement and lateral edges from the
-                           target.
+            neighborhood : Advancement and lateral edges from the target.
             target_id    : Center cluster for the neighborhood view.
 
         Returns:

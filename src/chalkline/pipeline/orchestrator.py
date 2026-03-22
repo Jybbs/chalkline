@@ -17,7 +17,7 @@ from chalkline.matching.matcher  import ResumeMatcher
 from chalkline.matching.schemas  import MatchResult
 from chalkline.pathways.graph    import CareerPathwayGraph
 from chalkline.pathways.loaders  import LexiconLoader
-from chalkline.pathways.schemas  import Cluster
+from chalkline.pathways.schemas  import Clusters
 from chalkline.pipeline          import steps
 from chalkline.pipeline.progress import PipelineProgress
 from chalkline.pipeline.schemas  import Encoder, PipelineConfig
@@ -29,12 +29,12 @@ class Chalkline:
     Fitted career mapping pipeline.
 
     Coordinates embedding, clustering, career graph construction, and
-    credential enrichment into a fitted landscape. Call `fit()` to
-    compute from scratch or restore from cache, then call `match()`
-    for single-resume inference with neighborhood exploration.
+    credential enrichment into a fitted landscape. Call `fit()` to compute
+    from scratch or restore from cache, then call `match()` for
+    single-resume inference with neighborhood exploration.
     """
 
-    clusters : dict[int, Cluster]
+    clusters : Clusters
     config   : PipelineConfig
     graph    : CareerPathwayGraph
     matcher  : ResumeMatcher
@@ -75,10 +75,9 @@ class Chalkline:
         arrays) cache normally via Hamilton's disk persistence.
 
         Args:
-            config    : Hyperparameters, directory paths, and embedding
-                        model name.
-            log_level : Minimum loguru level during execution. Pass
-                        `"DEBUG"` for verbose output.
+            config    : Hyperparameters, directory paths, and embedding model name.
+            log_level : Minimum loguru level during execution. Pass `"DEBUG"` for
+                        verbose output.
 
         Returns:
             A fully fitted `Chalkline` instance.
@@ -103,8 +102,8 @@ class Chalkline:
 
     def match(self, resume_text: str) -> MatchResult:
         """
-        Project a resume into the fitted career landscape and return a
-        full match result with gap analysis and neighborhood view.
+        Project a resume into the fitted career landscape and return a full
+        match result with gap analysis and neighborhood view.
 
         Args:
             resume_text: Raw resume text (post-PDF extraction).

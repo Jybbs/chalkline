@@ -10,13 +10,13 @@ metadata.
 
 import numpy as np
 
-from dataclasses              import dataclass, field
+from dataclasses              import dataclass
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
 from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import Cluster
+from chalkline.pathways.schemas import Clusters
 from chalkline.pipeline.schemas import Encoder
 
 
@@ -25,31 +25,23 @@ class ResumeMatcher:
     """
     Embedding-based resume matching with neighborhood exploration.
 
-    Holds the sentence transformer model, fitted SVD, cluster centroids,
-    and unified cluster objects. The `match()` method encodes resume
+    Holds the sentence transformer model, fitted SVD, and the cluster map
+    with pre-stacked centroid matrices. The `match()` method encodes resume
     text, projects it into the reduced space, assigns it to the nearest
-    cluster, computes per-task gap analysis, and queries the career
-    graph for the local neighborhood view.
+    cluster, computes per-task gap analysis, and queries the career graph
+    for the local neighborhood view.
 
     Args:
-        centroids : (n_clusters, n_components) in SVD-reduced space,
-                    rows aligned with sorted cluster keys.
-        clusters  : Unified cluster objects keyed by cluster ID.
-        graph     : For neighborhood queries post-match.
-        model     : For encoding resume text into embedding space.
-        svd       : For projecting resume embeddings into reduced space.
+        clusters : Cluster map with centroids for distance computation.
+        graph    : For neighborhood queries post-match.
+        model    : For encoding resume text into embedding space.
+        svd      : For projecting resume embeddings into reduced space.
     """
 
-    centroids : np.ndarray
-    clusters  : dict[int, Cluster]
-    graph     : CareerPathwayGraph
-    model     : Encoder
-    svd       : TruncatedSVD
-
-    cluster_ids : list[int] = field(init=False)
-
-    def __post_init__(self):
-        self.cluster_ids = sorted(self.clusters)
+    clusters : Clusters
+    graph    : CareerPathwayGraph
+    model    : Encoder
+    svd      : TruncatedSVD
 
     def _gap_analysis(
         self,
@@ -73,16 +65,14 @@ class ResumeMatcher:
         Returns:
             Tuple of (demonstrated tasks, gap tasks).
         """
-        if (tasks := self.clusters[cluster_id].tasks) is None:
+        tasks = self.clusters[cluster_id].tasks
+        if not tasks:
             return [], []
 
-        similarities = cosine_similarity(resume_unit, tasks.vectors)[0]
+        task_matrix  = np.stack([t.vector for t in tasks])
+        similarities = cosine_similarity(resume_unit, task_matrix)[0]
+        pairs        = [(t.name, s) for t, s in zip(tasks, similarities)]
         threshold    = np.median(similarities)
-
-        pairs = [
-            (name, float(score))
-            for name, score in zip(tasks.labels, similarities)
-        ]
         return (
             sorted(
                 [TaskGap(name=n, similarity=s) for n, s in pairs if s >= threshold],
@@ -116,18 +106,15 @@ class ResumeMatcher:
         """
         resume_unit = self.model.encode([resume_text])
         resume_svd  = self.svd.transform(resume_unit)[0]
-        distances   = np.linalg.norm(
-            x    = self.centroids - resume_svd,
-            axis = 1
-        )
+        distances   = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
 
         ranked             = np.argsort(distances)
-        cluster_id         = self.cluster_ids[ranked[0]]
+        cluster_id         = self.clusters.cluster_ids[ranked[0]]
         demonstrated, gaps = self._gap_analysis(cluster_id, resume_unit)
         return MatchResult(
             cluster_distances = [
                 ClusterDistance(
-                    cluster_id = self.cluster_ids[index],
+                    cluster_id = self.clusters.cluster_ids[index],
                     distance   = distances[index]
                 )
                 for index in ranked

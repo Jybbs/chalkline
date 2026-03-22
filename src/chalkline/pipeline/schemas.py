@@ -20,9 +20,9 @@ class Encoder:
     """
     Sentence-transformer wrapper for the Hamilton pipeline.
 
-    Defaults to L2-normalized output and enabled progress bars so
-    call sites stay clean. The `name` field records the HuggingFace
-    model identifier for Hamilton cache fingerprinting.
+    Defaults to L2-normalized output and enabled progress bars so call sites
+    stay clean. The `name` field records the HuggingFace model identifier
+    for Hamilton cache fingerprinting.
     """
 
     name  : str

@@ -65,8 +65,8 @@ class Corpus:
 
     def at(self, indices) -> list[Posting]:
         """
-        Retrieve postings by their positional indices into the
-        sorted key list.
+        Retrieve postings by their positional indices into the sorted key
+        list.
 
         Args:
             indices: Integer positions into `posting_ids`.

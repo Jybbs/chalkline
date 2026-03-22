@@ -33,9 +33,9 @@ from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import CareerEdge, Cluster, ClusterAssignments
-from chalkline.pathways.schemas   import ClusterTasks, Credential
-from chalkline.pathways.schemas   import Neighborhood, OnetOccupation
+from chalkline.pathways.schemas   import CareerEdge, Cluster, Clusters
+from chalkline.pathways.schemas   import Credential, Neighborhood
+from chalkline.pathways.schemas   import OnetOccupation, Task
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
@@ -147,74 +147,85 @@ def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
 
 
 @fixture
-def assignments(coordinates: np.ndarray) -> ClusterAssignments:
+def assignments(coordinates: np.ndarray) -> np.ndarray:
     """
-    Ward-linkage HAC assignments at k=CLUSTER_COUNT.
+    Ward-linkage HAC label array at k=CLUSTER_COUNT.
     """
-    return ClusterAssignments(AgglomerativeClustering(
+    return AgglomerativeClustering(
         linkage    = "ward",
         n_clusters = CLUSTER_COUNT
-    ).fit_predict(coordinates))
+    ).fit_predict(coordinates)
 
 
 @fixture
-def centroids(
-    assignments : ClusterAssignments,
-    coordinates : np.ndarray
-) -> np.ndarray:
+def centroids(assignments: np.ndarray, coordinates: np.ndarray) -> np.ndarray:
     """
     Mean SVD coordinates per cluster (CLUSTER_COUNT, COMPONENT_COUNT).
     """
-    return assignments.centroids(coordinates)
+    return np.stack([
+        coordinates[assignments == cid].mean(axis=0)
+        for cid in sorted(np.unique(assignments))
+    ])
 
 
 @fixture
-def cluster_ids(assignments: ClusterAssignments) -> list[int]:
+def cluster_ids(assignments: np.ndarray) -> list[int]:
     """
     Sorted unique cluster IDs from assignments.
     """
-    return assignments.cluster_ids
+    return sorted(np.unique(assignments).tolist())
 
 
 @fixture
 def cluster_vectors(
-    assignments : ClusterAssignments,
+    assignments : np.ndarray,
     raw_vectors : np.ndarray
 ) -> np.ndarray:
     """
     Mean posting embedding per cluster, L2-normalized (CLUSTER_COUNT,
     EMBEDDING_DIM).
     """
-    return assignments.cluster_vectors(raw_vectors)
+    return normalize(np.stack([
+        raw_vectors[assignments == cid].mean(axis=0)
+        for cid in sorted(np.unique(assignments))
+    ]))
 
 
 @fixture
 def clusters(
-    assignments  : ClusterAssignments,
-    job_zone_map : dict[int, int]
-) -> dict[int, Cluster]:
+    assignments     : np.ndarray,
+    centroids       : np.ndarray,
+    cluster_vectors : np.ndarray,
+    job_zone_map    : dict[int, int]
+) -> Clusters:
     """
-    Unified cluster objects with synthetic metadata and task
+    Unified cluster container with synthetic metadata and task
     embeddings. Postings are empty because the test corpus has
     fewer entries than the synthetic embedding matrix.
     """
-    return {
+    cluster_ids = sorted(np.unique(assignments).tolist())
+    items = {
         cid: Cluster(
-            cluster_id  = cid,
-            job_zone    = job_zone_map[cid],
-            members     = assignments.members[cid],
-            modal_title = f"Title {cid}",
-            postings    = [],
-            sector      = f"Sector {cid % 2}",
-            size        = len(assignments.members[cid]),
-            soc_title   = f"Occupation {cid}",
-            tasks       = ClusterTasks(
-                labels  = [f"Task {cid}-{i}" for i in range(5)],
-                vectors = _embeddings(5, cid, unit=True)
-            )
+            cluster_id   = cid,
+            job_zone     = job_zone_map[cid],
+            members      = np.where(assignments == cid)[0],
+            modal_title  = f"Title {cid}",
+            postings     = [],
+            sector       = f"Sector {cid % 2}",
+            size         = int((assignments == cid).sum()),
+            soc_title    = f"Occupation {cid}",
+            tasks        = [
+                Task(name=f"Task {cid}-{i}", vector=v)
+                for i, v in enumerate(_embeddings(5, cid, unit=True))
+            ]
         )
-        for cid in assignments.cluster_ids
+        for cid in cluster_ids
     }
+    return Clusters(
+        centroids = centroids,
+        items     = items,
+        vectors   = cluster_vectors
+    )
 
 
 @fixture
@@ -287,17 +298,13 @@ def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
 
 @fixture
 def pathway_graph(
-    centroids       : np.ndarray,
-    cluster_vectors : np.ndarray,
-    clusters        : dict[int, Cluster],
-    credentials     : list[Credential]
+    clusters    : Clusters,
+    credentials : list[Credential]
 ) -> CareerPathwayGraph:
     """
     Career pathway graph built from synthetic embeddings.
     """
     return CareerPathwayGraph(
-        centroids              = centroids,
-        cluster_vectors        = cluster_vectors,
         clusters               = clusters,
         credentials            = credentials,
         destination_percentile = 5,
@@ -317,8 +324,7 @@ def raw_vectors() -> np.ndarray:
 
 @fixture
 def resume_matcher(
-    centroids     : np.ndarray,
-    clusters      : dict[int, Cluster],
+    clusters      : Clusters,
     pathway_graph : CareerPathwayGraph,
     svd           : TruncatedSVD
 ) -> ResumeMatcher:
@@ -330,11 +336,10 @@ def resume_matcher(
         unit   = True: _embeddings(len(texts), seed=len(texts), unit=unit)
     )
     return ResumeMatcher(
-        centroids = centroids,
-        clusters  = clusters,
-        graph     = pathway_graph,
-        model     = mock_encoder,
-        svd       = svd
+        clusters = clusters,
+        graph    = pathway_graph,
+        model    = mock_encoder,
+        svd      = svd
     )
 
 
@@ -367,7 +372,7 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
 
 @fixture
 def edge_factory(
-    clusters    : dict[int, Cluster],
+    clusters    : Clusters,
     credentials : list[Credential]
 ) -> Callable:
     """
@@ -396,7 +401,7 @@ def figure_builder(pathway_graph: CareerPathwayGraph) -> FigureBuilder:
     Figure builder wired to the synthetic pathway graph.
     """
     return FigureBuilder(
-        matched_id = sorted(pathway_graph.clusters)[0],
+        matched_id = pathway_graph.clusters.cluster_ids[0],
         pathway    = pathway_graph,
         theme      = lambda: "plotly_white"
     )
@@ -421,20 +426,17 @@ def member_names(reference: dict) -> tuple[list[dict], list[str]]:
 
 @fixture
 def neighborhood(
-    clusters      : dict[int, Cluster],
+    clusters      : Clusters,
     pathway_graph : CareerPathwayGraph
 ) -> Neighborhood:
     """
     Neighborhood view from the first cluster in the graph.
     """
-    return pathway_graph.neighborhood(sorted(clusters)[0])
+    return pathway_graph.neighborhood(clusters.cluster_ids[0])
 
 
 @fixture
-def pipeline_namespace(
-    clusters : dict[int, Cluster],
-    config   : PipelineConfig
-):
+def pipeline_namespace(clusters: Clusters, config: PipelineConfig):
     """
     Lightweight namespace mimicking the `Chalkline` dataclass for
     display tests without requiring the full Hamilton pipeline.

@@ -15,7 +15,7 @@ from dataclasses              import dataclass, field
 from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.pathways.schemas import CareerEdge, Cluster
+from chalkline.pathways.schemas import CareerEdge, Clusters
 from chalkline.pathways.schemas import Credential, Neighborhood
 
 
@@ -24,16 +24,14 @@ class CareerPathwayGraph:
     """
     Directed weighted career graph with per-edge credential enrichment.
 
-    Accepts cluster centroids in both reduced and full embedding spaces,
-    credential embeddings, and unified cluster objects. Builds a stepwise
-    k-NN backbone with bidirectional lateral edges and unidirectional
-    upward edges, then enriches each edge with credentials filtered by
-    destination selectivity and source relevance thresholds.
+    Accepts a `Clusters` with pre-stacked centroid and embedding matrices,
+    credential embeddings, and graph construction hyperparameters. Builds a
+    stepwise k-NN backbone with bidirectional lateral edges and
+    unidirectional upward edges, then enriches each edge with credentials
+    filtered by destination selectivity and source relevance thresholds.
 
     Args:
-        centroids              : (n_clusters, n_components) in SVD-reduced space.
-        cluster_vectors        : (n_clusters, embedding_dim) L2-normalized.
-        clusters               : Unified cluster objects keyed by cluster ID.
+        clusters               : Cluster map with centroids and vectors.
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
         lateral_neighbors      : k for same-JZ bidirectional edges.
@@ -41,27 +39,28 @@ class CareerPathwayGraph:
         upward_neighbors       : k for next-JZ unidirectional edges.
     """
 
-    centroids              : np.ndarray
-    cluster_vectors        : np.ndarray
-    clusters               : dict[int, Cluster]
+    clusters               : Clusters
     credentials            : list[Credential]
     destination_percentile : int
     lateral_neighbors      : int
     source_percentile      : int
     upward_neighbors       : int
 
-    graph        : nx.DiGraph      = field(init=False)
-    job_zone_map : dict[int, int]  = field(init=False)
-    node_ids     : np.ndarray      = field(init=False)
+    graph        : nx.DiGraph     = field(init=False)
+    job_zone_map : dict[int, int] = field(init=False)
+    node_ids     : np.ndarray     = field(init=False)
 
     def __post_init__(self):
         """
         Compute similarity matrices, build the stepwise backbone, and attach
         credential metadata to every edge.
         """
-        self.node_ids     = np.array(sorted(self.clusters))
-        self.job_zone_map = {cid: c.job_zone for cid, c in self.clusters.items()}
-        self.graph        = nx.DiGraph()
+        self.node_ids     = np.array(self.clusters.cluster_ids)
+        self.job_zone_map = {
+            cid: self.clusters[cid].job_zone
+            for cid in self.clusters
+        }
+        self.graph = nx.DiGraph()
 
         self.graph.add_nodes_from(
             (cid, {
@@ -72,13 +71,13 @@ class CareerPathwayGraph:
                 "size"        : c.size,
                 "soc_title"   : c.soc_title
             })
-            for cid, c in sorted(self.clusters.items())
+            for cid, c in sorted(self.clusters.items.items())
         )
 
-        self._add_edges(cosine_similarity(self.centroids))
+        self._add_edges(cosine_similarity(self.clusters.centroids))
         self._enrich_edges(cosine_similarity(
             np.array([c.vector for c in self.credentials if c.vector]),
-            self.cluster_vectors
+            self.clusters.vectors
         ))
 
     @property
@@ -103,16 +102,16 @@ class CareerPathwayGraph:
         next_zone   = dict(zip(zone_levels, zone_levels[1:]))
 
         for source in self.node_ids:
-            source_zone = self.job_zone_map[source]
-            lateral     = self.node_ids[(zones == source_zone) & (self.node_ids > source)]
-            proximity   = similarity[source, lateral]
+            zone      = self.job_zone_map[source]
+            lateral   = self.node_ids[(zones == zone) & (self.node_ids > source)]
+            proximity = similarity[source, lateral]
 
             for i in np.argsort(-proximity)[:self.lateral_neighbors]:
                 self.graph.add_edge(source, lateral[i], weight=proximity[i])
                 self.graph.add_edge(lateral[i], source, weight=proximity[i])
 
-            if source_zone in next_zone:
-                upward    = self.node_ids[zones == next_zone[source_zone]]
+            if zone in next_zone:
+                upward    = self.node_ids[zones == next_zone[zone]]
                 proximity = similarity[source, upward]
 
                 for i in np.argsort(-proximity)[:self.upward_neighbors]:

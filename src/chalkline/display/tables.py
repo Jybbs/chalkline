@@ -1,9 +1,9 @@
 """
 Row builders, text generation, and data shaping for display panels.
 
-Provides a `TableBuilder` that holds the fitted pipeline, match result,
-and reference data, exposing methods that return row dicts for each
-notebook panel.
+Provides a `TableBuilder` that holds the fitted pipeline, match result, and
+reference data, exposing methods that return row dicts for each notebook
+panel.
 """
 
 from difflib import SequenceMatcher
@@ -17,18 +17,17 @@ class TableBuilder:
     """
     Stateful row builder for the career report panels.
 
-    Captures the fitted pipeline, match result, and stakeholder
-    reference data at construction so that individual table methods
-    receive only per-panel arguments like `neighborhood` or
-    `cluster_id`.
+    Captures the fitted pipeline, match result, and stakeholder reference
+    data at construction so that individual table methods receive only
+    per-panel arguments like `neighborhood` or `cluster_id`.
     """
 
     def __init__(self, pipeline, reference: dict, result: MatchResult):
         """
         Args:
             pipeline  : Fitted `Chalkline` instance.
-            reference : Stakeholder reference data with `agc_members`,
-                        `career_urls`, and `job_boards` keys.
+            reference : Stakeholder reference data with `agc_members`, `career_urls`,
+                        and `job_boards` keys.
             result    : Match result from resume projection.
         """
         self.pipeline  = pipeline
@@ -43,13 +42,11 @@ class TableBuilder:
         member_names : list[str]
     ) -> dict | None:
         """
-        Fuzzy-match a corpus company name against the AGC member
-        list.
+        Fuzzy-match a corpus company name against the AGC member list.
 
-        Uses `SequenceMatcher.ratio()` with a 0.7 threshold,
-        tolerating abbreviation differences like "RJ Grondin &
-        Sons" vs "R.J. Grondin and Sons" while rejecting unrelated
-        names.
+        Uses `SequenceMatcher.ratio()` with a 0.7 threshold, tolerating
+        abbreviation differences like "RJ Grondin & Sons" vs "R.J. Grondin
+        and Sons" while rejecting unrelated names.
 
         Args:
             company      : Corpus company name to match.
@@ -57,8 +54,7 @@ class TableBuilder:
             member_names : Pre-lowercased member names.
 
         Returns:
-            Best-matching member dict, or `None` if no match
-            exceeds the threshold.
+            Best-matching member dict, or `None` if no match exceeds the threshold.
         """
         best_score, best = max(
             (SequenceMatcher(None, company, name).ratio(), m)
@@ -70,9 +66,9 @@ class TableBuilder:
         """
         Extract keywords from cluster profile titles for a sector.
 
-        Tokenizes SOC titles and modal posting titles into lowercase
-        words of 4+ characters, filtering short tokens that would
-        produce spurious matches.
+        Tokenizes SOC titles and modal posting titles into lowercase words
+        of 4+ characters, filtering short tokens that would produce spurious
+        matches.
 
         Args:
             sector: Sector name to extract vocabulary for.
@@ -94,16 +90,14 @@ class TableBuilder:
         """
         Deduplicated apprenticeship rows from neighborhood edges.
 
-        Collects apprenticeships from both advancement and lateral
-        edges, deduplicates by RAPIDS code, and sorts by trade title.
+        Collects apprenticeships from both advancement and lateral edges,
+        deduplicates by RAPIDS code, and sorts by trade title.
 
         Args:
-            neighborhood: Advancement and lateral edges to extract
-                          from.
+            neighborhood: Advancement and lateral edges to extract from.
 
         Returns:
-            Sorted list of row dicts with `Trade`, `RAPIDS Code`,
-            and `Min Hours` keys.
+            Sorted list of row dicts with `Trade`, `RAPIDS Code`, and `Min Hours` keys.
         """
         unique = {
             c.metadata["rapids_code"]: c
@@ -124,10 +118,9 @@ class TableBuilder:
         """
         Filter and format job boards by the matched sector.
 
-        Derives keywords from cluster profiles belonging to the
-        matched sector, then checks each board's `focus` and
-        `best_for` fields for word overlap. Returns formatted
-        row dicts ready for `mo.ui.table`.
+        Derives keywords from cluster profiles belonging to the matched
+        sector, then checks each board's `focus` and `best_for` fields for
+        word overlap. Returns formatted row dicts ready for `mo.ui.table`.
 
         Returns:
             Tuple of (Maine board rows, national board rows).
@@ -151,16 +144,14 @@ class TableBuilder:
 
     def credential_rows(self, neighborhood: Neighborhood) -> list[dict]:
         """
-        Flatten all credentials on neighborhood edges into table
-        rows.
+        Flatten all credentials on neighborhood edges into table rows.
 
         Args:
-            neighborhood: Advancement and lateral edges to extract
-                          from.
+            neighborhood: Advancement and lateral edges to extract from.
 
         Returns:
-            List of row dicts with `Credential`, `Direction`,
-            `Hours`, `Target`, and `Type` keys.
+            List of row dicts with `Credential`, `Direction`, `Hours`, `Target`, and
+            `Type` keys.
         """
         return [
             {
@@ -183,8 +174,7 @@ class TableBuilder:
         Format demonstrated competencies as table rows.
 
         Returns:
-            Row dicts with `Similarity` and `Task` keys, strongest
-            first.
+            Row dicts with `Similarity` and `Task` keys, strongest first.
         """
         return [
             {
@@ -198,45 +188,46 @@ class TableBuilder:
         """
         Build the employer panel rows for a cluster.
 
-        Extracts posting companies from the cluster, fuzzy-matches
-        each against the AGC member list, joins career page URLs,
-        and deduplicates by member name.
+        Extracts posting companies from the cluster, fuzzy-matches each
+        against the AGC member list, joins career page URLs, and
+        deduplicates by member name.
 
         Args:
             cluster_id: Which cluster to extract companies from.
 
         Returns:
-            Deduplicated list of row dicts with `Company`, `Type`,
-            `Posting`, and `Career Page` keys.
+            Deduplicated list of row dicts with `Company`, `Type`, `Posting`, and
+            `Career Page` keys.
         """
-        members  = self.reference["agc_members"]
-        names    = [m["name"].lower() for m in members]
-        urls     = {
-            e["company"].lower(): e["url"]
+        members = self.reference["agc_members"]
+        names   = [m["name"].lower() for m in members]
+
+        career_urls = {
+            e["company"].lower(): e["url"] 
             for e in self.reference["career_urls"]
         }
-        postings     = self.pipeline.clusters[cluster_id].postings
-        posting_urls = {p.company: p.source_url for p in reversed(postings)}
+        by_company = {
+            p.company: p.source_url
+            for p in self.pipeline.clusters[cluster_id].postings
+        }
 
-        matched = {}
-        for company in sorted({p.company for p in postings}):
-            m = self._match_member(company.lower(), members, names)
-            if m and m["name"] not in matched:
-                matched[m["name"]] = {
-                    "Career Page" : urls.get(m["name"].lower(), ""),
-                    "Company"     : m["name"],
-                    "Posting"     : posting_urls.get(company, ""),
-                    "Type"        : m["type"]
-                }
-        return list(matched.values())
+        return list({
+            m["name"]: {
+                "Career Page" : career_urls.get(m["name"].lower(), ""),
+                "Company"     : m["name"],
+                "Posting"     : by_company[company],
+                "Type"        : m["type"]
+            }
+            for company in sorted(by_company)
+            if (m := self._match_member(company.lower(), members, names))
+        }.values())
 
     def gap_rows(self) -> list[dict]:
         """
         Format skill gaps as table rows.
 
         Returns:
-            Row dicts with `Similarity` and `Task` keys, largest
-            deficits first.
+            Row dicts with `Similarity` and `Task` keys, largest deficits first.
         """
         return [
             {
@@ -255,12 +246,11 @@ class TableBuilder:
         alphabetically.
 
         Args:
-            neighborhood: Advancement and lateral edges to extract
-                          from.
+            neighborhood: Advancement and lateral edges to extract from.
 
         Returns:
-            Sorted list of row dicts with `Credential`,
-            `Institution`, `Program`, and `Link` keys.
+            Sorted list of row dicts with `Credential`, `Institution`, `Program`, and
+            `Link` keys.
         """
         unique = {
             (c.metadata["institution"], c.label): c
@@ -282,8 +272,8 @@ class TableBuilder:
         """
         Build a downloadable plain-text career report.
 
-        Summarizes the matched career family, demonstrated skills,
-        and skill gaps with per-task similarity scores.
+        Summarizes the matched career family, demonstrated skills, and skill
+        gaps with per-task similarity scores.
 
         Returns:
             Newline-joined report string.

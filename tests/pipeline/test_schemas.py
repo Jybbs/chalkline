@@ -1,9 +1,8 @@
 """
 Tests for pipeline configuration, cluster structure, and corpus ordering.
 
-Validates `PipelineConfig` defaults, `ClusterAssignments` per-cluster
-aggregation shapes and normalization, and `Corpus` description alignment
-with sorted posting keys.
+Validates `PipelineConfig` defaults, centroid and cluster vector shapes,
+and `Corpus` description alignment with sorted posting keys.
 """
 
 import numpy as np
@@ -15,26 +14,23 @@ from chalkline.collection.schemas import Corpus, Posting
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
-class TestClusterAssignments:
+class TestClusterStructure:
     """
-    Validate cluster structure derivation and per-cluster aggregation.
+    Validate centroid and cluster vector shapes and normalization.
     """
 
-    def test_centroids_shape(self, assignments, coordinates):
+    def test_centroids_shape(self, centroids, cluster_ids, coordinates):
         """
         One centroid row per cluster in the SVD-reduced space.
         """
-        assert assignments.centroids(coordinates).shape == (
-            len(assignments.cluster_ids),
-            coordinates.shape[1]
-        )
+        assert centroids.shape == (len(cluster_ids), coordinates.shape[1])
 
-    def test_cluster_vectors_unit(self, assignments, raw_vectors):
+    def test_cluster_vectors_unit(self, cluster_vectors):
         """
         Cluster vectors are L2-normalized for cosine similarity.
         """
         np.testing.assert_allclose(
-            np.linalg.norm(assignments.cluster_vectors(raw_vectors), axis=1),
+            np.linalg.norm(cluster_vectors, axis=1),
             1.0,
             atol=1e-6
         )
@@ -67,23 +63,23 @@ class TestCorpus:
 
 class TestPipelineConfig:
     """
-    Validate `PipelineConfig` defaults.
+    Validate default hyperparameters.
     """
 
-    @mark.parametrize("field, expected", [
-        ("cluster_count",          20),
-        ("component_count",        10),
-        ("destination_percentile", 5),
-        ("embedding_model",        "all-mpnet-base-v2"),
-        ("lateral_neighbors",      2),
-        ("random_seed",            42),
-        ("soc_neighbors",          3),
-        ("source_percentile",      75),
-        ("upward_neighbors",       2)
+    @mark.parametrize("expected, field", [
+        (20,                  "cluster_count"),
+        (10,                  "component_count"),
+        (5,                   "destination_percentile"),
+        ("all-mpnet-base-v2", "embedding_model"),
+        (2,                   "lateral_neighbors"),
+        (42,                  "random_seed"),
+        (3,                   "soc_neighbors"),
+        (75,                  "source_percentile"),
+        (2,                   "upward_neighbors")
     ])
     def test_defaults(self, expected, field: str, tmp_path: Path):
         """
-        Optional fields receive their documented defaults.
+        Each hyperparameter has the expected default value.
         """
         config = PipelineConfig(
             lexicon_dir  = tmp_path,

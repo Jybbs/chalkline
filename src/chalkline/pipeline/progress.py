@@ -1,20 +1,21 @@
 """
 Pipeline progress display for CLI and Marimo contexts.
 
-Provides a Hamilton lifecycle adapter that shows node-level progress
-during `Chalkline.fit()`. In CLI context, Rich renders a two-level
-display: a pipeline bar tracking nodes and a batch bar tracking
-sentence-transformer encoding batches. The batch bar intercepts
-tqdm calls from sentence-transformers via a monkey-patch on
-`tqdm.autonotebook.trange`, routing them through Rich's Group
-compositing so both bars render in a single Live display. In Marimo
-context, delegates to `mo.status.progress_bar`.
+Provides a Hamilton lifecycle adapter that shows node-level progress during
+`Chalkline.fit()`. In CLI context, Rich renders a two-level display: a
+pipeline bar tracking nodes and a batch bar tracking sentence-transformer
+encoding batches. The batch bar intercepts tqdm calls from
+sentence-transformers via a monkey-patch on `tqdm.autonotebook.trange`,
+routing them through Rich's Group compositing so both bars render in a
+single Live display. In Marimo context, delegates to
+`mo.status.progress_bar`.
 """
 
 from hamilton.lifecycle.api import GraphExecutionHook, NodeExecutionHook
 from loguru                 import logger
 from sys                    import modules
 from time                   import perf_counter
+from typing                 import Any
 
 
 def _in_marimo() -> bool:
@@ -35,7 +36,7 @@ class MarimoDisplay:
 
     def __init__(self, total: int):
         import marimo as mo
-        self.bar = mo.status.progress_bar(total=total, title="Fitting pipeline")
+        self.bar: Any = mo.status.progress_bar(total=total, title="Fitting pipeline")
 
     def advance(self, description: str = ""):
         self.bar.update(increment=1)
@@ -48,15 +49,14 @@ class RichDisplay:
     """
     Two-level Rich progress display with loguru routing.
 
-    Composes a pipeline-level bar and a batch-level bar in a
-    `Group` under one `Live` display. The batch bar is fed by
-    intercepted tqdm calls from sentence-transformers. Log
-    messages render above both bars via a `RichHandler` bound to
-    the shared console.
+    Composes a pipeline-level bar and a batch-level bar in a `Group` under
+    one `Live` display. The batch bar is fed by intercepted tqdm calls from
+    sentence-transformers. Log messages render above both bars via a
+    `RichHandler` bound to the shared console.
     """
 
     def __init__(self, level: str, total: int):
-        st_module = modules["sentence_transformers.SentenceTransformer"]
+        st_module: Any = modules["sentence_transformers.SentenceTransformer"]
 
         from rich.console  import Group
         from rich.live     import Live
@@ -93,14 +93,14 @@ class RichDisplay:
         )
         self.live.start()
 
-        self.batch_context   = [None]
+        self.batch_context: list[str | None] = [None]
         self.original_trange = st_module.trange
         st_module.trange     = self._make_trange()
 
     def _make_trange(self):
         """
-        Build a trange replacement that routes sentence-transformer
-        batch progress through the shared Rich batch bar.
+        Build a trange replacement that routes sentence-transformer batch
+        progress through the shared Rich batch bar.
         """
         def rich_trange(*args, desc="", disable=False, **kwargs):
             r = range(*args)
@@ -123,7 +123,7 @@ class RichDisplay:
         )
 
     def stop(self):
-        st_module = modules["sentence_transformers.SentenceTransformer"]
+        st_module: Any = modules["sentence_transformers.SentenceTransformer"]
         self.node_progress.update(
             self.node_task, description="Pipeline fitted"
         )
@@ -136,9 +136,9 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
     """
     Hamilton lifecycle adapter for pipeline progress display.
 
-    Dispatches to `RichDisplay` or `MarimoDisplay` once at graph
-    start, then all lifecycle methods call the same interface without
-    branching. Pass `level="DEBUG"` for verbose output.
+    Dispatches to `RichDisplay` or `MarimoDisplay` once at graph start, then
+    all lifecycle methods call the same interface without branching. Pass
+    `level="DEBUG"` for verbose output.
     """
 
     def __init__(self, level: str = "INFO"):
@@ -185,8 +185,7 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         **future_kwargs
     ):
         """
-        Advance the progress bar and log the node name with elapsed
-        time.
+        Advance the progress bar and log the node name with elapsed time.
         """
         elapsed = perf_counter() - self.timings.pop(
             node_name, perf_counter()
@@ -209,8 +208,8 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         """
         Initialize the display backend and timing state.
 
-        `execution_path` sizes the bar to only the nodes that will
-        actually execute, excluding cached results.
+        `execution_path` sizes the bar to only the nodes that will actually
+        execute, excluding cached results.
         """
         self.node_count = len(execution_path)
         self.completed  = 0
@@ -234,11 +233,11 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         **future_kwargs
     ):
         """
-        Record the start time and set the batch progress label for
-        encoding nodes.
+        Record the start time and set the batch progress label for encoding
+        nodes.
         """
         self.timings[node_name] = perf_counter()
-        if hasattr(self.display, "batch_context"):
+        if isinstance(self.display, RichDisplay):
             self.display.batch_context[0] = {
                 "credentials" : "credentials",
                 "raw_vectors" : "postings",

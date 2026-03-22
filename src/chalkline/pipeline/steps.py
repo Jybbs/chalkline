@@ -25,67 +25,86 @@ from chalkline.collection.storage import CorpusStorage
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import Cluster, ClusterAssignments
-from chalkline.pathways.schemas   import ClusterTasks, Credential
+from chalkline.pathways.schemas   import Cluster, Clusters, Credential, Task
 from chalkline.pipeline.schemas   import Encoder, PipelineConfig
 
 
-def assignments(config: PipelineConfig, coordinates: np.ndarray) -> ClusterAssignments:
+def assignments(config: PipelineConfig, coordinates: np.ndarray) -> np.ndarray:
     """
-    Fit Ward-linkage HAC on SVD coordinates.
+    Fit Ward-linkage HAC on SVD coordinates and return label array.
     """
-    return ClusterAssignments(AgglomerativeClustering(
+    return AgglomerativeClustering(
         linkage    = "ward",
         n_clusters = config.cluster_count
-    ).fit_predict(coordinates))
+    ).fit_predict(coordinates)
 
 
-def centroids(assignments: ClusterAssignments, coordinates: np.ndarray) -> np.ndarray:
+def centroids(assignments: np.ndarray, coordinates: np.ndarray) -> np.ndarray:
     """
     Mean SVD coordinates per cluster for resume distance computation.
     """
-    return assignments.centroids(coordinates)
+    return np.stack([
+        coordinates[assignments == cid].mean(axis=0)
+        for cid in sorted(np.unique(assignments))
+    ])
 
 
-def cluster_vectors(assignments: ClusterAssignments, raw_vectors: np.ndarray) -> np.ndarray:
+def cluster_vectors(assignments: np.ndarray, raw_vectors: np.ndarray) -> np.ndarray:
     """
     Mean posting embedding per cluster in the full embedding space,
     L2-normalized for cosine similarity against occupations and credentials.
     """
-    return assignments.cluster_vectors(raw_vectors)
+    return normalize(np.stack([
+        raw_vectors[assignments == cid].mean(axis=0)
+        for cid in sorted(np.unique(assignments))
+    ]))
 
 
 def clusters(
-    assignments    : ClusterAssignments,
-    corpus         : Corpus,
-    job_zone_map   : dict[int, int],
-    lexicons       : LexiconLoader,
-    soc_similarity : np.ndarray,
-    soc_tasks      : dict[int, ClusterTasks]
-) -> dict[int, Cluster]:
+    assignments     : np.ndarray,
+    centroids       : np.ndarray,
+    cluster_vectors : np.ndarray,
+    corpus          : Corpus,
+    job_zone_map    : dict[int, int],
+    lexicons        : LexiconLoader,
+    soc_similarity  : np.ndarray,
+    soc_tasks       : dict[int, list[Task]]
+) -> Clusters:
     """
-    Build unified cluster objects from assignments, corpus, and
-    O*NET SOC matching. Each cluster bundles profile metadata,
-    membership indices, resolved postings, and task embeddings.
+    Build unified cluster objects from assignments, corpus, and O*NET SOC
+    matching. Returns a `Clusters` container with pre-stacked centroid and
+    embedding vector matrices.
     """
-    return {
+    cluster_ids = sorted(np.unique(assignments).tolist())
+    members     = {
+        cid: np.where(assignments == cid)[0]
+        for cid in cluster_ids
+    }
+
+    items = {
         cid: Cluster(
-            cluster_id  = cid,
-            job_zone    = job_zone_map[cid],
-            members     = assignments.members[cid],
-            modal_title = Counter(
+            cluster_id   = cid,
+            job_zone     = job_zone_map[cid],
+            members      = members[cid],
+            modal_title  = Counter(
                 corpus.postings[corpus.posting_ids[i]].title
-                for i in assignments.members[cid]
+                for i in members[cid]
             ).most_common(1)[0][0],
-            postings    = corpus.at(assignments.members[cid]),
-            sector      = nearest.sector,
-            size        = len(assignments.members[cid]),
-            soc_title   = nearest.title,
-            tasks       = soc_tasks.get(cid)
+            postings     = corpus.at(members[cid]),
+            sector       = nearest.sector,
+            size         = len(members[cid]),
+            soc_title    = nearest.title,
+            tasks        = soc_tasks.get(cid, [])
         )
-        for cid     in assignments.cluster_ids
+        for cid     in cluster_ids
         for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
     }
+
+    return Clusters(
+        centroids = centroids,
+        items     = items,
+        vectors   = cluster_vectors
+    )
 
 
 def corpus(config: PipelineConfig) -> Corpus:
@@ -122,19 +141,15 @@ def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
 
 
 def graph(
-    centroids       : np.ndarray,
-    cluster_vectors : np.ndarray,
-    clusters        : dict[int, Cluster],
-    config          : PipelineConfig,
-    credentials     : list[Credential]
+    clusters    : Clusters,
+    config      : PipelineConfig,
+    credentials : list[Credential]
 ) -> CareerPathwayGraph:
     """
     Build the career pathway graph with stepwise k-NN backbone and per-edge
     credential enrichment.
     """
     result = CareerPathwayGraph(
-        centroids              = centroids,
-        cluster_vectors        = cluster_vectors,
         clusters               = clusters,
         credentials            = credentials,
         destination_percentile = config.destination_percentile,
@@ -150,7 +165,7 @@ def graph(
 
 
 def job_zone_map(
-    assignments    : ClusterAssignments,
+    assignments    : np.ndarray,
     config         : PipelineConfig,
     lexicons       : LexiconLoader,
     soc_similarity : np.ndarray
@@ -164,27 +179,25 @@ def job_zone_map(
             lexicons.occupations[i].job_zone
             for i in np.argsort(soc_similarity[cid])[-config.soc_neighbors:]
         ]))
-        for cid in assignments.cluster_ids
+        for cid in sorted(np.unique(assignments))
     }
 
 
 def matcher(
-    centroids : np.ndarray,
-    clusters  : dict[int, Cluster],
-    graph     : CareerPathwayGraph,
-    model     : Encoder,
-    svd       : TruncatedSVD
+    clusters : Clusters,
+    graph    : CareerPathwayGraph,
+    model    : Encoder,
+    svd      : TruncatedSVD
 ) -> ResumeMatcher:
     """
     Build the resume matcher with all artifacts needed for single-resume
     inference.
     """
     return ResumeMatcher(
-        centroids = centroids,
-        clusters  = clusters,
-        graph     = graph,
-        model     = model,
-        svd       = svd
+        clusters = clusters,
+        graph    = graph,
+        model    = model,
+        svd      = svd
     )
 
 
@@ -226,11 +239,11 @@ def soc_similarity(
 
 
 def soc_tasks(
-    assignments    : ClusterAssignments,
+    assignments    : np.ndarray,
     lexicons       : LexiconLoader,
     model          : Encoder,
     soc_similarity : np.ndarray
-) -> dict[int, ClusterTasks]:
+) -> dict[int, list[Task]]:
     """
     Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
 
@@ -239,11 +252,14 @@ def soc_tasks(
     individual embeddings for per-task gap scoring.
     """
     return {
-        cid: ClusterTasks(
-            labels  = (names := [t.name for t in nearest.task_elements]),
-            vectors = model.encode(names)
-        )
-        for cid in assignments.cluster_ids
+        cid: [
+            Task(name=name, vector=vec)
+            for name, vec in zip(
+                [t.name for t in nearest.task_elements],
+                model.encode([t.name for t in nearest.task_elements])
+            )
+        ]
+        for cid in sorted(np.unique(assignments))
         for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
         if nearest.task_elements
     }
