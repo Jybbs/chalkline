@@ -14,6 +14,7 @@ import numpy as np
 from collections                 import Counter
 from hamilton.function_modifiers import extract_fields
 from loguru                      import logger
+from pydantic                    import TypeAdapter
 from sklearn.cluster             import AgglomerativeClustering
 from sklearn.decomposition       import TruncatedSVD
 from sklearn.metrics.pairwise    import cosine_similarity
@@ -24,8 +25,7 @@ from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pipeline.graph     import CareerPathwayGraph
 from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile, ClusterTasks
-from chalkline.pipeline.schemas   import Corpus, Credentials, Encoder, PipelineConfig
-from chalkline.pipeline.trades    import TradeIndex
+from chalkline.pipeline.schemas   import Corpus, Credential, Encoder, PipelineConfig
 
 
 def assignments(config: PipelineConfig, coordinates: np.ndarray) -> ClusterAssignments:
@@ -60,37 +60,37 @@ def corpus(config: PipelineConfig) -> Corpus:
     Raises:
         FileNotFoundError: When no valid postings exist.
     """
-    postings = CorpusStorage(config.postings_dir).load()
-    if not postings:
-        raise FileNotFoundError(f"No postings found in {config.postings_dir}")
+    if not (postings := CorpusStorage(config.postings_dir).load()):
+        raise FileNotFoundError(
+            f"No postings found in {config.postings_dir}"
+        )
     return Corpus({p.id: p for p in postings})
 
 
-def credentials(
-    config   : PipelineConfig,
-    lexicons : LexiconLoader,
-    model    : Encoder
-) -> Credentials:
+def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
     """
-    Encode the credential catalog (apprenticeships, programs,
-    certifications) with the sentence transformer. Returns a `Credentials`
-    bundling the typed records with their embedding vectors so the graph can
-    attach full credential metadata to edges.
+    Load the curated credential catalog, encode with the sentence
+    transformer, and attach vectors to each credential instance.
     """
-    trades  = TradeIndex.from_directory(config.lexicon_dir)
-    records = trades.apprenticeships + trades.programs + lexicons.certifications
-    logger.info(f"Encoding {len(records)} credentials...")
-    return Credentials(
-        records = records,
-        vectors = model.encode([r.embedding_text for r in records])
+    records = TypeAdapter(list[Credential]).validate_json(
+        (config.lexicon_dir / "credentials.json").read_bytes()
     )
+
+    logger.info(f"Encoding {len(records)} credentials...")
+    for credential, vector in zip(
+        records, 
+        model.encode([r.embedding_text for r in records])
+    ):
+        credential.vector = vector.tolist()
+
+    return records
 
 
 def graph(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
     config          : PipelineConfig,
-    credentials     : Credentials,
+    credentials     : list[Credential],
     job_zone_map    : dict[int, int],
     profiles        : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
@@ -108,7 +108,7 @@ def graph(
     )
     logger.info(
         f"Career graph: {result.graph.number_of_nodes()} nodes, "
-        f"{result.graph.number_of_edges()} edges"
+        f"{result.edge_count} edges"
     )
     return result
 
@@ -133,26 +133,24 @@ def job_zone_map(
 
 
 def matcher(
-    assignments : ClusterAssignments,
-    centroids   : np.ndarray,
-    graph       : CareerPathwayGraph,
-    model       : Encoder,
-    profiles    : dict[int, ClusterProfile],
-    soc_tasks   : dict[int, ClusterTasks],
-    svd         : TruncatedSVD
+    centroids : np.ndarray,
+    graph     : CareerPathwayGraph,
+    model     : Encoder,
+    profiles  : dict[int, ClusterProfile],
+    soc_tasks : dict[int, ClusterTasks],
+    svd       : TruncatedSVD
 ) -> ResumeMatcher:
     """
     Build the resume matcher with all artifacts needed for single-resume
     inference.
     """
     return ResumeMatcher(
-        centroids   = centroids,
-        cluster_ids = assignments.cluster_ids,
-        graph       = graph,
-        model       = model,
-        profiles    = profiles,
-        soc_tasks   = soc_tasks,
-        svd         = svd
+        centroids = centroids,
+        graph     = graph,
+        model     = model,
+        profiles  = profiles,
+        soc_tasks = soc_tasks,
+        svd       = svd
     )
 
 
@@ -201,14 +199,20 @@ def reduction(config: PipelineConfig, raw_vectors: np.ndarray) -> dict:
     L2-normalize raw embeddings, fit TruncatedSVD, and expose both the
     reduced coordinates and the fitted SVD for resume projection.
     """
-    svd = TruncatedSVD(n_components=config.component_count, random_state=config.random_seed)
+    svd = TruncatedSVD(
+        n_components = config.component_count,
+        random_state = config.random_seed
+    )
     return {
         "coordinates" : svd.fit_transform(normalize(raw_vectors)),
         "svd"         : svd
     }
 
 
-def soc_similarity(cluster_vectors: np.ndarray, soc_vectors: np.ndarray) -> np.ndarray:
+def soc_similarity(
+    cluster_vectors : np.ndarray, 
+    soc_vectors     : np.ndarray
+) -> np.ndarray:
     """
     Cosine similarity between cluster centroids and O*NET occupations.
     """

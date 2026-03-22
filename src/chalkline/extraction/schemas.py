@@ -9,49 +9,7 @@ groups surface forms for Aho-Corasick matching.
 
 from enum     import StrEnum
 from pydantic import BaseModel, Field
-from typing   import Literal, NamedTuple
-
-
-class Certification(BaseModel, extra="forbid"):
-    """
-    A CareerOneStop certification linked to stakeholder SOC codes.
-
-    Each certification contributes its name and acronym (when present and
-    non-ambiguous) as Aho-Corasick patterns. Descriptions are decomposed
-    into matchable sub-phrases via POS-based NP/VP chunking at curation
-    time.
-    """
-
-    name      : str
-    soc_codes : list[str]
-
-    acronym         : str | None               = None
-    credential_kind : Literal["certification"] = "certification"
-    organization    : str | None               = None
-    phrases         : list[str] | None         = None
-    type            : str | None               = None
-
-    @property
-    def display_label(self) -> str:
-        """
-        Human-readable label combining acronym and name.
-
-        Returns:
-            `"CWI Certified Welding Inspector"` or just the name when no acronym is
-            present.
-        """
-        return f"{self.acronym or ''} {self.name}".strip()
-
-    @property
-    def embedding_text(self) -> str:
-        """
-        Text representation for sentence encoding, including the issuing
-        organization when available.
-
-        Returns:
-            Acronym, name, and organization concatenated.
-        """
-        return f"{self.acronym or ''} {self.name} {self.organization or ''}".strip()
+from typing   import NamedTuple
 
 
 class OnetSkillType(StrEnum):

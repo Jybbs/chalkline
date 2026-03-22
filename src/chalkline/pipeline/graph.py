@@ -16,7 +16,7 @@ from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas import CareerEdge, Neighborhood
-from chalkline.pipeline.schemas import ClusterProfile, Credentials, PipelineConfig
+from chalkline.pipeline.schemas import ClusterProfile, Credential, PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -42,7 +42,7 @@ class CareerPathwayGraph:
     centroids       : np.ndarray
     cluster_vectors : np.ndarray
     config          : PipelineConfig
-    credentials     : Credentials
+    credentials     : list[Credential]
     job_zone_map    : dict[int, int]
     profiles        : dict[int, ClusterProfile]
 
@@ -63,9 +63,10 @@ class CareerPathwayGraph:
         )
 
         self._add_edges(cosine_similarity(self.centroids))
-        self._enrich_edges(
-            cosine_similarity(self.credentials.vectors, self.cluster_vectors)
-        )
+        self._enrich_edges(cosine_similarity(
+            [c.vector for c in self.credentials if c.vector],
+            self.cluster_vectors
+        ))
 
     @property
     def edge_count(self) -> int:
@@ -128,22 +129,18 @@ class CareerPathwayGraph:
             axis = 0
         )
 
-        records = np.array(self.credentials.records, dtype=object)
-        kinds   = np.array([r.credential_kind for r in self.credentials.records])
+        records = np.array(self.credentials, dtype=object)
 
         for s, t, edge_data in self.graph.edges(data=True):
             affinity = credential_similarity[:, t]
-            passing  = np.flatnonzero((affinity >= affinity_floors[t]) & mask[:, s])
-            ranked   = passing[np.argsort(-affinity[passing])]
-            matched  = kinds[ranked]
-
-            edge_data.update({
-                f"{kind}s": [
-                    r.model_dump(mode="json")
-                    for r in records[ranked[matched == kind]]
-                ]
-                for kind in ("apprenticeship", "certification", "program")
-            })
+            passing  = np.flatnonzero(
+                (affinity >= affinity_floors[t]) & mask[:, s]
+            )
+            ranked = passing[np.argsort(-affinity[passing])]
+            edge_data["credentials"] = [
+                r.model_dump(mode="json")
+                for r in records[ranked]
+            ]
 
     def neighborhood(self, cluster_id: int) -> Neighborhood:
         """

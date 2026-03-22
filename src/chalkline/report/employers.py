@@ -53,23 +53,20 @@ def match_cluster_employers(
         corpus.postings[corpus.posting_ids[i]]
         for i in assignments.members[cluster_id]
     ]
-    companies    = sorted({p.company for p in postings})
     member_names = [m["name"].lower() for m in members]
     posting_urls = {p.company: p.source_url for p in reversed(postings)}
 
-    rows = []
-    seen = set()
-    for company in companies:
+    matched = {}
+    for company in sorted({p.company for p in postings}):
         m = match_member(company, members, member_names)
-        if m is not None and m["name"] not in seen:
-            seen.add(m["name"])
-            rows.append({
+        if m is not None and m["name"] not in matched:
+            matched[m["name"]] = {
                 "Career Page" : career_url_map.get(m["name"].lower(), ""),
                 "Company"     : m["name"],
                 "Posting"     : posting_urls.get(company, ""),
                 "Type"        : m["type"]
-            })
-    return rows
+            }
+    return list(matched.values())
 
 
 def match_member(
@@ -100,10 +97,9 @@ def match_member(
     if member_names is None:
         member_names = [m["name"].lower() for m in members]
 
-    best_score, best = 0.0, None
     company_lower = company.lower()
-    for m, name_lower in zip(members, member_names):
-        score = SequenceMatcher(None, company_lower, name_lower).ratio()
-        if score > best_score:
-            best_score, best = score, m
+    best_score, best = max(
+        (SequenceMatcher(None, company_lower, name).ratio(), m)
+        for m, name in zip(members, member_names)
+    )
     return best if best_score >= 0.7 else None

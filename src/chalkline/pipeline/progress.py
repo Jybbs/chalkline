@@ -11,12 +11,10 @@ compositing so both bars render in a single Live display. In Marimo
 context, delegates to `mo.status.progress_bar`.
 """
 
-from dataclasses import dataclass, field
-from sys         import modules
-from time        import perf_counter
-
 from hamilton.lifecycle.api import GraphExecutionHook, NodeExecutionHook
-from loguru                import logger
+from loguru                 import logger
+from sys                    import modules
+from time                   import perf_counter
 
 
 def _in_marimo() -> bool:
@@ -30,21 +28,14 @@ def _in_marimo() -> bool:
         return False
 
 
-@dataclass(kw_only=True, slots=True)
 class MarimoDisplay:
     """
     Progress display backed by `mo.status.progress_bar`.
     """
 
-    total : int
-    bar   : object = field(init=False)
-
-    def __post_init__(self):
+    def __init__(self, total: int):
         import marimo as mo
-        self.bar = mo.status.progress_bar(
-            total = self.total,
-            title = "Fitting pipeline"
-        )
+        self.bar = mo.status.progress_bar(total=total, title="Fitting pipeline")
 
     def advance(self, description: str = ""):
         self.bar.update(increment=1)
@@ -53,36 +44,6 @@ class MarimoDisplay:
         self.bar.close()
 
 
-def _make_rich_trange(batch_progress, context):
-    """
-    Build a trange replacement that creates tasks on the shared
-    Rich batch progress bar instead of rendering its own tqdm bar.
-
-    The `context` list holds a single-element label set by the
-    lifecycle adapter in `run_before_node_execution`, so the bar
-    description reflects what is being encoded rather than the
-    generic "Batches" from sentence-transformers.
-
-    Returns:
-        A function matching the `trange` signature used by
-        sentence-transformers.
-    """
-    def rich_trange(*args, desc="", disable=False, **kwargs):
-        r = range(*args)
-        if disable:
-            yield from r
-            return
-        label = context[0] or desc
-        task = batch_progress.add_task(label, total=len(r))
-        for value in r:
-            yield value
-            batch_progress.update(task, advance=1)
-        batch_progress.remove_task(task)
-
-    return rich_trange
-
-
-@dataclass(kw_only=True, slots=True)
 class RichDisplay:
     """
     Two-level Rich progress display with loguru routing.
@@ -94,18 +55,7 @@ class RichDisplay:
     the shared console.
     """
 
-    level : str
-    total : int
-
-    batch_context   : list   = field(init=False)
-    batch_progress  : object = field(init=False)
-    handler_id      : int    = field(init=False)
-    live            : object = field(init=False)
-    node_progress   : object = field(init=False)
-    node_task       : object = field(init=False)
-    original_trange : object = field(init=False)
-
-    def __post_init__(self):
+    def __init__(self, level: str, total: int):
         st_module = modules["sentence_transformers.SentenceTransformer"]
 
         from rich.console  import Group
@@ -115,21 +65,15 @@ class RichDisplay:
         from rich.progress import TaskProgressColumn, TextColumn, TimeRemainingColumn
         from rich.rule     import Rule
 
-        self.node_progress = Progress(
+        columns = (
             SpinnerColumn(),
             TextColumn("{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn()
         )
-        self.batch_progress = Progress(
-            SpinnerColumn(),
-            TextColumn("{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn()
-        )
-
+        self.node_progress  = Progress(*columns)
+        self.batch_progress = Progress(*columns)
         self.live = Live(Group(self.node_progress, self.batch_progress))
 
         logger.remove()
@@ -139,33 +83,47 @@ class RichDisplay:
                 show_path = False
             ),
             format = "{message}",
-            level  = self.level
+            level  = level
         )
 
         self.live.console.print(Rule())
         self.node_task = self.node_progress.add_task(
             "Fitting pipeline",
-            total = self.total
+            total = total
         )
         self.live.start()
 
         self.batch_context   = [None]
         self.original_trange = st_module.trange
-        st_module.trange = _make_rich_trange(
-            self.batch_progress, self.batch_context
-        )
+        st_module.trange     = self._make_trange()
+
+    def _make_trange(self):
+        """
+        Build a trange replacement that routes sentence-transformer
+        batch progress through the shared Rich batch bar.
+        """
+        def rich_trange(*args, desc="", disable=False, **kwargs):
+            r = range(*args)
+            if disable:
+                yield from r
+                return
+            label = self.batch_context[0] or desc
+            task = self.batch_progress.add_task(label, total=len(r))
+            for value in r:
+                yield value
+                self.batch_progress.update(task, advance=1)
+            self.batch_progress.remove_task(task)
+        return rich_trange
 
     def advance(self, description: str = ""):
-        if description:
-            self.node_progress.update(
-                self.node_task, advance=1, description=description
-            )
-        else:
-            self.node_progress.update(self.node_task, advance=1)
+        self.node_progress.update(
+            self.node_task,
+            advance     = 1,
+            description = description or None
+        )
 
     def stop(self):
         st_module = modules["sentence_transformers.SentenceTransformer"]
-
         self.node_progress.update(
             self.node_task, description="Pipeline fitted"
         )
@@ -263,13 +221,6 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
             else RichDisplay(level=self.level, total=self.node_count)
         )
 
-    _BATCH_LABELS = {
-        "credentials" : "credentials",
-        "raw_vectors" : "postings",
-        "soc_tasks"   : "tasks",
-        "soc_vectors" : "occupations"
-    }
-
     def run_before_node_execution(
         self,
         *,
@@ -288,4 +239,9 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         """
         self.timings[node_name] = perf_counter()
         if hasattr(self.display, "batch_context"):
-            self.display.batch_context[0] = self._BATCH_LABELS.get(node_name)
+            self.display.batch_context[0] = {
+                "credentials" : "credentials",
+                "raw_vectors" : "postings",
+                "soc_tasks"   : "tasks",
+                "soc_vectors" : "occupations"
+            }.get(node_name)

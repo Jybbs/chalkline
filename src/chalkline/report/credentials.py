@@ -1,10 +1,8 @@
 """
 Credential extraction from career neighborhood edges.
 
-Flattens apprenticeships, certifications, and programs from
-neighborhood edges into table row dicts for the career report.
-Both functions centralize the advancement/lateral traversal
-that otherwise repeats across notebook cells.
+Flattens credentials from neighborhood edges into table row dicts for
+the career report, with deduplication for the education panel tables.
 """
 
 from chalkline.matching.schemas import Neighborhood
@@ -26,17 +24,18 @@ def apprenticeship_rows(neighborhood: Neighborhood) -> list[dict]:
         and `Min Hours` keys.
     """
     unique = {
-        a.rapids_code: a
+        c.metadata["rapids_code"]: c
         for edge in neighborhood.all_edges
-        for a in edge.apprenticeships
+        for c in edge.credentials
+        if c.kind == "apprenticeship"
     }
     return [
         {
-            "Min Hours"   : f"{a.min_hours:,}",
-            "RAPIDS Code" : a.rapids_code,
-            "Trade"       : a.title
+            "Min Hours"   : f"{c.metadata['min_hours']:,}",
+            "RAPIDS Code" : c.metadata["rapids_code"],
+            "Trade"       : c.label
         }
-        for a in sorted(unique.values(), key=lambda x: x.title)
+        for c in sorted(unique.values(), key=lambda x: x.label)
     ]
 
 
@@ -56,28 +55,25 @@ def program_rows(neighborhood: Neighborhood) -> list[dict]:
         `Institution`, `Program`, and `Link` keys.
     """
     unique = {
-        (p.institution, p.program): p
+        (c.metadata["institution"], c.label): c
         for edge in neighborhood.all_edges
-        for p in edge.programs
+        for c in edge.credentials
+        if c.kind == "program"
     }
     return [
         {
-            "Credential"  : p.credential,
-            "Institution" : p.institution,
-            "Link"        : p.url,
-            "Program"     : p.program
+            "Credential"  : c.metadata["credential"],
+            "Institution" : c.metadata["institution"],
+            "Link"        : c.metadata["url"],
+            "Program"     : c.label
         }
-        for p in sorted(unique.values(), key=lambda x: x.program)
+        for c in sorted(unique.values(), key=lambda x: x.label)
     ]
 
 
 def credential_rows(neighborhood: Neighborhood) -> list[dict]:
     """
     Flatten all credentials on neighborhood edges into table rows.
-
-    Iterates advancement and lateral edges, collecting
-    apprenticeships, certifications, and programs into a flat
-    list for the career pathways credential table.
 
     Args:
         neighborhood: Advancement and lateral edges to extract from.
@@ -86,34 +82,22 @@ def credential_rows(neighborhood: Neighborhood) -> list[dict]:
         List of row dicts with `Credential`, `Direction`, `Hours`,
         `Target`, and `Type` keys.
     """
-    rows = []
-    for direction, edges in [
-        ("Advancement", neighborhood.advancement),
-        ("Lateral", neighborhood.lateral)
-    ]:
-        for e in edges:
-            for a in e.apprenticeships:
-                rows.append({
-                    "Credential" : a.title,
-                    "Direction"  : direction,
-                    "Hours"      : f"{a.min_hours:,}",
-                    "Target"     : e.profile.soc_title,
-                    "Type"       : "Apprenticeship"
-                })
-            for c in e.certifications:
-                rows.append({
-                    "Credential" : c.display_label,
-                    "Direction"  : direction,
-                    "Hours"      : "",
-                    "Target"     : e.profile.soc_title,
-                    "Type"       : "Certification"
-                })
-            for p in e.programs:
-                rows.append({
-                    "Credential" : p.program,
-                    "Direction"  : direction,
-                    "Hours"      : "",
-                    "Target"     : e.profile.soc_title,
-                    "Type"       : p.credential
-                })
-    return rows
+    return [
+        {
+            "Credential" : c.label,
+            "Direction"  : direction,
+            "Hours"      : (
+                f"{c.metadata['min_hours']:,}"
+                if "min_hours" in c.metadata
+                else ""
+            ),
+            "Target"     : e.profile.soc_title,
+            "Type"       : c.metadata.get("credential", c.kind.title())
+        }
+        for direction, edges in [
+            ("Advancement", neighborhood.advancement),
+            ("Lateral", neighborhood.lateral)
+        ]
+        for e in edges
+        for c in e.credentials
+    ]

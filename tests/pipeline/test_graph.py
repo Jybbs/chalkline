@@ -26,12 +26,11 @@ class TestCareerPathwayGraph:
 
     def test_credential_metadata(self, pathway_graph: CareerPathwayGraph):
         """
-        Every edge must carry credential metadata lists, even if empty.
+        Every edge must carry a credentials list, even if empty.
         """
         for _, _, data in pathway_graph.graph.edges(data=True):
-            assert "apprenticeships" in data
-            assert "certifications" in data
-            assert "programs" in data
+            assert "credentials" in data
+            assert isinstance(data["credentials"], list)
 
     def test_edge_count_positive(self, pathway_graph: CareerPathwayGraph):
         """

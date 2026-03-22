@@ -322,14 +322,14 @@ def _(mo, target_neighborhood, target_profile):
 # ── Employer Connections panel ──────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline, reference, result):
+def _(mo, pipeline, reference, target_id, target_profile):
     def employer_panel():
         from chalkline.report.employers import match_cluster_employers
 
         rows = match_cluster_employers(
             assignments = pipeline.assignments,
             career_urls = reference["career_urls"],
-            cluster_id  = result.cluster_id,
+            cluster_id  = target_id,
             corpus      = pipeline.corpus,
             members     = reference["agc_members"]
         )
@@ -338,7 +338,7 @@ def _(mo, pipeline, reference, result):
             mo.stat(label="AGC Members Matched", value=str(len(rows))),
             mo.md(
                 f"Employers in the "
-                f"**{pipeline.profiles[result.cluster_id].soc_title}** "
+                f"**{target_profile.soc_title}** "
                 f"cluster matched against AGC member companies"
             ),
             mo.ui.table(rows)

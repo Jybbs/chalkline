@@ -8,9 +8,7 @@ embeddings.
 
 from pydantic import BaseModel, Field
 
-from chalkline.extraction.schemas import Certification
-from chalkline.pipeline.schemas   import ApprenticeshipContext, ClusterProfile
-from chalkline.pipeline.schemas   import ProgramRecommendation
+from chalkline.pipeline.schemas import ClusterProfile, Credential
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -23,12 +21,9 @@ class CareerEdge(BaseModel, extra="forbid"):
     the destination_percentile and source_percentile dual-threshold rule.
     """
 
-    profile : ClusterProfile
-    weight  : float
-
-    apprenticeships : list[ApprenticeshipContext] = Field(default_factory=list)
-    certifications  : list[Certification]         = Field(default_factory=list)
-    programs        : list[ProgramRecommendation] = Field(default_factory=list)
+    credentials : list[Credential]    = Field(default_factory=list)
+    profile     : ClusterProfile
+    weight      : float
 
 
 class ClusterDistance(BaseModel, extra="forbid"):

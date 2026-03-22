@@ -1,9 +1,9 @@
 """
-Pipeline configuration and shared reference data schemas.
+Pipeline configuration and shared data schemas.
 
-Centralizes pipeline hyperparameters alongside shared data models for
-apprenticeship and educational program reference data consumed across
-matching, graph construction, and report generation modules.
+Centralizes pipeline hyperparameters, the unified credential model, and
+structural data types consumed across matching, graph construction, and
+report generation.
 """
 
 import numpy as np
@@ -15,34 +15,9 @@ from pathlib                         import Path
 from pydantic                        import BaseModel, Field
 from sentence_transformers           import SentenceTransformer
 from sklearn.preprocessing           import normalize
-from typing                          import Literal, NamedTuple
+from typing                          import NamedTuple
 
 from chalkline.collection.schemas import Posting
-
-
-class ApprenticeshipContext(BaseModel, extra="forbid"):
-    """
-    AGC-registered apprenticeship program from curated reference data.
-
-    Each record represents a RAPIDS-coded trade with pre-computed
-    `min_hours` and 4-character prefix sets for runtime matching. Used by
-    the pathway graph for credential enrichment and by the career report for
-    trade display.
-    """
-
-    min_hours   : int
-    prefixes    : set[str]
-    rapids_code : str
-    title       : str
-
-    credential_kind : Literal["apprenticeship"] = "apprenticeship"
-
-    @property
-    def embedding_text(self) -> str:
-        """
-        Text representation for sentence encoding.
-        """
-        return self.title
 
 
 @dataclass
@@ -62,7 +37,7 @@ class ClusterAssignments:
     members     : dict[int, np.ndarray] = field(init=False)
 
     def __post_init__(self):
-        self.cluster_ids = sorted(set(int(c) for c in self.labels))
+        self.cluster_ids = np.unique(self.labels).tolist()
         self.members = {
             cid: np.where(self.labels == cid)[0]
             for cid in self.cluster_ids
@@ -89,12 +64,10 @@ class ClusterAssignments:
         Args:
             raw_vectors: (n_postings, embedding_dim) unnormalized.
         """
-        return np.stack([
-            normalize(
-                raw_vectors[self.members[cid]].mean(axis=0, keepdims=True)
-            )[0]
+        return normalize(np.stack([
+            raw_vectors[self.members[cid]].mean(axis=0)
             for cid in self.cluster_ids
-        ])
+        ]))
 
 
 class ClusterProfile(BaseModel, extra="forbid"):
@@ -125,6 +98,19 @@ class ClusterProfile(BaseModel, extra="forbid"):
         )
 
 
+class ClusterTasks(NamedTuple):
+    """
+    Per-cluster O*NET Task+DWA names with aligned embedding vectors.
+
+    Produced by the `soc_tasks` Hamilton node and consumed by
+    `ResumeMatcher` for per-task cosine gap analysis against resume
+    embeddings.
+    """
+
+    labels  : list[str]
+    vectors : np.ndarray
+
+
 @dataclass
 class Corpus:
     """
@@ -151,30 +137,24 @@ class Corpus:
         return [self.postings[pid].description for pid in self.posting_ids]
 
 
-class ClusterTasks(NamedTuple):
+class Credential(BaseModel, extra="forbid"):
     """
-    Per-cluster O*NET Task+DWA names with aligned embedding vectors.
+    Unified credential record for the career pathway graph.
 
-    Produced by the `soc_tasks` Hamilton node and consumed by
-    `ResumeMatcher` for per-task cosine gap analysis against resume
-    embeddings.
-    """
-
-    labels  : list[str]
-    vectors : np.ndarray
-
-
-class Credentials(NamedTuple):
-    """
-    Bundled credential records with their sentence-transformer embeddings.
-
-    Produced by the `credentials` Hamilton node and consumed by the graph
-    constructor, which unpacks `records` for edge metadata and `vectors` for
-    cosine similarity against cluster centroids.
+    Represents an apprenticeship, certification, or educational program
+    with pre-computed `embedding_text` and `label` from curation. The
+    pipeline encodes `embedding_text` with the sentence transformer and
+    attaches the vector to each instance. The graph stores credentials
+    on edges via `model_dump`, which excludes the runtime-only vector.
+    Type-specific display fields live in `metadata`.
     """
 
-    records : list
-    vectors : np.ndarray
+    embedding_text : str
+    kind           : str
+    label          : str
+
+    metadata : dict              = Field(default_factory=dict)
+    vector   : list[float] | None = Field(default=None, exclude=True)
 
 
 @dataclass
@@ -252,31 +232,3 @@ class PipelineConfig(BaseModel, extra="forbid"):
         Default directory for serialized pipeline artifacts.
         """
         return self.output_dir / "pipeline"
-
-
-class ProgramRecommendation(BaseModel, extra="forbid"):
-    """
-    Normalized educational program recommendation.
-
-    Unifies community college programs and university programs into a
-    consistent schema with pre-computed 4-character prefix sets for runtime
-    matching via `TradeIndex`.
-    """
-
-    credential  : str
-    institution : str
-    prefixes    : set[str]
-    program     : str
-    url         : str
-
-    credential_kind : Literal["program"] = "program"
-
-    @property
-    def embedding_text(self) -> str:
-        """
-        Text representation for sentence encoding.
-
-        Concatenates credential level, program name, and institution so the
-        sentence transformer captures the full program identity.
-        """
-        return f"{self.credential} {self.program} {self.institution}"

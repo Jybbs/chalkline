@@ -8,7 +8,7 @@ independently tappable by any test module:
                                   ↓                          ↓
                            soc_vectors → job_zone_map → profiles → graph
                                                                      ↓
-                           credential_vectors ───────────────────→ matcher
+                           credentials ────────────────────────→ matcher
 """
 
 import numpy as np
@@ -22,15 +22,13 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
 from typing                import Any, Callable
 
-from chalkline.collection.schemas  import Posting
-from chalkline.extraction.loaders  import LexiconLoader
-from chalkline.extraction.schemas  import Certification, OnetOccupation
-from chalkline.matching.matcher    import ResumeMatcher
-from chalkline.pipeline.graph      import CareerPathwayGraph
-from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterAssignments
-from chalkline.pipeline.schemas    import ClusterProfile, ClusterTasks, Credentials
-from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
-from chalkline.pipeline.trades     import TradeIndex
+from chalkline.collection.schemas import Posting
+from chalkline.extraction.loaders import LexiconLoader
+from chalkline.extraction.schemas import OnetOccupation
+from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.pipeline.graph     import CareerPathwayGraph
+from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pipeline.schemas   import ClusterTasks, Credential, PipelineConfig
 
 
 FIXTURES        = Path(__file__).resolve().parent / "fixtures"
@@ -52,10 +50,7 @@ class MockEncoder:
         Return deterministic (len(texts), EMBEDDING_DIM) embeddings
         seeded by input length for reproducibility.
         """
-        vectors = np.random.RandomState(len(texts)).randn(
-            len(texts), EMBEDDING_DIM
-        ).astype(np.float32)
-        return normalize(vectors) if unit else vectors
+        return _embeddings(len(texts), seed=len(texts), unit=unit)
 
 
 _load = lambda schema, path: TypeAdapter(schema).validate_json(
@@ -121,23 +116,13 @@ def second_posting() -> Posting:
 
 
 @fixture
-def certifications(lexicon_loader: LexiconLoader) -> list[Certification]:
-    """
-    Synthetic certification records from the loader.
-    """
-    return lexicon_loader.certifications
-
-
-@fixture
 def lexicon_dir(tmp_path: Path) -> Path:
     """
     Write synthetic lexicon files to a temporary directory.
     """
-    for src, dst in (
-        ("certifications.json",   "certifications.json"),
-        ("onet_occupations.json", "onet.json")
-    ):
-        (tmp_path / dst).write_text((FIXTURES / "extraction" / src).read_text())
+    (tmp_path / "onet.json").write_text(
+        (FIXTURES / "extraction" / "onet_occupations.json").read_text()
+    )
     return tmp_path
 
 
@@ -183,7 +168,7 @@ def centroids(
 
 
 @fixture
-def cluster_ids(assignments: ClusterAssignments) -> np.ndarray:
+def cluster_ids(assignments: ClusterAssignments) -> list[int]:
     """
     Sorted unique cluster IDs from assignments.
     """
@@ -228,40 +213,30 @@ def coordinates(
 
 
 @fixture
-def credential_records(
-    apprenticeships : list[ApprenticeshipContext],
-    programs        : list[ProgramRecommendation]
-) -> list:
+def credentials() -> list[Credential]:
     """
-    Mixed credential records from trade fixtures (4 + 6 = 10).
+    Synthetic credentials with vectors for graph construction.
     """
-    return apprenticeships + programs
+    vectors = _embeddings(10, seed=77, unit=True)
+    return [
+        Credential(
+            embedding_text = f"credential {i}",
+            kind           = "apprenticeship" if i < 4 else "program",
+            label          = f"Credential {i}",
+            metadata       = (
+                {"min_hours": 8000, "rapids_code": f"0{i}"}
+                if i < 4
+                else {"credential": "AAS", "institution": "SMCC",
+                      "url": "https://example.com"}
+            ),
+            vector         = vectors[i].tolist()
+        )
+        for i in range(10)
+    ]
 
 
 @fixture
-def credential_vectors(credential_records: list) -> np.ndarray:
-    """
-    Synthetic credential embeddings aligned with `credential_records`.
-    """
-    return _embeddings(len(credential_records), 77, unit=True)
-
-
-@fixture
-def credentials(
-    credential_records : list,
-    credential_vectors : np.ndarray
-) -> Credentials:
-    """
-    Bundled credential records and vectors for graph construction.
-    """
-    return Credentials(
-        records = credential_records,
-        vectors = credential_vectors
-    )
-
-
-@fixture
-def job_zone_map(cluster_ids: np.ndarray) -> dict[int, int]:
+def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
     """
     Deterministic Job Zone assignment for synthetic clusters.
 
@@ -290,7 +265,7 @@ def pathway_graph(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
     config          : PipelineConfig,
-    credentials     : Credentials,
+    credentials     : list[Credential],
     job_zone_map    : dict[int, int],
     profiles        : dict[int, ClusterProfile]
 ) -> CareerPathwayGraph:
@@ -339,7 +314,7 @@ def raw_vectors() -> np.ndarray:
 @fixture
 def resume_matcher(
     centroids     : np.ndarray,
-    cluster_ids   : np.ndarray,
+    cluster_ids   : list[int],
     pathway_graph : CareerPathwayGraph,
     profiles      : dict[int, ClusterProfile],
     svd           : TruncatedSVD
@@ -349,19 +324,18 @@ def resume_matcher(
     """
     mock: Any = MockEncoder()
     return ResumeMatcher(
-        centroids   = centroids,
-        cluster_ids = cluster_ids,
-        graph       = pathway_graph,
-        model       = mock,
-        profiles    = profiles,
-        soc_tasks   = {
-            cluster_id: ClusterTasks(
-                labels  = [f"Task {cluster_id}-{i}" for i in range(5)],
-                vectors = _embeddings(5, cluster_id, unit=True)
+        centroids = centroids,
+        graph     = pathway_graph,
+        model     = mock,
+        profiles  = profiles,
+        soc_tasks = {
+            cid: ClusterTasks(
+                labels  = [f"Task {cid}-{i}" for i in range(5)],
+                vectors = _embeddings(5, cid, unit=True)
             )
-            for cluster_id in cluster_ids
+            for cid in cluster_ids
         },
-        svd         = svd
+        svd       = svd
     )
 
 
@@ -387,36 +361,3 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     L2-normalized posting embeddings.
     """
     return normalize(raw_vectors)
-
-
-# ── Trade fixtures ───────────────────────────────────────────────────
-
-
-@fixture
-def apprenticeships() -> list[ApprenticeshipContext]:
-    """
-    Synthetic apprenticeship reference data for matching tests.
-    """
-    return _load(list[ApprenticeshipContext], "matching/apprenticeships.json")
-
-
-@fixture
-def programs() -> list[ProgramRecommendation]:
-    """
-    Load synthetic educational program fixtures.
-    """
-    return _load(list[ProgramRecommendation], "matching/programs.json")
-
-
-@fixture
-def trades(
-    apprenticeships : list[ApprenticeshipContext],
-    programs        : list[ProgramRecommendation]
-) -> TradeIndex:
-    """
-    Shared trade index with prefix lookups for matching.
-    """
-    return TradeIndex(
-        apprenticeships = apprenticeships,
-        programs        = programs
-    )

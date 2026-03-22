@@ -12,8 +12,7 @@ import numpy    as np
 import plotly.figure_factory as ff
 import plotly.graph_objects  as go
 
-from chalkline.matching.schemas import Neighborhood
-from chalkline.pipeline.graph   import CareerPathwayGraph
+from chalkline.pipeline.graph import CareerPathwayGraph
 
 
 def dendrogram_figure(
@@ -205,10 +204,11 @@ def pathways_figure(
         edge_y.extend([y0, y1, None])
 
         if hours_parts := [
-            f"{a.title}: {a.min_hours:,}h"
+            f"{c.label}: {c.metadata['min_hours']:,}h"
             for e in neighborhood.all_edges
             if e.profile.cluster_id in (u, v)
-            for a in e.apprenticeships
+            for c in e.credentials
+            if c.kind == "apprenticeship"
         ]:
             edge_annotations.append(dict(
                 font      = dict(color="gray", size=9),

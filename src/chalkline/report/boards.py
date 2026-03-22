@@ -68,12 +68,10 @@ def filter_boards(
     keywords = _sector_keywords(profiles, sector)
 
     def is_relevant(board: dict) -> bool:
-        text = (
-            f"{board.get('focus', '')} {board.get('best_for', '')}"
-        ).lower()
+        text = f"{board.get('focus', '')} {board.get('best_for', '')}".lower()
         return any(kw in text for kw in keywords)
 
-    return (
-        [b for b in boards.get("maine", []) if is_relevant(b)],
-        [b for b in boards.get("national", []) if is_relevant(b)]
+    return tuple(
+        [b for b in boards.get(region, []) if is_relevant(b)]
+        for region in ("maine", "national")
     )
