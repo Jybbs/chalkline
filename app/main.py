@@ -90,7 +90,7 @@ def _(Path, mo, pipeline, upload):
         )
     )
 
-    from chalkline.extraction.reader import clean_text, extract_pdf
+    from chalkline.matching.reader import clean_text, extract_pdf
     from tempfile                    import NamedTemporaryFile
 
     with mo.status.spinner("Matching resume to career landscape..."):
@@ -147,7 +147,7 @@ def _(matched_profile, mo, pipeline, result):
         value      = matched_profile.display_label
     )
 
-    from chalkline.report.text import build_report_text
+    from chalkline.display.tables import build_report_text
 
     mo.sidebar(
         [
@@ -191,7 +191,7 @@ def _(pipeline, result, target_dropdown):
 @app.cell
 def _(mo, pipeline, plotly_theme, result):
     def landscape_panel():
-        from chalkline.report.figures import landscape_figure
+        from chalkline.display.figures import landscape_figure
 
         return mo.ui.plotly(landscape_figure(
             coordinates = result.coordinates,
@@ -252,8 +252,8 @@ def _(matched_profile, mo, result):
 @app.cell
 def _(mo, pipeline, plotly_theme, result, target_id, target_neighborhood):
     def career_pathways_panel():
-        from chalkline.report.credentials import credential_rows
-        from chalkline.report.figures     import pathways_figure
+        from chalkline.display.figures import pathways_figure
+        from chalkline.display.tables  import credential_rows
 
         fig = pathways_figure(
             matched_id   = result.cluster_id,
@@ -284,7 +284,7 @@ def _(mo, pipeline, plotly_theme, result, target_id, target_neighborhood):
 @app.cell
 def _(mo, pipeline, plotly_theme, result):
     def dendrogram_panel():
-        from chalkline.report.figures import dendrogram_figure
+        from chalkline.display.figures import dendrogram_figure
 
         return mo.ui.plotly(dendrogram_figure(
             matched_id = result.cluster_id,
@@ -299,7 +299,7 @@ def _(mo, pipeline, plotly_theme, result):
 @app.cell
 def _(mo, target_neighborhood, target_profile):
     def education_panel():
-        from chalkline.report.credentials import apprenticeship_rows, program_rows
+        from chalkline.display.tables import apprenticeship_rows, program_rows
 
         sections = {
             f"{label} ({len(rows)})": mo.ui.table(rows)
@@ -324,7 +324,7 @@ def _(mo, target_neighborhood, target_profile):
 @app.cell
 def _(mo, pipeline, reference, target_id, target_profile):
     def employer_panel():
-        from chalkline.report.employers import match_cluster_employers
+        from chalkline.display.tables import match_cluster_employers
 
         rows = match_cluster_employers(
             assignments = pipeline.assignments,
@@ -353,7 +353,7 @@ def _(mo, pipeline, reference, target_id, target_profile):
 @app.cell
 def _(matched_profile, mo, pipeline, reference):
     def job_board_panel():
-        from chalkline.report.boards import filter_boards
+        from chalkline.display.tables import filter_boards
 
         maine_boards, national_boards = filter_boards(
             boards   = reference["job_boards"],
@@ -395,7 +395,7 @@ def _(matched_profile, mo, pipeline, reference):
 @app.cell
 def _(mo, pipeline):
     def pipeline_details_panel():
-        from chalkline.report.dag import to_mermaid
+        from chalkline.display.tables import to_mermaid
 
         return mo.vstack([
             mo.hstack([

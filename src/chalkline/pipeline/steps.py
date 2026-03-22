@@ -20,12 +20,14 @@ from sklearn.decomposition       import TruncatedSVD
 from sklearn.metrics.pairwise    import cosine_similarity
 from sklearn.preprocessing       import normalize
 
+from chalkline.collection.schemas import Corpus
 from chalkline.collection.storage import CorpusStorage
-from chalkline.extraction.loaders import LexiconLoader
 from chalkline.matching.matcher   import ResumeMatcher
-from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile, ClusterTasks
-from chalkline.pipeline.schemas   import Corpus, Credential, Encoder, PipelineConfig
+from chalkline.pathways.graph     import CareerPathwayGraph
+from chalkline.pathways.loaders   import LexiconLoader
+from chalkline.pathways.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pathways.schemas   import ClusterTasks, Credential
+from chalkline.pipeline.schemas   import Encoder, PipelineConfig
 
 
 def assignments(config: PipelineConfig, coordinates: np.ndarray) -> ClusterAssignments:
@@ -78,7 +80,7 @@ def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
 
     logger.info(f"Encoding {len(records)} credentials...")
     for credential, vector in zip(
-        records, 
+        records,
         model.encode([r.embedding_text for r in records])
     ):
         credential.vector = vector.tolist()
@@ -99,12 +101,15 @@ def graph(
     credential enrichment.
     """
     result = CareerPathwayGraph(
-        centroids       = centroids,
-        cluster_vectors = cluster_vectors,
-        config          = config,
-        credentials     = credentials,
-        job_zone_map    = job_zone_map,
-        profiles        = profiles
+        centroids              = centroids,
+        cluster_vectors        = cluster_vectors,
+        credentials            = credentials,
+        destination_percentile = config.destination_percentile,
+        job_zone_map           = job_zone_map,
+        lateral_neighbors      = config.lateral_neighbors,
+        profiles               = profiles,
+        source_percentile      = config.source_percentile,
+        upward_neighbors       = config.upward_neighbors
     )
     logger.info(
         f"Career graph: {result.graph.number_of_nodes()} nodes, "
@@ -210,7 +215,7 @@ def reduction(config: PipelineConfig, raw_vectors: np.ndarray) -> dict:
 
 
 def soc_similarity(
-    cluster_vectors : np.ndarray, 
+    cluster_vectors : np.ndarray,
     soc_vectors     : np.ndarray
 ) -> np.ndarray:
     """

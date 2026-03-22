@@ -1,29 +1,14 @@
 """
 Data models for resume matching results.
 
-Captures cluster assignments, neighborhood exploration with per-edge
-credential metadata, and per-task cosine gap analysis against O*NET Task+DWA
-embeddings.
+Captures cluster distance rankings, per-task cosine gap analysis against
+O*NET Task+DWA embeddings, and the full match result with neighborhood
+exploration.
 """
 
 from pydantic import BaseModel, Field
 
-from chalkline.pipeline.schemas import ClusterProfile, Credential
-
-
-class CareerEdge(BaseModel, extra="forbid"):
-    """
-    A single edge in the neighborhood view with credential metadata.
-
-    Each edge connects the matched cluster to a neighboring cluster,
-    carrying the target cluster's profile, the cosine similarity weight,
-    and the credentials that bridge the specific transition, filtered by
-    the destination_percentile and source_percentile dual-threshold rule.
-    """
-
-    credentials : list[Credential]    = Field(default_factory=list)
-    profile     : ClusterProfile
-    weight      : float
+from chalkline.pathways.schemas import Neighborhood
 
 
 class ClusterDistance(BaseModel, extra="forbid"):
@@ -64,26 +49,6 @@ class MatchResult(BaseModel, extra="forbid"):
         Euclidean distance to the nearest cluster centroid.
         """
         return self.cluster_distances[0].distance
-
-
-class Neighborhood(BaseModel, extra="forbid"):
-    """
-    Local neighborhood exploration view from the matched cluster.
-
-    Shows advancement paths (edges to higher Job Zone clusters) and lateral
-    pivots (edges to same Job Zone clusters), each with per-edge credential
-    metadata identifying the training that bridges each specific transition.
-    """
-
-    advancement : list[CareerEdge] = Field(default_factory=list)
-    lateral     : list[CareerEdge] = Field(default_factory=list)
-
-    @property
-    def all_edges(self) -> list[CareerEdge]:
-        """
-        Combined advancement and lateral edges.
-        """
-        return self.advancement + self.lateral
 
 
 class TaskGap(BaseModel, extra="forbid"):

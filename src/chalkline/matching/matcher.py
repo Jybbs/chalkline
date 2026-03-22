@@ -15,8 +15,9 @@ from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
-from chalkline.pipeline.graph   import CareerPathwayGraph
-from chalkline.pipeline.schemas import ClusterProfile, ClusterTasks, Encoder
+from chalkline.pathways.graph   import CareerPathwayGraph
+from chalkline.pathways.schemas import ClusterProfile, ClusterTasks
+from chalkline.pipeline.schemas import Encoder
 
 
 @dataclass(kw_only=True)

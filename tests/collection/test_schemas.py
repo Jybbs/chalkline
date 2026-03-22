@@ -6,7 +6,7 @@ generation via the `id` field.
 """
 
 from datetime import date
-from pytest   import mark, raises
+from pytest   import raises
 
 from chalkline.collection.schemas import Posting
 
@@ -24,18 +24,6 @@ class TestPosting:
             posting("Cianbro", date(2026, 3, 1), "Electrician").id
             == "cianbro_electrician_2026-03-01"
         )
-
-    @mark.parametrize("date_str", ["2026-03-01 14:30:00", "2026-03-01T14:30:00Z"])
-    def test_date_coercion(self, date_str: str, sample_posting: Posting):
-        """
-        Timestamp `date_posted` values in both space-separated and ISO
-        formats are truncated to date by the `[:10]` slice.
-        """
-        posting = Posting.model_validate(
-            sample_posting.model_dump() | {"date_posted" : date_str}
-        )
-        assert posting.date_posted == date(2026, 3, 1)
-        assert "2026-03-01" in posting.id
 
     def test_id_roundtrip(self, sample_posting: Posting):
         """

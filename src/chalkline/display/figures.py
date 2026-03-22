@@ -12,7 +12,8 @@ import numpy    as np
 import plotly.figure_factory as ff
 import plotly.graph_objects  as go
 
-from chalkline.pipeline.graph import CareerPathwayGraph
+from chalkline.pathways.graph   import CareerPathwayGraph
+from chalkline.pathways.schemas import Neighborhood
 
 
 def dendrogram_figure(
@@ -118,21 +119,21 @@ def landscape_figure(
             f"{profiles[cid].size} postings"
             for cid in cluster_ids
         ],
-        marker = dict(
+        marker    = dict(
             color = [
                 "crimson" if cid == matched_id else "steelblue"
                 for cid in cluster_ids
             ],
-            line = dict(color="white", width=1),
-            size = [
+            line  = dict(color="white", width=1),
+            size  = [
                 10 + betweenness.get(cid, 0) * 80
                 for cid in cluster_ids
             ]
         ),
-        mode = "markers",
-        name = "Career Families",
-        x    = x.tolist(),
-        y    = y.tolist()
+        mode      = "markers",
+        name      = "Career Families",
+        x         = x.tolist(),
+        y         = y.tolist()
     ))
 
     if coordinates:
@@ -144,10 +145,10 @@ def landscape_figure(
                 size   = 14,
                 symbol = "star"
             ),
-            mode = "markers",
-            name = "Your Resume",
-            x    = [coordinates[0]],
-            y    = [coordinates[1]] if len(coordinates) > 1 else [0]
+            mode      = "markers",
+            name      = "Your Resume",
+            x         = [coordinates[0]],
+            y         = [coordinates[1]] if len(coordinates) > 1 else [0]
         ))
 
     fig.update_layout(
@@ -228,19 +229,19 @@ def pathways_figure(
         y         = edge_y
     ))
     fig.add_trace(go.Scatter(
-        hovertext = [
+        hovertext    = [
             f"Cluster {n}<br>{profiles[n].soc_title}<br>"
             f"JZ {profiles[n].job_zone}"
             for n in sub.nodes()
         ],
-        marker = dict(
+        marker       = dict(
             color = [
                 "crimson" if n == matched_id
                 else ("gold" if n == target_id else "steelblue")
                 for n in sub.nodes()
             ],
-            line = dict(color="white", width=1),
-            size = [
+            line  = dict(color="white", width=1),
+            size  = [
                 15 + betweenness.get(n, 0) * 60
                 for n in sub.nodes()
             ]

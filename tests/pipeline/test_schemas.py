@@ -11,8 +11,8 @@ import numpy as np
 from pathlib import Path
 from pytest  import mark
 
-from chalkline.collection.schemas import Posting
-from chalkline.pipeline.schemas   import Corpus, PipelineConfig
+from chalkline.collection.schemas import Corpus, Posting
+from chalkline.pipeline.schemas   import PipelineConfig
 
 
 class TestClusterAssignments:

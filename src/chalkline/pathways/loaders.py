@@ -13,7 +13,7 @@ from pathlib  import Path
 from pydantic import TypeAdapter
 from slugify  import slugify
 
-from chalkline.extraction.schemas import OnetOccupation
+from chalkline.pathways.schemas import OnetOccupation
 
 
 class LexiconLoader:

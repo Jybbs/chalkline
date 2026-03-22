@@ -7,7 +7,7 @@ O*NET lexicon data.
 
 from pathlib import Path
 
-from chalkline.extraction.loaders import LexiconLoader
+from chalkline.pathways.loaders import LexiconLoader
 
 
 class TestLexiconLoader:

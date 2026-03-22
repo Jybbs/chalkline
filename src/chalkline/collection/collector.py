@@ -62,7 +62,7 @@ class Collector:
         Returns:
             A validated `Posting`, or `None` if the row is invalid.
         """
-        clean = lambda v: None if v is None or v != v else v
+        clean = lambda v: None if pd.isna(v) else v
 
         try:
             return Posting(
@@ -102,7 +102,7 @@ class Collector:
             except Exception as error:
                 logger.error(f"{term!r}: {error}")
 
-        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        return pd.concat(frames, ignore_index=True)
 
     def run(self):
         """

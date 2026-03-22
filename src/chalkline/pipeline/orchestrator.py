@@ -13,14 +13,15 @@ from dataclasses  import dataclass, fields
 from hamilton     import driver
 from transformers import MPNetModel
 
-from chalkline.extraction.loaders import LexiconLoader
+from chalkline.collection.schemas import Corpus
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
+from chalkline.pathways.graph     import CareerPathwayGraph
+from chalkline.pathways.loaders   import LexiconLoader
+from chalkline.pathways.schemas   import ClusterAssignments, ClusterProfile
 from chalkline.pipeline           import steps
-from chalkline.pipeline.graph     import CareerPathwayGraph
 from chalkline.pipeline.progress  import PipelineProgress
-from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile
-from chalkline.pipeline.schemas   import Corpus, Encoder, PipelineConfig
+from chalkline.pipeline.schemas   import Encoder, PipelineConfig
 
 
 @dataclass(kw_only=True)

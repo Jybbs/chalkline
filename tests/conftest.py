@@ -23,19 +23,19 @@ from sklearn.preprocessing import normalize
 from typing                import Any, Callable
 
 from chalkline.collection.schemas import Posting
-from chalkline.extraction.loaders import LexiconLoader
-from chalkline.extraction.schemas import OnetOccupation
 from chalkline.matching.matcher   import ResumeMatcher
-from chalkline.pipeline.graph     import CareerPathwayGraph
-from chalkline.pipeline.schemas   import ClusterAssignments, ClusterProfile
-from chalkline.pipeline.schemas   import ClusterTasks, Credential, PipelineConfig
+from chalkline.pathways.graph     import CareerPathwayGraph
+from chalkline.pathways.loaders   import LexiconLoader
+from chalkline.pathways.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pathways.schemas   import ClusterTasks, Credential, OnetOccupation
+from chalkline.pipeline.schemas   import PipelineConfig
 
 
-FIXTURES        = Path(__file__).resolve().parent / "fixtures"
 CLUSTER_COUNT   = 4
 COMPONENT_COUNT = 4
 CORPUS_SIZE     = 20
 EMBEDDING_DIM   = 16
+FIXTURES        = Path(__file__).resolve().parent / "fixtures"
 
 
 class MockEncoder:
@@ -226,8 +226,11 @@ def credentials() -> list[Credential]:
             metadata       = (
                 {"min_hours": 8000, "rapids_code": f"0{i}"}
                 if i < 4
-                else {"credential": "AAS", "institution": "SMCC",
-                      "url": "https://example.com"}
+                else {
+                    "credential"  : "AAS",
+                    "institution" : "SMCC",
+                    "url"         : "https://example.com"
+                }
             ),
             vector         = vectors[i].tolist()
         )
@@ -264,7 +267,6 @@ def mock_encoder() -> MockEncoder:
 def pathway_graph(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
-    config          : PipelineConfig,
     credentials     : list[Credential],
     job_zone_map    : dict[int, int],
     profiles        : dict[int, ClusterProfile]
@@ -273,12 +275,15 @@ def pathway_graph(
     Career pathway graph built from synthetic embeddings.
     """
     return CareerPathwayGraph(
-        centroids       = centroids,
-        cluster_vectors = cluster_vectors,
-        config          = config,
-        credentials     = credentials,
-        job_zone_map    = job_zone_map,
-        profiles        = profiles
+        centroids              = centroids,
+        cluster_vectors        = cluster_vectors,
+        credentials            = credentials,
+        destination_percentile = 5,
+        job_zone_map           = job_zone_map,
+        lateral_neighbors      = 2,
+        profiles               = profiles,
+        source_percentile      = 75,
+        upward_neighbors       = 2
     )
 
 

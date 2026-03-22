@@ -15,8 +15,8 @@ from dataclasses              import dataclass, field
 from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.matching.schemas import CareerEdge, Neighborhood
-from chalkline.pipeline.schemas import ClusterProfile, Credential, PipelineConfig
+from chalkline.pathways.schemas import CareerEdge, ClusterProfile
+from chalkline.pathways.schemas import Credential, Neighborhood
 
 
 @dataclass(kw_only=True)
@@ -31,20 +31,26 @@ class CareerPathwayGraph:
     selectivity and source relevance thresholds.
 
     Args:
-        centroids       : (n_clusters, n_components) in SVD-reduced space.
-        cluster_vectors : (n_clusters, embedding_dim) L2-normalized.
-        config          : Pipeline hyperparameters for graph construction.
-        credentials     : Typed records with aligned embedding vectors.
-        job_zone_map    : Cluster ID → Job Zone.
-        profiles        : For node construction and neighborhood display.
+        centroids              : (n_clusters, n_components) in SVD-reduced space.
+        cluster_vectors        : (n_clusters, embedding_dim) L2-normalized.
+        credentials            : Typed records with aligned embedding vectors.
+        destination_percentile : Top-p threshold for destination affinity.
+        job_zone_map           : Cluster ID → Job Zone.
+        lateral_neighbors      : k for same-JZ bidirectional edges.
+        profiles               : For node construction and neighborhood display.
+        source_percentile      : Floor percentile for source relevance.
+        upward_neighbors       : k for next-JZ unidirectional edges.
     """
 
-    centroids       : np.ndarray
-    cluster_vectors : np.ndarray
-    config          : PipelineConfig
-    credentials     : list[Credential]
-    job_zone_map    : dict[int, int]
-    profiles        : dict[int, ClusterProfile]
+    centroids              : np.ndarray
+    cluster_vectors        : np.ndarray
+    credentials            : list[Credential]
+    destination_percentile : int
+    job_zone_map           : dict[int, int]
+    lateral_neighbors      : int
+    profiles               : dict[int, ClusterProfile]
+    source_percentile      : int
+    upward_neighbors       : int
 
     graph    : nx.DiGraph = field(init=False)
     node_ids : np.ndarray = field(init=False)
@@ -64,7 +70,7 @@ class CareerPathwayGraph:
 
         self._add_edges(cosine_similarity(self.centroids))
         self._enrich_edges(cosine_similarity(
-            [c.vector for c in self.credentials if c.vector],
+            np.array([c.vector for c in self.credentials if c.vector]),
             self.cluster_vectors
         ))
 
@@ -94,7 +100,7 @@ class CareerPathwayGraph:
             lateral     = self.node_ids[(zones == source_zone) & (self.node_ids > source)]
             proximity   = similarity[source, lateral]
 
-            for i in np.argsort(-proximity)[:self.config.lateral_neighbors]:
+            for i in np.argsort(-proximity)[:self.lateral_neighbors]:
                 self.graph.add_edge(source, lateral[i], weight=proximity[i])
                 self.graph.add_edge(lateral[i], source, weight=proximity[i])
 
@@ -102,7 +108,7 @@ class CareerPathwayGraph:
                 upward    = self.node_ids[zones == next_zone[source_zone]]
                 proximity = similarity[source, upward]
 
-                for i in np.argsort(-proximity)[:self.config.upward_neighbors]:
+                for i in np.argsort(-proximity)[:self.upward_neighbors]:
                     self.graph.add_edge(source, upward[i], weight=proximity[i])
 
     def _enrich_edges(self, credential_similarity: np.ndarray):
@@ -121,11 +127,11 @@ class CareerPathwayGraph:
         """
         mask = credential_similarity >= np.percentile(
             a = credential_similarity,
-            q = self.config.source_percentile
+            q = self.source_percentile
         )
         affinity_floors = np.percentile(
             a    = credential_similarity,
-            q    = 100 - self.config.destination_percentile,
+            q    = 100 - self.destination_percentile,
             axis = 0
         )
 

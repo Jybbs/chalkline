@@ -9,7 +9,7 @@ ordering, backbone connectivity, and credential metadata attachment.
 
 from networkx import number_weakly_connected_components
 
-from chalkline.pipeline.graph import CareerPathwayGraph
+from chalkline.pathways.graph import CareerPathwayGraph
 
 
 class TestCareerPathwayGraph:
