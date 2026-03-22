@@ -25,7 +25,7 @@ from chalkline.collection.storage import CorpusStorage
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import ClusterAssignments, ClusterProfile
+from chalkline.pathways.schemas   import Cluster, ClusterAssignments
 from chalkline.pathways.schemas   import ClusterTasks, Credential
 from chalkline.pipeline.schemas   import Encoder, PipelineConfig
 
@@ -53,6 +53,39 @@ def cluster_vectors(assignments: ClusterAssignments, raw_vectors: np.ndarray) ->
     L2-normalized for cosine similarity against occupations and credentials.
     """
     return assignments.cluster_vectors(raw_vectors)
+
+
+def clusters(
+    assignments    : ClusterAssignments,
+    corpus         : Corpus,
+    job_zone_map   : dict[int, int],
+    lexicons       : LexiconLoader,
+    soc_similarity : np.ndarray,
+    soc_tasks      : dict[int, ClusterTasks]
+) -> dict[int, Cluster]:
+    """
+    Build unified cluster objects from assignments, corpus, and
+    O*NET SOC matching. Each cluster bundles profile metadata,
+    membership indices, resolved postings, and task embeddings.
+    """
+    return {
+        cid: Cluster(
+            cluster_id  = cid,
+            job_zone    = job_zone_map[cid],
+            members     = assignments.members[cid],
+            modal_title = Counter(
+                corpus.postings[corpus.posting_ids[i]].title
+                for i in assignments.members[cid]
+            ).most_common(1)[0][0],
+            postings    = corpus.at(assignments.members[cid]),
+            sector      = nearest.sector,
+            size        = len(assignments.members[cid]),
+            soc_title   = nearest.title,
+            tasks       = soc_tasks.get(cid)
+        )
+        for cid     in assignments.cluster_ids
+        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
+    }
 
 
 def corpus(config: PipelineConfig) -> Corpus:
@@ -91,10 +124,9 @@ def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
 def graph(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
+    clusters        : dict[int, Cluster],
     config          : PipelineConfig,
-    credentials     : list[Credential],
-    job_zone_map    : dict[int, int],
-    profiles        : dict[int, ClusterProfile]
+    credentials     : list[Credential]
 ) -> CareerPathwayGraph:
     """
     Build the career pathway graph with stepwise k-NN backbone and per-edge
@@ -103,11 +135,10 @@ def graph(
     result = CareerPathwayGraph(
         centroids              = centroids,
         cluster_vectors        = cluster_vectors,
+        clusters               = clusters,
         credentials            = credentials,
         destination_percentile = config.destination_percentile,
-        job_zone_map           = job_zone_map,
         lateral_neighbors      = config.lateral_neighbors,
-        profiles               = profiles,
         source_percentile      = config.source_percentile,
         upward_neighbors       = config.upward_neighbors
     )
@@ -139,10 +170,9 @@ def job_zone_map(
 
 def matcher(
     centroids : np.ndarray,
+    clusters  : dict[int, Cluster],
     graph     : CareerPathwayGraph,
     model     : Encoder,
-    profiles  : dict[int, ClusterProfile],
-    soc_tasks : dict[int, ClusterTasks],
     svd       : TruncatedSVD
 ) -> ResumeMatcher:
     """
@@ -151,40 +181,11 @@ def matcher(
     """
     return ResumeMatcher(
         centroids = centroids,
+        clusters  = clusters,
         graph     = graph,
         model     = model,
-        profiles  = profiles,
-        soc_tasks = soc_tasks,
         svd       = svd
     )
-
-
-def profiles(
-    assignments    : ClusterAssignments,
-    corpus         : Corpus,
-    job_zone_map   : dict[int, int],
-    lexicons       : LexiconLoader,
-    soc_similarity : np.ndarray
-) -> dict[int, ClusterProfile]:
-    """
-    Build cluster profiles with Job Zone, sector, occupation title, and
-    modal posting title for each cluster.
-    """
-    return {
-        cid: ClusterProfile(
-            cluster_id  = cid,
-            job_zone    = job_zone_map[cid],
-            modal_title = Counter(
-                corpus.postings[corpus.posting_ids[i]].title
-                for i in assignments.members[cid]
-            ).most_common(1)[0][0],
-            sector      = nearest.sector,
-            size        = len(assignments.members[cid]),
-            soc_title   = nearest.title
-        )
-        for cid     in assignments.cluster_ids
-        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
-    }
 
 
 def raw_vectors(corpus: Corpus, model: Encoder) -> np.ndarray:

@@ -40,7 +40,7 @@ class FigureBuilder:
             pathway    : Fitted career pathway graph.
             theme      : Callable returning a Plotly template name.
         """
-        self.cluster_ids = sorted(pathway.profiles)
+        self.cluster_ids = sorted(pathway.clusters)
         self.matched_id  = matched_id
         self.pathway     = pathway
         self.theme       = theme
@@ -74,9 +74,9 @@ class FigureBuilder:
             HTML-formatted hover strings.
         """
         return [
-            f"Cluster {cid}<br>{self.pathway.profiles[cid].soc_title}<br>"
-            f"JZ {self.pathway.profiles[cid].job_zone} · "
-            f"{self.pathway.profiles[cid].size} postings"
+            f"Cluster {cid}<br>{self.pathway.clusters[cid].soc_title}<br>"
+            f"JZ {self.pathway.clusters[cid].job_zone} · "
+            f"{self.pathway.clusters[cid].size} postings"
             for cid in node_ids
         ]
 
@@ -216,12 +216,12 @@ class FigureBuilder:
         """
         sub = self.pathway.graph.subgraph(
             {target_id} |
-            {e.profile.cluster_id for e in neighborhood.all_edges}
+            {e.cluster_id for e in neighborhood.all_edges}
         )
         pos = nx.spring_layout(sub, seed=42, weight="weight")
 
         apprenticeships = {
-            e.profile.cluster_id: [
+            e.cluster_id: [
                 f"{c.label}: {c.metadata['min_hours']:,}h"
                 for c in e.credentials if c.kind == "apprenticeship"
             ]

@@ -69,7 +69,7 @@ def _(mo, pipeline):
         ),
         mo.hstack([
             mo.stat(label="Postings",        value=f"{pipeline.corpus_size:,}"),
-            mo.stat(label="Career Families", value=str(len(pipeline.profiles))),
+            mo.stat(label="Career Families", value=str(len(pipeline.clusters))),
             mo.stat(label="Sectors",         value=str(pipeline.sector_count)),
             mo.stat(label="Pathway Edges",   value=str(pipeline.graph.edge_count))
         ], gap=1, wrap=True),
@@ -99,7 +99,7 @@ def _(Path, mo, pipeline, upload):
             tmp.flush()
             result = pipeline.match(clean_text(extract_pdf(Path(tmp.name))))
 
-    matched_profile = pipeline.profiles[result.cluster_id]
+    matched_profile = pipeline.clusters[result.cluster_id]
     return matched_profile, result
 
 
@@ -155,7 +155,7 @@ def _(matched_profile, mo, pipeline, tables):
         label      = "Target cluster",
         options    = {
             p.display_label: cid
-            for cid, p in sorted(pipeline.profiles.items())
+            for cid, p in sorted(pipeline.clusters.items())
         },
         searchable = True,
         value      = matched_profile.display_label
@@ -194,7 +194,7 @@ def _(matched_profile, mo, pipeline, tables):
 def _(pipeline, result, target_dropdown):
     target_id = v if (v := target_dropdown.value) is not None else result.cluster_id
     target_neighborhood = pipeline.graph.neighborhood(target_id)
-    target_profile      = pipeline.profiles[target_id]
+    target_profile      = pipeline.clusters[target_id]
     return target_id, target_neighborhood, target_profile
 
 
@@ -377,7 +377,7 @@ def _(mo, pipeline):
             mo.hstack([
                 mo.stat(label="Corpus Size",     value=f"{pipeline.corpus_size:,}"),
                 mo.stat(label="Embedding Model", value=pipeline.config.embedding_model),
-                mo.stat(label="Clusters",        value=str(len(pipeline.profiles))),
+                mo.stat(label="Clusters",        value=str(len(pipeline.clusters))),
                 mo.stat(label="SVD Components",  value=str(pipeline.config.component_count))
             ], gap=1, wrap=True),
             mo.md("#### Pipeline DAG"),
@@ -390,7 +390,7 @@ def _(mo, pipeline):
                     "Size"        : p.size,
                     "Modal Title" : p.modal_title
                 }
-                for cid, p in sorted(pipeline.profiles.items())
+                for cid, p in sorted(pipeline.clusters.items())
             })
         ])
     return (pipeline_details_panel,)

@@ -15,7 +15,7 @@ from dataclasses              import dataclass, field
 from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.pathways.schemas import CareerEdge, ClusterProfile
+from chalkline.pathways.schemas import CareerEdge, Cluster
 from chalkline.pathways.schemas import Credential, Neighborhood
 
 
@@ -25,47 +25,54 @@ class CareerPathwayGraph:
     Directed weighted career graph with per-edge credential enrichment.
 
     Accepts cluster centroids in both reduced and full embedding spaces,
-    credential embeddings, and Job Zone assignments. Builds a stepwise k-NN
-    backbone with bidirectional lateral edges and unidirectional upward
-    edges, then enriches each edge with credentials filtered by destination
-    selectivity and source relevance thresholds.
+    credential embeddings, and unified cluster objects. Builds a stepwise
+    k-NN backbone with bidirectional lateral edges and unidirectional
+    upward edges, then enriches each edge with credentials filtered by
+    destination selectivity and source relevance thresholds.
 
     Args:
         centroids              : (n_clusters, n_components) in SVD-reduced space.
         cluster_vectors        : (n_clusters, embedding_dim) L2-normalized.
+        clusters               : Unified cluster objects keyed by cluster ID.
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
-        job_zone_map           : Cluster ID → Job Zone.
         lateral_neighbors      : k for same-JZ bidirectional edges.
-        profiles               : For node construction and neighborhood display.
         source_percentile      : Floor percentile for source relevance.
         upward_neighbors       : k for next-JZ unidirectional edges.
     """
 
     centroids              : np.ndarray
     cluster_vectors        : np.ndarray
+    clusters               : dict[int, Cluster]
     credentials            : list[Credential]
     destination_percentile : int
-    job_zone_map           : dict[int, int]
     lateral_neighbors      : int
-    profiles               : dict[int, ClusterProfile]
     source_percentile      : int
     upward_neighbors       : int
 
-    graph    : nx.DiGraph = field(init=False)
-    node_ids : np.ndarray = field(init=False)
+    graph        : nx.DiGraph      = field(init=False)
+    job_zone_map : dict[int, int]  = field(init=False)
+    node_ids     : np.ndarray      = field(init=False)
 
     def __post_init__(self):
         """
         Compute similarity matrices, build the stepwise backbone, and attach
         credential metadata to every edge.
         """
-        self.node_ids = np.array(sorted(self.profiles))
-        self.graph    = nx.DiGraph()
+        self.node_ids     = np.array(sorted(self.clusters))
+        self.job_zone_map = {cid: c.job_zone for cid, c in self.clusters.items()}
+        self.graph        = nx.DiGraph()
 
         self.graph.add_nodes_from(
-            (c, self.profiles[c].model_dump(mode="json"))
-            for c in self.node_ids
+            (cid, {
+                "cluster_id"  : c.cluster_id,
+                "job_zone"    : c.job_zone,
+                "modal_title" : c.modal_title,
+                "sector"      : c.sector,
+                "size"        : c.size,
+                "soc_title"   : c.soc_title
+            })
+            for cid, c in sorted(self.clusters.items())
         )
 
         self._add_edges(cosine_similarity(self.centroids))
@@ -158,7 +165,7 @@ class CareerPathwayGraph:
         """
         edges = [
             CareerEdge(
-                profile = self.profiles[target],
+                cluster_id = target,
                 **self.graph[cluster_id][target]
             )
             for target in self.graph.successors(cluster_id)
@@ -166,7 +173,7 @@ class CareerPathwayGraph:
 
         ranked = lambda compare: sorted(
             [e for e in edges if compare(
-                self.job_zone_map[e.profile.cluster_id],
+                self.job_zone_map[e.cluster_id],
                 self.job_zone_map[cluster_id]
             )],
             key     = lambda edge: edge.weight,

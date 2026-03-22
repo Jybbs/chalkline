@@ -44,19 +44,19 @@ class TestCareerPathwayGraph:
         Neighborhood advancement edges point to higher JZ clusters and
         lateral edges point to same JZ clusters.
         """
-        for cluster_id in pathway_graph.profiles:
+        for cluster_id in pathway_graph.clusters:
             neighborhood = pathway_graph.neighborhood(cluster_id)
             source_zone  = pathway_graph.job_zone_map[cluster_id]
             for edge in neighborhood.advancement:
-                assert pathway_graph.job_zone_map[edge.profile.cluster_id] > source_zone
+                assert pathway_graph.job_zone_map[edge.cluster_id] > source_zone
             for edge in neighborhood.lateral:
-                assert pathway_graph.job_zone_map[edge.profile.cluster_id] == source_zone
+                assert pathway_graph.job_zone_map[edge.cluster_id] == source_zone
 
     def test_node_count(self, pathway_graph: CareerPathwayGraph):
         """
         One graph node per cluster profile.
         """
-        assert pathway_graph.graph.number_of_nodes() == len(pathway_graph.profiles)
+        assert pathway_graph.graph.number_of_nodes() == len(pathway_graph.clusters)
 
     def test_upward_stepwise(self, pathway_graph: CareerPathwayGraph):
         """

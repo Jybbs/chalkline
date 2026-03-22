@@ -1,9 +1,10 @@
 """
 Schemas for the career pathway domain.
 
-Defines O*NET occupation and credential reference models, Ward-linkage HAC
-cluster structures, and the career graph edge and neighborhood models that
-together describe the fitted career landscape.
+Defines O*NET occupation and credential reference models, Ward-linkage
+HAC cluster structures, the unified `Cluster` dataclass, and the career
+graph edge and neighborhood models that together describe the fitted
+career landscape.
 """
 
 import numpy as np
@@ -14,20 +15,55 @@ from pydantic              import BaseModel, Field
 from sklearn.preprocessing import normalize
 from typing                import NamedTuple
 
+from chalkline.collection.schemas import Posting
+
 
 class CareerEdge(BaseModel, extra="forbid"):
     """
     A single edge in the neighborhood view with credential metadata.
 
     Each edge connects the matched cluster to a neighboring cluster,
-    carrying the target cluster's profile, the cosine similarity weight,
-    and the credentials that bridge the specific transition, filtered by
-    the destination_percentile and source_percentile dual-threshold rule.
+    carrying the target cluster ID, the cosine similarity weight,
+    and the credentials that bridge the specific transition, filtered
+    by the destination_percentile and source_percentile
+    dual-threshold rule.
     """
 
+    cluster_id  : int              = Field(ge=0)
     credentials : list[Credential] = Field(default_factory=list)
-    profile     : ClusterProfile
     weight      : float
+
+
+@dataclass
+class Cluster:
+    """
+    Unified per-cluster representation combining profile metadata,
+    membership indices, resolved postings, and O*NET task embeddings.
+
+    Constructed after profiling is complete, bundling data that was
+    previously spread across parallel dicts keyed by cluster ID.
+    """
+
+    cluster_id  : int
+    job_zone    : int
+    members     : np.ndarray
+    modal_title : str
+    postings    : list[Posting]
+    sector      : str
+    size        : int
+    soc_title   : str
+
+    tasks : ClusterTasks | None = None
+
+    @property
+    def display_label(self) -> str:
+        """
+        Human-readable cluster identifier for dropdown labels.
+        """
+        return (
+            f"Cluster {self.cluster_id}: {self.soc_title} "
+            f"(JZ {self.job_zone})"
+        )
 
 
 @dataclass
@@ -78,34 +114,6 @@ class ClusterAssignments:
             raw_vectors[self.members[cid]].mean(axis=0)
             for cid in self.cluster_ids
         ]))
-
-
-class ClusterProfile(BaseModel, extra="forbid"):
-    """
-    Domain characteristics of a single career cluster.
-
-    Aggregates the Job Zone, sector, posting count, and representative
-    titles for a cluster identified by Ward-linkage HAC on sentence
-    embeddings. Consumed by the pathway graph for node construction and by
-    the career display for cluster presentation.
-    """
-
-    cluster_id  : int = Field(ge=0)
-    job_zone    : int = Field(ge=1, le=5)
-    modal_title : str
-    sector      : str
-    size        : int = Field(ge=1)
-    soc_title   : str
-
-    @property
-    def display_label(self) -> str:
-        """
-        Human-readable cluster identifier for dropdown labels.
-        """
-        return (
-            f"Cluster {self.cluster_id}: {self.soc_title} "
-            f"(JZ {self.job_zone})"
-        )
 
 
 class ClusterTasks(NamedTuple):

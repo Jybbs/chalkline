@@ -32,7 +32,7 @@ class TableBuilder:
             result    : Match result from resume projection.
         """
         self.pipeline  = pipeline
-        self.profile   = pipeline.profiles[result.cluster_id]
+        self.profile   = pipeline.clusters[result.cluster_id]
         self.reference = reference
         self.result    = result
 
@@ -82,7 +82,7 @@ class TableBuilder:
         """
         text = " ".join(
             f"{p.soc_title} {p.modal_title}"
-            for p in self.pipeline.profiles.values()
+            for p in self.pipeline.clusters.values()
             if p.sector.lower() == sector.lower()
         )
         return {
@@ -167,7 +167,7 @@ class TableBuilder:
                 "Credential" : c.label,
                 "Direction"  : direction,
                 "Hours"      : f"{h:,}" if (h := c.metadata.get("min_hours")) else "",
-                "Target"     : e.profile.soc_title,
+                "Target"     : self.pipeline.clusters[e.cluster_id].soc_title,
                 "Type"       : c.metadata.get("credential", c.kind.title())
             }
             for direction, edges in [
@@ -215,7 +215,7 @@ class TableBuilder:
             e["company"].lower(): e["url"]
             for e in self.reference["career_urls"]
         }
-        postings = self.pipeline.corpus.at(self.pipeline.assignments.members[cluster_id])
+        postings     = self.pipeline.clusters[cluster_id].postings
         posting_urls = {p.company: p.source_url for p in reversed(postings)}
 
         matched = {}

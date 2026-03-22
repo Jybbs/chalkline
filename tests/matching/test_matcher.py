@@ -9,13 +9,13 @@ class TestResumeMatcher:
     neighborhood retrieval.
     """
 
-    def test_cluster_assigned(self, profiles, resume_matcher):
+    def test_cluster_assigned(self, clusters, resume_matcher):
         """
         Match result assigns a valid cluster ID from the profile set.
         """
         assert resume_matcher.match(
             "Electrician with welding experience"
-        ).cluster_id in profiles
+        ).cluster_id in clusters
 
     def test_cluster_distances(self, cluster_ids, resume_matcher):
         """
@@ -43,10 +43,10 @@ class TestResumeMatcher:
         result = resume_matcher.match("Structural steel welder")
         assert len(result.coordinates) == 4
 
-    def test_sector_assigned(self, profiles, resume_matcher):
+    def test_sector_assigned(self, clusters, resume_matcher):
         """
         Match result carries a sector string from the assigned cluster
         profile.
         """
         result = resume_matcher.match("Heavy equipment operator")
-        assert result.sector == profiles[result.cluster_id].sector
+        assert result.sector == clusters[result.cluster_id].sector

@@ -16,7 +16,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
 from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import ClusterProfile, ClusterTasks
+from chalkline.pathways.schemas import Cluster
 from chalkline.pipeline.schemas import Encoder
 
 
@@ -25,34 +25,31 @@ class ResumeMatcher:
     """
     Embedding-based resume matching with neighborhood exploration.
 
-    Holds the sentence transformer model, fitted SVD, cluster centroids, and
-    per-cluster O*NET task embeddings. The `match()` method encodes resume
+    Holds the sentence transformer model, fitted SVD, cluster centroids,
+    and unified cluster objects. The `match()` method encodes resume
     text, projects it into the reduced space, assigns it to the nearest
-    cluster, computes per-task gap analysis, and queries the career graph
-    for the local neighborhood view. Cluster IDs are derived from
-    `profiles` keys at construction.
+    cluster, computes per-task gap analysis, and queries the career
+    graph for the local neighborhood view.
 
     Args:
         centroids : (n_clusters, n_components) in SVD-reduced space,
-                    rows aligned with sorted profile keys.
+                    rows aligned with sorted cluster keys.
+        clusters  : Unified cluster objects keyed by cluster ID.
         graph     : For neighborhood queries post-match.
         model     : For encoding resume text into embedding space.
-        profiles  : For sector lookup and cluster ID derivation.
-        soc_tasks : Per-cluster Task+DWA names and embeddings.
         svd       : For projecting resume embeddings into reduced space.
     """
 
     centroids : np.ndarray
+    clusters  : dict[int, Cluster]
     graph     : CareerPathwayGraph
     model     : Encoder
-    profiles  : dict[int, ClusterProfile]
-    soc_tasks : dict[int, ClusterTasks]
     svd       : TruncatedSVD
 
     cluster_ids : list[int] = field(init=False)
 
     def __post_init__(self):
-        self.cluster_ids = sorted(self.profiles)
+        self.cluster_ids = sorted(self.clusters)
 
     def _gap_analysis(
         self,
@@ -76,16 +73,15 @@ class ResumeMatcher:
         Returns:
             Tuple of (demonstrated tasks, gap tasks).
         """
-        if cluster_id not in self.soc_tasks:
+        if (tasks := self.clusters[cluster_id].tasks) is None:
             return [], []
 
-        cluster_tasks = self.soc_tasks[cluster_id]
-        similarities  = cosine_similarity(resume_unit, cluster_tasks.vectors)[0]
-        threshold     = np.median(similarities)
+        similarities = cosine_similarity(resume_unit, tasks.vectors)[0]
+        threshold    = np.median(similarities)
 
         pairs = [
             (name, float(score))
-            for name, score in zip(cluster_tasks.labels, similarities)
+            for name, score in zip(tasks.labels, similarities)
         ]
         return (
             sorted(
@@ -141,5 +137,5 @@ class ResumeMatcher:
             demonstrated = demonstrated,
             gaps         = gaps,
             neighborhood = self.graph.neighborhood(cluster_id),
-            sector       = self.profiles[cluster_id].sector
+            sector       = self.clusters[cluster_id].sector
         )

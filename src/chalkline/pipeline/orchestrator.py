@@ -13,15 +13,14 @@ from dataclasses  import dataclass, fields
 from hamilton     import driver
 from transformers import MPNetModel
 
-from chalkline.collection.schemas import Corpus
-from chalkline.matching.matcher   import ResumeMatcher
-from chalkline.matching.schemas   import MatchResult
-from chalkline.pathways.graph     import CareerPathwayGraph
-from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import ClusterAssignments, ClusterProfile
-from chalkline.pipeline           import steps
-from chalkline.pipeline.progress  import PipelineProgress
-from chalkline.pipeline.schemas   import Encoder, PipelineConfig
+from chalkline.matching.matcher  import ResumeMatcher
+from chalkline.matching.schemas  import MatchResult
+from chalkline.pathways.graph    import CareerPathwayGraph
+from chalkline.pathways.loaders  import LexiconLoader
+from chalkline.pathways.schemas  import Cluster
+from chalkline.pipeline          import steps
+from chalkline.pipeline.progress import PipelineProgress
+from chalkline.pipeline.schemas  import Encoder, PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -30,19 +29,15 @@ class Chalkline:
     Fitted career mapping pipeline.
 
     Coordinates embedding, clustering, career graph construction, and
-    credential enrichment into a fitted landscape. Call `fit()` to compute
-    from scratch or restore from cache, then call `match()` for
-    single-resume inference with neighborhood exploration. Retains cluster
-    assignments and the posting corpus so the notebook can cross-reference
-    companies per cluster for the employer panel.
+    credential enrichment into a fitted landscape. Call `fit()` to
+    compute from scratch or restore from cache, then call `match()`
+    for single-resume inference with neighborhood exploration.
     """
 
-    assignments : ClusterAssignments
-    config      : PipelineConfig
-    corpus      : Corpus
-    graph       : CareerPathwayGraph
-    matcher     : ResumeMatcher
-    profiles    : dict[int, ClusterProfile]
+    clusters : dict[int, Cluster]
+    config   : PipelineConfig
+    graph    : CareerPathwayGraph
+    matcher  : ResumeMatcher
 
     def __repr__(self) -> str:
         """
@@ -50,7 +45,7 @@ class Chalkline:
         """
         return (
             f"Chalkline("
-            f"{len(self.profiles):,} clusters, "
+            f"{len(self.clusters):,} clusters, "
             f"{self.graph.edge_count} edges, "
             f"{self.corpus_size:,} postings)"
         )
@@ -58,16 +53,16 @@ class Chalkline:
     @property
     def corpus_size(self) -> int:
         """
-        Total postings in the fitted corpus.
+        Total postings across all clusters.
         """
-        return len(self.corpus.posting_ids)
+        return sum(c.size for c in self.clusters.values())
 
     @property
     def sector_count(self) -> int:
         """
-        Number of distinct sectors across cluster profiles.
+        Number of distinct sectors across clusters.
         """
-        return len({p.sector for p in self.profiles.values()})
+        return len({c.sector for c in self.clusters.values()})
 
     @staticmethod
     def fit(config: PipelineConfig, log_level: str = "INFO") -> Chalkline:
@@ -108,8 +103,8 @@ class Chalkline:
 
     def match(self, resume_text: str) -> MatchResult:
         """
-        Project a resume into the fitted career landscape and return a full
-        match result with gap analysis and neighborhood view.
+        Project a resume into the fitted career landscape and return a
+        full match result with gap analysis and neighborhood view.
 
         Args:
             resume_text: Raw resume text (post-PDF extraction).
