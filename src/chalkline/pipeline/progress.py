@@ -2,12 +2,9 @@
 Pipeline progress display for CLI and Marimo contexts.
 
 Provides a Hamilton lifecycle adapter that shows node-level progress during
-`Chalkline.fit()`. In CLI context, Rich renders a two-level display: a
-pipeline bar tracking nodes and a batch bar tracking sentence-transformer
-encoding batches. The batch bar intercepts tqdm calls from
-sentence-transformers via a monkey-patch on `tqdm.autonotebook.trange`,
-routing them through Rich's Group compositing so both bars render in a
-single Live display. In Marimo context, delegates to
+`Chalkline.fit()`. In CLI context, Rich renders a dynamic progress display
+where each executing node gets its own bar, plus transient batch bars for
+sentence-transformer encoding. In Marimo context, delegates to
 `mo.status.progress_bar`.
 """
 
@@ -36,45 +33,57 @@ class MarimoDisplay:
 
     def __init__(self, total: int):
         import marimo as mo
-        self.bar: Any = mo.status.progress_bar(total=total, title="Fitting pipeline")
+        self.bar: Any = mo.status.progress_bar(
+            total = total,
+            title = "Fitting pipeline"
+        )
 
-    def advance(self, description: str = ""):
+    def advance(self, node_name: str):
+        """
+        Increment the progress bar by one node.
+        """
         self.bar.update(increment=1)
 
+    def start_node(self, node_name: str):
+        """
+        No-op for Marimo (single bar, no per-node tracking).
+        """
+
     def stop(self):
+        """
+        Close the progress bar.
+        """
         self.bar.close()
 
 
 class RichDisplay:
     """
-    Two-level Rich progress display with loguru routing.
+    Dynamic Rich progress display with loguru routing.
 
-    Composes a pipeline-level bar and a batch-level bar in a `Group` under
-    one `Live` display. The batch bar is fed by intercepted tqdm calls from
-    sentence-transformers. Log messages render above both bars via a
-    `RichHandler` bound to the shared console.
+    Uses a single `Progress` instance under a `Live` display. The
+    pipeline-level task is persistent, and each executing node gets a
+    transient task that appears while running. Encoding batch progress
+    is fed by intercepted tqdm calls from sentence-transformers.
     """
 
     def __init__(self, level: str, total: int):
         st_module: Any = modules["sentence_transformers.SentenceTransformer"]
 
-        from rich.console  import Group
         from rich.live     import Live
         from rich.logging  import RichHandler
         from rich.progress import BarColumn, Progress, SpinnerColumn
-        from rich.progress import TaskProgressColumn, TextColumn, TimeRemainingColumn
+        from rich.progress import TaskProgressColumn, TextColumn
+        from rich.progress import TimeRemainingColumn
         from rich.rule     import Rule
 
-        columns = (
+        self.progress = Progress(
             SpinnerColumn(),
             TextColumn("{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn()
         )
-        self.node_progress  = Progress(*columns)
-        self.batch_progress = Progress(*columns)
-        self.live = Live(Group(self.node_progress, self.batch_progress))
+        self.live = Live(self.progress)
 
         logger.remove()
         self.handler_id = logger.add(
@@ -87,45 +96,61 @@ class RichDisplay:
         )
 
         self.live.console.print(Rule())
-        self.node_task = self.node_progress.add_task(
-            "Fitting pipeline",
+        self.pipeline_task = self.progress.add_task(
+            f"{'pipeline':<17}",
             total = total
         )
         self.live.start()
 
-        self.batch_context: list[str | None] = [None]
+        self.active_nodes  : dict = {}
+        self.batch_context : list[str | None] = [None]
         self.original_trange = st_module.trange
         st_module.trange     = self._make_trange()
 
     def _make_trange(self):
         """
-        Build a trange replacement that routes sentence-transformer batch
-        progress through the shared Rich batch bar.
+        Build a trange replacement that routes sentence-transformer
+        batch progress through a transient task on the shared
+        Progress instance.
         """
         def rich_trange(*args, desc="", disable=False, **kwargs):
             r = range(*args)
             if disable:
                 yield from r
                 return
-            label = self.batch_context[0] or desc
-            task = self.batch_progress.add_task(label, total=len(r))
+            label = f"· {self.batch_context[0] or desc:<15}"
+            task  = self.progress.add_task(label, total=len(r))
             for value in r:
                 yield value
-                self.batch_progress.update(task, advance=1)
-            self.batch_progress.remove_task(task)
+                self.progress.update(task, advance=1)
+            self.progress.remove_task(task)
         return rich_trange
 
-    def advance(self, description: str = ""):
-        self.node_progress.update(
-            self.node_task,
-            advance     = 1,
-            description = description or None
+    def advance(self, node_name: str):
+        """
+        Complete the node's task and advance the pipeline bar.
+        """
+        if node_name in self.active_nodes:
+            self.progress.remove_task(self.active_nodes.pop(node_name))
+        self.progress.update(self.pipeline_task, advance=1)
+
+    def start_node(self, node_name: str):
+        """
+        Add a transient task bar for the executing node.
+        """
+        self.active_nodes[node_name] = self.progress.add_task(
+            f"› {node_name:<15}",
+            total = None
         )
 
     def stop(self):
+        """
+        Finalize the pipeline bar and restore trange.
+        """
         st_module: Any = modules["sentence_transformers.SentenceTransformer"]
-        self.node_progress.update(
-            self.node_task, description="Pipeline fitted"
+        self.progress.update(
+            self.pipeline_task,
+            description = f"{'fitted':<17}"
         )
         self.live.stop()
         logger.remove(self.handler_id)
@@ -136,9 +161,9 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
     """
     Hamilton lifecycle adapter for pipeline progress display.
 
-    Dispatches to `RichDisplay` or `MarimoDisplay` once at graph start, then
-    all lifecycle methods call the same interface without branching. Pass
-    `level="DEBUG"` for verbose output.
+    Dispatches to `RichDisplay` or `MarimoDisplay` once at graph start,
+    then all lifecycle methods call the same interface without branching.
+    Pass `level="DEBUG"` for verbose output.
     """
 
     def __init__(self, level: str = "INFO"):
@@ -185,7 +210,7 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         **future_kwargs
     ):
         """
-        Advance the progress bar and log the node name with elapsed time.
+        Complete the node's task bar and log elapsed time.
         """
         elapsed = perf_counter() - self.timings.pop(
             node_name, perf_counter()
@@ -208,8 +233,8 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         """
         Initialize the display backend and timing state.
 
-        `execution_path` sizes the bar to only the nodes that will actually
-        execute, excluding cached results.
+        `execution_path` sizes the bar to only the nodes that will
+        actually execute, excluding cached results.
         """
         self.node_count = len(execution_path)
         self.completed  = 0
@@ -233,10 +258,11 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         **future_kwargs
     ):
         """
-        Record the start time and set the batch progress label for encoding
-        nodes.
+        Start a task bar for the node and set the batch context label
+        for encoding nodes.
         """
         self.timings[node_name] = perf_counter()
+        self.display.start_node(node_name)
         if isinstance(self.display, RichDisplay):
             self.display.batch_context[0] = {
                 "credentials" : "credentials",

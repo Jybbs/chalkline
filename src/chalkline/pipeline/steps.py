@@ -13,8 +13,8 @@ import numpy as np
 
 from collections                 import Counter
 from hamilton.function_modifiers import extract_fields
+from json                        import loads
 from loguru                      import logger
-from pydantic                    import TypeAdapter
 from sklearn.cluster             import AgglomerativeClustering
 from sklearn.decomposition       import TruncatedSVD
 from sklearn.metrics.pairwise    import cosine_similarity
@@ -125,10 +125,21 @@ def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
     """
     Load the curated credential catalog, encode with the sentence
     transformer, and attach vectors to each credential instance.
+
+    Extra fields beyond the core `Credential` schema are packed into
+    the `metadata` dict automatically.
     """
-    records = TypeAdapter(list[Credential]).validate_json(
-        (config.lexicon_dir / "credentials.json").read_bytes()
-    )
+    known_fields = {"embedding_text", "kind", "label"}
+    raw          = loads((config.lexicon_dir / "credentials.json").read_bytes())
+    records      = [
+        Credential(
+            embedding_text = entry["embedding_text"],
+            kind           = entry["kind"],
+            label          = entry["label"],
+            metadata       = {k: v for k, v in entry.items() if k not in known_fields}
+        )
+        for entry in raw
+    ]
 
     logger.info(f"Encoding {len(records)} credentials...")
     for credential, vector in zip(
