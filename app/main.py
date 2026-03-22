@@ -133,10 +133,24 @@ def _(matched_profile, mo, result):
     return
 
 
+# ── Table builder ──────────────────────────────────────────────────
+
+@app.cell
+def _(pipeline, reference, result):
+    from chalkline.display.tables import TableBuilder
+
+    tables = TableBuilder(
+        pipeline  = pipeline,
+        reference = reference,
+        result    = result
+    )
+    return (tables,)
+
+
 # ── Sidebar ─────────────────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, pipeline, result):
+def _(matched_profile, mo, pipeline, tables):
     target_dropdown = mo.ui.dropdown(
         label      = "Target cluster",
         options    = {
@@ -146,8 +160,6 @@ def _(matched_profile, mo, pipeline, result):
         searchable = True,
         value      = matched_profile.display_label
     )
-
-    from chalkline.display.tables import build_report_text
 
     mo.sidebar(
         [
@@ -163,7 +175,7 @@ def _(matched_profile, mo, pipeline, result):
             target_dropdown,
             mo.md("---"),
             mo.download(
-                data     = build_report_text(matched_profile, result).encode(),
+                data     = tables.report_text().encode(),
                 filename = "chalkline_report.txt",
                 label    = "Download Report"
             )
@@ -186,41 +198,36 @@ def _(pipeline, result, target_dropdown):
     return target_id, target_neighborhood, target_profile
 
 
+# ── Figure builder ─────────────────────────────────────────────────
+
+@app.cell
+def _(pipeline, plotly_theme, result):
+    from chalkline.display.figures import FigureBuilder
+
+    figures = FigureBuilder(
+        matched_id = result.cluster_id,
+        pathway    = pipeline.graph,
+        theme      = plotly_theme
+    )
+    return (figures,)
+
+
 # ── Career Landscape panel ──────────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline, plotly_theme, result):
+def _(figures, mo, result):
     def landscape_panel():
-        from chalkline.display.figures import landscape_figure
-
-        return mo.ui.plotly(landscape_figure(
-            coordinates = result.coordinates,
-            matched_id  = result.cluster_id,
-            pathway     = pipeline.graph,
-            template    = plotly_theme()
-        ))
+        return mo.ui.plotly(figures.landscape(result.coordinates))
     return (landscape_panel,)
 
 
 # ── Skill Analysis panel ────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, result):
+def _(matched_profile, mo, result, tables):
     def skill_analysis_panel():
-        gap_rows = [
-            {
-                "Similarity" : round(g.similarity, 3),
-                "Task"       : g.name
-            }
-            for g in result.gaps
-        ]
-        demo_rows = [
-            {
-                "Similarity" : round(d.similarity, 3),
-                "Task"       : d.name
-            }
-            for d in result.demonstrated
-        ]
+        gaps  = tables.gap_rows()
+        demos = tables.demonstrated_rows()
 
         return mo.vstack([
             mo.hstack([
@@ -230,14 +237,14 @@ def _(matched_profile, mo, result):
             mo.md(f"Skill profile for **{matched_profile.soc_title}**"),
             mo.accordion(
                 {
-                    f"Gaps ({len(gap_rows)})": (
-                        mo.ui.table(gap_rows)
-                        if gap_rows
+                    f"Gaps ({len(gaps)})": (
+                        mo.ui.table(gaps)
+                        if gaps
                         else mo.md("No gaps identified.")
                     ),
-                    f"Demonstrated ({len(demo_rows)})": (
-                        mo.ui.table(demo_rows)
-                        if demo_rows
+                    f"Demonstrated ({len(demos)})": (
+                        mo.ui.table(demos)
+                        if demos
                         else mo.md("No demonstrated tasks.")
                     )
                 },
@@ -250,19 +257,10 @@ def _(matched_profile, mo, result):
 # ── Career Pathways panel ───────────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline, plotly_theme, result, target_id, target_neighborhood):
+def _(figures, mo, tables, target_id, target_neighborhood):
     def career_pathways_panel():
-        from chalkline.display.figures import pathways_figure
-        from chalkline.display.tables  import credential_rows
-
-        fig = pathways_figure(
-            matched_id   = result.cluster_id,
-            neighborhood = target_neighborhood,
-            pathway      = pipeline.graph,
-            target_id    = target_id,
-            template     = plotly_theme()
-        )
-        cred_rows = credential_rows(target_neighborhood)
+        fig       = figures.pathways(target_neighborhood, target_id)
+        cred_rows = tables.credential_rows(target_neighborhood)
 
         sections = [mo.ui.plotly(fig)]
         if cred_rows:
@@ -282,30 +280,22 @@ def _(mo, pipeline, plotly_theme, result, target_id, target_neighborhood):
 # ── Dendrogram panel ────────────────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline, plotly_theme, result):
+def _(figures, mo):
     def dendrogram_panel():
-        from chalkline.display.figures import dendrogram_figure
-
-        return mo.ui.plotly(dendrogram_figure(
-            matched_id = result.cluster_id,
-            pathway    = pipeline.graph,
-            template   = plotly_theme()
-        ))
+        return mo.ui.plotly(figures.dendrogram())
     return (dendrogram_panel,)
 
 
 # ── Education & Training panel ──────────────────────────────────────
 
 @app.cell
-def _(mo, target_neighborhood, target_profile):
+def _(mo, tables, target_neighborhood, target_profile):
     def education_panel():
-        from chalkline.display.tables import apprenticeship_rows, program_rows
-
         sections = {
             f"{label} ({len(rows)})": mo.ui.table(rows)
             for label, rows in [
-                ("Registered Apprenticeships", apprenticeship_rows(target_neighborhood)),
-                ("Programs",                   program_rows(target_neighborhood))
+                ("Registered Apprenticeships", tables.apprenticeship_rows(target_neighborhood)),
+                ("Programs",                   tables.program_rows(target_neighborhood))
             ]
             if rows
         }
@@ -322,17 +312,9 @@ def _(mo, target_neighborhood, target_profile):
 # ── Employer Connections panel ──────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline, reference, target_id, target_profile):
+def _(mo, tables, target_id, target_profile):
     def employer_panel():
-        from chalkline.display.tables import match_cluster_employers
-
-        rows = match_cluster_employers(
-            assignments = pipeline.assignments,
-            career_urls = reference["career_urls"],
-            cluster_id  = target_id,
-            corpus      = pipeline.corpus,
-            members     = reference["agc_members"]
-        )
+        rows = tables.employer_rows(target_id)
 
         return mo.vstack([
             mo.stat(label="AGC Members Matched", value=str(len(rows))),
@@ -351,37 +333,20 @@ def _(mo, pipeline, reference, target_id, target_profile):
 # ── Job Boards panel ────────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, pipeline, reference):
+def _(matched_profile, mo, tables):
     def job_board_panel():
-        from chalkline.display.tables import filter_boards
-
-        maine_boards, national_boards = filter_boards(
-            boards   = reference["job_boards"],
-            profiles = pipeline.profiles,
-            sector   = matched_profile.sector
-        )
-
-        def board_rows(board_list):
-            return [
-                {
-                    "Best For" : b["best_for"],
-                    "Category" : b["category"],
-                    "Focus"    : b["focus"],
-                    "Name"     : b["name"]
-                }
-                for b in board_list
-            ]
+        maine, national = tables.board_rows()
 
         sections = {
-            f"{label} ({len(boards)})": mo.ui.table(board_rows(boards))
-            for label, boards in [("Maine", maine_boards), ("National", national_boards)]
-            if boards
+            f"{label} ({len(rows)})": mo.ui.table(rows)
+            for label, rows in [("Maine", maine), ("National", national)]
+            if rows
         }
 
         return mo.vstack([
             mo.stat(
                 label = f"Boards for {matched_profile.sector}",
-                value = str(len(maine_boards) + len(national_boards))
+                value = str(len(maine) + len(national))
             ),
             mo.accordion(sections, multiple=True)
             if sections
@@ -395,7 +360,18 @@ def _(matched_profile, mo, pipeline, reference):
 @app.cell
 def _(mo, pipeline):
     def pipeline_details_panel():
-        from chalkline.display.tables import to_mermaid
+        from chalkline.pipeline import steps
+        from inspect            import getmembers, isfunction, signature
+
+        mermaid = "\n".join([
+            "graph LR",
+            *(
+                f"    {param} --> {name}"
+                for name, fn in sorted(getmembers(steps, isfunction))
+                for param in signature(fn).parameters
+                if param not in {"config", "model", "lexicons"}
+            )
+        ])
 
         return mo.vstack([
             mo.hstack([
@@ -405,7 +381,7 @@ def _(mo, pipeline):
                 mo.stat(label="SVD Components",  value=str(pipeline.config.component_count))
             ], gap=1, wrap=True),
             mo.md("#### Pipeline DAG"),
-            mo.mermaid(to_mermaid()),
+            mo.mermaid(mermaid),
             mo.md("#### Cluster Profiles"),
             mo.tree({
                 f"Cluster {cid}: {p.soc_title}": {

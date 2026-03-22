@@ -63,6 +63,19 @@ class Corpus:
     def __post_init__(self):
         self.posting_ids = sorted(self.postings)
 
+    def at(self, indices) -> list[Posting]:
+        """
+        Retrieve postings by their positional indices into the
+        sorted key list.
+
+        Args:
+            indices: Integer positions into `posting_ids`.
+
+        Returns:
+            Postings in the order of the provided indices.
+        """
+        return [self.postings[self.posting_ids[i]] for i in indices]
+
     @property
     def descriptions(self) -> list[str]:
         """

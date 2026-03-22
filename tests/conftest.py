@@ -9,25 +9,33 @@ independently tappable by any test module:
                            soc_vectors → job_zone_map → profiles → graph
                                                                      ↓
                            credentials ────────────────────────→ matcher
+                                                                     ↓
+                                    reference → table_builder, figure_builder
 """
 
 import numpy as np
 
 from datetime              import date
+from json                  import loads
 from pathlib               import Path
 from pydantic              import TypeAdapter
 from pytest                import fixture
 from sklearn.cluster       import AgglomerativeClustering
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
+from types                 import SimpleNamespace
 from typing                import Any, Callable
 
-from chalkline.collection.schemas import Posting
+from chalkline.collection.schemas import Corpus, Posting
+from chalkline.display.figures    import FigureBuilder
+from chalkline.display.tables     import TableBuilder
 from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.matching.schemas   import MatchResult
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import ClusterAssignments, ClusterProfile
-from chalkline.pathways.schemas   import ClusterTasks, Credential, OnetOccupation
+from chalkline.pathways.schemas   import CareerEdge, ClusterAssignments
+from chalkline.pathways.schemas   import ClusterProfile, ClusterTasks, Credential
+from chalkline.pathways.schemas   import Neighborhood, OnetOccupation
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
@@ -36,21 +44,6 @@ COMPONENT_COUNT = 4
 CORPUS_SIZE     = 20
 EMBEDDING_DIM   = 16
 FIXTURES        = Path(__file__).resolve().parent / "fixtures"
-
-
-class MockEncoder:
-    """
-    Deterministic fake matching the `Encoder.encode` interface.
-
-    Replaces the real encoder so tests never load the 400MB model.
-    """
-
-    def encode(self, texts, unit=True):
-        """
-        Return deterministic (len(texts), EMBEDDING_DIM) embeddings
-        seeded by input length for reproducibility.
-        """
-        return _embeddings(len(texts), seed=len(texts), unit=unit)
 
 
 _load = lambda schema, path: TypeAdapter(schema).validate_json(
@@ -74,6 +67,14 @@ def _postings() -> list[Posting]:
 
 
 # ── Collection fixtures ─────────────────────────────────────────────
+
+
+@fixture
+def corpus() -> Corpus:
+    """
+    Posting corpus built from fixture data.
+    """
+    return Corpus({p.id: p for p in _postings()})
 
 
 @fixture
@@ -121,7 +122,7 @@ def lexicon_dir(tmp_path: Path) -> Path:
     Write synthetic lexicon files to a temporary directory.
     """
     (tmp_path / "onet.json").write_text(
-        (FIXTURES / "extraction" / "onet_occupations.json").read_text()
+        (FIXTURES / "pathways" / "onet_occupations.json").read_text()
     )
     return tmp_path
 
@@ -256,14 +257,6 @@ def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
 
 
 @fixture
-def mock_encoder() -> MockEncoder:
-    """
-    Deterministic mock replacing SentenceTransformer for tests.
-    """
-    return MockEncoder()
-
-
-@fixture
 def pathway_graph(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
@@ -327,11 +320,14 @@ def resume_matcher(
     """
     Resume matcher built from synthetic embeddings with mock encoder.
     """
-    mock: Any = MockEncoder()
+    mock_encoder: Any = SimpleNamespace(
+        encode = lambda texts, 
+        unit   = True: _embeddings(len(texts), seed=len(texts), unit=unit)
+    )
     return ResumeMatcher(
         centroids = centroids,
         graph     = pathway_graph,
-        model     = mock,
+        model     = mock_encoder,
         profiles  = profiles,
         soc_tasks = {
             cid: ClusterTasks(
@@ -366,3 +362,122 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     L2-normalized posting embeddings.
     """
     return normalize(raw_vectors)
+
+
+# ── Display fixtures ─────────────────────────────────────────────────
+
+
+@fixture
+def edge_factory(
+    credentials : list[Credential],
+    profiles    : dict[int, ClusterProfile]
+) -> Callable:
+    """
+    Factory for `CareerEdge` instances with a default profile and
+    optional credential filtering by kind.
+    """
+    profile = next(iter(profiles.values()))
+
+    def _build(kind: str | None = None) -> CareerEdge:
+        creds = (
+            [next(c for c in credentials if c.kind == kind)]
+            if kind
+            else []
+        )
+        return CareerEdge(
+            credentials = creds,
+            profile     = profile,
+            weight      = 0.9
+        )
+    return _build
+
+
+@fixture
+def figure_builder(pathway_graph: CareerPathwayGraph) -> FigureBuilder:
+    """
+    Figure builder wired to the synthetic pathway graph.
+    """
+    return FigureBuilder(
+        matched_id = sorted(pathway_graph.profiles)[0],
+        pathway    = pathway_graph,
+        theme      = lambda: "plotly_white"
+    )
+
+
+@fixture
+def match_result(resume_matcher: ResumeMatcher) -> MatchResult:
+    """
+    Match result from encoding a synthetic resume string.
+    """
+    return resume_matcher.match("electrician conduit bending NEC code")
+
+
+@fixture
+def member_names(reference: dict) -> tuple[list[dict], list[str]]:
+    """
+    AGC member records with pre-lowercased names for matching tests.
+    """
+    members = reference["agc_members"]
+    return members, [m["name"].lower() for m in members]
+
+
+@fixture
+def neighborhood(
+    pathway_graph : CareerPathwayGraph,
+    profiles      : dict[int, ClusterProfile]
+) -> Neighborhood:
+    """
+    Neighborhood view from the first cluster in the graph.
+    """
+    return pathway_graph.neighborhood(sorted(profiles)[0])
+
+
+@fixture
+def reference() -> dict:
+    """
+    Stakeholder reference data loaded from display fixture JSON.
+    """
+    return {
+        "agc_members" : loads(
+            (FIXTURES / "display" / "members.json").read_text()
+        ),
+        "career_urls" : [],
+        "job_boards"  : loads(
+            (FIXTURES / "display" / "boards.json").read_text()
+        )
+    }
+
+
+@fixture
+def pipeline_namespace(
+    assignments : ClusterAssignments,
+    config      : PipelineConfig,
+    corpus      : Corpus,
+    profiles    : dict[int, ClusterProfile]
+):
+    """
+    Lightweight namespace mimicking the `Chalkline` dataclass for
+    display tests without requiring the full Hamilton pipeline.
+    """
+    return SimpleNamespace(
+        assignments = assignments,
+        config      = config,
+        corpus      = corpus,
+        profiles    = profiles
+    )
+
+
+@fixture
+def table_builder(
+    match_result : MatchResult,
+    pipeline_namespace,
+    reference    : dict
+) -> TableBuilder:
+    """
+    Table builder wired to the synthetic pipeline and match result.
+    """
+    return TableBuilder(
+        pipeline  = pipeline_namespace,
+        reference = reference,
+        result    = match_result
+    )
