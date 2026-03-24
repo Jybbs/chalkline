@@ -10,6 +10,7 @@ config.
 """
 
 from dataclasses import dataclass, fields
+from pathlib     import Path
 
 from chalkline.matching.matcher import ResumeMatcher
 from chalkline.matching.schemas import MatchResult
@@ -27,7 +28,7 @@ class Chalkline:
     Coordinates embedding, clustering, career graph construction, and
     credential enrichment into a fitted landscape. Call `fit()` to compute
     from scratch or restore from cache, then call `match()` for
-    single-resume inference with neighborhood exploration.
+    single-resume inference with reach exploration.
     """
 
     clusters : Clusters
@@ -109,15 +110,28 @@ class Chalkline:
         )
         return Chalkline(**results)
 
-    def match(self, resume_text: str) -> MatchResult:
+    def match(self, pdf_bytes: bytes, label: str = "resume") -> MatchResult:
         """
-        Project a resume into the fitted career landscape and return a full
-        match result with gap analysis and neighborhood view.
+        Extract text from a PDF, clean it, and match against the
+        fitted career landscape.
+
+        Handles the full chain from raw upload bytes to match result,
+        writing to a temporary file for `pdfplumber` extraction.
 
         Args:
-            resume_text: Raw resume text (post-PDF extraction).
+            label     : Display name for debug logging.
+            pdf_bytes : Raw PDF file contents.
 
         Returns:
-            `MatchResult` with cluster, gaps, and neighborhood.
+            `MatchResult` with cluster, gaps, and reach.
         """
-        return self.matcher.match(resume_text)
+        from tempfile import NamedTemporaryFile
+
+        from chalkline.matching.reader import clean_text, extract_pdf
+
+        with NamedTemporaryFile(suffix=".pdf") as tmp:
+            tmp.write(pdf_bytes)
+            tmp.flush()
+            text = clean_text(extract_pdf(Path(tmp.name), label=label))
+
+        return self.matcher.match(text)

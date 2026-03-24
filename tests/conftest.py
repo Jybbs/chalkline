@@ -34,7 +34,7 @@ from chalkline.matching.schemas   import MatchResult
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
 from chalkline.pathways.schemas   import CareerEdge, Cluster, Clusters
-from chalkline.pathways.schemas   import Credential, Neighborhood
+from chalkline.pathways.schemas   import Credential, Reach
 from chalkline.pathways.schemas   import OnetOccupation, Task
 from chalkline.pipeline.schemas   import PipelineConfig
 
@@ -425,17 +425,6 @@ def member_names(reference: dict) -> tuple[list[dict], list[str]]:
 
 
 @fixture
-def neighborhood(
-    clusters      : Clusters,
-    pathway_graph : CareerPathwayGraph
-) -> Neighborhood:
-    """
-    Neighborhood view from the first cluster in the graph.
-    """
-    return pathway_graph.neighborhood(clusters.cluster_ids[0])
-
-
-@fixture
 def pipeline_namespace(clusters: Clusters, config: PipelineConfig):
     """
     Lightweight namespace mimicking the `Chalkline` dataclass for
@@ -445,6 +434,17 @@ def pipeline_namespace(clusters: Clusters, config: PipelineConfig):
         clusters = clusters,
         config   = config
     )
+
+
+@fixture
+def reach(
+    clusters      : Clusters,
+    pathway_graph : CareerPathwayGraph
+) -> Reach:
+    """
+    Reach view from the first cluster in the graph.
+    """
+    return pathway_graph.reach(clusters.cluster_ids[0])
 
 
 @fixture

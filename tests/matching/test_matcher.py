@@ -6,7 +6,7 @@ Tests for embedding-based resume matching with per-task gap analysis.
 class TestResumeMatcher:
     """
     Validate embedding-based cluster assignment, task gap analysis, and
-    neighborhood retrieval.
+    reach retrieval.
     """
 
     def test_cluster_assigned(self, clusters, resume_matcher):

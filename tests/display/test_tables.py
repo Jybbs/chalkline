@@ -8,7 +8,7 @@ from pytest import mark
 
 from chalkline.display.tables   import TableBuilder
 from chalkline.matching.schemas import MatchResult
-from chalkline.pathways.schemas import Neighborhood
+from chalkline.pathways.schemas import Reach
 
 
 class TestBoardRows:
@@ -70,11 +70,9 @@ class TestCredentialRows:
         """
         Duplicate credentials on two edges produce one row.
         """
-        edge = edge_factory(kind)
-        neighborhood = Neighborhood(
-            advancement = [edge, edge]
-        )
-        rows = getattr(table_builder, method)(neighborhood)
+        edge  = edge_factory(kind)
+        reach = Reach(advancement=[edge, edge])
+        rows  = getattr(table_builder, method)(reach)
         assert len(rows) == 1
         assert expected_key in rows[0]
 
@@ -90,8 +88,7 @@ class TestCredentialRows:
         No credentials of this type returns empty list.
         """
         edge = edge_factory()
-        neighborhood = Neighborhood(advancement=[edge])
-        assert getattr(table_builder, method)(neighborhood) == []
+        assert getattr(table_builder, method)(Reach(advancement=[edge])) == []
 
 
 class TestMatchMember:

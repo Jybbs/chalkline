@@ -10,7 +10,7 @@ from difflib import SequenceMatcher
 from re      import findall
 
 from chalkline.matching.schemas import MatchResult
-from chalkline.pathways.schemas import Neighborhood
+from chalkline.pathways.schemas import Reach
 
 
 class TableBuilder:
@@ -19,7 +19,7 @@ class TableBuilder:
 
     Captures the fitted pipeline, match result, and stakeholder reference
     data at construction so that individual table methods receive only
-    per-panel arguments like `neighborhood` or `cluster_id`.
+    per-panel arguments like `reach` or `cluster_id`.
     """
 
     def __init__(self, pipeline, reference: dict, result: MatchResult):
@@ -86,22 +86,22 @@ class TableBuilder:
             if len(w) >= 4
         }
 
-    def apprenticeship_rows(self, neighborhood: Neighborhood) -> list[dict]:
+    def apprenticeship_rows(self, reach: Reach) -> list[dict]:
         """
-        Deduplicated apprenticeship rows from neighborhood edges.
+        Deduplicated apprenticeship rows from reach edges.
 
         Collects apprenticeships from both advancement and lateral edges,
         deduplicates by RAPIDS code, and sorts by trade title.
 
         Args:
-            neighborhood: Advancement and lateral edges to extract from.
+            reach: Advancement and lateral edges to extract from.
 
         Returns:
             Sorted list of row dicts with `Trade`, `RAPIDS Code`, and `Min Hours` keys.
         """
         unique = {
             c.metadata["rapids_code"]: c
-            for edge in neighborhood.all_edges
+            for edge in reach.all_edges
             for c in edge.credentials
             if c.kind == "apprenticeship"
         }
@@ -142,12 +142,12 @@ class TableBuilder:
         ]
         return filtered("maine"), filtered("national")
 
-    def credential_rows(self, neighborhood: Neighborhood) -> list[dict]:
+    def credential_rows(self, reach: Reach) -> list[dict]:
         """
-        Flatten all credentials on neighborhood edges into table rows.
+        Flatten all credentials on reach edges into table rows.
 
         Args:
-            neighborhood: Advancement and lateral edges to extract from.
+            reach: Advancement and lateral edges to extract from.
 
         Returns:
             List of row dicts with `Credential`, `Direction`, `Hours`, `Target`, and
@@ -162,8 +162,8 @@ class TableBuilder:
                 "Type"       : c.metadata.get("credential", c.kind.title())
             }
             for direction, edges in [
-                ("Advancement", neighborhood.advancement),
-                ("Lateral",     neighborhood.lateral)
+                ("Advancement", reach.advancement),
+                ("Lateral",     reach.lateral)
             ]
             for e in edges
             for c in e.credentials
@@ -237,16 +237,16 @@ class TableBuilder:
             for g in self.result.gaps
         ]
 
-    def program_rows(self, neighborhood: Neighborhood) -> list[dict]:
+    def program_rows(self, reach: Reach) -> list[dict]:
         """
-        Deduplicated program rows from neighborhood edges.
+        Deduplicated program rows from reach edges.
 
         Collects programs from both advancement and lateral edges,
         deduplicates by institution and program name, and sorts
         alphabetically.
 
         Args:
-            neighborhood: Advancement and lateral edges to extract from.
+            reach: Advancement and lateral edges to extract from.
 
         Returns:
             Sorted list of row dicts with `Credential`, `Institution`, `Program`, and
@@ -254,7 +254,7 @@ class TableBuilder:
         """
         unique = {
             (c.metadata["institution"], c.label): c
-            for edge in neighborhood.all_edges
+            for edge in reach.all_edges
             for c in edge.credentials
             if c.kind == "program"
         }

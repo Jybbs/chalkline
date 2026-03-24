@@ -4,8 +4,7 @@ Resume matching via sentence embeddings with per-task gap analysis.
 Projects an uploaded resume into the fitted SVD space, matches it to the
 nearest career family via cluster centroids, identifies demonstrated
 competencies and gaps via per-task cosine similarity against O*NET Task+DWA
-embeddings, and assembles a neighborhood view with per-edge credential
-metadata.
+embeddings, and assembles a reach view with per-edge credential metadata.
 """
 
 import numpy as np
@@ -23,18 +22,18 @@ from chalkline.pipeline.encoder import SentenceEncoder
 @dataclass(kw_only=True)
 class ResumeMatcher:
     """
-    Embedding-based resume matching with neighborhood exploration.
+    Embedding-based resume matching with reach exploration.
 
     Holds the sentence transformer encoder, fitted SVD, and the cluster map
     with pre-stacked centroid matrices. The `match()` method encodes resume
     text, projects it into the reduced space, assigns it to the nearest
     cluster, computes per-task gap analysis, and queries the career graph
-    for the local neighborhood view.
+    for the local reach view.
 
     Args:
         clusters : Cluster map with centroids for distance computation.
         encoder  : For encoding resume text into embedding space.
-        graph    : For neighborhood queries post-match.
+        graph    : For reach queries post-match.
         svd      : For projecting resume embeddings into reduced space.
     """
 
@@ -88,13 +87,13 @@ class ResumeMatcher:
     def match(self, resume_text: str) -> MatchResult:
         """
         Project resume text into the career landscape and return a full
-        match result with gap analysis and neighborhood view.
+        match result with gap analysis and reach view.
 
         Encodes the resume with the sentence transformer, L2-normalizes,
         projects through the fitted SVD, assigns to the nearest cluster
         centroid via Euclidean distance, then computes per-task cosine gaps
-        and queries the career graph for neighborhood options with
-        credential metadata.
+        and queries the career graph for reach options with credential
+        metadata.
 
             k* = argmin_k ‖𝐫 − 𝐜ₖ‖₂
 
@@ -102,7 +101,7 @@ class ResumeMatcher:
             resume_text: Raw resume text (post-PDF extraction).
 
         Returns:
-            `MatchResult` with cluster, gaps, and neighborhood.
+            `MatchResult` with cluster, gaps, and reach.
         """
         resume_unit = self.encoder.encode([resume_text])
         resume_svd  = self.svd.transform(resume_unit)[0]
@@ -123,6 +122,6 @@ class ResumeMatcher:
             coordinates  = resume_svd.tolist(),
             demonstrated = demonstrated,
             gaps         = gaps,
-            neighborhood = self.graph.neighborhood(cluster_id),
+            reach        = self.graph.reach(cluster_id),
             sector       = self.clusters[cluster_id].sector
         )

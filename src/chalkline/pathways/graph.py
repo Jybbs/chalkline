@@ -16,7 +16,7 @@ from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.pathways.schemas import CareerEdge, Clusters
-from chalkline.pathways.schemas import Credential, Neighborhood
+from chalkline.pathways.schemas import Credential, Reach
 
 
 @dataclass(kw_only=True)
@@ -154,9 +154,9 @@ class CareerPathwayGraph:
                 for r in records[ranked]
             ]
 
-    def neighborhood(self, cluster_id: int) -> Neighborhood:
+    def reach(self, cluster_id: int) -> Reach:
         """
-        Local neighborhood exploration from a given cluster.
+        Local reach exploration from a given cluster.
 
         Returns advancement paths (edges to higher JZ clusters) and lateral
         pivots (edges to same JZ clusters) with their per-edge credential
@@ -179,7 +179,7 @@ class CareerPathwayGraph:
             reverse = True
         )
 
-        return Neighborhood(
+        return Reach(
             advancement = ranked(gt),
             lateral     = ranked(eq)
         )

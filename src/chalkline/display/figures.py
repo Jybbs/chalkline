@@ -8,10 +8,13 @@ cluster ID, and a theme callable, exposing `dendrogram`, `landscape`, and
 
 import numpy as np
 
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import Neighborhood
+from chalkline.pathways.schemas import Reach
+
+if TYPE_CHECKING:
+    from plotly.graph_objects import Figure
 
 
 class FigureBuilder:
@@ -75,7 +78,7 @@ class FigureBuilder:
             for cid in node_ids
         ]
 
-    def dendrogram(self) -> "Figure":
+    def dendrogram(self) -> Figure:
         """
         Ward-linkage dendrogram with the matched cluster annotated.
 
@@ -131,7 +134,7 @@ class FigureBuilder:
         )
         return fig
 
-    def landscape(self, coordinates: list[float]) -> "Figure":
+    def landscape(self, coordinates: list[float]) -> Figure:
         """
         Scatter plot of cluster centroids in SVD space with the resume
         position overlaid.
@@ -195,9 +198,9 @@ class FigureBuilder:
             )
         )
 
-    def pathways(self, neighborhood: Neighborhood, target_id: int) -> "Figure":
+    def pathways(self, reach: Reach, target_id: int) -> Figure:
         """
-        Spring-layout network of the target cluster's neighborhood with edge
+        Spring-layout network of the target cluster's reach with edge
         annotations showing apprenticeship hours.
 
         Builds a subgraph from the target and its advancement and lateral
@@ -206,8 +209,8 @@ class FigureBuilder:
         requirements.
 
         Args:
-            neighborhood : Advancement and lateral edges from the target.
-            target_id    : Center cluster for the neighborhood view.
+            reach     : Advancement and lateral edges from the target.
+            target_id : Center cluster for the reach view.
 
         Returns:
             Configured pathways network figure.
@@ -217,7 +220,7 @@ class FigureBuilder:
 
         sub = self.pathway.graph.subgraph(
             {target_id} |
-            {e.cluster_id for e in neighborhood.all_edges}
+            {e.cluster_id for e in reach.all_edges}
         )
         pos = spring_layout(sub, seed=42, weight="weight")
 
@@ -226,7 +229,7 @@ class FigureBuilder:
                 f"{c.label}: {c.metadata['min_hours']:,}h"
                 for c in e.credentials if c.kind == "apprenticeship"
             ]
-            for e in neighborhood.all_edges
+            for e in reach.all_edges
         }
 
         edge_x = [v for u, w in sub.edges() for v in [pos[u][0], pos[w][0], None]]

@@ -3,7 +3,7 @@ Validate career pathway graph construction and credential enrichment from
 synthetic embedding fixtures.
 
 Tests focus on invariants that would silently corrupt downstream
-neighborhood exploration if broken, including edge directionality, JZ
+reach exploration if broken, including edge directionality, JZ
 ordering, backbone connectivity, and credential metadata attachment.
 """
 
@@ -39,24 +39,24 @@ class TestCareerPathwayGraph:
         """
         assert pathway_graph.edge_count > 0
 
-    def test_neighborhood_types(self, pathway_graph: CareerPathwayGraph):
-        """
-        Neighborhood advancement edges point to higher JZ clusters and
-        lateral edges point to same JZ clusters.
-        """
-        for cluster_id in pathway_graph.clusters:
-            neighborhood = pathway_graph.neighborhood(cluster_id)
-            source_zone  = pathway_graph.job_zone_map[cluster_id]
-            for edge in neighborhood.advancement:
-                assert pathway_graph.job_zone_map[edge.cluster_id] > source_zone
-            for edge in neighborhood.lateral:
-                assert pathway_graph.job_zone_map[edge.cluster_id] == source_zone
-
     def test_node_count(self, pathway_graph: CareerPathwayGraph):
         """
         One graph node per cluster profile.
         """
         assert pathway_graph.graph.number_of_nodes() == len(pathway_graph.clusters)
+
+    def test_reach_types(self, pathway_graph: CareerPathwayGraph):
+        """
+        Reach advancement edges point to higher JZ clusters and lateral
+        edges point to same JZ clusters.
+        """
+        for cluster_id in pathway_graph.clusters:
+            reach       = pathway_graph.reach(cluster_id)
+            source_zone = pathway_graph.job_zone_map[cluster_id]
+            for edge in reach.advancement:
+                assert pathway_graph.job_zone_map[edge.cluster_id] > source_zone
+            for edge in reach.lateral:
+                assert pathway_graph.job_zone_map[edge.cluster_id] == source_zone
 
     def test_upward_stepwise(self, pathway_graph: CareerPathwayGraph):
         """

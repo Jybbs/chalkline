@@ -34,7 +34,7 @@ def clean_text(raw: str) -> str:
     ).strip()
 
 
-def extract_pdf(path: Path) -> str:
+def extract_pdf(path: Path, label: str | None = None) -> str:
     """
     Extract raw text from a PDF file via `pdfplumber`.
 
@@ -51,7 +51,7 @@ def extract_pdf(path: Path) -> str:
     import pdfplumber
 
     with pdfplumber.open(path) as pdf:
-        logger.debug(f"Extracting {path.name}: {len(pdf.pages)} pages")
+        logger.debug(f"Extracting {label or path.name}: {len(pdf.pages)} pages")
         return "\n".join(
             text for page in pdf.pages
             if (text := page.extract_text())

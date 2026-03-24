@@ -3,7 +3,7 @@ Schemas for the career pathway domain.
 
 Defines O*NET occupation and credential reference models, the unified
 `Cluster` and `Clusters` dataclasses, and the career graph edge and
-neighborhood models that together describe the fitted career landscape.
+reach models that together describe the fitted career landscape.
 """
 
 import numpy as np
@@ -18,7 +18,7 @@ from chalkline.collection.schemas import Posting
 
 class CareerEdge(BaseModel, extra="forbid"):
     """
-    A single edge in the neighborhood view with credential metadata.
+    A single edge in the reach view with credential metadata.
 
     Each edge connects the matched cluster to a neighboring cluster,
     carrying the target cluster ID, the cosine similarity weight, and the
@@ -99,6 +99,12 @@ class Clusters:
         """
         return len(self.items)
 
+    def pairs(self):
+        """
+        Iterate (cluster_id, cluster) tuples in sorted ID order.
+        """
+        return ((cid, self.items[cid]) for cid in self.cluster_ids)
+
     def values(self):
         """
         Iterate cluster objects in sorted ID order.
@@ -124,26 +130,6 @@ class Credential(BaseModel, extra="forbid"):
 
     metadata : dict = Field(default_factory=dict)
     vector   : list[float] | None = Field(default=None, exclude=True)
-
-
-class Neighborhood(BaseModel, extra="forbid"):
-    """
-    Local neighborhood exploration view from the matched cluster.
-
-    Shows advancement paths (edges to higher Job Zone clusters) and lateral
-    pivots (edges to same Job Zone clusters), each with per-edge credential
-    metadata identifying the training that bridges each specific transition.
-    """
-
-    advancement : list[CareerEdge] = Field(default_factory=list)
-    lateral     : list[CareerEdge] = Field(default_factory=list)
-
-    @property
-    def all_edges(self) -> list[CareerEdge]:
-        """
-        Combined advancement and lateral edges.
-        """
-        return self.advancement + self.lateral
 
 
 class OnetOccupation(BaseModel, extra="forbid"):
@@ -227,6 +213,26 @@ class OnetSkillType(StrEnum):
     TASK       = "task"
     TECHNOLOGY = "technology"
     TOOL       = "tool"
+
+
+class Reach(BaseModel, extra="forbid"):
+    """
+    Local reach exploration view from the matched cluster.
+
+    Shows advancement paths (edges to higher Job Zone clusters) and lateral
+    pivots (edges to same Job Zone clusters), each with per-edge credential
+    metadata identifying the training that bridges each specific transition.
+    """
+
+    advancement : list[CareerEdge] = Field(default_factory=list)
+    lateral     : list[CareerEdge] = Field(default_factory=list)
+
+    @property
+    def all_edges(self) -> list[CareerEdge]:
+        """
+        Combined advancement and lateral edges.
+        """
+        return self.advancement + self.lateral
 
 
 class Task(NamedTuple):

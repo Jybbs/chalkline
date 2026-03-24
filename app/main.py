@@ -13,10 +13,9 @@ def _():
     from json    import loads
     from pathlib import Path
 
-    def plotly_theme():
-        return "plotly_dark" if mo.app_meta().theme == "dark" else "plotly_white"
+    theme = lambda: ["plotly_white", "plotly_dark"][mo.app_meta().theme == "dark"]
 
-    return Path, loads, mo, plotly_theme
+    return Path, loads, mo, theme
 
 
 # ── Pipeline loading ────────────────────────────────────────────────
@@ -26,7 +25,11 @@ def _(Path, mo):
     from chalkline.pipeline.orchestrator import Chalkline
     from chalkline.pipeline.schemas      import PipelineConfig
 
-    with mo.persistent_cache(name="chalkline_pipeline", pin_modules=True):
+    with mo.persistent_cache(
+        name        = "chalkline", 
+        pin_modules = True, 
+        save_path   = ".cache/marimo"
+    ):
         pipeline = Chalkline.fit(PipelineConfig(
             lexicon_dir  = Path("data/lexicons"),
             output_dir   = Path(".cache/pipeline"),
@@ -54,11 +57,6 @@ def _(Path, loads):
 
 @app.cell
 def _(mo, pipeline):
-    upload = mo.ui.file(
-        filetypes = [".pdf"],
-        kind      = "area",
-        label     = "Drop a resume PDF here to begin"
-    )
     mo.vstack([
         mo.md(
             '<h1 style="font-family: Georgia, serif; font-weight: 400;">'
@@ -67,13 +65,19 @@ def _(mo, pipeline):
             "Upload a resume to see where you sit in the landscape, "
             "what skills separate you from your next role, and how to get there."
         ),
+
         mo.hstack([
-            mo.stat(label="Postings",        value=f"{pipeline.corpus_size:,}"),
-            mo.stat(label="Career Families", value=str(len(pipeline.clusters))),
-            mo.stat(label="Sectors",         value=str(pipeline.sector_count)),
-            mo.stat(label="Pathway Edges",   value=str(pipeline.graph.edge_count))
+            mo.stat(f"{pipeline.corpus_size:,}",  "Postings"),
+            mo.stat(len(pipeline.clusters),       "Career Families"),
+            mo.stat(pipeline.sector_count,        "Sectors"),
+            mo.stat(pipeline.graph.edge_count,    "Pathway Edges")
         ], gap=1, wrap=True),
-        upload
+        
+        (upload := mo.ui.file(
+            filetypes = [".pdf"],
+            kind      = "area",
+            label     = "Drop a resume PDF here to begin"
+        ))
     ])
     return (upload,)
 
@@ -81,7 +85,7 @@ def _(mo, pipeline):
 # ── Upload gate ─────────────────────────────────────────────────────
 
 @app.cell
-def _(Path, mo, pipeline, upload):
+def _(mo, pipeline, upload):
     mo.stop(
         not upload.value,
         mo.callout(
@@ -90,42 +94,39 @@ def _(Path, mo, pipeline, upload):
         )
     )
 
-    from chalkline.matching.reader import clean_text, extract_pdf
-    from tempfile                    import NamedTemporaryFile
-
     with mo.status.spinner("Matching resume to career landscape..."):
-        with NamedTemporaryFile(suffix=".pdf") as tmp:
-            tmp.write(upload.value[0].contents)
-            tmp.flush()
-            result = pipeline.match(clean_text(extract_pdf(Path(tmp.name))))
-
-    matched_profile = pipeline.clusters[result.cluster_id]
-    return matched_profile, result
+        result = pipeline.match(
+            (resume := upload.value[0]).contents,
+            label = resume.name
+        )
+    profile = pipeline.clusters[result.cluster_id]
+    return profile, result
 
 
 # ── Match summary ───────────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, result):
+def _(profile, mo, result):
     mo.vstack([
         mo.hstack([
-            mo.stat(label="Career Family", value=matched_profile.soc_title),
-            mo.stat(label="Sector",        value=matched_profile.sector),
-            mo.stat(label="Job Zone",      value=f"JZ {matched_profile.job_zone}"),
+            mo.stat(profile.soc_title,        "Career Family"),
+            mo.stat(profile.sector,           "Sector"),
+            mo.stat(f"JZ {profile.job_zone}", "Job Zone"),
             mo.stat(
-                direction = "decrease",
-                label     = "Match Distance",
-                value     = f"{result.match_distance:.3f}"
+                f"{result.match_distance:.3f}",
+                "Match Distance",
+                direction = "decrease"
             ),
-            mo.stat(label="Skill Gaps",   value=str(len(result.gaps))),
-            mo.stat(label="Demonstrated", value=str(len(result.demonstrated)))
+            mo.stat(len(result.gaps),         "Skill Gaps"),
+            mo.stat(len(result.demonstrated), "Demonstrated")
         ], gap=1, wrap=True),
+        
         mo.callout(
             mo.md(
-                f"Your resume most closely matches **{matched_profile.soc_title}** "
-                f"in the **{matched_profile.sector}** sector. "
-                f"This career family sits at Job Zone {matched_profile.job_zone} "
-                f"with {matched_profile.size} postings in the corpus."
+                f"Your resume most closely matches **{profile.soc_title}** "
+                f"in the **{profile.sector}** sector. "
+                f"This career family sits at Job Zone {profile.job_zone} "
+                f"with {profile.size} postings in the corpus."
             ),
             kind = "success"
         )
@@ -150,15 +151,12 @@ def _(pipeline, reference, result):
 # ── Sidebar ─────────────────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, pipeline, tables):
+def _(profile, mo, pipeline, tables):
     target_dropdown = mo.ui.dropdown(
         label      = "Target cluster",
-        options    = {
-            p.display_label: cid
-            for cid, p in sorted(pipeline.clusters.items())
-        },
+        options    = {p.display_label: cid for cid, p in pipeline.clusters.pairs()},
         searchable = True,
-        value      = matched_profile.display_label
+        value      = profile.display_label
     )
 
     mo.sidebar(
@@ -168,8 +166,8 @@ def _(matched_profile, mo, pipeline, tables):
                 "Chalkline</span>"
             ),
             mo.md(
-                f"**{matched_profile.soc_title}**\n\n"
-                f"{matched_profile.sector} · JZ {matched_profile.job_zone}"
+                f"**{profile.soc_title}**\n\n"
+                f"{profile.sector} · JZ {profile.job_zone}"
             ),
             mo.md("---"),
             target_dropdown,
@@ -180,6 +178,7 @@ def _(matched_profile, mo, pipeline, tables):
                 label    = "Download Report"
             )
         ],
+        
         footer = mo.md(
             '<span style="font-size: 0.85em; color: gray;">'
             "Built for AGC Maine</span>"
@@ -193,9 +192,9 @@ def _(matched_profile, mo, pipeline, tables):
 @app.cell
 def _(pipeline, result, target_dropdown):
     target_id = v if (v := target_dropdown.value) is not None else result.cluster_id
-    target_neighborhood = pipeline.graph.neighborhood(target_id)
-    target_profile      = pipeline.clusters[target_id]
-    return target_id, target_neighborhood, target_profile
+    target_profile = pipeline.clusters[target_id]
+    target_reach   = pipeline.graph.reach(target_id)
+    return target_id, target_profile, target_reach
 
 
 # ── Figure builder ─────────────────────────────────────────────────
@@ -224,17 +223,19 @@ def _(figures, mo, result):
 # ── Skill Analysis panel ────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, result, tables):
+def _(profile, mo, result, tables):
     def skill_analysis_panel():
         gaps  = tables.gap_rows()
         demos = tables.demonstrated_rows()
 
         return mo.vstack([
             mo.hstack([
-                mo.stat(label="Gaps",         value=str(len(result.gaps))),
-                mo.stat(label="Demonstrated", value=str(len(result.demonstrated)))
+                mo.stat(len(result.gaps),         "Gaps"),
+                mo.stat(len(result.demonstrated), "Demonstrated")
             ]),
-            mo.md(f"Skill profile for **{matched_profile.soc_title}**"),
+
+            mo.md(f"Skill profile for **{profile.soc_title}**"),
+
             mo.accordion(
                 {
                     f"Gaps ({len(gaps)})": (
@@ -257,10 +258,10 @@ def _(matched_profile, mo, result, tables):
 # ── Career Pathways panel ───────────────────────────────────────────
 
 @app.cell
-def _(figures, mo, tables, target_id, target_neighborhood):
+def _(figures, mo, tables, target_id, target_reach):
     def career_pathways_panel():
-        fig       = figures.pathways(target_neighborhood, target_id)
-        cred_rows = tables.credential_rows(target_neighborhood)
+        fig       = figures.pathways(target_reach, target_id)
+        cred_rows = tables.credential_rows(target_reach)
 
         sections = [mo.ui.plotly(fig)]
         if cred_rows:
@@ -289,19 +290,22 @@ def _(figures, mo):
 # ── Education & Training panel ──────────────────────────────────────
 
 @app.cell
-def _(mo, tables, target_neighborhood, target_profile):
+def _(mo, tables, target_profile, target_reach):
     def education_panel():
+        data = {
+            "Registered Apprenticeships" : tables.apprenticeship_rows(target_reach),
+            "Programs"                   : tables.program_rows(target_reach)
+        }
         sections = {
-            f"{label} ({len(rows)})": mo.ui.table(rows)
-            for label, rows in [
-                ("Registered Apprenticeships", tables.apprenticeship_rows(target_neighborhood)),
-                ("Programs",                   tables.program_rows(target_neighborhood))
-            ]
-            if rows
+            f"{k} ({len(v)})": mo.ui.table(v)
+            for k, v in data.items() if v
         }
 
         return mo.vstack([
-            mo.md(f"Education and training pathways for **{target_profile.soc_title}**"),
+            mo.md(
+                f"Education and training pathways for "
+                f"**{target_profile.soc_title}**"
+            ),
             mo.accordion(sections, multiple=True)
             if sections
             else mo.md("No training pathways found for this cluster.")
@@ -317,7 +321,7 @@ def _(mo, tables, target_id, target_profile):
         rows = tables.employer_rows(target_id)
 
         return mo.vstack([
-            mo.stat(label="AGC Members Matched", value=str(len(rows))),
+            mo.stat(len(rows), "AGC Members Matched"),
             mo.md(
                 f"Employers in the "
                 f"**{target_profile.soc_title}** "
@@ -333,21 +337,16 @@ def _(mo, tables, target_id, target_profile):
 # ── Job Boards panel ────────────────────────────────────────────────
 
 @app.cell
-def _(matched_profile, mo, tables):
+def _(profile, mo, tables):
     def job_board_panel():
-        maine, national = tables.board_rows()
-
+        data     = dict(zip(["Maine", "National"], tables.board_rows()))
         sections = {
-            f"{label} ({len(rows)})": mo.ui.table(rows)
-            for label, rows in [("Maine", maine), ("National", national)]
-            if rows
+            f"{k} ({len(v)})": mo.ui.table(v)
+            for k, v in data.items() if v
         }
 
         return mo.vstack([
-            mo.stat(
-                label = f"Boards for {matched_profile.sector}",
-                value = str(len(maine) + len(national))
-            ),
+            mo.stat(sum(len(v) for v in data.values()), f"Boards for {profile.sector}"),
             mo.accordion(sections, multiple=True)
             if sections
             else mo.md("No matching job boards found.")
@@ -363,22 +362,19 @@ def _(mo, pipeline):
         from chalkline.pipeline import steps
         from inspect            import getmembers, isfunction, signature
 
-        mermaid = "\n".join([
-            "graph LR",
-            *(
-                f"    {param} --> {name}"
-                for name, fn in sorted(getmembers(steps, isfunction))
-                for param in signature(fn).parameters
-                if param not in {"config", "model", "lexicons"}
-            )
-        ])
+        mermaid = "graph LR\n" + "\n".join(
+            f"    {param} --> {name}"
+            for name, fn in sorted(getmembers(steps, isfunction))
+            for param in signature(fn).parameters
+            if param not in {"config", "encoder", "lexicons"}
+        )
 
         return mo.vstack([
             mo.hstack([
-                mo.stat(label="Corpus Size",     value=f"{pipeline.corpus_size:,}"),
-                mo.stat(label="Embedding Model", value=pipeline.config.embedding_model),
-                mo.stat(label="Clusters",        value=str(len(pipeline.clusters))),
-                mo.stat(label="SVD Components",  value=str(pipeline.config.component_count))
+                mo.stat(f"{pipeline.corpus_size:,}",     "Corpus Size"),
+                mo.stat(pipeline.config.embedding_model, "Embedding Model"),
+                mo.stat(len(pipeline.clusters),          "Clusters"),
+                mo.stat(pipeline.config.component_count, "SVD Components")
             ], gap=1, wrap=True),
             mo.md("#### Pipeline DAG"),
             mo.mermaid(mermaid),
@@ -390,7 +386,7 @@ def _(mo, pipeline):
                     "Size"        : p.size,
                     "Modal Title" : p.modal_title
                 }
-                for cid, p in sorted(pipeline.clusters.items())
+                for cid, p in pipeline.clusters.pairs()
             })
         ])
     return (pipeline_details_panel,)

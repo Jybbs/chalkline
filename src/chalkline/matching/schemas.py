@@ -2,13 +2,13 @@
 Data models for resume matching results.
 
 Captures cluster distance rankings, per-task cosine gap analysis against
-O*NET Task+DWA embeddings, and the full match result with neighborhood
+O*NET Task+DWA embeddings, and the full match result with reach
 exploration.
 """
 
 from pydantic import BaseModel, Field
 
-from chalkline.pathways.schemas import Neighborhood
+from chalkline.pathways.schemas import Reach
 
 
 class ClusterDistance(BaseModel, extra="forbid"):
@@ -30,13 +30,13 @@ class MatchResult(BaseModel, extra="forbid"):
     to career families.
 
     Captures the nearest career family, distances to all clusters, the local
-    neighborhood with credential-enriched edges, and per-task gap analysis
-    against the matched cluster's O*NET occupation profile.
+    reach with credential-enriched edges, and per-task gap analysis against
+    the matched cluster's O*NET occupation profile.
     """
 
     cluster_distances : list[ClusterDistance]
     cluster_id        : int = Field(ge=0)
-    neighborhood      : Neighborhood
+    reach             : Reach
     sector            : str
 
     coordinates  : list[float]   = Field(default_factory=list)

@@ -8,7 +8,7 @@ counts, annotations, and structural invariants.
 import plotly.graph_objects as go
 
 from chalkline.display.figures  import FigureBuilder
-from chalkline.pathways.schemas import Neighborhood
+from chalkline.pathways.schemas import Reach
 
 
 class TestFigureBuilder:
@@ -55,14 +55,14 @@ class TestFigureBuilder:
     def test_pathways_edges(
         self,
         figure_builder : FigureBuilder,
-        neighborhood   : Neighborhood
+        reach          : Reach
     ):
         """
         Pathways figure contains edge and node traces.
         """
         target_id = figure_builder.cluster_ids[0]
         traces    = figure_builder.pathways(
-            neighborhood, target_id
+            reach, target_id
         ).to_dict()["data"]
         assert len(traces) >= 2
 
