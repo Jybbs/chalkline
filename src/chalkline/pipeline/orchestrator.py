@@ -1,24 +1,22 @@
 """
 End-to-end pipeline orchestrator for Chalkline career mapping.
 
-Coordinates the embedding pipeline (sentence-transformer encoding, SVD
-reduction, Ward HAC clustering, stepwise k-NN career graph with per-edge
-credential enrichment) into a fitted `Chalkline` instance constructed via
-`fit()`. Hamilton resolves the DAG from function parameter names, caches
-every node result, and serves from cache on subsequent calls with unchanged
-code and config.
+Coordinates the embedding pipeline (ONNX sentence encoding, SVD reduction,
+Ward HAC clustering, stepwise k-NN career graph with per-edge credential
+enrichment) into a fitted `Chalkline` instance constructed via `fit()`.
+Hamilton resolves the DAG from function parameter names, caches every node
+result, and serves from cache on subsequent calls with unchanged code and
+config.
 """
 
 from dataclasses import dataclass, fields
 
-from chalkline.matching.matcher  import ResumeMatcher
-from chalkline.matching.schemas  import MatchResult
-from chalkline.pathways.graph    import CareerPathwayGraph
-from chalkline.pathways.loaders  import LexiconLoader
-from chalkline.pathways.schemas  import Clusters
-from chalkline.pipeline          import steps
-from chalkline.pipeline.progress import PipelineProgress
-from chalkline.pipeline.schemas  import Encoder, PipelineConfig
+from chalkline.matching.matcher import ResumeMatcher
+from chalkline.matching.schemas import MatchResult
+from chalkline.pathways.graph   import CareerPathwayGraph
+from chalkline.pathways.schemas import Clusters
+from chalkline.pipeline.encoder import SentenceEncoder
+from chalkline.pipeline.schemas import PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -42,10 +40,8 @@ class Chalkline:
         Compact one-line summary of fitted pipeline dimensions.
         """
         return (
-            f"Chalkline("
-            f"{len(self.clusters):,} clusters, "
-            f"{self.graph.edge_count} edges, "
-            f"{self.corpus_size:,} postings)"
+            f"Chalkline({len(self.clusters):,} clusters, "
+            f"{self.graph.edge_count} edges, {self.corpus_size:,} postings)"
         )
 
     @property
@@ -67,10 +63,10 @@ class Chalkline:
         """
         Execute all pipeline steps and return a fitted pipeline.
 
-        Loads the sentence transformer model outside the Hamilton DAG to
-        avoid caching the ~400MB model weights. The model is passed as an
-        input alongside the config, and all encoding node outputs (numpy
-        arrays) cache normally via Hamilton's disk persistence.
+        Loads the ONNX encoder outside the Hamilton DAG to avoid caching the
+        ~430MB model file. The encoder is passed as an input alongside the
+        config, and all encoding node outputs (numpy arrays) cache normally
+        via Hamilton's disk persistence.
 
         Args:
             config    : Hyperparameters, directory paths, and embedding model name.
@@ -81,21 +77,32 @@ class Chalkline:
             A fully fitted `Chalkline` instance.
         """
         from hamilton.driver import Builder
-        from transformers    import MPNetModel
 
-        MPNetModel._keys_to_ignore_on_load_unexpected = [r"position_ids"]
+        from chalkline.pathways.loaders  import LexiconLoader
+        from chalkline.pipeline          import steps
+        from chalkline.pipeline.progress import MarimoDisplay, RichDisplay
+
+        display = MarimoDisplay.detect() or RichDisplay(level=log_level)
+        encoder = SentenceEncoder(
+            name       = config.embedding_model,
+            tqdm_class = display.make_download_tqdm()
+        )
+        display.encoder = encoder
 
         results = (Builder()
             .with_modules(steps)
-            .with_adapters(PipelineProgress(level=log_level))
-            .with_cache(str(config.hamilton_cache_dir))
+            .with_adapters(display)
+            .with_cache(
+                config.hamilton_cache_dir,
+                ignore = ["encoder", "matcher"]
+            )
             .build()
             .execute(
                 final_vars = [f.name for f in fields(Chalkline)],
                 inputs     = {
                     "config"   : config,
-                    "lexicons" : LexiconLoader(config.lexicon_dir),
-                    "model"    : Encoder(config.embedding_model)
+                    "encoder"  : encoder,
+                    "lexicons" : LexiconLoader(config.lexicon_dir)
                 }
             )
         )

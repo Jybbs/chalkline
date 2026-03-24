@@ -12,7 +12,7 @@ single-resume inference.
 import numpy as np
 
 from collections                 import Counter
-from hamilton.function_modifiers import extract_fields
+from hamilton.function_modifiers import extract_fields, tag
 from json                        import loads
 from loguru                      import logger
 from sklearn.cluster             import AgglomerativeClustering
@@ -26,7 +26,8 @@ from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
 from chalkline.pathways.schemas   import Cluster, Clusters, Credential, Task
-from chalkline.pipeline.schemas   import Encoder, PipelineConfig
+from chalkline.pipeline.encoder   import SentenceEncoder
+from chalkline.pipeline.schemas   import PipelineConfig
 
 
 def assignments(config: PipelineConfig, coordinates: np.ndarray) -> np.ndarray:
@@ -121,13 +122,14 @@ def corpus(config: PipelineConfig) -> Corpus:
     return Corpus({p.id: p for p in postings})
 
 
-def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
+@tag(batch_label="credentials")
+def credentials(config: PipelineConfig, encoder: SentenceEncoder) -> list[Credential]:
     """
     Load the curated credential catalog, encode with the sentence
     transformer, and attach vectors to each credential instance.
 
-    Extra fields beyond the core `Credential` schema are packed into
-    the `metadata` dict automatically.
+    Extra fields beyond the core `Credential` schema are packed into the
+    `metadata` dict automatically.
     """
     known_fields = {"embedding_text", "kind", "label"}
     raw          = loads((config.lexicon_dir / "credentials.json").read_bytes())
@@ -144,7 +146,7 @@ def credentials(config: PipelineConfig, model: Encoder) -> list[Credential]:
     logger.info(f"Encoding {len(records)} credentials...")
     for credential, vector in zip(
         records,
-        model.encode([r.embedding_text for r in records])
+        encoder.encode([r.embedding_text for r in records])
     ):
         credential.vector = vector.tolist()
 
@@ -196,8 +198,8 @@ def job_zone_map(
 
 def matcher(
     clusters : Clusters,
+    encoder  : SentenceEncoder,
     graph    : CareerPathwayGraph,
-    model    : Encoder,
     svd      : TruncatedSVD
 ) -> ResumeMatcher:
     """
@@ -206,18 +208,19 @@ def matcher(
     """
     return ResumeMatcher(
         clusters = clusters,
+        encoder  = encoder,
         graph    = graph,
-        model    = model,
         svd      = svd
     )
 
 
-def raw_vectors(corpus: Corpus, model: Encoder) -> np.ndarray:
+@tag(batch_label="postings")
+def raw_vectors(corpus: Corpus, encoder: SentenceEncoder) -> np.ndarray:
     """
     Encode all posting descriptions with the sentence transformer.
     """
     logger.info(f"Encoding {len(corpus.posting_ids)} postings...")
-    return model.encode(corpus.descriptions, unit=False)
+    return encoder.encode(corpus.descriptions, unit=False)
 
 
 @extract_fields({
@@ -249,10 +252,11 @@ def soc_similarity(
     return cosine_similarity(cluster_vectors, soc_vectors)
 
 
+@tag(batch_label="tasks")
 def soc_tasks(
     assignments    : np.ndarray,
+    encoder        : SentenceEncoder,
     lexicons       : LexiconLoader,
-    model          : Encoder,
     soc_similarity : np.ndarray
 ) -> dict[int, list[Task]]:
     """
@@ -267,7 +271,7 @@ def soc_tasks(
             Task(name=name, vector=vec)
             for name, vec in zip(
                 [t.name for t in nearest.task_elements],
-                model.encode([t.name for t in nearest.task_elements])
+                encoder.encode([t.name for t in nearest.task_elements])
             )
         ]
         for cid in sorted(np.unique(assignments))
@@ -276,10 +280,11 @@ def soc_tasks(
     }
 
 
-def soc_vectors(lexicons: LexiconLoader, model: Encoder) -> np.ndarray:
+@tag(batch_label="occupations")
+def soc_vectors(encoder: SentenceEncoder, lexicons: LexiconLoader) -> np.ndarray:
     """
     Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
     cosine similarity against cluster centroids.
     """
     logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
-    return model.encode([o.embedding_text for o in lexicons.occupations])
+    return encoder.encode([o.embedding_text for o in lexicons.occupations])

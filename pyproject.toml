@@ -18,8 +18,10 @@ dependencies    = [
     "plotly",
     "python-jobspy",
     "python-slugify",
-    "sentence-transformers",
+    "onnxruntime",
+    "scikit-learn",
     "sf-hamilton[diskcache]",
+    "tokenizers",
     "typer",
 ]
 

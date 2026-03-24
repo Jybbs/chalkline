@@ -1,58 +1,13 @@
 """
-Pipeline configuration and sentence-transformer encoding.
+Pipeline configuration.
 
-Centralizes pipeline hyperparameters and the sentence-transformer wrapper
-with Hamilton cache fingerprinting.
+Centralizes pipeline hyperparameters as a Pydantic model with defaults tuned
+for the 922-posting Maine construction corpus.
 """
 
-import numpy as np
-
-from dataclasses                     import dataclass, field
-from functools                       import cached_property
-from hamilton.caching.fingerprinting import hash_value, hash_primitive
-from pathlib                         import Path
-from pydantic                        import BaseModel
-
-
-@dataclass
-class Encoder:
-    """
-    Sentence-transformer wrapper for the Hamilton pipeline.
-
-    Defaults to L2-normalized output and enabled progress bars so call sites
-    stay clean. The `name` field records the HuggingFace model identifier
-    for Hamilton cache fingerprinting.
-    """
-
-    name  : str
-    model : SentenceTransformer = field(init=False)
-
-    def __post_init__(self):
-        from sentence_transformers import SentenceTransformer
-
-        self.model = SentenceTransformer(self.name)
-
-    def encode(self, texts: list[str], unit: bool = True) -> np.ndarray:
-        """
-        Encode texts with the sentence transformer.
-
-        Args:
-            texts : Strings to encode.
-            unit  : L2-normalize output (default True).
-        """
-        return self.model.encode(
-            texts,
-            normalize_embeddings = unit,
-            show_progress_bar    = True
-        )
-
-
-@hash_value.register(Encoder)
-def _hash_encoder(obj, *args, **kwargs) -> str:
-    """
-    Fingerprint an encoder by its model name for Hamilton caching.
-    """
-    return hash_primitive(obj.name)
+from functools import cached_property
+from pathlib   import Path
+from pydantic  import BaseModel
 
 
 class PipelineConfig(BaseModel, extra="forbid"):
@@ -71,7 +26,7 @@ class PipelineConfig(BaseModel, extra="forbid"):
     cluster_count          : int = 20
     component_count        : int = 10
     destination_percentile : int = 5
-    embedding_model        : str = "all-mpnet-base-v2"
+    embedding_model        : str = "Alibaba-NLP/gte-base-en-v1.5"
     lateral_neighbors      : int = 2
     random_seed            : int = 42
     soc_neighbors          : int = 3

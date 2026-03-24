@@ -338,7 +338,7 @@ def resume_matcher(
     return ResumeMatcher(
         clusters = clusters,
         graph    = pathway_graph,
-        model    = mock_encoder,
+        encoder  = mock_encoder,
         svd      = svd
     )
 

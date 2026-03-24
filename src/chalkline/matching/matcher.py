@@ -17,7 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
 from chalkline.pathways.graph   import CareerPathwayGraph
 from chalkline.pathways.schemas import Clusters
-from chalkline.pipeline.schemas import Encoder
+from chalkline.pipeline.encoder import SentenceEncoder
 
 
 @dataclass(kw_only=True)
@@ -25,7 +25,7 @@ class ResumeMatcher:
     """
     Embedding-based resume matching with neighborhood exploration.
 
-    Holds the sentence transformer model, fitted SVD, and the cluster map
+    Holds the sentence transformer encoder, fitted SVD, and the cluster map
     with pre-stacked centroid matrices. The `match()` method encodes resume
     text, projects it into the reduced space, assigns it to the nearest
     cluster, computes per-task gap analysis, and queries the career graph
@@ -33,14 +33,14 @@ class ResumeMatcher:
 
     Args:
         clusters : Cluster map with centroids for distance computation.
+        encoder  : For encoding resume text into embedding space.
         graph    : For neighborhood queries post-match.
-        model    : For encoding resume text into embedding space.
         svd      : For projecting resume embeddings into reduced space.
     """
 
     clusters : Clusters
+    encoder  : SentenceEncoder
     graph    : CareerPathwayGraph
-    model    : Encoder
     svd      : TruncatedSVD
 
     def _gap_analysis(
@@ -104,7 +104,7 @@ class ResumeMatcher:
         Returns:
             `MatchResult` with cluster, gaps, and neighborhood.
         """
-        resume_unit = self.model.encode([resume_text])
+        resume_unit = self.encoder.encode([resume_text])
         resume_svd  = self.svd.transform(resume_unit)[0]
         distances   = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
 
