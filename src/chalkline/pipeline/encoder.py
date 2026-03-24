@@ -9,6 +9,7 @@ with batch-level progress callbacks.
 import numpy as np
 
 from collections.abc import Callable
+from loguru          import logger
 from pathlib         import Path
 
 
@@ -37,13 +38,15 @@ class SentenceEncoder:
 
         self.batch_size = batch_size
         self.name       = name
-        self.session    = InferenceSession(hf_hub_download(
+
+        logger.info(f"Initializing ONNX encoder ({name!r})")
+        self.session = InferenceSession(hf_hub_download(
             name,
             cache_dir  = Path(".cache/models"),
             filename   = "onnx/model.onnx",
             tqdm_class = tqdm_class
         ))
-        self.tokenizer  = Tokenizer.from_pretrained(name)
+        self.tokenizer = Tokenizer.from_pretrained(name)
         self.tokenizer.enable_padding()
 
         self.on_batch: Callable[[int, int], None] | None = None

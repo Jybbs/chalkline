@@ -61,6 +61,11 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
         Mark a node complete in the display.
         """
 
+    def begin_display(self):
+        """
+        Start the live display before the model download.
+        """
+
     def begin_pipeline(self, total: int):
         """
         Initialize the display once the node count is known.
@@ -208,10 +213,12 @@ class RichDisplay(PipelineProgress):
             self.progress.remove_task(task)
         self.progress.update(self.pipeline_task, advance = 1)
 
-    def begin_pipeline(self, total: int):
+    def begin_display(self):
         """
-        Start the live display, wire loguru through Rich, and add the
-        pipeline-level progress bar.
+        Start the live display and wire loguru through Rich.
+
+        Called before the model download so that logger.info and the
+        download bar both render through the shared Progress console.
         """
         from rich.logging import RichHandler
 
@@ -227,6 +234,12 @@ class RichDisplay(PipelineProgress):
 
         self.progress.console.rule()
         self.progress.start()
+
+    def begin_pipeline(self, total: int):
+        """
+        Add the pipeline-level progress bar once the DAG starts and the
+        node count is known.
+        """
         self.pipeline_task = self.progress.add_task(
             "[bold]pipeline[/bold]",
             total = total

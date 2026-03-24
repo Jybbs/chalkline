@@ -83,6 +83,7 @@ class Chalkline:
         from chalkline.pipeline.progress import MarimoDisplay, RichDisplay
 
         display = MarimoDisplay.detect() or RichDisplay(level=log_level)
+        display.begin_display()
         encoder = SentenceEncoder(
             name       = config.embedding_model,
             tqdm_class = display.make_download_tqdm()
