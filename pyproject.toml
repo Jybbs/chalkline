@@ -15,10 +15,13 @@ dependencies    = [
     "marimo",
     "networkx",
     "pdfplumber",
+    "plotly",
     "python-jobspy",
     "python-slugify",
-    "sentence-transformers",
+    "onnxruntime",
+    "scikit-learn",
     "sf-hamilton[diskcache]",
+    "tokenizers",
     "typer",
 ]
 
@@ -34,8 +37,6 @@ chalkline = "chalkline.cli:app"
 
 [dependency-groups]
 dev = [
-    "kneed",
-    "mlxtend",
     "nltk",
     "openpyxl",
     "pytest",
@@ -43,7 +44,6 @@ dev = [
     "wordfreq",
 ]
 viz = [
-    "plotly",
     "seaborn",
 ]
 

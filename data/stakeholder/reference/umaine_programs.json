@@ -1,0 +1,72 @@
+[
+  {
+    "campus": "UMaine",
+    "category": "Construction",
+    "degree": "B.S.",
+    "program": "Construction Engineering Technology",
+    "url": "https://go.umaine.edu/find-a-major/construction-engineering-technology/"
+  },
+  {
+    "campus": "UMA",
+    "category": "Architecture",
+    "degree": "B.Arch",
+    "program": "Architecture (5-Year Professional Degree)",
+    "url": "https://www.uma.edu/academics/programs/architecture/"
+  },
+  {
+    "campus": "UMaine",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Civil & Environmental Engineering",
+    "url": "https://mcec.umaine.edu/cie/"
+  },
+  {
+    "campus": "UMaine",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Mechanical Engineering",
+    "url": "https://mcec.umaine.edu/mee/"
+  },
+  {
+    "campus": "UMaine",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Electrical & Computer Engineering",
+    "url": "https://mcec.umaine.edu/ece/"
+  },
+  {
+    "campus": "UMaine",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Surveying Engineering Technology",
+    "url": "https://mcec.umaine.edu/set/"
+  },
+  {
+    "campus": "USM",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Mechanical Engineering",
+    "url": "https://usm.maine.edu/department-engineering/mechanical-engineering/"
+  },
+  {
+    "campus": "USM",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Electrical & Computer Engineering",
+    "url": "https://usm.maine.edu/department-engineering/electrical-engineering/"
+  },
+  {
+    "campus": "USM",
+    "category": "Engineering",
+    "degree": "B.S.",
+    "program": "Industrial Engineering",
+    "url": "https://usm.maine.edu/department-engineering/industrial-engineering/"
+  },
+  {
+    "campus": "UMA/UMPI",
+    "category": "Pathways",
+    "degree": "1+3 Program",
+    "program": "Maine Engineering Pathways",
+    "url": "https://www.uma.edu/academics/programs/engineering-pathways/"
+  }
+]

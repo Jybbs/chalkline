@@ -13,7 +13,7 @@ from pathlib  import Path
 from pydantic import TypeAdapter
 from slugify  import slugify
 
-from chalkline.extraction.schemas import Certification, OnetOccupation
+from chalkline.pathways.schemas import OnetOccupation
 
 
 class LexiconLoader:
@@ -29,11 +29,10 @@ class LexiconLoader:
     def __init__(self, lexicon_dir: Path):
         """
         Args:
-            lexicon_dir: Must contain `onet.json` and `certifications.json`.
+            lexicon_dir: Must contain `onet.json`.
         """
-        self.lexicon_dir    = lexicon_dir
-        self.certifications = self._load(list[Certification],  "Certifications")
-        self.occupations    = self._load(list[OnetOccupation], "O*NET")
+        self.lexicon_dir = lexicon_dir
+        self.occupations = self._load(list[OnetOccupation], "O*NET")
 
     def _load(self, schema: type, label: str) -> list:
         """

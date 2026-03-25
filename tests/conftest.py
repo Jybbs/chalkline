@@ -6,56 +6,44 @@ independently tappable by any test module:
 
     corpus → raw_vectors → unit_vectors → coordinates → assignments
                                   ↓                          ↓
-                           soc_vectors → job_zone_map → profiles → graph
+                           soc_vectors → job_zone_map → clusters → graph
                                                                      ↓
-                           credential_vectors ───────────────────→ matcher
+                           credentials ────────────────────────→ matcher
+                                                                     ↓
+                                    reference → table_builder, figure_builder
 """
 
 import numpy as np
 
 from datetime              import date
+from json                  import loads
 from pathlib               import Path
 from pydantic              import TypeAdapter
-from pytest                import fixture, FixtureRequest
+from pytest                import fixture
 from sklearn.cluster       import AgglomerativeClustering
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
+from types                 import SimpleNamespace
 from typing                import Any, Callable
 
-from chalkline.collection.schemas  import Posting
-from chalkline.extraction.loaders  import LexiconLoader
-from chalkline.extraction.schemas  import Certification, OnetOccupation
-from chalkline.matching.matcher    import ResumeMatcher
-from chalkline.pipeline.graph      import CareerPathwayGraph
-from chalkline.pipeline.schemas    import ApprenticeshipContext, ClusterAssignments
-from chalkline.pipeline.schemas    import ClusterProfile, ClusterTasks, Credentials
-from chalkline.pipeline.schemas    import PipelineConfig, ProgramRecommendation
-from chalkline.pipeline.trades     import TradeIndex
+from chalkline.collection.schemas import Corpus, Posting
+from chalkline.display.figures    import FigureBuilder
+from chalkline.display.tables     import TableBuilder
+from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.matching.schemas   import MatchResult
+from chalkline.pathways.graph     import CareerPathwayGraph
+from chalkline.pathways.loaders   import LexiconLoader
+from chalkline.pathways.schemas   import CareerEdge, Cluster, Clusters
+from chalkline.pathways.schemas   import Credential, Reach
+from chalkline.pathways.schemas   import OnetOccupation, Task
+from chalkline.pipeline.schemas   import PipelineConfig
 
 
-FIXTURES        = Path(__file__).resolve().parent / "fixtures"
 CLUSTER_COUNT   = 4
 COMPONENT_COUNT = 4
 CORPUS_SIZE     = 20
 EMBEDDING_DIM   = 16
-
-
-class MockEncoder:
-    """
-    Deterministic fake encoder matching the `Encoder` interface.
-
-    Replaces the real encoder so tests never load the 400MB model.
-    """
-
-    def encode(self, texts, unit=True):
-        """
-        Return deterministic (len(texts), EMBEDDING_DIM) embeddings
-        seeded by input length for reproducibility.
-        """
-        vectors = np.random.RandomState(len(texts)).randn(
-            len(texts), EMBEDDING_DIM
-        ).astype(np.float32)
-        return normalize(vectors) if unit else vectors
+FIXTURES        = Path(__file__).resolve().parent / "fixtures"
 
 
 _load = lambda schema, path: TypeAdapter(schema).validate_json(
@@ -79,6 +67,14 @@ def _postings() -> list[Posting]:
 
 
 # ── Collection fixtures ─────────────────────────────────────────────
+
+
+@fixture
+def corpus() -> Corpus:
+    """
+    Posting corpus built from fixture data.
+    """
+    return Corpus({p.id: p for p in _postings()})
 
 
 @fixture
@@ -121,23 +117,13 @@ def second_posting() -> Posting:
 
 
 @fixture
-def certifications(lexicon_loader: LexiconLoader) -> list[Certification]:
-    """
-    Synthetic certification records from the loader.
-    """
-    return lexicon_loader.certifications
-
-
-@fixture
 def lexicon_dir(tmp_path: Path) -> Path:
     """
     Write synthetic lexicon files to a temporary directory.
     """
-    for src, dst in (
-        ("certifications.json",   "certifications.json"),
-        ("onet_occupations.json", "onet.json")
-    ):
-        (tmp_path / dst).write_text((FIXTURES / "extraction" / src).read_text())
+    (tmp_path / "onet.json").write_text(
+        (FIXTURES / "pathways" / "onet_occupations.json").read_text()
+    )
     return tmp_path
 
 
@@ -157,63 +143,89 @@ def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
     return lexicon_loader.occupations
 
 
-@fixture(params=["47-2111", "47-2111.00"])
-def soc(request: FixtureRequest) -> str:
-    """
-    Electrician SOC code in both bare and suffixed formats.
-    """
-    return request.param
-
-
 # ── Embedding pipeline fixtures ──────────────────────────────────────
 
 
 @fixture
-def assignments(coordinates: np.ndarray) -> ClusterAssignments:
+def assignments(coordinates: np.ndarray) -> np.ndarray:
     """
-    Ward-linkage HAC assignments at k=CLUSTER_COUNT.
+    Ward-linkage HAC label array at k=CLUSTER_COUNT.
     """
-    return ClusterAssignments(AgglomerativeClustering(
+    return AgglomerativeClustering(
         linkage    = "ward",
         n_clusters = CLUSTER_COUNT
-    ).fit_predict(coordinates))
+    ).fit_predict(coordinates)
 
 
 @fixture
-def centroids(
-    assignments : ClusterAssignments,
-    coordinates : np.ndarray
-) -> np.ndarray:
+def centroids(assignments: np.ndarray, coordinates: np.ndarray) -> np.ndarray:
     """
     Mean SVD coordinates per cluster (CLUSTER_COUNT, COMPONENT_COUNT).
     """
     return np.stack([
-        coordinates[assignments.members[cid]].mean(axis=0)
-        for cid in assignments.cluster_ids
+        coordinates[assignments == cid].mean(axis=0)
+        for cid in sorted(np.unique(assignments))
     ])
 
 
 @fixture
-def cluster_ids(assignments: ClusterAssignments) -> np.ndarray:
+def cluster_ids(assignments: np.ndarray) -> list[int]:
     """
     Sorted unique cluster IDs from assignments.
     """
-    return assignments.cluster_ids
+    return sorted(np.unique(assignments).tolist())
 
 
 @fixture
 def cluster_vectors(
-    assignments : ClusterAssignments,
+    assignments : np.ndarray,
     raw_vectors : np.ndarray
 ) -> np.ndarray:
     """
     Mean posting embedding per cluster, L2-normalized (CLUSTER_COUNT,
     EMBEDDING_DIM).
     """
-    return np.stack([
-        normalize(raw_vectors[assignments.members[cid]].mean(axis=0, keepdims=True))[0]
-        for cid in assignments.cluster_ids
-    ])
+    return normalize(np.stack([
+        raw_vectors[assignments == cid].mean(axis=0)
+        for cid in sorted(np.unique(assignments))
+    ]))
+
+
+@fixture
+def clusters(
+    assignments     : np.ndarray,
+    centroids       : np.ndarray,
+    cluster_vectors : np.ndarray,
+    job_zone_map    : dict[int, int]
+) -> Clusters:
+    """
+    Unified cluster container with synthetic metadata and task
+    embeddings. Postings are empty because the test corpus has
+    fewer entries than the synthetic embedding matrix.
+    """
+    cluster_ids = sorted(np.unique(assignments).tolist())
+    items = {
+        cid: Cluster(
+            cluster_id   = cid,
+            job_zone     = job_zone_map[cid],
+            members      = np.where(assignments == cid)[0],
+            modal_title  = f"Title {cid}",
+            postings     = [],
+            sector       = f"Sector {cid % 2}",
+            size         = int((assignments == cid).sum()),
+            soc_title    = f"Occupation {cid}",
+            tasks        = [
+                Task(name=f"Task {cid}-{i}", vector=v)
+                for i, v in enumerate(_embeddings(5, cid, unit=True))
+            ]
+        )
+        for cid in cluster_ids
+    }
+    return Clusters(
+        centroids = centroids,
+        items     = items,
+        vectors   = cluster_vectors
+    )
 
 
 @fixture
@@ -242,40 +254,33 @@ def coordinates(
 
 
 @fixture
-def credential_records(
-    apprenticeships : list[ApprenticeshipContext],
-    programs        : list[ProgramRecommendation]
-) -> list:
+def credentials() -> list[Credential]:
     """
-    Mixed credential records from trade fixtures (4 + 6 = 10).
+    Synthetic credentials with vectors for graph construction.
     """
-    return apprenticeships + programs
+    vectors = _embeddings(10, seed=77, unit=True)
+    return [
+        Credential(
+            embedding_text = f"credential {i}",
+            kind           = "apprenticeship" if i < 4 else "program",
+            label          = f"Credential {i}",
+            metadata       = (
+                {"min_hours": 8000, "rapids_code": f"0{i}"}
+                if i < 4
+                else {
+                    "credential"  : "AAS",
+                    "institution" : "SMCC",
+                    "url"         : "https://example.com"
+                }
+            ),
+            vector         = vectors[i].tolist()
+        )
+        for i in range(10)
+    ]
 
 
 @fixture
-def credential_vectors(credential_records: list) -> np.ndarray:
-    """
-    Synthetic credential embeddings aligned with `credential_records`.
-    """
-    return _embeddings(len(credential_records), 77, unit=True)
-
-
-@fixture
-def credentials(
-    credential_records : list,
-    credential_vectors : np.ndarray
-) -> Credentials:
-    """
-    Bundled credential records and vectors for graph construction.
-    """
-    return Credentials(
-        records = credential_records,
-        vectors = credential_vectors
-    )
-
-
-@fixture
-def job_zone_map(cluster_ids: np.ndarray) -> dict[int, int]:
+def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
     """
     Deterministic Job Zone assignment for synthetic clusters.
 
@@ -292,54 +297,21 @@ def job_zone_map(cluster_ids: np.ndarray) -> dict[int, int]:
 
 
 @fixture
-def mock_encoder() -> MockEncoder:
-    """
-    Deterministic mock replacing SentenceTransformer for tests.
-    """
-    return MockEncoder()
-
-
-@fixture
 def pathway_graph(
-    centroids       : np.ndarray,
-    cluster_vectors : np.ndarray,
-    config          : PipelineConfig,
-    credentials     : Credentials,
-    job_zone_map    : dict[int, int],
-    profiles        : dict[int, ClusterProfile]
+    clusters    : Clusters,
+    credentials : list[Credential]
 ) -> CareerPathwayGraph:
     """
     Career pathway graph built from synthetic embeddings.
     """
     return CareerPathwayGraph(
-        centroids       = centroids,
-        cluster_vectors = cluster_vectors,
-        config          = config,
-        credentials     = credentials,
-        job_zone_map    = job_zone_map,
-        profiles        = profiles
+        clusters               = clusters,
+        credentials            = credentials,
+        destination_percentile = 5,
+        lateral_neighbors      = 2,
+        source_percentile      = 75,
+        upward_neighbors       = 2
     )
-
-
-@fixture
-def profiles(
-    assignments  : ClusterAssignments,
-    job_zone_map : dict[int, int]
-) -> dict[int, ClusterProfile]:
-    """
-    Minimal cluster profiles for graph and matcher tests.
-    """
-    return {
-        cid: ClusterProfile(
-            cluster_id  = cid,
-            job_zone    = job_zone_map[cid],
-            modal_title = f"Title {cid}",
-            sector      = f"Sector {cid % 2}",
-            size        = len(assignments.members[cid]),
-            soc_title   = f"Occupation {cid}"
-        )
-        for cid in assignments.cluster_ids
-    }
 
 
 @fixture
@@ -352,30 +324,22 @@ def raw_vectors() -> np.ndarray:
 
 @fixture
 def resume_matcher(
-    centroids     : np.ndarray,
-    cluster_ids   : np.ndarray,
+    clusters      : Clusters,
     pathway_graph : CareerPathwayGraph,
-    profiles      : dict[int, ClusterProfile],
     svd           : TruncatedSVD
 ) -> ResumeMatcher:
     """
     Resume matcher built from synthetic embeddings with mock encoder.
     """
-    mock: Any = MockEncoder()
+    mock_encoder: Any = SimpleNamespace(
+        encode = lambda texts,
+        unit   = True: _embeddings(len(texts), seed=len(texts), unit=unit)
+    )
     return ResumeMatcher(
-        centroids   = centroids,
-        cluster_ids = cluster_ids,
-        graph       = pathway_graph,
-        model       = mock,
-        profiles    = profiles,
-        soc_tasks   = {
-            cluster_id: ClusterTasks(
-                labels  = [f"Task {cluster_id}-{i}" for i in range(5)],
-                vectors = _embeddings(5, cluster_id, unit=True)
-            )
-            for cluster_id in cluster_ids
-        },
-        svd         = svd
+        clusters = clusters,
+        graph    = pathway_graph,
+        encoder  = mock_encoder,
+        svd      = svd
     )
 
 
@@ -403,34 +367,113 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     return normalize(raw_vectors)
 
 
-# ── Trade fixtures ───────────────────────────────────────────────────
+# ── Display fixtures ─────────────────────────────────────────────────
 
 
 @fixture
-def apprenticeships() -> list[ApprenticeshipContext]:
+def edge_factory(
+    clusters    : Clusters,
+    credentials : list[Credential]
+) -> Callable:
     """
-    Synthetic apprenticeship reference data for matching tests.
+    Factory for `CareerEdge` instances with a default cluster ID and
+    optional credential filtering by kind.
     """
-    return _load(list[ApprenticeshipContext], "matching/apprenticeships.json")
+    cluster_id = next(iter(clusters))
+
+    def _build(kind: str | None = None) -> CareerEdge:
+        creds = (
+            [next(c for c in credentials if c.kind == kind)]
+            if kind
+            else []
+        )
+        return CareerEdge(
+            cluster_id  = cluster_id,
+            credentials = creds,
+            weight      = 0.9
+        )
+    return _build
 
 
 @fixture
-def programs() -> list[ProgramRecommendation]:
+def figure_builder(pathway_graph: CareerPathwayGraph) -> FigureBuilder:
     """
-    Load synthetic educational program fixtures.
+    Figure builder wired to the synthetic pathway graph.
     """
-    return _load(list[ProgramRecommendation], "matching/programs.json")
+    return FigureBuilder(
+        matched_id = pathway_graph.clusters.cluster_ids[0],
+        pathway    = pathway_graph,
+        theme      = lambda: "plotly_white"
+    )
 
 
 @fixture
-def trades(
-    apprenticeships : list[ApprenticeshipContext],
-    programs        : list[ProgramRecommendation]
-) -> TradeIndex:
+def match_result(resume_matcher: ResumeMatcher) -> MatchResult:
     """
-    Shared trade index with prefix lookups for matching.
+    Match result from encoding a synthetic resume string.
     """
-    return TradeIndex(
-        apprenticeships = apprenticeships,
-        programs        = programs
+    return resume_matcher.match("electrician conduit bending NEC code")
+
+
+@fixture
+def member_names(reference: dict) -> tuple[list[dict], list[str]]:
+    """
+    AGC member records with pre-lowercased names for matching tests.
+    """
+    members = reference["agc_members"]
+    return members, [m["name"].lower() for m in members]
+
+
+@fixture
+def pipeline_namespace(clusters: Clusters, config: PipelineConfig):
+    """
+    Lightweight namespace mimicking the `Chalkline` dataclass for
+    display tests without requiring the full Hamilton pipeline.
+    """
+    return SimpleNamespace(
+        clusters = clusters,
+        config   = config
+    )
+
+
+@fixture
+def reach(
+    clusters      : Clusters,
+    pathway_graph : CareerPathwayGraph
+) -> Reach:
+    """
+    Reach view from the first cluster in the graph.
+    """
+    return pathway_graph.reach(clusters.cluster_ids[0])
+
+
+@fixture
+def reference() -> dict:
+    """
+    Stakeholder reference data loaded from display fixture JSON.
+    """
+    return {
+        "agc_members" : loads(
+            (FIXTURES / "display" / "members.json").read_text()
+        ),
+        "career_urls" : [],
+        "job_boards"  : loads(
+            (FIXTURES / "display" / "boards.json").read_text()
+        )
+    }
+
+
+@fixture
+def table_builder(
+    match_result : MatchResult,
+    pipeline_namespace,
+    reference    : dict
+) -> TableBuilder:
+    """
+    Table builder wired to the synthetic pipeline and match result.
+    """
+    return TableBuilder(
+        pipeline  = pipeline_namespace,
+        reference = reference,
+        result    = match_result
     )

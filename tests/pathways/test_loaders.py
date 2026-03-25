@@ -2,26 +2,18 @@
 Tests for lexicon file loading.
 
 Validates graceful handling of missing files and successful loading of valid
-certifications and O*NET lexicon data.
+O*NET lexicon data.
 """
 
 from pathlib import Path
 
-from chalkline.extraction.loaders import LexiconLoader
+from chalkline.pathways.loaders import LexiconLoader
 
 
 class TestLexiconLoader:
     """
     Validate lexicon loading and missing-file handling.
     """
-
-    def test_load_certifications(self, lexicon_dir: Path):
-        """
-        Valid certifications JSON deserializes into certification records.
-        """
-        loader = LexiconLoader(lexicon_dir)
-        assert len(loader.certifications) == 2
-        assert loader.certifications[0].name == "Certified Welding Inspector"
 
     def test_load_onet(self, lexicon_dir: Path):
         """
@@ -36,7 +28,5 @@ class TestLexiconLoader:
         Missing lexicon files log warnings and produce empty lists.
         """
         loader = LexiconLoader(tmp_path)
-        assert loader.certifications == []
-        assert loader.occupations    == []
-        assert "Certifications lexicon not found" in caplog.text
-        assert "O*NET lexicon not found"          in caplog.text
+        assert loader.occupations == []
+        assert "O*NET lexicon not found" in caplog.text

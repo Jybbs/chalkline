@@ -1,0 +1,128 @@
+[
+  {
+    "soc_code": "11-9021.00",
+    "title": "Construction Managers",
+    "role_description": "Overseeing entire building projects, budgets, and schedules.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-2031.00",
+    "title": "Carpenters",
+    "role_description": "Structural framing, building forms, and interior woodwork.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-2111.00",
+    "title": "Electricians",
+    "role_description": "Installing power systems, lighting, and communications in buildings.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-2221.00",
+    "title": "Structural Iron and Steel Workers",
+    "role_description": "Erecting the steel skeletons of high-rise commercial buildings.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-2152.00",
+    "title": "Plumbers & Pipefitters",
+    "role_description": "Commercial HVAC, water supply, and drainage systems.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-2081.00",
+    "title": "Drywall & Ceiling Tile Installers",
+    "role_description": "Finishing interior office spaces and retail layouts.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-2132.00",
+    "title": "Insulation Workers, Mechanical",
+    "role_description": "Insulating commercial boilers, pipes, and HVAC ducts.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "47-4021.00",
+    "title": "Elevator & Escalator Installers",
+    "role_description": "Essential for multi-story commercial structures.",
+    "sector": "Building Construction"
+  },
+  {
+    "soc_code": "17-2051.00",
+    "title": "Civil Engineers",
+    "role_description": "Designing and supervising roads, bridges, and water systems.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "17-2051.01",
+    "title": "Transportation Engineers",
+    "role_description": "Specialized planning for highway systems and traffic flow.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-2071.00",
+    "title": "Paving & Tamping Operators",
+    "role_description": "Operating machines that spread and level asphalt or concrete.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-2073.00",
+    "title": "Operating Engineers",
+    "role_description": "Operating bulldozers, excavators, and graders for earthmoving.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-4051.00",
+    "title": "Highway Maintenance Workers",
+    "role_description": "Repairing roads, guardrails, and highway markers.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-2151.00",
+    "title": "Pipelayers",
+    "role_description": "Laying pipes for storm drains, water mains, and sewers.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-2072.00",
+    "title": "Pile Driver Operators",
+    "role_description": "Driving pilings for bridge foundations and retaining walls.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-2171.00",
+    "title": "Reinforcing Iron & Rebar Workers",
+    "role_description": "Laying rebar for bridge decks and highway overpasses.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-4061.00",
+    "title": "Rail-Track Laying Equipment",
+    "role_description": "Specialized for heavy rail and transit infrastructure.",
+    "sector": "Heavy Highway Construction"
+  },
+  {
+    "soc_code": "47-1011.00",
+    "title": "First-Line Supervisors",
+    "role_description": "Direct \"on-the-ground\" management of trade workers (Carpentry, Electric, etc.).",
+    "sector": "Construction Managers"
+  },
+  {
+    "soc_code": "13-1082.00",
+    "title": "Project Management Specialists",
+    "role_description": "Broad management focusing on schedule/budget; often used for \"Project Coordinators.\"",
+    "sector": "Construction Managers"
+  },
+  {
+    "soc_code": "11-9041.00",
+    "title": "Architectural & Engineering Managers",
+    "role_description": "Managing the design-phase and technical engineering teams.",
+    "sector": "Construction Managers"
+  },
+  {
+    "soc_code": "11-3013.00",
+    "title": "Facilities Managers",
+    "role_description": "Managing the maintenance and life-cycle of a building after construction.",
+    "sector": "Construction Managers"
+  }
+]

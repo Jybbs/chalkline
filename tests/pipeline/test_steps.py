@@ -13,6 +13,34 @@ from chalkline.pipeline         import steps
 from chalkline.pipeline.schemas import PipelineConfig
 
 
+class TestClusters:
+    """
+    Validate unified cluster construction.
+    """
+
+    def test_cluster_count(self, cluster_ids, clusters):
+        """
+        One cluster per assignment.
+        """
+        assert len(clusters) == len(cluster_ids)
+
+    def test_cluster_has_titles(self, clusters):
+        """
+        Every cluster carries both an O*NET occupation title and a
+        modal posting title.
+        """
+        for cluster in clusters.values():
+            assert cluster.soc_title
+            assert cluster.modal_title
+
+    def test_cluster_jz_range(self, clusters):
+        """
+        Job Zones are within the O*NET 1-5 range.
+        """
+        for cluster in clusters.values():
+            assert 1 <= cluster.job_zone <= 5
+
+
 class TestCorpus:
     """
     Validate corpus loading node.
@@ -29,31 +57,3 @@ class TestCorpus:
                 output_dir   = tmp_path,
                 postings_dir = tmp_path
             ))
-
-
-class TestProfiles:
-    """
-    Validate cluster profile construction.
-    """
-
-    def test_profile_count(self, profiles, cluster_ids):
-        """
-        One profile per cluster.
-        """
-        assert len(profiles) == len(cluster_ids)
-
-    def test_profile_jz_range(self, profiles):
-        """
-        Job Zones are within the O*NET 1-5 range.
-        """
-        for profile in profiles.values():
-            assert 1 <= profile.job_zone <= 5
-
-    def test_profile_has_titles(self, profiles):
-        """
-        Every profile carries both an O*NET occupation title and a modal
-        posting title.
-        """
-        for profile in profiles.values():
-            assert profile.soc_title
-            assert profile.modal_title

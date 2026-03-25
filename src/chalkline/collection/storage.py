@@ -64,7 +64,7 @@ class CorpusStorage:
         """
         try:
             result = self.Postings.validate_json(self.corpus_path.read_bytes())
-            logger.info(f"Loaded {len(result)} postings from {self.corpus_path}")
+            logger.info(f"Loading {len(result)} postings from {self.corpus_path}")
             return result
 
         except FileNotFoundError:

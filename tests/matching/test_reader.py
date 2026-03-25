@@ -8,10 +8,10 @@ downstream tokenization.
 from pathlib import Path
 from pytest  import mark
 
-from chalkline.extraction.reader import clean_text, extract_pdf
+from chalkline.matching.reader import clean_text, extract_pdf
 
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "parsing"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "matching"
 
 
 class TestCleanText:

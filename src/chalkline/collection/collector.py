@@ -8,9 +8,6 @@ persist deduplicated postings through the storage layer.
     uv run python -m chalkline.collection.collector
 """
 
-import pandas as pd
-
-from jobspy  import scrape_jobs
 from loguru  import logger
 from pathlib import Path
 
@@ -62,7 +59,9 @@ class Collector:
         Returns:
             A validated `Posting`, or `None` if the row is invalid.
         """
-        clean = lambda v: None if v is None or v != v else v
+        from pandas import isna
+
+        clean = lambda v: None if isna(v) else v
 
         try:
             return Posting(
@@ -77,7 +76,7 @@ class Collector:
             logger.debug(f"Skipped row: {error}")
             return None
 
-    def _scrape(self) -> pd.DataFrame:
+    def _scrape(self) -> "DataFrame":
         """
         Run `scrape_jobs` once per search term and concatenate all results
         into a single DataFrame.
@@ -88,6 +87,9 @@ class Collector:
         Returns:
             Concatenated DataFrame of all search term results.
         """
+        from jobspy  import scrape_jobs
+        from pandas  import concat, DataFrame
+
         frames = []
         for term in self.search_terms:
             logger.info(f"Searching {term!r}")
@@ -102,7 +104,7 @@ class Collector:
             except Exception as error:
                 logger.error(f"{term!r}: {error}")
 
-        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        return concat(frames, ignore_index=True)
 
     def run(self):
         """

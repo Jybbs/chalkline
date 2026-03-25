@@ -34,17 +34,17 @@ def fit(
     cached so subsequent calls with unchanged code and config serve
     instantly.
     """
-    from loguru import logger
-
-    if not verbose:
-        logger.disable("chalkline")
-
     from chalkline.pipeline.orchestrator import Chalkline
     from chalkline.pipeline.schemas      import PipelineConfig
 
-    config = PipelineConfig(
-        lexicon_dir  = lexicon_dir,
-        output_dir   = output_dir,
-        postings_dir = postings_dir
+    pipeline = Chalkline.fit(
+        config = PipelineConfig(
+            lexicon_dir  = lexicon_dir,
+            output_dir   = output_dir,
+            postings_dir = postings_dir
+        ),
+        log_level = "DEBUG" if verbose else "INFO"
     )
-    typer.echo(f"\n{Chalkline.fit(config)}")
+
+    from rich.console import Console
+    Console().print(f"\n{pipeline!r}")

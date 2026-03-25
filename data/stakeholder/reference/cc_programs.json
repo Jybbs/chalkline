@@ -1,0 +1,126 @@
+{
+  "degrees": [
+    {
+      "college": "CMCC",
+      "credential": "AAS Degree, Certificate",
+      "program": "Building Construction Technology",
+      "url": "https://www.cmcc.edu/academics/programs/programs-of-study/building-construction-technology/"
+    },
+    {
+      "college": "CMCC",
+      "credential": "AAS Degree, Certificate",
+      "program": "HVAC/R Technology",
+      "url": "https://www.cmcc.edu/academics/programs/programs-of-study/hvacr/"
+    },
+    {
+      "college": "CMCC",
+      "credential": "AAS Degree",
+      "program": "Plumbing & Heating Technology",
+      "url": "https://www.cmcc.edu/academics/programs/programs-of-study/plumbing-and-heating-technology/"
+    },
+    {
+      "college": "EMCC",
+      "credential": "AAS Degree, Certificate",
+      "program": "Building Construction",
+      "url": "https://www.emcc.edu/academics/programs/programs-of-study/building-construction/"
+    },
+    {
+      "college": "EMCC",
+      "credential": "Certificate",
+      "program": "Plumbing",
+      "url": "https://www.emcc.edu/academics/programs/programs-of-study/plumbing/"
+    },
+    {
+      "college": "EMCC",
+      "credential": "AAS Degree, Certificate",
+      "program": "Refrigeration, AC & Heating",
+      "url": "https://www.emcc.edu/academics/programs/programs-of-study/refrigeration-air-conditioning-heating/"
+    },
+    {
+      "college": "KVCC",
+      "credential": "AAS Degree",
+      "program": "Plumbing & Heating",
+      "url": "https://www.kvcc.me.edu/academics/programs-of-study/plumbing-heating/"
+    },
+    {
+      "college": "KVCC",
+      "credential": "Certificate",
+      "program": "Plumbing",
+      "url": "https://www.kvcc.me.edu/academics/programs-of-study/plumbing/"
+    },
+    {
+      "college": "NMCC",
+      "credential": "AAS Degree, Certificate",
+      "program": "Building Construction Tech",
+      "url": "https://www.nmcc.edu/academics/programs/academic-programs/building-construction-technology/"
+    },
+    {
+      "college": "NMCC",
+      "credential": "AAS Degree, Certificate",
+      "program": "Plumbing & Heating",
+      "url": "https://www.nmcc.edu/academics/programs/academic-programs/plumbing-heating/"
+    },
+    {
+      "college": "SMCC",
+      "credential": "AAS Degree",
+      "program": "Construction Technology",
+      "url": "https://www.smccme.edu/academics/pathways/industrial-technology-transportation/construction-technology-associate-degree/"
+    },
+    {
+      "college": "WCCC",
+      "credential": "Certificate",
+      "program": "Heavy Equipment Operations",
+      "url": "https://wccc.me.edu/academics/programs/programs-study/heavy-equipment-operations/"
+    },
+    {
+      "college": "WCCC",
+      "credential": "Certificate",
+      "program": "Heavy Equipment Maintenance",
+      "url": "https://wccc.me.edu/academics/programs/programs-study/heavy-equipment-maintenance/"
+    },
+    {
+      "college": "YCCC",
+      "credential": "Short-term Training",
+      "program": "Industrial Welding Techniques",
+      "url": "https://www.yccc.edu/degree/industrialweldingtechniques/"
+    }
+  ],
+  "initiatives": [
+    {
+      "best_for": "Adults seeking immediate entry into the trades",
+      "description": "Immersion Programs: 4-week, tuition-free intensive training in high-demand trades. Includes hands-on skills and guaranteed job interviews.",
+      "initiative": "Maine Construction Academy (MCA)",
+      "url": "https://buildingmaine.com/immersion-program"
+    },
+    {
+      "best_for": "Current workers or career changers",
+      "description": "Funding for short-term certifications in Carpentry, HVAC, Plumbing, and Welding. Covers 50%–100% of costs.",
+      "initiative": "Alfond Center: Trades Track",
+      "url": "https://alfondcenter.mccs.me.edu/construction"
+    },
+    {
+      "best_for": "Aspiring Civil, Mechanical, or Electrical Engineers",
+      "description": "Proactive transfer pathway for students with 30+ credits to move from MCCS to University of Maine Engineering programs.",
+      "initiative": "Transfer ME (Pre-Engineering)",
+      "url": "https://legislature.maine.gov/doc/12341"
+    },
+    {
+      "best_for": "HVAC and Energy Efficiency specialists",
+      "description": "Training for Residential Energy Contractors: Expands the pipeline for HVAC technicians and heat pump installers at CMCC, EMCC, WCCC, and NMCC.",
+      "initiative": "TREC Program",
+      "url": "https://www.maine.gov/energy/initiatives/infrastructure/contractor-training-grants"
+    },
+    {
+      "best_for": "Construction company owners/managers",
+      "description": "Grants up to $1,200 per employee for construction firms to train staff in safety, project management, or new technical skills.",
+      "initiative": "Maine Workforce Development Compact",
+      "url": "https://www.mccs.me.edu/workforce-training/maine-workforce-development-compact/"
+    },
+    {
+      "best_for": "Engineering technicians and automated builders",
+      "description": "Hands-on labs at SMCC (Brunswick) for Robotics, Hydraulics, and Electrical Simulation training.",
+      "initiative": "Advanced Technology Centers",
+      "url": ""
+    }
+  ]
+}

@@ -1,0 +1,890 @@
+[
+  {
+    "type": "General Contractors",
+    "name": "American Defense Industrial"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Arthur C Dudley Contractor"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Bancroft Contractor Corp"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Beaupre's Construction LLC"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Bedard Excavation"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Bowman Constructors"
+  },
+  {
+    "type": "General Contractors",
+    "name": "C. M. Cimino, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Carl Huston Excavation"
+  },
+  {
+    "type": "General Contractors",
+    "name": "CCB, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "CEM DP Porter Contractor"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Cianbro Corporation"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Coastal Maine General Contracting"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Consigli Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "CPM Constructors"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Crooker Construction, LLC"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Dearborn Brothers Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Doten's Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "E. W. Littlefield Inc. & Sons"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Ed Pelletier & Sons Co."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Emery Lee & Sons, Inc."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Eurovia Atlantic Coast, LLC"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Gendron Corp."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Great Falls Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "H. B. Fleming, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "H. E. Callahan Construction Co"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Hahnel Bros. Inc."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Hanscom Construction Corp"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Harold MacQuinn, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Hebert Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Homes of Acadia"
+  },
+  {
+    "type": "General Contractors",
+    "name": "J Pratt Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Knowles Industrial Services"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Lajoie Brothers Inc."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Landry/French Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Langford & Low, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Maine Design Build"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Maine Earth"
+  },
+  {
+    "type": "General Contractors",
+    "name": "McGee Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "N.M. Curtis Earthworks"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Nickerson & O'Day, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Northern Closure Constrution"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Optimum Inc."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Ouellet Construction"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Patco Construction, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "PC Construction, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Penobscot General Contractors"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Pike Industries, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "PNM Construction Inc."
+  },
+  {
+    "type": "General Contractors",
+    "name": "Pratt & Sons, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "R. J. Grondin & Sons, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Ranger Contracting"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Reed & Reed, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Sargent Corporation"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Scott Construction Corporation"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Shaw Brothers Construction, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Shaw Earthworks, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "The Lander Group"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Turner Construction Company"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Wright-Ryan Construction, Inc"
+  },
+  {
+    "type": "General Contractors",
+    "name": "Wyman & Simpson, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "A.D. Electric & Directional Boring"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "A.H. Grover, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "ABM Mechanical, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Acadia Painting"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Aceto Earthworks, LLC"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "American Aerial Services, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Atlantic Power Constructors"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Badger Daylighting Corp"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Bark Bros, Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Black Bear Crane"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Bonneau & Son Excavation"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Built by Terry"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "C. A. Newcomb & Sons"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Carver Carpentry & Excavation"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Chase Excavating Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "CMI Concrete Professionals"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Comprehensive Land Technologies"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Copiam Asphalt Solutions"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Cote Crane & Rigging"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Coutts Bros"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Curtis Construction, LLC"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Dirigo Materials"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Double R Crane"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "E. S. Boulos Company"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Fadden Chipping & Logging, Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "FMG Enterprises of New England Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Gaftek, Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Glidden Excavating & Paving"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Gorham Sand & Gravel, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Hawkes Tree Service"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Hird Contracting"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Hughes Bros, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "J McLaughlin Construction LLC"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Keeley Electrical Contractors"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Louth Callan Renewables"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Main Line Fence Co., Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Maine Drilling & Blasting"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Mancini Electric, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Mariner Construction"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Marston Industrial Services"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Moulison Heavy Electrical"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "N. S. Giles, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "National Firestopping Solutions"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "NES/NIS/NSS"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Northern Electric Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Ossipee Garage Doors"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Pine Tree Fence"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Prashaw Construction LLC"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Quirion"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Ray Labbe & Sons, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "ReVision Energy"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Sanderfoot Wind & Excavating, Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Sargent Electric Company"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "SC Excavation"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Schiavi Leasing"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Seal Tight Waterproofing & Fire Stopping"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Sitelines PA"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Soderberg Company, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "South Branch Concrete Construction LLC"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Standard Waterproofing, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Starrett Snow & Landscape Services"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Storey Brothers, Inc."
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Thirsty Turf Irrigation, Inc"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Thompson's Tree Service, LLC"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Underwood Electric"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Vortex Companies"
+  },
+  {
+    "type": "Specialty Contractors",
+    "name": "Woods Excavating, LLC"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Advanced Drainage Systems, Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "American Concrete Industries, Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "Anderson Equipment"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Auburn Concrete"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Black Bear Ladder"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Casco Bay Ford"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Chadwick-BaRoss, Inc"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Core and Main"
+  },
+  {
+    "type": "Suppliers",
+    "name": "EquipmentShare"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Everett J Prescott, Inc"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Ferguson Waterworks"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Gagne & Son Concrete Block"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Graybar Electric Co. Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "Haley's Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "Hammond Lumber Company"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Hews Company, LLC"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Huber Engineered Woods, LLC"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Maine Commercial Tire"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Maine Metal Buildings"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Maine Trailer, Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "Mainely Construction Rentals"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Milton CAT"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Milton Rents"
+  },
+  {
+    "type": "Suppliers",
+    "name": "NEFCO Corp"
+  },
+  {
+    "type": "Suppliers",
+    "name": "O'Connor Motors"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Owen J. Folsom Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "Precast Concrete of Maine"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Shawmut Equipment Company, Inc"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Summit Utilities, Inc."
+  },
+  {
+    "type": "Suppliers",
+    "name": "Trask-Decrow Machinery"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Triumph Modular"
+  },
+  {
+    "type": "Suppliers",
+    "name": "United Construction & Forestry"
+  },
+  {
+    "type": "Suppliers",
+    "name": "United Rentals"
+  },
+  {
+    "type": "Suppliers",
+    "name": "Ware-Butler Building Supply"
+  },
+  {
+    "type": "Suppliers",
+    "name": "White Cap"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Acadia Benefits"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Acorn Engineering, Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "Albin, Randall & Bennett"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Androscoggin Bank"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Bangor Savings Bank"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Berkley Surety"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Bernstein Shur"
+  },
+  {
+    "type": "Service Providers",
+    "name": "BET Consulting"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Birnco Solutions"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Burdick Training & Consulting"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Camden National Bank"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Clark Insurance"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Contractors Risk Management"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Cornerstone Government Affairs"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Cross Insurance"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Cross Surety"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Crum & Forster Insurance"
+  },
+  {
+    "type": "Service Providers",
+    "name": "CW Hayden"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Dirigo Architectural Engineering"
+  },
+  {
+    "type": "Service Providers",
+    "name": "EMC Insurance"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Frankenmuth Surety"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Gallagher"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Haley Ward, Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "HEC + A"
+  },
+  {
+    "type": "Service Providers",
+    "name": "John Turner Consulting"
+  },
+  {
+    "type": "Service Providers",
+    "name": "L & D Safety Marking Corporation"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Lebel & Harriman"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Machias Savings Bank"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Maine Imaging"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Maine Turnpike Authority"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Maine Works, LLC"
+  },
+  {
+    "type": "Service Providers",
+    "name": "NAWIC Maine"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Northeast Safety Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "Project Staffing, Inc./Project Flagging, Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "ProMark Utility Locating, LLC"
+  },
+  {
+    "type": "Service Providers",
+    "name": "R.W. Gillespie & Associates Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "Resource Options, Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "S. W. Cole Engineering, Inc"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Seaboard Drilling, LLC"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Sebago Technics, Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "Skillings-Shaw & Associates, Inc."
+  },
+  {
+    "type": "Service Providers",
+    "name": "Skowhegan Savings Bank"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Sompo International"
+  },
+  {
+    "type": "Service Providers",
+    "name": "SoulBeing"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Sparrow Energy Group"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Splane Insurance Group"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Tenna"
+  },
+  {
+    "type": "Service Providers",
+    "name": "The Baldwin Group"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Total Construction Management, Inc"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Travelers"
+  },
+  {
+    "type": "Service Providers",
+    "name": "United Insurance"
+  },
+  {
+    "type": "Service Providers",
+    "name": "United Surety"
+  },
+  {
+    "type": "Service Providers",
+    "name": "USI Insurance Services"
+  },
+  {
+    "type": "Service Providers",
+    "name": "VHB"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Varney Insurance Agency"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Verrill Law"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Walton External Affairs"
+  },
+  {
+    "type": "Service Providers",
+    "name": "Wellness Workdays"
+  },
+  {
+    "type": "Developer",
+    "name": "Longroad Energy"
+  },
+  {
+    "type": "Developer",
+    "name": "Perennial Renewables"
+  }
+]
