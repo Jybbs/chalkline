@@ -200,13 +200,13 @@ def _(pipeline, result, target_dropdown):
 # ── Figure builder ─────────────────────────────────────────────────
 
 @app.cell
-def _(pipeline, plotly_theme, result):
+def _(pipeline, theme, result):
     from chalkline.display.figures import FigureBuilder
 
     figures = FigureBuilder(
         matched_id = result.cluster_id,
         pathway    = pipeline.graph,
-        theme      = plotly_theme
+        theme      = theme
     )
     return (figures,)
 
