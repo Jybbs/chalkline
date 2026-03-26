@@ -77,12 +77,13 @@ def _(Path, loads):
         if (path := ref_dir / f"{name}.json").exists()
     }
 
-    wages = (
-        loads(path.read_text())
-        if (path := Path("data/lexicons/wages.json")).exists()
-        else {}
-    )
-    return reference, wages
+    labor = {
+        r["soc_title"]: r
+        for r in loads(
+            (Path("data/lexicons") / "labor.json").read_text()
+        )
+    }
+    return labor, reference
 
 
 # ── Upload widget ───────────────────────────────────────────────────
@@ -392,12 +393,26 @@ def _(hbar, header, mo, pipeline, profile, result):
 # ── Tab: Next Steps ────────────────────────────────────────────────
 
 @app.cell
-def _(hbar, header, mo, tables, target_id, target_profile, target_reach):
+def _(
+    hbar, header, labor, mo, pipeline,
+    tables, target_id, target_profile, target_reach
+):
     def next_steps_tab():
         apprenticeships = tables.apprenticeship_rows(target_reach)
         programs        = tables.program_rows(target_reach)
         employers       = tables.employer_rows(target_id)
         maine, national = tables.board_rows()
+
+        destinations = [
+            (pipeline.clusters[e.cluster_id], e)
+            for e in target_reach.advancement
+        ]
+        wage_ladder = [
+            (c.soc_title[:30], w["annual_median"])
+            for c, _e in destinations
+            if (w := (labor.get(c.soc_title, {}).get("wages") or {}))
+            and w.get("annual_median")
+        ]
 
         app_fig = None
         if apprenticeships:
@@ -461,6 +476,23 @@ def _(hbar, header, mo, tables, target_id, target_profile, target_reach):
                 mo.ui.plotly(app_fig)
             ])
 
+        if wage_ladder:
+            sorted_wages = sorted(wage_ladder, key=lambda w: w[1])
+            sections.extend([
+                header(
+                    "Where the Money Leads",
+                    "Median annual wages in Maine for career "
+                    "families you could advance into from here."
+                ),
+                mo.ui.plotly(hbar(
+                    color  = "var(--secondary)",
+                    height = max(200, len(sorted_wages) * 32),
+                    title  = "Annual Median Wage ($)",
+                    x      = [w[1] for w in sorted_wages],
+                    y      = [w[0] for w in sorted_wages]
+                ))
+            ])
+
         if program_cards:
             sections.extend([
                 mo.md(f"#### Educational Programs ({len(program_cards)})"),
@@ -496,38 +528,79 @@ def _(hbar, header, mo, tables, target_id, target_profile, target_reach):
 # ── Tab: Your Match ────────────────────────────────────────────────
 
 @app.cell
-def _(go, hbar, header, jz_label, mo, pipeline, profile, result, theme, wages):
+def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme):
     def your_match_tab():
-        wage_key = next(
-            (k for k, d in wages.items()
-             if d.get("soc_title", "").lower()
-             in profile.soc_title.lower()),
-            None
-        ) or next(
-            (k for k in wages
-             if k.replace("-", "").startswith(
-                 profile.soc_title[:5].replace(" ", "")
-             )),
-            None
-        )
+        rec   = labor.get(profile.soc_title, {})
+        w     = rec.get("wages") or {}
+        proj  = rec.get("projections") or {}
+        outl  = rec.get("outlook") or {}
 
         salary_text = (
             f" The median salary in Maine is "
-            f"**${median:,.0f}** per year."
-            if wage_key
-            and (median := wages[wage_key].get("annual_median"))
-            else ""
+            f"**${w['annual_median']:,.0f}** per year."
+            if w.get("annual_median") else ""
+        )
+        outlook_text = (
+            f" O*NET designates this occupation **Bright Outlook** "
+            f"({', '.join(outl['outlook_reasons'])})."
+            if outl.get("bright_outlook") else ""
         )
 
         hero = mo.callout(
             mo.md(
                 f"Your resume most closely matches "
-                f"**{profile.soc_title}** in **{profile.sector}**. "
+                f"**{profile.soc_title}** in "
+                f"**{profile.sector}**. "
                 f"This is a **{jz_label.lower()}** role "
-                f"with {profile.size} postings in the corpus.{salary_text}"
+                f"with {profile.size} postings in the "
+                f"corpus.{salary_text}{outlook_text}"
             ),
             kind = "success"
         )
+
+        labor_stats = []
+        if w.get("annual_median"):
+            labor_stats.append(
+                mo.stat(f"${w['annual_median']:,.0f}", "Maine Median Wage")
+            )
+        if proj.get("change_percent"):
+            labor_stats.append(
+                mo.stat(f"{proj['change_percent']:+.1f}%", "10-Year Growth")
+            )
+        if proj.get("openings"):
+            labor_stats.append(
+                mo.stat(
+                    f"{proj['openings']:,.0f}K/yr", "Projected Openings"
+                )
+            )
+        if proj.get("education"):
+            labor_stats.append(
+                mo.stat(proj["education"], "Typical Education")
+            )
+
+        wage_fig = None
+        if w.get("annual_median"):
+            percentiles = ["10th", "25th", "Median", "75th", "90th"]
+            values = [
+                w.get("annual_10", 0),
+                w.get("annual_25", 0),
+                w["annual_median"],
+                w.get("annual_75", 0),
+                w.get("annual_90", 0)
+            ]
+            wage_fig = hbar(
+                color  = [
+                    "var(--muted-foreground)",
+                    "var(--accent)",
+                    "var(--primary)",
+                    "var(--accent)",
+                    "var(--muted-foreground)"
+                ],
+                height = 220,
+                title  = "Annual Salary ($)",
+                x      = values,
+                y      = percentiles
+            )
 
         distances = result.cluster_distances
 
@@ -568,16 +641,39 @@ def _(go, hbar, header, jz_label, mo, pipeline, profile, result, theme, wages):
             yaxis_title = "Average Distance"
         )
 
-        return mo.vstack([
+        sections = [
             hero,
             mo.hstack([
-                mo.stat(profile.soc_title,         "Career Family"),
-                mo.stat(profile.sector,            "Sector"),
-                mo.stat(jz_label,                  "Experience Level"),
-                mo.stat(str(profile.size),         "Postings"),
-                mo.stat(str(len(result.gaps)),      "Growth Areas"),
+                mo.stat(profile.soc_title,    "Career Family"),
+                mo.stat(profile.sector,       "Sector"),
+                mo.stat(jz_label,             "Experience Level"),
+                mo.stat(str(profile.size),    "Postings"),
+                mo.stat(str(len(result.gaps)), "Growth Areas"),
                 mo.stat(str(len(result.demonstrated)), "Strengths")
-            ], gap=1, wrap=True),
+            ], gap=1, wrap=True)
+        ]
+
+        if labor_stats:
+            sections.extend([
+                header(
+                    "Labor Market Snapshot",
+                    "Wage and employment data for this occupation "
+                    "from the Bureau of Labor Statistics and O*NET."
+                ),
+                mo.hstack(labor_stats, gap=1, wrap=True)
+            ])
+
+        if wage_fig:
+            sections.extend([
+                header(
+                    "Maine Wage Distribution",
+                    "Annual salary percentiles for this "
+                    "occupation in Maine from BLS OEWS 2024."
+                ),
+                mo.ui.plotly(wage_fig)
+            ])
+
+        sections.extend([
             header(
                 "Proximity to All Career Families",
                 "How close your resume is to each of the 20 career "
@@ -587,12 +683,14 @@ def _(go, hbar, header, jz_label, mo, pipeline, profile, result, theme, wages):
             mo.ui.plotly(prox_fig),
             header(
                 "Sector Affinity",
-                "Average distance to career families in each sector. "
-                "Lower means your resume aligns more with that area "
-                "of construction."
+                "Average distance to career families in each "
+                "sector. Lower means your resume aligns more "
+                "with that area of construction."
             ),
             mo.ui.plotly(sector_fig)
         ])
+
+        return mo.vstack(sections)
     return (your_match_tab,)
 
 
