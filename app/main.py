@@ -279,10 +279,19 @@ def _(figures, mo, header, tables, target_dropdown, target_id, target_reach):
 # ── Tab: Resume Feedback ───────────────────────────────────────────
 
 @app.cell
-def _(hbar, header, mo, profile, result, tables):
+def _(hbar, header, mo, pipeline, profile, result, tables):
     def resume_feedback_tab():
         gaps  = tables.gap_rows()
         demos = tables.demonstrated_rows()
+
+        cluster  = pipeline.clusters[result.cluster_id]
+        n_closer = sum(
+            1 for p in cluster.postings
+            if hasattr(p, "distance") and p.distance < result.match_distance
+        )
+        percentile = round(
+            (1 - n_closer / max(len(cluster.postings), 1)) * 100
+        )
 
         def skill_bar(color, rows, title, invert=False):
             names  = [r["Task"][:50] for r in rows[:15]]
@@ -310,40 +319,57 @@ def _(hbar, header, mo, profile, result, tables):
             title  = "Gap Magnitude (%)"
         )
 
-        return mo.vstack([
+        sections = [
             header(
                 "How Your Skills Compare",
-                "We compared your resume against O*NET task definitions "
-                f"for {profile.soc_title} using language similarity. "
-                "Scores closer to 100% mean your resume strongly "
-                "reflects that skill."
+                "We compared your resume against O*NET task "
+                f"definitions for {profile.soc_title} using "
+                "language similarity. Scores closer to 100% "
+                "mean your resume strongly reflects that skill."
             ),
             mo.hstack([
                 mo.stat(str(len(result.demonstrated)), "Strengths"),
-                mo.stat(str(len(result.gaps)),         "Growth Areas")
+                mo.stat(str(len(result.gaps)),         "Growth Areas"),
+                mo.stat(f"{percentile}%",              "Alignment Percentile")
             ]),
-            mo.md("#### Your Strengths"),
-            mo.md("Tasks from your resume that match what employers want."),
+            mo.callout(
+                mo.md(
+                    f"Your resume is more aligned with "
+                    f"**{profile.soc_title}** than "
+                    f"**{percentile}%** of the "
+                    f"{len(cluster.postings)} postings "
+                    f"in this career family."
+                ),
+                kind = "info"
+            ),
+            header("Your Strengths",
+                   "Tasks from your resume that match "
+                   "what employers want."),
             mo.ui.plotly(strength_fig) if demo_names
             else mo.md("No demonstrated tasks."),
-            mo.md("#### Growth Opportunities"),
-            mo.md("Skills most postings mention that your resume "
-                   "doesn't strongly reflect yet."),
-            mo.ui.plotly(gap_fig) if gap_names else mo.md("No gaps identified."),
+            header("Growth Opportunities",
+                   "Skills most postings mention that your "
+                   "resume doesn't strongly reflect yet."),
+            mo.ui.plotly(gap_fig) if gap_names
+            else mo.md("No gaps identified."),
             mo.accordion({
                 f"Raw Data: Strengths ({len(demos)})":
-                    mo.ui.table(demos) if demos else mo.md("None."),
+                    mo.ui.table(demos) if demos
+                    else mo.md("None."),
                 f"Raw Data: Gaps ({len(gaps)})":
-                    mo.ui.table(gaps) if gaps else mo.md("None.")
+                    mo.ui.table(gaps) if gaps
+                    else mo.md("None.")
             }, multiple=True)
-        ])
+        ]
+
+        return mo.vstack(sections)
     return (resume_feedback_tab,)
 
 
 # ── Tab: Job Postings ──────────────────────────────────────────────
 
 @app.cell
-def _(hbar, header, mo, pipeline, profile, result):
+def _(go, hbar, header, mo, pipeline, profile, result, theme):
     def job_postings_tab():
         from collections             import Counter
         from chalkline.display.cards import posting_card
@@ -361,6 +387,39 @@ def _(hbar, header, mo, pipeline, profile, result):
             y      = [c[0][:30] for c in top_companies]
         )
 
+        locations = Counter(
+            p.location for p in postings if p.location
+        ).most_common(15)
+        location_fig = hbar(
+            color  = "var(--secondary)",
+            height = max(250, len(locations) * 28),
+            title  = "Number of Postings",
+            x      = [loc[1] for loc in locations],
+            y      = [loc[0][:30] for loc in locations]
+        ) if locations else None
+
+        dated = [p for p in postings if p.date_posted]
+        timeline_fig = None
+        if dated:
+            dates  = [p.date_posted for p in dated]
+            labels = [p.company or p.title for p in dated]
+            timeline_fig = go.Figure(go.Scatter(
+                hovertext   = labels,
+                marker      = dict(
+                    color = "var(--accent)",
+                    size  = 8
+                ),
+                mode        = "markers",
+                x           = dates,
+                y           = [1] * len(dates)
+            ))
+            timeline_fig.update_layout(
+                height   = 180,
+                margin   = dict(l=10, r=10, t=10, b=10),
+                template = theme(),
+                yaxis    = dict(visible=False)
+            )
+
         posting_cards = [
             posting_card(p)
             for p in sorted(
@@ -370,23 +429,59 @@ def _(hbar, header, mo, pipeline, profile, result):
             )[:12]
         ]
 
-        return mo.vstack([
+        sections = [
             header(
                 "Real Postings From Your Career Family",
-                f"These are actual job postings from Maine construction "
-                f"companies that fall into the {profile.soc_title} "
-                f"career family. Browse to see what employers are "
-                f"looking for."
+                f"These are actual job postings from Maine "
+                f"construction companies that fall into the "
+                f"{profile.soc_title} career family. Browse "
+                f"to see what employers are looking for."
             ),
             mo.hstack([
                 mo.stat(str(len(postings)), "Postings in Family"),
-                mo.stat(str(len(companies)), "Companies Hiring")
-            ]),
-            mo.md("#### Who's Hiring"),
-            mo.ui.plotly(hiring_fig) if top_companies else mo.md("No company data."),
-            mo.md("#### Recent Postings"),
+                mo.stat(str(len(companies)), "Companies Hiring"),
+                mo.stat(
+                    str(len(locations)), "Locations"
+                ) if locations else None
+            ], gap=1, wrap=True),
+            header(
+                "Who's Hiring",
+                "Companies with the most postings in this "
+                "career family."
+            ),
+            mo.ui.plotly(hiring_fig)
+            if top_companies else mo.md("No company data.")
+        ]
+
+        if location_fig:
+            sections.extend([
+                header(
+                    "Where the Jobs Are",
+                    "Posting locations across Maine for this "
+                    "career family."
+                ),
+                mo.ui.plotly(location_fig)
+            ])
+
+        if timeline_fig:
+            sections.extend([
+                header(
+                    "Posting Timeline",
+                    "When these postings were collected, showing "
+                    "recent market activity."
+                ),
+                mo.ui.plotly(timeline_fig)
+            ])
+
+        sections.extend([
+            header(
+                "Recent Postings",
+                "The most recent job listings, newest first."
+            ),
             *posting_cards
         ])
+
+        return mo.vstack(sections)
     return (job_postings_tab,)
 
 
