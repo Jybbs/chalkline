@@ -18,6 +18,8 @@ def _():
 
     theme = lambda: ["plotly_white", "plotly_dark"][mo.app_meta().theme == "dark"]
 
+    MARGIN = dict(l=10, r=10, t=10, b=10)
+
     def hbar(color, height, title, x, y, **marker_kw):
         fig = go.Figure(go.Bar(
             marker      = dict(color=color, cornerradius=4, **marker_kw),
@@ -27,14 +29,31 @@ def _():
         ))
         fig.update_layout(
             height      = height,
-            margin      = dict(l=10, r=10, t=10, b=10),
+            margin      = MARGIN,
             template    = theme(),
             xaxis_title = title,
             yaxis       = dict(autorange="reversed")
         )
         return fig
 
-    return Path, go, hbar, header, loads, mo, theme
+    def vbar(height, title, x, y, color=None):
+        fig = go.Figure(go.Bar(
+            marker = dict(
+                color        = color,
+                cornerradius = 4
+            ) if color else dict(cornerradius=4),
+            x = x,
+            y = y
+        ))
+        fig.update_layout(
+            height      = height,
+            margin      = MARGIN,
+            template    = theme(),
+            yaxis_title = title
+        )
+        return fig
+
+    return MARGIN, Path, go, hbar, header, loads, mo, theme, vbar
 
 
 # ── Pipeline loading ────────────────────────────────────────────────
@@ -369,7 +388,7 @@ def _(hbar, header, mo, pipeline, profile, result, tables):
 # ── Tab: Job Postings ──────────────────────────────────────────────
 
 @app.cell
-def _(go, hbar, header, mo, pipeline, profile, result, theme):
+def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
     def job_postings_tab():
         from collections             import Counter
         from chalkline.display.cards import posting_card
@@ -415,7 +434,7 @@ def _(go, hbar, header, mo, pipeline, profile, result, theme):
             ))
             timeline_fig.update_layout(
                 height   = 180,
-                margin   = dict(l=10, r=10, t=10, b=10),
+                margin   = MARGIN,
                 template = theme(),
                 yaxis    = dict(visible=False)
             )
@@ -623,7 +642,7 @@ def _(
 # ── Tab: Your Match ────────────────────────────────────────────────
 
 @app.cell
-def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme):
+def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, vbar):
     def your_match_tab():
         rec   = labor.get(profile.soc_title, {})
         w     = rec.get("wages") or {}
@@ -724,16 +743,11 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme):
             for s, d in sector_dist.items()
         }
 
-        sector_fig = go.Figure(go.Bar(
-            marker = dict(cornerradius=4),
+        sector_fig = vbar(
+            height = 300,
+            title  = "Average Distance",
             x      = list(sector_avg.keys()),
             y      = [round(v, 3) for v in sector_avg.values()]
-        ))
-        sector_fig.update_layout(
-            height      = 300,
-            margin      = dict(l=10, r=10, t=10, b=10),
-            template    = theme(),
-            yaxis_title = "Average Distance"
         )
 
         sections = [
@@ -792,37 +806,125 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme):
 # ── Tab: ML Internals ──────────────────────────────────────────────
 
 @app.cell
-def _(figures, header, mo, pipeline, result):
+def _(MARGIN, figures, go, hbar, header, mo, pipeline, result, theme, vbar):
     def ml_internals_tab():
+        from networkx import betweenness_centrality
+
+        graph = pipeline.graph.graph
+        bc    = betweenness_centrality(graph, weight="weight")
+
+        weights = [
+            d["weight"] for _, _, d in graph.edges(data=True)
+            if "weight" in d
+        ]
+        weight_fig = go.Figure(go.Histogram(
+            marker = dict(color="var(--accent)", cornerradius=4),
+            nbinsx = 25,
+            x      = weights
+        ))
+        weight_fig.update_layout(
+            height      = 300,
+            margin      = MARGIN,
+            template    = theme(),
+            xaxis_title = "Edge Weight (cosine similarity)",
+            yaxis_title = "Count"
+        )
+
+        sector_color = {
+            "Building Construction" : "var(--cl-building)",
+            "Heavy Civil"           : "var(--cl-highway)",
+            "Specialty Trade"       : "var(--cl-specialty)"
+        }
+        sc = lambda s: sector_color.get(s, "var(--accent)")
+        rows = [
+            (s, "", 0, sc(s))
+            for s in sorted({
+                p.sector for _, p in pipeline.clusters.pairs()
+            })
+        ] + [
+            (f"{p.soc_title[:25]} ({p.size})", p.sector, p.size, sc(p.sector))
+            for _, p in pipeline.clusters.pairs()
+        ]
+        labels, parents, values, colors = zip(*rows)
+
+        treemap_fig = go.Figure(go.Treemap(
+            branchvalues = "total",
+            labels       = labels,
+            marker       = dict(colors=colors),
+            parents      = parents,
+            values       = values
+        ))
+        treemap_fig.update_layout(
+            height=450, margin=MARGIN, template=theme()
+        )
+
+        sector_sizes = {}
+        for _, p in pipeline.clusters.pairs():
+            sector_sizes[p.sector] = sector_sizes.get(p.sector, 0) + p.size
+
         return mo.vstack([
             header(
                 "Under the Hood",
-                "Technical details of how Chalkline analyzes the "
-                "job market. This section is intended for evaluating "
-                "the unsupervised ML methodology."
+                "Technical details of how Chalkline analyzes the job "
+                "market. This section is for evaluating the methodology."
             ),
             mo.hstack([
-                mo.stat(f"{pipeline.corpus_size:,}",     "Corpus Size"),
-                mo.stat(pipeline.config.embedding_model, "Embedding Model"),
-                mo.stat(str(len(pipeline.clusters)),      "Clusters (k)"),
-                mo.stat(str(pipeline.config.component_count), "SVD Components")
+                mo.stat(f"{pipeline.corpus_size:,}",          "Corpus Size"),
+                mo.stat(pipeline.config.embedding_model,      "Embedding Model"),
+                mo.stat(str(len(pipeline.clusters)),          "Clusters (k)"),
+                mo.stat(str(pipeline.config.component_count), "SVD Components"),
+                mo.stat(str(pipeline.graph.edge_count),       "Pathway Edges")
             ], gap=1, wrap=True),
-            mo.md("#### Hierarchical Clustering Dendrogram"),
-            mo.md(
-                "Ward-linkage agglomerative clustering builds a tree "
-                "of every possible merge, then cuts at k=20 to produce "
-                "career families. Your match is annotated."
+            header(
+                "Career Landscape Treemap",
+                "All career families grouped by sector, sized by posting "
+                "count. Larger tiles represent more postings."
+            ),
+            mo.ui.plotly(treemap_fig),
+            header(
+                "Gateway Careers (Betweenness Centrality)",
+                "Career families that bridge the most pathways. High "
+                "centrality means the role is a common stepping stone."
+            ),
+            mo.ui.plotly(hbar(
+                color  = "var(--accent)",
+                height = max(300, len(bc) * 24),
+                title  = "Betweenness Centrality",
+                x      = [round(bc[cid], 4) for cid, _ in pipeline.clusters.pairs()],
+                y      = [p.soc_title[:30]  for _, p   in pipeline.clusters.pairs()]
+            )),
+            header(
+                "Pathway Strength Distribution",
+                "How similar connected career families are. Higher weight "
+                "means the transition is more natural."
+            ),
+            mo.ui.plotly(weight_fig),
+            header(
+                "Sector Distribution",
+                "How the corpus breaks down across construction sectors."
+            ),
+            mo.ui.plotly(vbar(
+                height = 300,
+                title  = "Postings",
+                x      = list(sector_sizes.keys()),
+                y      = list(sector_sizes.values())
+            )),
+            header(
+                "Hierarchical Clustering Dendrogram",
+                "Ward-linkage agglomerative clustering builds a tree of "
+                "every possible merge, then cuts at k=20."
             ),
             mo.ui.plotly(figures.dendrogram()),
-            mo.md("#### Career Landscape"),
-            mo.md(
-                "All 20 career family centroids projected onto the "
-                "first two SVD components. Node size reflects "
-                "betweenness centrality (how many pathways pass "
-                "through that family). Your resume is the gold star."
+            header(
+                "Career Landscape",
+                "All 20 career family centroids projected onto the first "
+                "two SVD components. Your resume is the gold star."
             ),
             mo.ui.plotly(figures.landscape(result.coordinates)),
-            mo.md("#### Cluster Profiles"),
+            header(
+                "Cluster Profiles",
+                "Metadata for each career family produced by the pipeline."
+            ),
             mo.tree({
                 f"Cluster {cid}: {p.soc_title}": {
                     "Sector"      : p.sector,
