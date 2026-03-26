@@ -1,0 +1,211 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap");
+
+
+/* ── Tokens ──────────────────────────────────────────────────── */
+
+:root {
+    color-scheme: light dark;
+
+    --heading-font   : "Lora", "Georgia", serif;
+    --monospace-font : "Fira Code", monospace;
+    --text-font      : "Lora", "Georgia", serif;
+
+    --radius: 8px;
+
+    --accent           : light-dark(#4a6fa5, #6b9fcc);
+    --background       : light-dark(#fafaf8, #0f1923);
+    --border           : light-dark(#e0ddd5, #2a4050);
+    --card             : light-dark(#ffffff, #1e3040);
+    --card-foreground  : light-dark(#1a1a1a, #e0e0e0);
+    --foreground       : light-dark(#1a1a1a, #e8e8e8);
+    --input            : light-dark(#f5f4f0, #1a2733);
+    --muted            : light-dark(#f0ede6, #1a2733);
+    --muted-foreground : light-dark(#6b7280, #8899aa);
+    --primary          : light-dark(#c44536, #e07a5f);
+    --secondary        : light-dark(#3a7d44, #81b29a);
+
+    --accent-foreground    : var(--on-color);
+    --on-color             : light-dark(#ffffff, #0f1923);
+    --primary-foreground   : var(--on-color);
+    --ring                 : var(--primary);
+    --secondary-foreground : var(--on-color);
+
+    --error              : var(--primary);
+    --error-foreground   : var(--on-color);
+    --link               : var(--accent);
+    --success            : var(--secondary);
+    --success-foreground : var(--on-color);
+
+    --cl-building  : #4a90d9;
+    --cl-highway   : #d97a4a;
+    --cl-specialty : #6bbf59;
+
+    --base-shadow: light-dark(
+        hsl(0 0% 85% / 0.4),
+        hsl(0 0% 20% / 0.6)
+    );
+}
+
+
+/* ── Cards ───────────────────────────────────────────────────── */
+
+.cl-card {
+    background          : var(--card);
+    border-inline-start : 4px solid var(--primary);
+    border-radius       : var(--radius);
+    color               : var(--card-foreground);
+    margin-block-end    : 0.75rem;
+    padding             : 1rem 1.25rem;
+    transition          : box-shadow 0.2s;
+
+    &:hover              { box-shadow: 0 4px 12px var(--base-shadow); }
+    & .secondary         { opacity: 0.7; }
+    & :is(.badge, .meta) { opacity: 0.6; }
+    & .badge             { margin-inline-start: 0.5rem; }
+    & .meta              { font-size: 0.85em; }
+
+    & a {
+        border             : 1px solid var(--link);
+        border-radius      : var(--radius);
+        color              : var(--link);
+        display            : inline-block;
+        font-weight        : 600;
+        margin-block-start : 0.5rem;
+        padding            : 0.3rem 0.75rem;
+        text-decoration    : none;
+        transition         : background 0.15s, color 0.15s;
+
+        &:hover, &:focus-visible {
+            background : var(--link);
+            color      : var(--on-color);
+        }
+    }
+
+    & p {
+        font-size    : 0.9em;
+        margin-block : 0.5rem;
+    }
+
+    &[data-sector="building"]  { border-inline-start-color: var(--cl-building); }
+    &[data-sector="highway"]   { border-inline-start-color: var(--cl-highway); }
+    &[data-sector="specialty"] { border-inline-start-color: var(--cl-specialty); }
+}
+
+.cl-card-grid {
+    display               : grid;
+    gap                   : 0.75rem;
+    grid-template-columns : repeat(
+        auto-fit, minmax(min(100%, 20rem), 1fr)
+    );
+
+    & > .cl-card { margin-block-end: 0; }
+}
+
+
+/* ── Layout ──────────────────────────────────────────────────── */
+
+.cl-header {
+    align-items      : center;
+    background       : var(--muted);
+    border-block-end : 1px solid var(--border);
+    border-radius    : var(--radius);
+    display          : flex;
+    justify-content  : space-between;
+    margin-block-end : 1rem;
+    padding          : 0.5rem 1rem;
+}
+
+.cl-toolbar {
+    align-items   : center;
+    background    : var(--muted);
+    border        : 1px solid var(--border);
+    border-radius : 999px;
+    display       : flex;
+    gap           : 0.25rem;
+    padding       : 0.25rem 0.5rem;
+
+    & button {
+        all           : unset;
+        border-radius : var(--radius);
+        color         : var(--muted-foreground);
+        cursor        : pointer;
+        font-size     : 1.1rem;
+        padding       : 0.25rem 0.5rem;
+        transition    : color 0.15s, background 0.15s;
+
+        &:hover, &:focus-visible {
+            background : var(--border);
+            color      : var(--foreground);
+        }
+    }
+}
+
+
+/* ── Splash ──────────────────────────────────────────────────── */
+
+.cl-splash {
+    align-items     : center;
+    background      : linear-gradient(
+        180deg, var(--background), light-dark(#ffffff, #1a2733)
+    );
+    display         : flex;
+    flex-direction  : column;
+    justify-content : center;
+    min-height      : 60vh;
+    padding         : 2rem;
+    text-align      : center;
+
+    & h1 {
+        color            : var(--foreground);
+        font-family      : var(--heading-font);
+        font-size        : 2.5rem;
+        font-weight      : 700;
+        margin-block-end : 0.5rem;
+        text-wrap        : balance;
+    }
+
+    & p {
+        color     : var(--muted-foreground);
+        font-size : 1.1rem;
+        max-width : 32rem;
+        text-wrap : pretty;
+    }
+}
+
+.cl-stat-strip {
+    display         : flex;
+    flex-wrap       : wrap;
+    gap             : 2rem;
+    justify-content : center;
+    padding         : 1rem 0;
+
+    & .stat { text-align: center; }
+
+    & .stat-value {
+        color       : var(--primary);
+        font-family : var(--heading-font);
+        font-size   : 1.75rem;
+        font-weight : 700;
+    }
+
+    & .stat-label {
+        color     : var(--muted-foreground);
+        font-size : 0.85rem;
+    }
+}
+
+.cl-upload {
+    border        : 2px dashed var(--border);
+    border-radius : var(--radius);
+    color         : var(--muted-foreground);
+    cursor        : pointer;
+    padding       : 2rem;
+    text-align    : center;
+    transition    : border-color 0.2s, background 0.2s;
+
+    &:hover, &:focus-visible {
+        background   : var(--muted);
+        border-color : var(--primary);
+    }
+}

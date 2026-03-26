@@ -66,16 +66,18 @@ class TestPipelineConfig:
     Validate default hyperparameters.
     """
 
+    model = "Alibaba-NLP/gte-base-en-v1.5"
+
     @mark.parametrize("expected, field", [
-        (20,                  "cluster_count"),
-        (10,                  "component_count"),
-        (5,                   "destination_percentile"),
-        ("all-mpnet-base-v2", "embedding_model"),
-        (2,                   "lateral_neighbors"),
-        (42,                  "random_seed"),
-        (3,                   "soc_neighbors"),
-        (75,                  "source_percentile"),
-        (2,                   "upward_neighbors")
+        (20,    "cluster_count"),
+        (10,    "component_count"),
+        (5,     "destination_percentile"),
+        (model, "embedding_model"),
+        (2,     "lateral_neighbors"),
+        (42,    "random_seed"),
+        (3,     "soc_neighbors"),
+        (75,    "source_percentile"),
+        (2,     "upward_neighbors")
     ])
     def test_defaults(self, expected, field: str, tmp_path: Path):
         """

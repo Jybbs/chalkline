@@ -8,9 +8,13 @@ panel.
 
 from difflib import SequenceMatcher
 from re      import findall
+from typing  import TYPE_CHECKING
 
 from chalkline.matching.schemas import MatchResult
 from chalkline.pathways.schemas import Reach
+
+if TYPE_CHECKING:
+    from chalkline.pipeline.orchestrator import Chalkline
 
 
 class TableBuilder:
@@ -22,7 +26,7 @@ class TableBuilder:
     per-panel arguments like `reach` or `cluster_id`.
     """
 
-    def __init__(self, pipeline, reference: dict, result: MatchResult):
+    def __init__(self, pipeline: Chalkline, reference: dict, result: MatchResult):
         """
         Args:
             pipeline  : Fitted `Chalkline` instance.
@@ -38,8 +42,8 @@ class TableBuilder:
     @staticmethod
     def _match_member(
         company      : str,
-        members      : list[dict],
-        member_names : list[str]
+        member_names : list[str],
+        members      : list[dict]
     ) -> dict | None:
         """
         Fuzzy-match a corpus company name against the AGC member list.
@@ -50,16 +54,17 @@ class TableBuilder:
 
         Args:
             company      : Corpus company name to match.
-            members      : AGC member records with `name` keys.
             member_names : Pre-lowercased member names.
+            members      : AGC member records with `name` keys.
 
         Returns:
             Best-matching member dict, or `None` if no match exceeds the threshold.
         """
-        best_score, best = max(
+        scored = [
             (SequenceMatcher(None, company, name).ratio(), m)
             for m, name in zip(members, member_names)
-        )
+        ]
+        best_score, best = max(scored, key=lambda pair: pair[0])
         return best if best_score >= 0.7 else None
 
     def _sector_keywords(self, sector: str) -> set[str]:
@@ -219,7 +224,7 @@ class TableBuilder:
                 "Type"        : m["type"]
             }
             for company in sorted(by_company)
-            if (m := self._match_member(company.lower(), members, names))
+            if (m := self._match_member(company.lower(), names, members))
         }.values())
 
     def gap_rows(self) -> list[dict]:

@@ -1,21 +1,40 @@
 import marimo
 
 __generated_with = "0.12.0"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", css_file="chalkline.css")
 
 
 # ── Setup ───────────────────────────────────────────────────────────
 
 @app.cell
 def _():
-    import marimo as mo
+    import marimo               as mo
+    import plotly.graph_objects as go
 
     from json    import loads
     from pathlib import Path
 
+    from chalkline.display.layout import header
+
     theme = lambda: ["plotly_white", "plotly_dark"][mo.app_meta().theme == "dark"]
 
-    return Path, loads, mo, theme
+    def hbar(color, height, title, x, y, **marker_kw):
+        fig = go.Figure(go.Bar(
+            marker      = dict(color=color, cornerradius=4, **marker_kw),
+            orientation = "h",
+            x           = x,
+            y           = y
+        ))
+        fig.update_layout(
+            height      = height,
+            margin      = dict(l=10, r=10, t=10, b=10),
+            template    = theme(),
+            xaxis_title = title,
+            yaxis       = dict(autorange="reversed")
+        )
+        return fig
+
+    return Path, go, hbar, header, loads, mo, theme
 
 
 # ── Pipeline loading ────────────────────────────────────────────────
@@ -26,8 +45,8 @@ def _(Path, mo):
     from chalkline.pipeline.schemas      import PipelineConfig
 
     with mo.persistent_cache(
-        name        = "chalkline", 
-        pin_modules = True, 
+        name        = "chalkline",
+        pin_modules = True,
         save_path   = ".cache/marimo"
     ):
         pipeline = Chalkline.fit(PipelineConfig(
@@ -42,47 +61,74 @@ def _(Path, mo):
 
 @app.cell
 def _(Path, loads):
+    ref_dir   = Path("data/stakeholder/reference")
     reference = {
-        name: loads((Path("data/stakeholder/reference") / f"{name}.json").read_text())
+        name: loads(path.read_text())
         for name in (
             "agc_members",
+            "apprenticeships",
             "career_urls",
-            "job_boards"
+            "cc_programs",
+            "dot_contractors",
+            "job_boards",
+            "onet_codes",
+            "umaine_programs"
         )
+        if (path := ref_dir / f"{name}.json").exists()
     }
-    return (reference,)
+
+    wages = (
+        loads(path.read_text())
+        if (path := Path("data/lexicons/wages.json")).exists()
+        else {}
+    )
+    return reference, wages
 
 
-# ── Splash page ─────────────────────────────────────────────────────
+# ── Upload widget ───────────────────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline):
-    mo.vstack([
-        mo.md(
-            '<h1 style="font-family: Georgia, serif; font-weight: 400;">'
-            "Chalkline</h1>\n\n"
-            "Career mapping for Maine's construction industry. "
-            "Upload a resume to see where you sit in the landscape, "
-            "what skills separate you from your next role, and how to get there."
-        ),
-
-        mo.hstack([
-            mo.stat(f"{pipeline.corpus_size:,}",  "Postings"),
-            mo.stat(len(pipeline.clusters),       "Career Families"),
-            mo.stat(pipeline.sector_count,        "Sectors"),
-            mo.stat(pipeline.graph.edge_count,    "Pathway Edges")
-        ], gap=1, wrap=True),
-        
-        (upload := mo.ui.file(
-            filetypes = [".pdf"],
-            kind      = "area",
-            label     = "Drop a resume PDF here to begin"
-        ))
-    ])
+def _(mo):
+    upload = mo.ui.file(
+        filetypes = [".pdf"],
+        kind      = "area",
+        label     = "Drop a resume PDF here"
+    )
     return (upload,)
 
 
-# ── Upload gate ─────────────────────────────────────────────────────
+# ── Splash page (disappears after upload) ───────────────────────────
+
+@app.cell
+def _(mo, pipeline, upload):
+    mo.stop(bool(upload.value), mo.md(""))
+
+    mo.vstack(
+        [
+            mo.md(
+                '<div style="text-align: center; padding: 3rem 0 1rem;">'
+                '<h1 style="font-family: Lora, Georgia, serif; '
+                'font-weight: 600; font-size: 3rem; margin: 0;">'
+                "Chalkline</h1>"
+                '<p style="font-size: 1.1rem; color: var(--muted-foreground); '
+                'margin-top: 0.5rem;">'
+                "Career mapping for Maine's construction industry</p>"
+                "</div>"
+            ),
+            mo.hstack([
+                mo.stat(f"{pipeline.corpus_size:,}",  "Postings"),
+                mo.stat(str(len(pipeline.clusters)),  "Career Families"),
+                mo.stat(str(pipeline.sector_count),   "Sectors"),
+                mo.stat(str(pipeline.graph.edge_count), "Pathway Edges")
+            ], gap=1, wrap=True),
+            upload
+        ],
+        align = "center"
+    )
+    return
+
+
+# ── Upload gate + matching ──────────────────────────────────────────
 
 @app.cell
 def _(mo, pipeline, upload):
@@ -94,7 +140,7 @@ def _(mo, pipeline, upload):
         )
     )
 
-    with mo.status.spinner("Matching resume to career landscape..."):
+    with mo.status.spinner("Analyzing your resume..."):
         result = pipeline.match(
             (resume := upload.value[0]).contents,
             label = resume.name
@@ -103,35 +149,44 @@ def _(mo, pipeline, upload):
     return profile, result
 
 
-# ── Match summary ───────────────────────────────────────────────────
+# ── Compact header bar (appears after upload) ───────────────────────
 
 @app.cell
-def _(profile, mo, result):
-    mo.vstack([
-        mo.hstack([
-            mo.stat(profile.soc_title,        "Career Family"),
-            mo.stat(profile.sector,           "Sector"),
-            mo.stat(f"JZ {profile.job_zone}", "Job Zone"),
-            mo.stat(
-                f"{result.match_distance:.3f}",
-                "Match Distance",
-                direction = "decrease"
-            ),
-            mo.stat(len(result.gaps),         "Skill Gaps"),
-            mo.stat(len(result.demonstrated), "Demonstrated")
-        ], gap=1, wrap=True),
-        
-        mo.callout(
+def _(mo, profile, tables, upload):
+    mo.stop(not upload.value, mo.md(""))
+
+    jz_label = {
+        1 : "Entry Level",
+        2 : "Some Preparation",
+        3 : "Mid-Career",
+        4 : "Experienced",
+        5 : "Advanced"
+    }[profile.job_zone]
+
+    mo.hstack(
+        [
             mo.md(
-                f"Your resume most closely matches **{profile.soc_title}** "
-                f"in the **{profile.sector}** sector. "
-                f"This career family sits at Job Zone {profile.job_zone} "
-                f"with {profile.size} postings in the corpus."
+                '<span style="font-family: Lora, Georgia, serif; '
+                'font-size: 1.3rem; font-weight: 600;">'
+                "Chalkline</span>"
             ),
-            kind = "success"
-        )
-    ])
-    return
+            mo.md(
+                f"**{profile.soc_title}** · "
+                f"{profile.sector} · {jz_label} · "
+                f"{profile.size} postings"
+            ),
+            mo.hstack([
+                mo.download(
+                    data     = tables.report_text().encode(),
+                    filename = "chalkline_report.txt",
+                    label    = "Download"
+                ),
+            ], justify="end")
+        ],
+        justify = "space-between",
+        align   = "center"
+    )
+    return (jz_label,)
 
 
 # ── Table builder ──────────────────────────────────────────────────
@@ -148,55 +203,6 @@ def _(pipeline, reference, result):
     return (tables,)
 
 
-# ── Sidebar ─────────────────────────────────────────────────────────
-
-@app.cell
-def _(profile, mo, pipeline, tables):
-    target_dropdown = mo.ui.dropdown(
-        label      = "Target cluster",
-        options    = {p.display_label: cid for cid, p in pipeline.clusters.pairs()},
-        searchable = True,
-        value      = profile.display_label
-    )
-
-    mo.sidebar(
-        [
-            mo.md(
-                '<span style="font-family: Georgia, serif; font-size: 1.4em;">'
-                "Chalkline</span>"
-            ),
-            mo.md(
-                f"**{profile.soc_title}**\n\n"
-                f"{profile.sector} · JZ {profile.job_zone}"
-            ),
-            mo.md("---"),
-            target_dropdown,
-            mo.md("---"),
-            mo.download(
-                data     = tables.report_text().encode(),
-                filename = "chalkline_report.txt",
-                label    = "Download Report"
-            )
-        ],
-        
-        footer = mo.md(
-            '<span style="font-size: 0.85em; color: gray;">'
-            "Built for AGC Maine</span>"
-        )
-    )
-    return (target_dropdown,)
-
-
-# ── Target resolution ───────────────────────────────────────────────
-
-@app.cell
-def _(pipeline, result, target_dropdown):
-    target_id = v if (v := target_dropdown.value) is not None else result.cluster_id
-    target_profile = pipeline.clusters[target_id]
-    target_reach   = pipeline.graph.reach(target_id)
-    return target_id, target_profile, target_reach
-
-
 # ── Figure builder ─────────────────────────────────────────────────
 
 @app.cell
@@ -211,173 +217,418 @@ def _(pipeline, theme, result):
     return (figures,)
 
 
-# ── Career Landscape panel ──────────────────────────────────────────
+# ── Target dropdown (outside tabs for lazy rendering) ───────────────
 
 @app.cell
-def _(figures, mo, result):
-    def landscape_panel():
-        return mo.ui.plotly(figures.landscape(result.coordinates))
-    return (landscape_panel,)
+def _(mo, pipeline, profile):
+    target_dropdown = mo.ui.dropdown(
+        label      = "Explore a career family",
+        options    = {p.display_label: cid for cid, p in pipeline.clusters.pairs()},
+        searchable = True,
+        value      = profile.display_label
+    )
+    return (target_dropdown,)
 
 
-# ── Skill Analysis panel ────────────────────────────────────────────
-
-@app.cell
-def _(profile, mo, result, tables):
-    def skill_analysis_panel():
-        gaps  = tables.gap_rows()
-        demos = tables.demonstrated_rows()
-
-        return mo.vstack([
-            mo.hstack([
-                mo.stat(len(result.gaps),         "Gaps"),
-                mo.stat(len(result.demonstrated), "Demonstrated")
-            ]),
-
-            mo.md(f"Skill profile for **{profile.soc_title}**"),
-
-            mo.accordion(
-                {
-                    f"Gaps ({len(gaps)})": (
-                        mo.ui.table(gaps)
-                        if gaps
-                        else mo.md("No gaps identified.")
-                    ),
-                    f"Demonstrated ({len(demos)})": (
-                        mo.ui.table(demos)
-                        if demos
-                        else mo.md("No demonstrated tasks.")
-                    )
-                },
-                multiple = True
-            )
-        ])
-    return (skill_analysis_panel,)
-
-
-# ── Career Pathways panel ───────────────────────────────────────────
+# ── Target resolution ───────────────────────────────────────────────
 
 @app.cell
-def _(figures, mo, tables, target_id, target_reach):
-    def career_pathways_panel():
+def _(pipeline, result, target_dropdown):
+    target_id = (
+        v if (v := target_dropdown.value) is not None
+        else result.cluster_id
+    )
+    target_profile = pipeline.clusters[target_id]
+    target_reach   = pipeline.graph.reach(target_id)
+    return target_id, target_profile, target_reach
+
+
+# ── Tab: Career Paths ──────────────────────────────────────────────
+
+@app.cell
+def _(figures, mo, header, tables, target_dropdown, target_id, target_reach):
+    def career_paths_tab():
         fig       = figures.pathways(target_reach, target_id)
         cred_rows = tables.credential_rows(target_reach)
 
-        sections = [mo.ui.plotly(fig)]
+        sections = [
+            header(
+                "Career Pathways",
+                "Each connection represents a plausible career move "
+                "between families at the same experience level (lateral) "
+                "or one level up (advancement), weighted by how similar "
+                "the roles are."
+            ),
+            target_dropdown,
+            mo.ui.plotly(fig)
+        ]
+
         if cred_rows:
             sections.append(
                 mo.accordion(
-                    {
-                        f"Edge Credentials ({len(cred_rows)})":
-                        mo.ui.table(cred_rows)
-                    },
+                    {f"Credentials bridging these transitions ({len(cred_rows)})":
+                     mo.ui.table(cred_rows)},
                     multiple = True
                 )
             )
         return mo.vstack(sections)
-    return (career_pathways_panel,)
+    return (career_paths_tab,)
 
 
-# ── Dendrogram panel ────────────────────────────────────────────────
-
-@app.cell
-def _(figures, mo):
-    def dendrogram_panel():
-        return mo.ui.plotly(figures.dendrogram())
-    return (dendrogram_panel,)
-
-
-# ── Education & Training panel ──────────────────────────────────────
+# ── Tab: Resume Feedback ───────────────────────────────────────────
 
 @app.cell
-def _(mo, tables, target_profile, target_reach):
-    def education_panel():
-        data = {
-            "Registered Apprenticeships" : tables.apprenticeship_rows(target_reach),
-            "Programs"                   : tables.program_rows(target_reach)
-        }
-        sections = {
-            f"{k} ({len(v)})": mo.ui.table(v)
-            for k, v in data.items() if v
-        }
+def _(hbar, header, mo, profile, result, tables):
+    def resume_feedback_tab():
+        gaps  = tables.gap_rows()
+        demos = tables.demonstrated_rows()
 
-        return mo.vstack([
-            mo.md(
-                f"Education and training pathways for "
-                f"**{target_profile.soc_title}**"
-            ),
-            mo.accordion(sections, multiple=True)
-            if sections
-            else mo.md("No training pathways found for this cluster.")
-        ])
-    return (education_panel,)
+        def skill_bar(color, rows, title, invert=False):
+            names  = [r["Task"][:50] for r in rows[:15]]
+            scores = [
+                round((1 - r["Similarity"] if invert else r["Similarity"]) * 100, 1)
+                for r in rows[:15]
+            ]
+            return hbar(
+                color  = color,
+                height = max(300, len(names) * 28),
+                title  = title,
+                x      = scores,
+                y      = names
+            ), names
 
-
-# ── Employer Connections panel ──────────────────────────────────────
-
-@app.cell
-def _(mo, tables, target_id, target_profile):
-    def employer_panel():
-        rows = tables.employer_rows(target_id)
-
-        return mo.vstack([
-            mo.stat(len(rows), "AGC Members Matched"),
-            mo.md(
-                f"Employers in the "
-                f"**{target_profile.soc_title}** "
-                f"cluster matched against AGC member companies"
-            ),
-            mo.ui.table(rows)
-            if rows
-            else mo.md("No AGC member matches found in this cluster.")
-        ])
-    return (employer_panel,)
-
-
-# ── Job Boards panel ────────────────────────────────────────────────
-
-@app.cell
-def _(profile, mo, tables):
-    def job_board_panel():
-        data     = dict(zip(["Maine", "National"], tables.board_rows()))
-        sections = {
-            f"{k} ({len(v)})": mo.ui.table(v)
-            for k, v in data.items() if v
-        }
-
-        return mo.vstack([
-            mo.stat(sum(len(v) for v in data.values()), f"Boards for {profile.sector}"),
-            mo.accordion(sections, multiple=True)
-            if sections
-            else mo.md("No matching job boards found.")
-        ])
-    return (job_board_panel,)
-
-
-# ── Pipeline Details panel ──────────────────────────────────────────
-
-@app.cell
-def _(mo, pipeline):
-    def pipeline_details_panel():
-        from chalkline.pipeline import steps
-        from inspect            import getmembers, isfunction, signature
-
-        mermaid = "graph LR\n" + "\n".join(
-            f"    {param} --> {name}"
-            for name, fn in sorted(getmembers(steps, isfunction))
-            for param in signature(fn).parameters
-            if param not in {"config", "encoder", "lexicons"}
+        strength_fig, demo_names = skill_bar(
+            color = "var(--secondary)",
+            rows  = demos,
+            title = "Skill Alignment (%)"
+        )
+        gap_fig, gap_names = skill_bar(
+            color  = "var(--error)",
+            invert = True,
+            rows   = gaps,
+            title  = "Gap Magnitude (%)"
         )
 
         return mo.vstack([
+            header(
+                "How Your Skills Compare",
+                "We compared your resume against O*NET task definitions "
+                f"for {profile.soc_title} using language similarity. "
+                "Scores closer to 100% mean your resume strongly "
+                "reflects that skill."
+            ),
+            mo.hstack([
+                mo.stat(str(len(result.demonstrated)), "Strengths"),
+                mo.stat(str(len(result.gaps)),         "Growth Areas")
+            ]),
+            mo.md("#### Your Strengths"),
+            mo.md("Tasks from your resume that match what employers want."),
+            mo.ui.plotly(strength_fig) if demo_names
+            else mo.md("No demonstrated tasks."),
+            mo.md("#### Growth Opportunities"),
+            mo.md("Skills most postings mention that your resume "
+                   "doesn't strongly reflect yet."),
+            mo.ui.plotly(gap_fig) if gap_names else mo.md("No gaps identified."),
+            mo.accordion({
+                f"Raw Data: Strengths ({len(demos)})":
+                    mo.ui.table(demos) if demos else mo.md("None."),
+                f"Raw Data: Gaps ({len(gaps)})":
+                    mo.ui.table(gaps) if gaps else mo.md("None.")
+            }, multiple=True)
+        ])
+    return (resume_feedback_tab,)
+
+
+# ── Tab: Job Postings ──────────────────────────────────────────────
+
+@app.cell
+def _(hbar, header, mo, pipeline, profile, result):
+    def job_postings_tab():
+        from collections             import Counter
+        from chalkline.display.cards import posting_card
+
+        postings = pipeline.clusters[result.cluster_id].postings
+
+        companies = Counter(p.company for p in postings if p.company)
+        top_companies = companies.most_common(15)
+
+        hiring_fig = hbar(
+            color  = "var(--accent)",
+            height = max(300, len(top_companies) * 28),
+            title  = "Number of Postings",
+            x      = [c[1] for c in top_companies],
+            y      = [c[0][:30] for c in top_companies]
+        )
+
+        posting_cards = [
+            posting_card(p)
+            for p in sorted(
+                postings,
+                key     = lambda x: x.date_posted or "",
+                reverse = True
+            )[:12]
+        ]
+
+        return mo.vstack([
+            header(
+                "Real Postings From Your Career Family",
+                f"These are actual job postings from Maine construction "
+                f"companies that fall into the {profile.soc_title} "
+                f"career family. Browse to see what employers are "
+                f"looking for."
+            ),
+            mo.hstack([
+                mo.stat(str(len(postings)), "Postings in Family"),
+                mo.stat(str(len(companies)), "Companies Hiring")
+            ]),
+            mo.md("#### Who's Hiring"),
+            mo.ui.plotly(hiring_fig) if top_companies else mo.md("No company data."),
+            mo.md("#### Recent Postings"),
+            *posting_cards
+        ])
+    return (job_postings_tab,)
+
+
+# ── Tab: Next Steps ────────────────────────────────────────────────
+
+@app.cell
+def _(hbar, header, mo, tables, target_id, target_profile, target_reach):
+    def next_steps_tab():
+        apprenticeships = tables.apprenticeship_rows(target_reach)
+        programs        = tables.program_rows(target_reach)
+        employers       = tables.employer_rows(target_id)
+        maine, national = tables.board_rows()
+
+        app_fig = None
+        if apprenticeships:
+            trades = [a["Trade"][:35] for a in apprenticeships]
+            hours  = [
+                int(a["Min Hours"].replace(",", ""))
+                for a in apprenticeships
+            ]
+            app_fig = hbar(
+                color      = hours,
+                colorscale = "Teal",
+                height     = max(250, len(trades) * 32),
+                title      = "Minimum Hours",
+                x          = hours,
+                y          = trades
+            )
+
+        from chalkline.display.cards import board_card, employer_card, program_card
+
+        program_cards = [
+            program_card(
+                credential  = p["Credential"],
+                institution = p["Institution"],
+                name        = p["Program"],
+                url         = p["Link"]
+            )
+            for p in programs
+        ]
+        employer_cards = [
+            employer_card(
+                career_url  = e["Career Page"],
+                member_type = e["Type"],
+                name        = e["Company"],
+                posting_url = e["Posting"]
+            )
+            for e in employers
+        ]
+        board_cards = [
+            board_card(
+                best_for = b["Best For"],
+                category = b["Category"],
+                focus    = b["Focus"],
+                name     = b["Name"]
+            )
+            for b in maine + national
+        ]
+
+        sections = [
+            header(
+                "Training, Credentials, and Employers",
+                f"Resources that can help you advance into or within "
+                f"the {target_profile.soc_title} career family."
+            )
+        ]
+
+        if app_fig:
+            sections.extend([
+                mo.md("#### Apprenticeships"),
+                mo.md("Registered earn-while-you-learn programs with "
+                       "real hour requirements. These are paid positions."),
+                mo.ui.plotly(app_fig)
+            ])
+
+        if program_cards:
+            sections.extend([
+                mo.md(f"#### Educational Programs ({len(program_cards)})"),
+                *program_cards
+            ])
+
+        if employer_cards:
+            sections.extend([
+                mo.md(f"#### Employers ({len(employer_cards)})"),
+                mo.md("AGC Maine member companies with postings in "
+                       "this career family."),
+                *employer_cards
+            ])
+
+        if board_cards:
+            sections.extend([
+                mo.md(f"#### Job Boards ({len(board_cards)})"),
+                *board_cards
+            ])
+
+        if not any([apprenticeships, programs, employers, maine, national]):
+            sections.append(
+                mo.callout(
+                    mo.md("No training pathways found for this cluster."),
+                    kind = "warn"
+                )
+            )
+
+        return mo.vstack(sections)
+    return (next_steps_tab,)
+
+
+# ── Tab: Your Match ────────────────────────────────────────────────
+
+@app.cell
+def _(go, hbar, header, jz_label, mo, pipeline, profile, result, theme, wages):
+    def your_match_tab():
+        wage_key = next(
+            (k for k, d in wages.items()
+             if d.get("soc_title", "").lower()
+             in profile.soc_title.lower()),
+            None
+        ) or next(
+            (k for k in wages
+             if k.replace("-", "").startswith(
+                 profile.soc_title[:5].replace(" ", "")
+             )),
+            None
+        )
+
+        salary_text = (
+            f" The median salary in Maine is "
+            f"**${median:,.0f}** per year."
+            if wage_key
+            and (median := wages[wage_key].get("annual_median"))
+            else ""
+        )
+
+        hero = mo.callout(
+            mo.md(
+                f"Your resume most closely matches "
+                f"**{profile.soc_title}** in **{profile.sector}**. "
+                f"This is a **{jz_label.lower()}** role "
+                f"with {profile.size} postings in the corpus.{salary_text}"
+            ),
+            kind = "success"
+        )
+
+        distances = result.cluster_distances
+
+        prox_fig = hbar(
+            color = [
+                "var(--primary)" if cd.cluster_id == result.cluster_id
+                else "var(--accent)"
+                for cd in distances
+            ],
+            height = max(400, len(distances) * 24),
+            title  = "Distance (lower = closer match)",
+            x      = [round(cd.distance, 3) for cd in distances],
+            y      = [
+                pipeline.clusters[cd.cluster_id].soc_title[:30]
+                for cd in distances
+            ]
+        )
+
+        from collections import defaultdict
+        sector_dist = defaultdict(list)
+        for cd in distances:
+            c = pipeline.clusters[cd.cluster_id]
+            sector_dist[c.sector].append(cd.distance)
+        sector_avg = {
+            s: sum(d) / len(d)
+            for s, d in sector_dist.items()
+        }
+
+        sector_fig = go.Figure(go.Bar(
+            marker = dict(cornerradius=4),
+            x      = list(sector_avg.keys()),
+            y      = [round(v, 3) for v in sector_avg.values()]
+        ))
+        sector_fig.update_layout(
+            height      = 300,
+            margin      = dict(l=10, r=10, t=10, b=10),
+            template    = theme(),
+            yaxis_title = "Average Distance"
+        )
+
+        return mo.vstack([
+            hero,
+            mo.hstack([
+                mo.stat(profile.soc_title,         "Career Family"),
+                mo.stat(profile.sector,            "Sector"),
+                mo.stat(jz_label,                  "Experience Level"),
+                mo.stat(str(profile.size),         "Postings"),
+                mo.stat(str(len(result.gaps)),      "Growth Areas"),
+                mo.stat(str(len(result.demonstrated)), "Strengths")
+            ], gap=1, wrap=True),
+            header(
+                "Proximity to All Career Families",
+                "How close your resume is to each of the 20 career "
+                "families. Your best match is highlighted. Lower "
+                "distance means a closer fit."
+            ),
+            mo.ui.plotly(prox_fig),
+            header(
+                "Sector Affinity",
+                "Average distance to career families in each sector. "
+                "Lower means your resume aligns more with that area "
+                "of construction."
+            ),
+            mo.ui.plotly(sector_fig)
+        ])
+    return (your_match_tab,)
+
+
+# ── Tab: ML Internals ──────────────────────────────────────────────
+
+@app.cell
+def _(figures, header, mo, pipeline, result):
+    def ml_internals_tab():
+        return mo.vstack([
+            header(
+                "Under the Hood",
+                "Technical details of how Chalkline analyzes the "
+                "job market. This section is intended for evaluating "
+                "the unsupervised ML methodology."
+            ),
             mo.hstack([
                 mo.stat(f"{pipeline.corpus_size:,}",     "Corpus Size"),
                 mo.stat(pipeline.config.embedding_model, "Embedding Model"),
-                mo.stat(len(pipeline.clusters),          "Clusters"),
-                mo.stat(pipeline.config.component_count, "SVD Components")
+                mo.stat(str(len(pipeline.clusters)),      "Clusters (k)"),
+                mo.stat(str(pipeline.config.component_count), "SVD Components")
             ], gap=1, wrap=True),
-            mo.md("#### Pipeline DAG"),
-            mo.mermaid(mermaid),
+            mo.md("#### Hierarchical Clustering Dendrogram"),
+            mo.md(
+                "Ward-linkage agglomerative clustering builds a tree "
+                "of every possible merge, then cuts at k=20 to produce "
+                "career families. Your match is annotated."
+            ),
+            mo.ui.plotly(figures.dendrogram()),
+            mo.md("#### Career Landscape"),
+            mo.md(
+                "All 20 career family centroids projected onto the "
+                "first two SVD components. Node size reflects "
+                "betweenness centrality (how many pathways pass "
+                "through that family). Your resume is the gold star."
+            ),
+            mo.ui.plotly(figures.landscape(result.coordinates)),
             mo.md("#### Cluster Profiles"),
             mo.tree({
                 f"Cluster {cid}: {p.soc_title}": {
@@ -389,36 +640,31 @@ def _(mo, pipeline):
                 for cid, p in pipeline.clusters.pairs()
             })
         ])
-    return (pipeline_details_panel,)
+    return (ml_internals_tab,)
 
 
-# ── Layout ──────────────────────────────────────────────────────────
+# ── Tab layout ─────────────────────────────────────────────────────
 
 @app.cell
 def _(
-    career_pathways_panel,
-    dendrogram_panel,
-    education_panel,
-    employer_panel,
-    job_board_panel,
-    landscape_panel,
+    career_paths_tab,
+    job_postings_tab,
+    ml_internals_tab,
     mo,
-    pipeline_details_panel,
-    skill_analysis_panel
+    next_steps_tab,
+    resume_feedback_tab,
+    your_match_tab
 ):
-    mo.accordion(
+    mo.ui.tabs(
         {
-            "Career Landscape"     : landscape_panel,
-            "Skill Analysis"       : skill_analysis_panel,
-            "Career Pathways"      : career_pathways_panel,
-            "Dendrogram"           : dendrogram_panel,
-            "Education & Training" : education_panel,
-            "Employer Connections" : employer_panel,
-            "Job Boards"           : job_board_panel,
-            "Pipeline Details"     : pipeline_details_panel
+            "Career Paths"    : career_paths_tab,
+            "Resume Feedback" : resume_feedback_tab,
+            "Job Postings"    : job_postings_tab,
+            "Next Steps"      : next_steps_tab,
+            "Your Match"      : your_match_tab,
+            "ML Internals"    : ml_internals_tab
         },
-        lazy     = True,
-        multiple = True
+        lazy = True
     )
     return
 
