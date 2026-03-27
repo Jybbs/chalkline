@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.12.0"
-app = marimo.App(width="medium", css_file="chalkline.css")
+app = marimo.App(width="full", css_file="chalkline.css")
 
 
 # ── Setup ───────────────────────────────────────────────────────────
@@ -14,11 +14,38 @@ def _():
     from json    import loads
     from pathlib import Path
 
-    from chalkline.display.layout import header
+    from chalkline.display.layout import callout, header, stat_strip
 
-    theme = lambda: ["plotly_white", "plotly_dark"][mo.app_meta().theme == "dark"]
+    info_dir = Path(__file__).parent / "info"
+    info     = lambda name: (info_dir / f"{name}.md").read_text()
 
-    MARGIN = dict(l=10, r=10, t=10, b=10)
+    dark   = lambda: mo.app_meta().theme == "dark"
+    theme  = lambda: ["plotly_white", "plotly_dark"][dark()]
+    MARGIN = dict(b=40, l=10, r=10, t=10)
+
+    LIGHT = {
+        "accent"     : "#4a6fa5",
+        "error"      : "#c44536",
+        "foreground" : "#1a1a1a",
+        "muted"      : "#999999",
+        "primary"    : "#B8941F",
+        "success"    : "#3a7d44"
+    }
+    DARK = {
+        "accent"     : "#6b9fcc",
+        "error"      : "#e07a5f",
+        "foreground" : "#ebebeb",
+        "muted"      : "#777777",
+        "primary"    : "#E8C840",
+        "success"    : "#81b29a"
+    }
+    C = lambda: DARK if dark() else LIGHT
+
+    FONT = lambda: dict(
+        color  = C()["foreground"],
+        family = "Lora, Georgia, serif",
+        size   = 13
+    )
 
     def hbar(color, height, title, x, y, **marker_kw):
         fig = go.Figure(go.Bar(
@@ -28,11 +55,14 @@ def _():
             y           = y
         ))
         fig.update_layout(
-            height      = height,
-            margin      = MARGIN,
-            template    = theme(),
-            xaxis_title = title,
-            yaxis       = dict(autorange="reversed")
+            font          = FONT(),
+            height        = height,
+            margin        = MARGIN,
+            paper_bgcolor = "rgba(0,0,0,0)",
+            plot_bgcolor  = "rgba(0,0,0,0)",
+            template      = theme(),
+            xaxis_title   = title,
+            yaxis         = dict(autorange="reversed")
         )
         return fig
 
@@ -46,14 +76,21 @@ def _():
             y = y
         ))
         fig.update_layout(
-            height      = height,
-            margin      = MARGIN,
-            template    = theme(),
-            yaxis_title = title
+            font          = FONT(),
+            height        = height,
+            margin        = MARGIN,
+            paper_bgcolor = "rgba(0,0,0,0)",
+            plot_bgcolor  = "rgba(0,0,0,0)",
+            template      = theme(),
+            yaxis_title   = title
         )
         return fig
 
-    return MARGIN, Path, go, hbar, header, loads, mo, theme, vbar
+    return (
+        C, FONT, MARGIN, Path, info,
+        callout, go, hbar, header,
+        loads, mo, stat_strip, theme, vbar
+    )
 
 
 # ── Pipeline loading ────────────────────────────────────────────────
@@ -117,34 +154,68 @@ def _(mo):
     return (upload,)
 
 
-# ── Splash page (disappears after upload) ───────────────────────────
+# ── Splash page (always visible) ──────────────────────────────────────
 
 @app.cell
-def _(mo, pipeline, upload):
-    mo.stop(bool(upload.value), mo.md(""))
+def _(labor, mo, pipeline, stat_strip, upload):
+    from base64     import b64encode
+    from pathlib    import Path as P
+    from statistics import median
 
-    mo.vstack(
-        [
-            mo.md(
-                '<div style="text-align: center; padding: 3rem 0 1rem;">'
-                '<h1 style="font-family: Lora, Georgia, serif; '
-                'font-weight: 600; font-size: 3rem; margin: 0;">'
-                "Chalkline</h1>"
-                '<p style="font-size: 1.1rem; color: var(--muted-foreground); '
-                'margin-top: 0.5rem;">'
-                "Career mapping for Maine's construction industry</p>"
-                "</div>"
-            ),
-            mo.hstack([
-                mo.stat(f"{pipeline.corpus_size:,}",  "Postings"),
-                mo.stat(str(len(pipeline.clusters)),  "Career Families"),
-                mo.stat(str(pipeline.sector_count),   "Sectors"),
-                mo.stat(str(pipeline.graph.edge_count), "Pathway Edges")
-            ], gap=1, wrap=True),
-            upload
-        ],
-        align = "center"
+    from chalkline.display.layout import stat_html
+
+    logo_b64 = b64encode((P(__file__).parent / "assets/logo.png").read_bytes()).decode()
+    logo_src = f"data:image/png;base64,{logo_b64}"
+
+    postings = [
+        p for c in pipeline.clusters.values() for p in c.postings
+    ]
+    companies = len({p.company for p in postings if p.company})
+    locations = len({p.location for p in postings if p.location})
+    wages = [
+        r["wages"]["annual_median"]
+        for r in labor.values()
+        if (r.get("wages") or {}).get("annual_median")
+    ]
+    employment = sum(
+        r["wages"]["employment"]
+        for r in labor.values()
+        if (r.get("wages") or {}).get("employment")
     )
+    bright = sum(
+        1 for r in labor.values()
+        if (r.get("outlook") or {}).get("bright_outlook")
+    )
+
+    s = stat_html
+
+    splash = mo.Html(
+        '<div class="cl-splash">'
+        '<div class="cl-brand">'
+        f'<span class="cl-logo" style="'
+        f"mask-image:url({logo_src});"
+        f"-webkit-mask-image:url({logo_src});"
+        f'"></span>'
+        "<h1>Chalkline</h1>"
+        "</div>"
+        '<p class="cl-tagline">'
+        "Career mapping for Maine's "
+        "construction industry</p>"
+        '<div class="cl-stats">'
+        + s("Job Postings",    f"{pipeline.corpus_size:,}")
+        + s("Companies",       str(companies))
+        + s("Maine Locations", str(locations))
+        + s("Career Families", str(len(pipeline.clusters)))
+        + s("Maine Workers",   f"{employment:,}")
+        + s("Median Salary",   f"${median(wages):,.0f}")
+        + s("Bright Outlook",  str(bright))
+        + s("Career Pathways", str(pipeline.graph.edge_count))
+        + "</div>"
+        "</div>"
+    )
+
+    mo.stop(bool(upload.value), mo.md(""))
+    mo.vstack([splash, upload])
     return
 
 
@@ -152,13 +223,7 @@ def _(mo, pipeline, upload):
 
 @app.cell
 def _(mo, pipeline, upload):
-    mo.stop(
-        not upload.value,
-        mo.callout(
-            mo.md("Upload a resume above to generate your career report."),
-            kind = "neutral"
-        )
-    )
+    mo.stop(not upload.value, mo.md(""))
 
     with mo.status.spinner("Analyzing your resume..."):
         result = pipeline.match(
@@ -172,7 +237,7 @@ def _(mo, pipeline, upload):
 # ── Compact header bar (appears after upload) ───────────────────────
 
 @app.cell
-def _(mo, profile, tables, upload):
+def _(mo, profile, upload):
     mo.stop(not upload.value, mo.md(""))
 
     jz_label = {
@@ -183,28 +248,12 @@ def _(mo, profile, tables, upload):
         5 : "Advanced"
     }[profile.job_zone]
 
-    mo.hstack(
-        [
-            mo.md(
-                '<span style="font-family: Lora, Georgia, serif; '
-                'font-size: 1.3rem; font-weight: 600;">'
-                "Chalkline</span>"
-            ),
-            mo.md(
-                f"**{profile.soc_title}** · "
-                f"{profile.sector} · {jz_label} · "
-                f"{profile.size} postings"
-            ),
-            mo.hstack([
-                mo.download(
-                    data     = tables.report_text().encode(),
-                    filename = "chalkline_report.txt",
-                    label    = "Download"
-                ),
-            ], justify="end")
-        ],
-        justify = "space-between",
-        align   = "center"
+    mo.Html(
+        '<div class="cl-match-bar">'
+        f"<strong>{profile.soc_title}</strong> · "
+        f"{profile.sector} · {jz_label} · "
+        f"{profile.size} postings"
+        "</div>"
     )
     return (jz_label,)
 
@@ -266,7 +315,10 @@ def _(pipeline, result, target_dropdown):
 # ── Tab: Career Paths ──────────────────────────────────────────────
 
 @app.cell
-def _(figures, mo, header, tables, target_dropdown, target_id, target_reach):
+def _(
+    callout, info, figures, header, mo, tables,
+    target_dropdown, target_id, target_reach
+):
     def career_paths_tab():
         fig       = figures.pathways(target_reach, target_id)
         cred_rows = tables.credential_rows(target_reach)
@@ -280,7 +332,8 @@ def _(figures, mo, header, tables, target_dropdown, target_id, target_reach):
                 "the roles are."
             ),
             target_dropdown,
-            mo.ui.plotly(fig)
+            mo.ui.plotly(fig),
+            callout(info("career_paths"))
         ]
 
         if cred_rows:
@@ -298,7 +351,10 @@ def _(figures, mo, header, tables, target_dropdown, target_id, target_reach):
 # ── Tab: Resume Feedback ───────────────────────────────────────────
 
 @app.cell
-def _(hbar, header, mo, pipeline, profile, result, tables):
+def _(
+    C, info, callout, hbar, header, mo,
+    pipeline, profile, result, stat_strip, tables
+):
     def resume_feedback_tab():
         gaps  = tables.gap_rows()
         demos = tables.demonstrated_rows()
@@ -327,12 +383,12 @@ def _(hbar, header, mo, pipeline, profile, result, tables):
             ), names
 
         strength_fig, demo_names = skill_bar(
-            color = "var(--secondary)",
+            color = C()["success"],
             rows  = demos,
             title = "Skill Alignment (%)"
         )
         gap_fig, gap_names = skill_bar(
-            color  = "var(--error)",
+            color  = C()["error"],
             invert = True,
             rows   = gaps,
             title  = "Gap Magnitude (%)"
@@ -346,19 +402,17 @@ def _(hbar, header, mo, pipeline, profile, result, tables):
                 "language similarity. Scores closer to 100% "
                 "mean your resume strongly reflects that skill."
             ),
-            mo.hstack([
-                mo.stat(str(len(result.demonstrated)), "Strengths"),
-                mo.stat(str(len(result.gaps)),         "Growth Areas"),
-                mo.stat(f"{percentile}%",              "Alignment Percentile")
-            ]),
-            mo.callout(
-                mo.md(
-                    f"Your resume is more aligned with "
-                    f"**{profile.soc_title}** than "
-                    f"**{percentile}%** of the "
-                    f"{len(cluster.postings)} postings "
-                    f"in this career family."
-                ),
+            stat_strip({
+                "Strengths"            : str(len(result.demonstrated)),
+                "Growth Areas"         : str(len(result.gaps)),
+                "Alignment Percentile" : f"{percentile}%"
+            }),
+            callout(
+                f"Your resume is more aligned with "
+                f"**{profile.soc_title}** than "
+                f"**{percentile}%** of the "
+                f"{len(cluster.postings)} postings "
+                f"in this career family.",
                 kind = "info"
             ),
             header("Your Strengths",
@@ -371,6 +425,7 @@ def _(hbar, header, mo, pipeline, profile, result, tables):
                    "resume doesn't strongly reflect yet."),
             mo.ui.plotly(gap_fig) if gap_names
             else mo.md("No gaps identified."),
+            callout(info("skill_alignment")),
             mo.accordion({
                 f"Raw Data: Strengths ({len(demos)})":
                     mo.ui.table(demos) if demos
@@ -388,7 +443,10 @@ def _(hbar, header, mo, pipeline, profile, result, tables):
 # ── Tab: Job Postings ──────────────────────────────────────────────
 
 @app.cell
-def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
+def _(
+    C, FONT, MARGIN, go, hbar, header,
+    mo, pipeline, profile, result, stat_strip, theme
+):
     def job_postings_tab():
         from collections             import Counter
         from chalkline.display.cards import posting_card
@@ -399,7 +457,7 @@ def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
         top_companies = companies.most_common(15)
 
         hiring_fig = hbar(
-            color  = "var(--accent)",
+            color  = C()["accent"],
             height = max(300, len(top_companies) * 28),
             title  = "Number of Postings",
             x      = [c[1] for c in top_companies],
@@ -410,7 +468,7 @@ def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
             p.location for p in postings if p.location
         ).most_common(15)
         location_fig = hbar(
-            color  = "var(--secondary)",
+            color  = C()["success"],
             height = max(250, len(locations) * 28),
             title  = "Number of Postings",
             x      = [loc[1] for loc in locations],
@@ -425,7 +483,7 @@ def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
             timeline_fig = go.Figure(go.Scatter(
                 hovertext   = labels,
                 marker      = dict(
-                    color = "var(--accent)",
+                    color = C()["accent"],
                     size  = 8
                 ),
                 mode        = "markers",
@@ -433,10 +491,13 @@ def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
                 y           = [1] * len(dates)
             ))
             timeline_fig.update_layout(
-                height   = 180,
-                margin   = MARGIN,
-                template = theme(),
-                yaxis    = dict(visible=False)
+                font          = FONT(),
+                height        = 180,
+                margin        = MARGIN,
+                paper_bgcolor = "rgba(0,0,0,0)",
+                plot_bgcolor  = "rgba(0,0,0,0)",
+                template      = theme(),
+                yaxis         = dict(visible=False)
             )
 
         posting_cards = [
@@ -456,13 +517,11 @@ def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
                 f"{profile.soc_title} career family. Browse "
                 f"to see what employers are looking for."
             ),
-            mo.hstack([
-                mo.stat(str(len(postings)), "Postings in Family"),
-                mo.stat(str(len(companies)), "Companies Hiring"),
-                mo.stat(
-                    str(len(locations)), "Locations"
-                ) if locations else None
-            ], gap=1, wrap=True),
+            stat_strip({
+                "Postings in Family" : str(len(postings)),
+                "Companies Hiring"   : str(len(companies)),
+                **({"Locations" : str(len(locations))} if locations else {})
+            }),
             header(
                 "Who's Hiring",
                 "Companies with the most postings in this "
@@ -508,8 +567,8 @@ def _(MARGIN, go, hbar, header, mo, pipeline, profile, result, theme):
 
 @app.cell
 def _(
-    hbar, header, labor, mo, pipeline,
-    tables, target_id, target_profile, target_reach
+    C, callout, hbar, header, mo, pipeline,
+    tables, target_id, target_profile, target_reach, labor
 ):
     def next_steps_tab():
         apprenticeships = tables.apprenticeship_rows(target_reach)
@@ -599,7 +658,7 @@ def _(
                     "families you could advance into from here."
                 ),
                 mo.ui.plotly(hbar(
-                    color  = "var(--secondary)",
+                    color  = C()["success"],
                     height = max(200, len(sorted_wages) * 32),
                     title  = "Annual Median Wage ($)",
                     x      = [w[1] for w in sorted_wages],
@@ -628,12 +687,10 @@ def _(
             ])
 
         if not any([apprenticeships, programs, employers, maine, national]):
-            sections.append(
-                mo.callout(
-                    mo.md("No training pathways found for this cluster."),
-                    kind = "warn"
-                )
-            )
+            sections.append(callout(
+                "No training pathways found for this cluster.",
+                kind = "warn"
+            ))
 
         return mo.vstack(sections)
     return (next_steps_tab,)
@@ -642,7 +699,10 @@ def _(
 # ── Tab: Your Match ────────────────────────────────────────────────
 
 @app.cell
-def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, vbar):
+def _(
+    C, callout, go, hbar, header, info, jz_label, labor,
+    mo, pipeline, profile, result, stat_strip, theme, vbar
+):
     def your_match_tab():
         rec   = labor.get(profile.soc_title, {})
         w     = rec.get("wages") or {}
@@ -660,37 +720,25 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, v
             if outl.get("bright_outlook") else ""
         )
 
-        hero = mo.callout(
-            mo.md(
-                f"Your resume most closely matches "
-                f"**{profile.soc_title}** in "
-                f"**{profile.sector}**. "
-                f"This is a **{jz_label.lower()}** role "
-                f"with {profile.size} postings in the "
-                f"corpus.{salary_text}{outlook_text}"
-            ),
+        hero = callout(
+            f"Your resume most closely matches "
+            f"**{profile.soc_title}** in "
+            f"**{profile.sector}**. "
+            f"This is a **{jz_label.lower()}** role "
+            f"with {profile.size} postings in the "
+            f"corpus.{salary_text}{outlook_text}",
             kind = "success"
         )
 
-        labor_stats = []
+        labor_data = {}
         if w.get("annual_median"):
-            labor_stats.append(
-                mo.stat(f"${w['annual_median']:,.0f}", "Maine Median Wage")
-            )
+            labor_data["Maine Median Wage"] = f"${w['annual_median']:,.0f}"
         if proj.get("change_percent"):
-            labor_stats.append(
-                mo.stat(f"{proj['change_percent']:+.1f}%", "10-Year Growth")
-            )
+            labor_data["10-Year Growth"] = f"{proj['change_percent']:+.1f}%"
         if proj.get("openings"):
-            labor_stats.append(
-                mo.stat(
-                    f"{proj['openings']:,.0f}K/yr", "Projected Openings"
-                )
-            )
+            labor_data["Projected Openings"] = f"{proj['openings']:,.0f}K/yr"
         if proj.get("education"):
-            labor_stats.append(
-                mo.stat(proj["education"], "Typical Education")
-            )
+            labor_data["Typical Education"] = proj["education"]
 
         wage_fig = None
         if w.get("annual_median"):
@@ -704,11 +752,11 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, v
             ]
             wage_fig = hbar(
                 color  = [
-                    "var(--muted-foreground)",
-                    "var(--accent)",
-                    "var(--primary)",
-                    "var(--accent)",
-                    "var(--muted-foreground)"
+                    C()["muted"],
+                    C()["accent"],
+                    C()["primary"],
+                    C()["accent"],
+                    C()["muted"]
                 ],
                 height = 220,
                 title  = "Annual Salary ($)",
@@ -720,8 +768,8 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, v
 
         prox_fig = hbar(
             color = [
-                "var(--primary)" if cd.cluster_id == result.cluster_id
-                else "var(--accent)"
+                C()["primary"] if cd.cluster_id == result.cluster_id
+                else C()["accent"]
                 for cd in distances
             ],
             height = max(400, len(distances) * 24),
@@ -752,24 +800,25 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, v
 
         sections = [
             hero,
-            mo.hstack([
-                mo.stat(profile.soc_title,    "Career Family"),
-                mo.stat(profile.sector,       "Sector"),
-                mo.stat(jz_label,             "Experience Level"),
-                mo.stat(str(profile.size),    "Postings"),
-                mo.stat(str(len(result.gaps)), "Growth Areas"),
-                mo.stat(str(len(result.demonstrated)), "Strengths")
-            ], gap=1, wrap=True)
+            stat_strip({
+                "Career Family"    : profile.soc_title,
+                "Sector"           : profile.sector,
+                "Experience Level" : jz_label,
+                "Postings"         : str(profile.size),
+                "Growth Areas"     : str(len(result.gaps)),
+                "Strengths"        : str(len(result.demonstrated))
+            }),
+            callout(info("resume_match"))
         ]
 
-        if labor_stats:
+        if labor_data:
             sections.extend([
                 header(
                     "Labor Market Snapshot",
                     "Wage and employment data for this occupation "
                     "from the Bureau of Labor Statistics and O*NET."
                 ),
-                mo.hstack(labor_stats, gap=1, wrap=True)
+                stat_strip(labor_data)
             ])
 
         if wage_fig:
@@ -806,7 +855,10 @@ def _(go, hbar, header, jz_label, labor, mo, pipeline, profile, result, theme, v
 # ── Tab: ML Internals ──────────────────────────────────────────────
 
 @app.cell
-def _(MARGIN, figures, go, hbar, header, mo, pipeline, result, theme, vbar):
+def _(
+    C, FONT, MARGIN, figures, go, hbar, header,
+    mo, pipeline, result, stat_strip, theme, vbar
+):
     def ml_internals_tab():
         from networkx import betweenness_centrality
 
@@ -818,24 +870,27 @@ def _(MARGIN, figures, go, hbar, header, mo, pipeline, result, theme, vbar):
             if "weight" in d
         ]
         weight_fig = go.Figure(go.Histogram(
-            marker = dict(color="var(--accent)", cornerradius=4),
+            marker = dict(color=C()["accent"], cornerradius=4),
             nbinsx = 25,
             x      = weights
         ))
         weight_fig.update_layout(
-            height      = 300,
-            margin      = MARGIN,
-            template    = theme(),
-            xaxis_title = "Edge Weight (cosine similarity)",
-            yaxis_title = "Count"
+            font          = FONT(),
+            height        = 300,
+            margin        = MARGIN,
+            paper_bgcolor = "rgba(0,0,0,0)",
+            plot_bgcolor  = "rgba(0,0,0,0)",
+            template      = theme(),
+            xaxis_title   = "Edge Weight (cosine similarity)",
+            yaxis_title   = "Count"
         )
 
         sector_color = {
-            "Building Construction" : "var(--cl-building)",
-            "Heavy Civil"           : "var(--cl-highway)",
-            "Specialty Trade"       : "var(--cl-specialty)"
+            "Building Construction" : "#4a90d9",
+            "Heavy Civil"           : "#d97a4a",
+            "Specialty Trade"       : "#6bbf59"
         }
-        sc = lambda s: sector_color.get(s, "var(--accent)")
+        sc = lambda s: sector_color.get(s, C()["accent"])
         rows = [
             (s, "", 0, sc(s))
             for s in sorted({
@@ -855,7 +910,11 @@ def _(MARGIN, figures, go, hbar, header, mo, pipeline, result, theme, vbar):
             values       = values
         ))
         treemap_fig.update_layout(
-            height=450, margin=MARGIN, template=theme()
+            font          = FONT(),
+            height        = 450,
+            margin        = MARGIN,
+            paper_bgcolor = "rgba(0,0,0,0)",
+            template      = theme()
         )
 
         sector_sizes = {}
@@ -868,13 +927,13 @@ def _(MARGIN, figures, go, hbar, header, mo, pipeline, result, theme, vbar):
                 "Technical details of how Chalkline analyzes the job "
                 "market. This section is for evaluating the methodology."
             ),
-            mo.hstack([
-                mo.stat(f"{pipeline.corpus_size:,}",          "Corpus Size"),
-                mo.stat(pipeline.config.embedding_model,      "Embedding Model"),
-                mo.stat(str(len(pipeline.clusters)),          "Clusters (k)"),
-                mo.stat(str(pipeline.config.component_count), "SVD Components"),
-                mo.stat(str(pipeline.graph.edge_count),       "Pathway Edges")
-            ], gap=1, wrap=True),
+            stat_strip({
+                "Corpus Size"     : f"{pipeline.corpus_size:,}",
+                "Embedding Model" : pipeline.config.embedding_model,
+                "Clusters (k)"    : str(len(pipeline.clusters)),
+                "SVD Components"  : str(pipeline.config.component_count),
+                "Pathway Edges"   : str(pipeline.graph.edge_count)
+            }),
             header(
                 "Career Landscape Treemap",
                 "All career families grouped by sector, sized by posting "
@@ -887,7 +946,7 @@ def _(MARGIN, figures, go, hbar, header, mo, pipeline, result, theme, vbar):
                 "centrality means the role is a common stepping stone."
             ),
             mo.ui.plotly(hbar(
-                color  = "var(--accent)",
+                color  = C()["accent"],
                 height = max(300, len(bc) * 24),
                 title  = "Betweenness Centrality",
                 x      = [round(bc[cid], 4) for cid, _ in pipeline.clusters.pairs()],

@@ -141,6 +141,9 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
 class MarimoDisplay(PipelineProgress):
     """
     Progress display backed by `mo.status.progress_bar`.
+
+    Skips the progress bar entirely when the Hamilton cache is warm
+    (zero nodes to execute), avoiding an empty bar flash.
     """
 
     def advance(self, node_name: str):
@@ -152,7 +155,11 @@ class MarimoDisplay(PipelineProgress):
     def begin_pipeline(self, total: int):
         """
         Create the Marimo progress bar once the node count is known.
+        Returns immediately on a warm cache so no bar is shown.
         """
+        self.manager = None
+        if total == 0:
+            return
         import marimo as mo
         self.manager = mo.status.progress_bar(
             completion_title = "Pipeline fitted",
@@ -172,9 +179,10 @@ class MarimoDisplay(PipelineProgress):
 
     def stop(self):
         """
-        Exit the progress bar context manager.
+        Exit the progress bar context manager if one was created.
         """
-        self.manager.__exit__(None, None, None)
+        if self.manager:
+            self.manager.__exit__(None, None, None)
 
 
 class RichDisplay(PipelineProgress):

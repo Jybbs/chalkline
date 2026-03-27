@@ -1,0 +1,3 @@
+The career graph is a **stepwise k-NN backbone** where each node represents one of the 20 career families and edges connect roles at the same Job Zone (*lateral moves*) or one level up (*advancement paths*). Edge weights are cosine similarities between cluster centroids in SVD-reduced space, meaning stronger connections indicate roles whose job postings use more similar language.
+
+Credentials are attached to edges via a **dual-threshold cosine filter** that matches each credential's embedding text against both the source and target cluster centroids, requiring similarity above $\tau = 0.3$ on both ends to qualify as a bridge credential.
