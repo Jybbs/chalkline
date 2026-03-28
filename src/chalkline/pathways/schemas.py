@@ -10,10 +10,58 @@ import numpy as np
 
 from dataclasses import dataclass, field
 from enum        import StrEnum
+from functools   import cached_property
 from pydantic    import BaseModel, Field
 from typing      import NamedTuple
 
 from chalkline.collection.schemas import Posting
+
+
+class LaborOutlook(BaseModel, extra="ignore"):
+    """
+    O*NET Bright Outlook designation for an occupation.
+    """
+
+    bright_outlook  : bool       = False
+    outlook_reasons : list[str]  = Field(default_factory=list)
+
+
+class LaborProjections(BaseModel, extra="ignore"):
+    """
+    BLS 10-year employment projections for an occupation.
+    """
+
+    change_percent : float | None = None
+    education      : str          = ""
+    openings       : float | None = None
+
+
+class LaborWages(BaseModel, extra="ignore"):
+    """
+    BLS OEWS annual wage percentiles for an occupation.
+    """
+
+    annual_10     : float        = 0
+    annual_25     : float        = 0
+    annual_75     : float        = 0
+    annual_90     : float        = 0
+    annual_median : float | None = None
+    employment    : int          = 0
+
+
+class LaborRecord(BaseModel, extra="ignore"):
+    """
+    Unified BLS and O*NET labor market data for one occupation.
+
+    Uses `extra="ignore"` because `labor.json` contains fields
+    beyond what the display layer needs (hourly wages, projected
+    employment, related occupations, training).
+    """
+
+    outlook     : LaborOutlook | None     = None
+    projections : LaborProjections | None = None
+    soc_title   : str
+    wages       : LaborWages | None       = None
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -55,10 +103,33 @@ class Cluster:
         """
         Human-readable cluster identifier for dropdown labels.
         """
-        return (
-            f"Cluster {self.cluster_id}: {self.soc_title} "
-            f"(JZ {self.job_zone})"
-        )
+        return f"Cluster {self.cluster_id}: {self.soc_title} (JZ {self.job_zone})"
+
+    @property
+    def profile_dict(self) -> dict[str, str | int]:
+        """
+        Display-ready profile summary for tree views.
+        """
+        return {
+            "Sector"      : self.sector,
+            "Job Zone"    : self.job_zone,
+            "Size"        : self.size,
+            "Modal Title" : self.modal_title
+        }
+
+    @property
+    def short_title(self) -> str:
+        """
+        Truncated SOC title for chart labels (30 chars max).
+        """
+        return self.soc_title[:30]
+
+    @property
+    def treemap_label(self) -> str:
+        """
+        Label for cluster in treemap visualization.
+        """
+        return f"{self.short_title} ({self.size})"
 
 
 @dataclass
@@ -105,6 +176,22 @@ class Clusters:
         """
         return ((cid, self.items[cid]) for cid in self.cluster_ids)
 
+    def by_sector(self, sector: str) -> list[tuple[int, Cluster]]:
+        """
+        All clusters in a given sector, sorted by job zone then
+        title.
+
+        Args:
+            sector: Sector name to filter by.
+        """
+        return sorted(
+            (
+                (cid, self.items[cid]) for cid in self.cluster_ids
+                if self.items[cid].sector == sector
+            ),
+            key=lambda x: (x[1].job_zone, x[1].soc_title)
+        )
+
     def values(self):
         """
         Iterate cluster objects in sorted ID order.
@@ -132,7 +219,7 @@ class Credential(BaseModel, extra="forbid"):
     vector   : list[float] | None = Field(default=None, exclude=True)
 
 
-class OnetOccupation(BaseModel, extra="forbid"):
+class Occupation(BaseModel, extra="forbid"):
     """
     An O*NET occupation with its full skill profile.
 
@@ -142,7 +229,7 @@ class OnetOccupation(BaseModel, extra="forbid"):
 
     job_zone : int = Field(ge=1, le=5)
     sector   : str
-    skills   : list[OnetSkill]
+    skills   : list[Skill]
     soc_code : str
     title    : str
 
@@ -161,7 +248,7 @@ class OnetOccupation(BaseModel, extra="forbid"):
         return f"{self.title}: {', '.join(s.name for s in self.task_elements)}"
 
     @property
-    def task_elements(self) -> list[OnetSkill]:
+    def task_elements(self) -> list[Skill]:
         """
         Task and DWA elements from this occupation's skill profile.
 
@@ -174,11 +261,49 @@ class OnetOccupation(BaseModel, extra="forbid"):
         """
         return [
             s for s in self.skills
-            if s.type in {OnetSkillType.TASK, OnetSkillType.DWA}
+            if s.type in {SkillType.TASK, SkillType.DWA}
         ]
 
 
-class OnetSkill(BaseModel, extra="forbid"):
+@dataclass
+class Occupations:
+    """
+    Indexed collection of O*NET occupations with derived views.
+
+    Wraps a list of `Occupation` records and provides a
+    cached skill-to-type lookup used by the display layer for
+    grouping skills by O*NET category.
+    """
+
+    items : list[Occupation]
+
+    @cached_property
+    def skill_type_index(self) -> dict[str, SkillType]:
+        """
+        Skill name to O*NET element type across all occupations.
+        """
+        return {s.name: s.type for occ in self.items for s in occ.skills}
+
+    def __getitem__(self, index: int) -> Occupation:
+        """
+        Look up an occupation by index.
+        """
+        return self.items[index]
+
+    def __iter__(self):
+        """
+        Iterate occupation records.
+        """
+        return iter(self.items)
+
+    def __len__(self) -> int:
+        """
+        Number of occupations.
+        """
+        return len(self.items)
+
+
+class Skill(BaseModel, extra="forbid"):
     """
     A single skill entry within an O*NET occupation.
 
@@ -189,14 +314,14 @@ class OnetSkill(BaseModel, extra="forbid"):
     """
 
     name : str
-    type : OnetSkillType
+    type : SkillType
 
     importance : float | None     = None
     level      : float | None     = None
     phrases    : list[str] | None = None
 
 
-class OnetSkillType(StrEnum):
+class SkillType(StrEnum):
     """
     O*NET element types across the 21 stakeholder SOC codes.
 
@@ -228,11 +353,42 @@ class Reach(BaseModel, extra="forbid"):
     lateral     : list[CareerEdge] = Field(default_factory=list)
 
     @property
+    def all_credentials(self) -> list[Credential]:
+        """
+        Flattened credentials from all edges.
+        """
+        return [c for edge in self.all_edges for c in edge.credentials]
+
+    @property
     def all_edges(self) -> list[CareerEdge]:
         """
         Combined advancement and lateral edges.
         """
         return self.advancement + self.lateral
+
+    def credentials_by_kind(self, kind: str) -> dict:
+        """
+        Deduplicated credentials of a given kind, keyed for
+        deduplication by the appropriate metadata field.
+
+        For apprenticeships, deduplicates by RAPIDS code.
+        For programs, deduplicates by (institution, label).
+        For others, deduplicates by label.
+
+        Args:
+            kind: Credential kind string ("apprenticeship",
+                  "program", "certification").
+
+        Returns:
+            Dict of unique credentials (values are Credential
+            objects).
+        """
+        match kind:
+            case "apprenticeship" : key = lambda c: c.metadata["rapids_code"]
+            case "program"        : key = lambda c: (c.metadata["institution"], c.label)
+            case _                : key = lambda c: c.label
+
+        return {key(c): c for c in self.all_credentials if c.kind == kind}
 
 
 class Task(NamedTuple):

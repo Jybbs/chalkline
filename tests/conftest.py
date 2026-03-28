@@ -10,7 +10,7 @@ independently tappable by any test module:
                                                                      ↓
                            credentials ────────────────────────→ matcher
                                                                      ↓
-                                    reference → table_builder, figure_builder
+                                    reference → charts
 """
 
 import numpy as np
@@ -27,15 +27,15 @@ from types                 import SimpleNamespace
 from typing                import Any, Callable
 
 from chalkline.collection.schemas import Corpus, Posting
-from chalkline.display.figures    import FigureBuilder
-from chalkline.display.tables     import TableBuilder
+from chalkline.display.charts     import Charts
+from chalkline.display.theme      import Theme
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
 from chalkline.pathways.graph     import CareerPathwayGraph
+from chalkline.pathways.loaders   import StakeholderReference
 from chalkline.pathways.loaders   import LexiconLoader
 from chalkline.pathways.schemas   import CareerEdge, Cluster, Clusters
-from chalkline.pathways.schemas   import Credential, Reach
-from chalkline.pathways.schemas   import OnetOccupation, Task
+from chalkline.pathways.schemas   import Credential, Occupation, Reach, Task
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
@@ -136,7 +136,7 @@ def lexicon_loader(lexicon_dir: Path) -> LexiconLoader:
 
 
 @fixture
-def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
+def occupations(lexicon_loader: LexiconLoader) -> list[Occupation]:
     """
     Synthetic O*NET occupation records from the loader.
     """
@@ -337,8 +337,8 @@ def resume_matcher(
     )
     return ResumeMatcher(
         clusters = clusters,
-        graph    = pathway_graph,
         encoder  = mock_encoder,
+        graph    = pathway_graph,
         svd      = svd
     )
 
@@ -396,14 +396,14 @@ def edge_factory(
 
 
 @fixture
-def figure_builder(pathway_graph: CareerPathwayGraph) -> FigureBuilder:
+def charts(pathway_graph: CareerPathwayGraph) -> Charts:
     """
-    Figure builder wired to the synthetic pathway graph.
+    Charts factory wired to the synthetic pathway graph.
     """
-    return FigureBuilder(
+    return Charts(
         matched_id = pathway_graph.clusters.cluster_ids[0],
         pathway    = pathway_graph,
-        theme      = lambda: "plotly_white"
+        theme      = Theme(dark_fn=lambda: False)
     )
 
 
@@ -416,24 +416,12 @@ def match_result(resume_matcher: ResumeMatcher) -> MatchResult:
 
 
 @fixture
-def member_names(reference: dict) -> tuple[list[dict], list[str]]:
+def member_names(reference: StakeholderReference) -> tuple[list[dict], list[str]]:
     """
     AGC member records with pre-lowercased names for matching tests.
     """
-    members = reference["agc_members"]
+    members = reference.agc_members
     return members, [m["name"].lower() for m in members]
-
-
-@fixture
-def pipeline_namespace(clusters: Clusters, config: PipelineConfig):
-    """
-    Lightweight namespace mimicking the `Chalkline` dataclass for
-    display tests without requiring the full Hamilton pipeline.
-    """
-    return SimpleNamespace(
-        clusters = clusters,
-        config   = config
-    )
 
 
 @fixture
@@ -448,32 +436,14 @@ def reach(
 
 
 @fixture
-def reference() -> dict:
+def reference() -> StakeholderReference:
     """
-    Stakeholder reference data loaded from display fixture JSON.
+    Stakeholder reference data from display fixture JSONs.
     """
-    return {
-        "agc_members" : loads(
-            (FIXTURES / "display" / "members.json").read_text()
-        ),
-        "career_urls" : [],
-        "job_boards"  : loads(
-            (FIXTURES / "display" / "boards.json").read_text()
-        )
-    }
+    ref = StakeholderReference(FIXTURES / "display")
+    ref.agc_members = loads((FIXTURES / "display" / "members.json").read_text())
+    ref.career_urls = []
+    ref.job_boards  = loads((FIXTURES / "display" / "boards.json").read_text())
+    return ref
 
 
-@fixture
-def table_builder(
-    match_result : MatchResult,
-    pipeline_namespace,
-    reference    : dict
-) -> TableBuilder:
-    """
-    Table builder wired to the synthetic pipeline and match result.
-    """
-    return TableBuilder(
-        pipeline  = pipeline_namespace,
-        reference = reference,
-        result    = match_result
-    )

@@ -1,0 +1,33 @@
+[info]
+text = '''
+Every job posting in the corpus was encoded as a **768-dimensional sentence embedding** using `all-mpnet-base-v2`, then grouped via **Ward-linkage hierarchical agglomerative clustering** into 20 career families. The postings shown here are the actual listings whose embeddings fell into your matched family's cluster, meaning they use similar language to describe similar work.
+
+Company names are matched against the **AGC Maine member directory** using fuzzy string matching (*SequenceMatcher with a 0.7 similarity threshold*), so minor spelling variations and abbreviations between the job board listing and the membership roll still produce correct matches. The title word cloud filters out common English words using **Zipf frequency** scores, keeping only terms distinctive enough to characterize the career family.'''
+
+[sections.common_words]
+title       = "Common Job Title Words"
+description = "Most frequent words appearing in posting titles for this career family, sized by count."
+
+[sections.company_types]
+title       = "What Kinds of Companies"
+description = "AGC member types represented in this career family's postings."
+
+[sections.locations]
+title       = "Where the Jobs Are"
+description = "Posting locations across Maine for this career family."
+
+[sections.overview]
+title       = "Real Postings From Your Career Family"
+description = "These are actual job postings from Maine construction companies that fall into the {soc_title} career family. Browse to see what employers are looking for."
+
+[sections.recent]
+title       = "Recent Postings"
+description = "The most recent job listings, newest first."
+
+[sections.timeline]
+title       = "Posting Timeline"
+description = "When these postings were collected, showing recent market activity."
+
+[sections.whos_hiring]
+title       = "Who's Hiring"
+description = "Companies with the most postings in this career family."

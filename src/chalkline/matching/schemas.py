@@ -44,11 +44,34 @@ class MatchResult(BaseModel, extra="forbid"):
     gaps         : list[TaskGap] = Field(default_factory=list)
 
     @property
+    def cluster_ids(self) -> list[int]:
+        """
+        Cluster IDs in distance-sorted order.
+        """
+        return [cd.cluster_id for cd in self.cluster_distances]
+
+    @property
     def match_distance(self) -> float:
         """
         Euclidean distance to the nearest cluster centroid.
         """
         return self.cluster_distances[0].distance
+
+    @property
+    def max_distance(self) -> float:
+        """
+        Euclidean distance to the farthest cluster centroid.
+        """
+        return max(cd.distance for cd in self.cluster_distances)
+
+    def top(self, n: int) -> list["ClusterDistance"]:
+        """
+        The n closest cluster distances.
+
+        Args:
+            n: Number of closest clusters to return.
+        """
+        return self.cluster_distances[:n]
 
 
 class TaskGap(BaseModel, extra="forbid"):

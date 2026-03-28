@@ -10,44 +10,40 @@
 
     --heading-font   : "Lora", "Georgia", serif;
     --monospace-font : "Fira Code", monospace;
-    --text-font      : "Inter", system-ui, sans-serif;
 
     --radius: 8px;
 
-    --accent           : light-dark(#4a6fa5, #6b9fcc);
+    --accent           : light-dark(#3b6298, #7db3e0);
     --background       : light-dark(#f9f9f7, #1a1a1a);
     --border           : light-dark(#e5e5e0, #333333);
     --card             : light-dark(#ffffff, #242424);
     --card-foreground  : light-dark(#1a1a1a, #e0e0e0);
     --foreground       : light-dark(#1a1a1a, #ebebeb);
-    --input            : light-dark(#f5f4f0, #1f1f1f);
     --muted            : light-dark(#f0ede6, #2a2a2a);
-    --muted-foreground : light-dark(#6b7280, #888888);
-    --primary          : light-dark(#9A7B2D, #E8C840);
-    --secondary        : light-dark(#3a7d44, #81b29a);
+    --muted-foreground : light-dark(#6b7280, #999999);
+    --primary          : light-dark(#8a6b1e, #E8C840);
+    --secondary        : light-dark(#2d6e38, #8cc5a3);
 
     --accent-foreground    : var(--on-color);
     --on-color             : light-dark(#ffffff, #1a1a1a);
     --primary-foreground   : light-dark(#1a1a1a, #1a1a1a);
-    --ring                 : var(--primary);
     --secondary-foreground : var(--on-color);
 
-    --error              : light-dark(#c44536, #e07a5f);
+    --error              : light-dark(#b33a2b, #e8876f);
     --error-foreground   : var(--on-color);
     --link               : var(--accent);
     --success            : var(--secondary);
     --success-foreground : var(--on-color);
 
-    --cl-building  : #4a90d9;
-    --cl-highway   : #d97a4a;
-    --cl-specialty : #6bbf59;
+    --cl-building  : light-dark(#2e6da4, #5a9fd4);
+    --cl-highway   : light-dark(#b05a20, #e0854a);
+    --cl-specialty : light-dark(#267a4b, #5cb878);
 
     --base-shadow: light-dark(
         hsl(0 0% 85% / 0.4),
         hsl(0 0% 0% / 0.6)
     );
 }
-
 
 /* ── Cards ───────────────────────────────────────────────────── */
 
@@ -87,10 +83,6 @@
         font-size    : 0.9em;
         margin-block : 0.5rem;
     }
-
-    &[data-sector="building"]  { border-inline-start-color: var(--cl-building); }
-    &[data-sector="highway"]   { border-inline-start-color: var(--cl-highway); }
-    &[data-sector="specialty"] { border-inline-start-color: var(--cl-specialty); }
 }
 
 .cl-card-grid {
@@ -101,45 +93,6 @@
     );
 
     & > .cl-card { margin-block-end: 0; }
-}
-
-
-/* ── Layout ──────────────────────────────────────────────────── */
-
-.cl-header {
-    align-items      : center;
-    background       : var(--muted);
-    border-block-end : 1px solid var(--border);
-    border-radius    : var(--radius);
-    display          : flex;
-    justify-content  : space-between;
-    margin-block-end : 1rem;
-    padding          : 0.5rem 1rem;
-}
-
-.cl-toolbar {
-    align-items   : center;
-    background    : var(--muted);
-    border        : 1px solid var(--border);
-    border-radius : 999px;
-    display       : flex;
-    gap           : 0.25rem;
-    padding       : 0.25rem 0.5rem;
-
-    & button {
-        all           : unset;
-        border-radius : var(--radius);
-        color         : var(--muted-foreground);
-        cursor        : pointer;
-        font-size     : 1.1rem;
-        padding       : 0.25rem 0.5rem;
-        transition    : color 0.15s, background 0.15s;
-
-        &:hover, &:focus-visible {
-            background : var(--border);
-            color      : var(--foreground);
-        }
-    }
 }
 
 
@@ -205,9 +158,9 @@
 }
 
 .cl-stat-label {
-    color       : var(--muted-foreground);
-    font-size   : 0.85rem;
-    margin-top  : 0.2rem;
+    color              : var(--muted-foreground);
+    font-size          : 0.85rem;
+    margin-block-start : 0.2rem;
 }
 
 /* ── Match bar ───────────────────────────────────────────────── */
@@ -220,30 +173,11 @@
     & strong { color: var(--foreground); }
 }
 
-
 /* Force Marimo file upload to fill container width */
 marimo-file,
 marimo-file > div,
 marimo-file label {
     width : 100% !important;
-}
-
-
-/* ── Upload ─────────────────────────────────────────────────── */
-
-.cl-upload {
-    border        : 2px dashed var(--border);
-    border-radius : var(--radius);
-    color         : var(--muted-foreground);
-    cursor        : pointer;
-    padding       : 2rem;
-    text-align    : center;
-    transition    : border-color 0.2s, background 0.2s;
-
-    &:hover, &:focus-visible {
-        background   : var(--muted);
-        border-color : var(--primary);
-    }
 }
 
 
@@ -256,7 +190,6 @@ marimo-file label {
     padding               : 1rem 0;
     text-align            : center;
 }
-
 
 /* ── Callouts ───────────────────────────────────────────────── */
 
@@ -275,8 +208,68 @@ marimo-file label {
     & strong { color: var(--primary); }
 }
 
+/* ── Skill tree ────────────────────────────────────────────── */
 
+.cl-skill-tree {
+    display        : flex;
+    flex-direction : column;
+    gap            : 0.25rem;
+}
+
+.cl-skill-group > summary {
+    align-items      : center;
+    background       : var(--muted);
+    border-radius    : var(--radius);
+    cursor           : pointer;
+    display          : flex;
+    font-family      : var(--heading-font);
+    font-weight      : 600;
+    gap              : 0.75rem;
+    justify-content  : space-between;
+    padding          : 0.6rem 1rem;
+}
+
+.cl-skill-group > summary::marker { color: var(--muted-foreground); }
+
+.cl-skill-group[open] > summary {
+    border-end-end-radius   : 0;
+    border-end-start-radius : 0;
+}
+
+.cl-skill-item {
+    align-items        : center;
+    border-block-end   : 1px solid var(--border);
+    display            : flex;
+    gap                : 0.75rem;
+    justify-content    : space-between;
+    padding            : 0.4rem 1rem 0.4rem 2rem;
+}
+
+.cl-skill-item:last-child { border-block-end: none; }
+
+.cl-skill-name {
+    color     : var(--foreground);
+    flex      : 1;
+    font-size : 0.9rem;
+}
+
+.cl-skill-score {
+    font-family : var(--heading-font);
+    font-size   : 1rem;
+    font-weight : 700;
+    min-width   : 3rem;
+    text-align  : end;
+}
+
+.cl-group-label { flex: 1; }
+
+.cl-group-count {
+    color     : var(--muted-foreground);
+    font-size : 0.85em;
+}
 
 /* ── Chart background override ──────────────────────────────── */
+
+code, pre, kbd { font-family: var(--monospace-font); }
 
 .js-plotly-plot .plotly .main-svg { background: transparent !important; }

@@ -4,10 +4,10 @@ Tests for pathways schemas.
 Validates `OnetSkillType` enum membership counts.
 """
 
-from chalkline.pathways.schemas import OnetSkillType
+from chalkline.pathways.schemas import SkillType
 
 
-class TestOnetSchemas:
+class TestSkillType:
     """
     Validate lexicon data schemas for O*NET entries.
     """
@@ -16,4 +16,4 @@ class TestOnetSchemas:
         """
         Seven element types span the O*NET skill taxonomy.
         """
-        assert len(OnetSkillType) == 7
+        assert len(SkillType) == 7

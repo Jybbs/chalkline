@@ -57,7 +57,7 @@ class Chalkline:
         """
         Number of distinct sectors across clusters.
         """
-        return len({c.sector for c in self.clusters.values()})
+        return len(self.clusters.sectors)
 
     @staticmethod
     def fit(config: PipelineConfig, log_level: str = "INFO") -> Chalkline:

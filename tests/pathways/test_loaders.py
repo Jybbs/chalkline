@@ -28,5 +28,5 @@ class TestLexiconLoader:
         Missing lexicon files log warnings and produce empty lists.
         """
         loader = LexiconLoader(tmp_path)
-        assert loader.occupations == []
+        assert len(loader.occupations) == 0
         assert "O*NET lexicon not found" in caplog.text

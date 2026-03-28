@@ -7,6 +7,7 @@ docs/
 data/stakeholder/raw
 
 # Development
+__marimo__/
 .cache/
 *.lock
 !uv.lock

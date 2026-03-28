@@ -1,19 +1,55 @@
 """
-Lexicon file loading for the embedding pipeline.
+Lexicon and reference data loading for the embedding pipeline.
 
-Deserializes and validates JSON lexicon files from a directory, returning
-empty collections for missing files so that downstream encoding and SOC
-assignment can proceed with whichever lexicons are available. File names are
-derived from labels via `slugify`.
+Deserializes and validates JSON files from disk into typed domain
+objects. `LexiconLoader` handles O*NET occupation data with slugified
+filenames. `LaborLoader` handles BLS labor market records keyed by
+SOC title for O(1) lookup. `StakeholderReference` lazily loads AGC
+Maine stakeholder JSON files on first attribute access.
 """
 
-from loguru   import logger
-from numpy    import argmax, ndarray
-from pathlib  import Path
-from pydantic import TypeAdapter
-from slugify  import slugify
+from dataclasses import dataclass
+from json        import loads
+from loguru      import logger
+from numpy       import argmax, ndarray
+from pathlib     import Path
+from pydantic    import TypeAdapter
+from slugify     import slugify
 
-from chalkline.pathways.schemas import OnetOccupation
+from chalkline.pathways.schemas import LaborRecord, Occupation, Occupations
+
+
+class LaborLoader:
+    """
+    BLS and O*NET labor market data keyed by SOC title.
+
+    Deserializes `labor.json` via Pydantic `TypeAdapter` and builds
+    a title-keyed dict for O(1) lookup. Used by the display layer
+    for wage distributions, employment projections, and Bright
+    Outlook designations.
+    """
+
+    def __init__(self, path: Path):
+        """
+        Args:
+            path: Path to `labor.json`.
+        """
+        self.items: dict[str, LaborRecord] = {
+            r.soc_title: r
+            for r in TypeAdapter(list[LaborRecord]).validate_json(path.read_bytes())
+        }
+
+    def get(self, soc_title: str) -> LaborRecord | None:
+        """
+        Look up labor data by SOC title.
+        """
+        return self.items.get(soc_title)
+
+    def values(self):
+        """
+        Iterate all labor records.
+        """
+        return self.items.values()
 
 
 class LexiconLoader:
@@ -32,7 +68,7 @@ class LexiconLoader:
             lexicon_dir: Must contain `onet.json`.
         """
         self.lexicon_dir = lexicon_dir
-        self.occupations = self._load(list[OnetOccupation], "O*NET")
+        self.occupations = Occupations(items=self._load(list[Occupation], "O*NET"))
 
     def _load(self, schema: type, label: str) -> list:
         """
@@ -56,7 +92,7 @@ class LexiconLoader:
             logger.warning(f"{label} lexicon not found at {path}")
             return []
 
-    def nearest_occupation(self, similarity_row: ndarray) -> OnetOccupation:
+    def nearest_occupation(self, similarity_row: ndarray) -> Occupation:
         """
         O*NET occupation most similar to a cluster's embedding.
 
@@ -67,3 +103,24 @@ class LexiconLoader:
             The occupation with highest cosine similarity.
         """
         return self.occupations[argmax(similarity_row)]
+
+
+@dataclass
+class StakeholderReference:
+    """
+    Lazy-loading container for AGC Maine stakeholder reference
+    data with dot-notation access.
+
+    Each JSON file in the reference directory becomes an attribute
+    on first access, cached thereafter. Missing files produce
+    empty lists, matching the fallback behavior of the original
+    dict comprehension.
+    """
+
+    reference_dir: Path
+
+    def __getattr__(self, name: str) -> list:
+        path  = self.reference_dir / f"{name}.json"
+        value = loads(path.read_text()) if path.exists() else []
+        setattr(self, name, value)
+        return value

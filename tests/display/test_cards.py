@@ -5,7 +5,7 @@ Tests for HTML card builders.
 from datetime import date
 
 from chalkline.collection.schemas import Posting
-from chalkline.display.cards      import employer_card, posting_card
+from chalkline.display.layout    import employer_card, posting_card
 
 
 class TestEmployerCard:

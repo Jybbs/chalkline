@@ -1,94 +1,36 @@
 """
-Tests for display table builders.
+Tests for display-layer data builders.
+
+Validates fuzzy company matching and credential deduplication
+logic used by the career report.
 """
 
 from typing import Callable
 
 from pytest import mark
 
-from chalkline.display.tables   import TableBuilder
-from chalkline.matching.schemas import MatchResult
+from chalkline.display.schemas  import _match_member
 from chalkline.pathways.schemas import Reach
 
 
-class TestBoardRows:
+@mark.parametrize("kind", ["apprenticeship", "program"])
+class TestCredentialDedup:
     """
-    Validate sector keyword matching derived from cluster profile
-    titles.
-    """
-
-    def test_empty_boards(
-        self,
-        match_result       : MatchResult,
-        pipeline_namespace
-    ):
-        """
-        Empty board dict returns empty tuples without error.
-        """
-        builder = TableBuilder(
-            pipeline  = pipeline_namespace,
-            reference = {
-                "agc_members" : [],
-                "career_urls" : [],
-                "job_boards"  : {}
-            },
-            result    = match_result
-        )
-        maine, national = builder.board_rows()
-        assert maine == []
-        assert national == []
-
-    def test_returns_rows(self, table_builder: TableBuilder):
-        """
-        Board rows returns formatted tuples for the matched sector.
-        """
-        maine, national = table_builder.board_rows()
-        assert isinstance(maine, list)
-        assert isinstance(national, list)
-
-
-@mark.parametrize("kind, method, expected_key", [
-    ("apprenticeship", "apprenticeship_rows", "RAPIDS Code"),
-    ("program",        "program_rows",        "Institution")
-])
-class TestCredentialRows:
-    """
-    Validate deduplication and row formatting for credential types.
-
-    Parameterized across apprenticeship and program rows, which share
-    identical deduplication and empty-edge logic.
+    Validate per-kind deduplication in `Reach.credentials_by_kind`.
     """
 
-    def test_deduplicates(
-        self,
-        edge_factory  : Callable,
-        expected_key  : str,
-        kind          : str,
-        method        : str,
-        table_builder : TableBuilder
-    ):
+    def test_deduplicates(self, edge_factory: Callable, kind: str):
         """
-        Duplicate credentials on two edges produce one row.
+        Duplicate credentials on two edges produce one unique entry.
         """
-        edge  = edge_factory(kind)
-        reach = Reach(advancement=[edge, edge])
-        rows  = getattr(table_builder, method)(reach)
-        assert len(rows) == 1
-        assert expected_key in rows[0]
+        edge = edge_factory(kind)
+        assert len(Reach(advancement=[edge, edge]).credentials_by_kind(kind)) == 1
 
-    def test_empty_edges(
-        self,
-        edge_factory  : Callable,
-        expected_key  : str,
-        kind          : str,
-        method        : str,
-        table_builder : TableBuilder
-    ):
+    def test_empty_edges(self, edge_factory: Callable, kind: str):
         """
-        No credentials of this type returns empty list.
+        No credentials of the requested type returns empty dict.
         """
-        edge = edge_factory()
-        assert getattr(table_builder, method)(Reach(advancement=[edge])) == []
+        assert Reach(advancement=[edge_factory()]).credentials_by_kind(kind) == {}
 
 
 class TestMatchMember:
@@ -98,44 +40,35 @@ class TestMatchMember:
 
     def test_below_threshold(
         self,
-        member_names : tuple[list[dict], list[str]]
+        member_names: tuple[list[dict], list[str]]
     ):
         """
         Unrelated company names return None.
         """
         members, names = member_names
-        assert TableBuilder._match_member(
-            "acme corp", members, names
-        ) is None
+        assert _match_member("acme corp", names, members) is None
 
     def test_exact_match(
         self,
-        member_names : tuple[list[dict], list[str]]
+        member_names: tuple[list[dict], list[str]]
     ):
         """
         Identical names produce a match.
         """
         members, names = member_names
-        m = TableBuilder._match_member(
-            "cianbro corporation", members, names
-        )
+        m = _match_member("cianbro corporation", names, members)
         assert m is not None
         assert m["name"] == "Cianbro Corporation"
 
     def test_fuzzy_match(
         self,
-        member_names : tuple[list[dict], list[str]]
+        member_names: tuple[list[dict], list[str]]
     ):
         """
         Abbreviation and punctuation differences still match
         above the 0.7 threshold.
         """
         members, names = member_names
-        m = TableBuilder._match_member(
-            "rj grondin & sons", members, names
-        )
+        m = _match_member("rj grondin & sons", names, members)
         assert m is not None
         assert m["name"] == "R.J. Grondin and Sons"
-
-
-
