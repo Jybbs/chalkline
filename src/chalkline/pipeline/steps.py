@@ -23,9 +23,10 @@ from sklearn.preprocessing       import normalize
 from chalkline.collection.schemas import Corpus
 from chalkline.collection.storage import CorpusStorage
 from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import Cluster, Clusters, Credential, Task
+from chalkline.pathways.schemas   import Credential
 from chalkline.pipeline.encoder   import SentenceEncoder
 from chalkline.pipeline.schemas   import PipelineConfig
 
@@ -268,15 +269,20 @@ def soc_tasks(
     """
     return {
         cid: [
-            Task(name=name, vector=vec)
-            for name, vec in zip(
-                [t.name for t in nearest.task_elements],
-                encoder.encode([t.name for t in nearest.task_elements])
+            Task(
+                name       = t.name,
+                skill_type = t.type.value,
+                vector     = vec
+            )
+            for t, vec in zip(
+                elems,
+                encoder.encode([t.name for t in elems])
             )
         ]
         for cid in sorted(np.unique(assignments))
         for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
-        if nearest.task_elements
+        for elems in [nearest.task_elements]
+        if elems
     }
 
 

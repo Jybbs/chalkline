@@ -1,0 +1,40 @@
+dropdown_label    = "Explore a career family"
+fallback_location = "Maine"
+spinner_text      = "Analyzing your resume..."
+upload_label      = "Drop a resume PDF here"
+
+[card_links]
+career_page     = "Career Page"
+program_details = "Program Details"
+view_posting    = "View Posting"
+
+[job_zones]
+1 = "Entry Level"
+2 = "Some Preparation"
+3 = "Mid-Career"
+4 = "Experienced"
+5 = "Advanced"
+
+[job_zones_abbr]
+1 = "Entry"
+2 = "Prep"
+3 = "Mid"
+4 = "Exp."
+5 = "Adv."
+
+[skill_types]
+ability    = "Abilities"
+dwa        = "Detailed Work Activities"
+knowledge  = "Knowledge"
+skill      = "Skills"
+task       = "Tasks"
+technology = "Technology Skills"
+tool       = "Tools & Equipment"
+
+[tab_names]
+career_paths    = "Career Paths"
+job_postings    = "Job Postings"
+ml_internals    = "ML Internals"
+next_steps      = "Next Steps"
+resume_feedback = "Resume Feedback"
+your_match      = "Your Match"

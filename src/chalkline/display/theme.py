@@ -1,34 +1,42 @@
 """
 Reactive Plotly theme for the Chalkline Marimo dashboard.
 
-Wraps Marimo's dark/light toggle so that every color and label
-accessor evaluates lazily at render time. Chart builders and
-layout helpers receive a single `Theme` instance rather than a
-bag of closures and constants.
+Wraps Marimo's dark/light toggle so that every color and label accessor
+evaluates lazily at render time. Chart builders and layout helpers receive a
+single `Theme` instance rather than a bag of closures and constants.
 """
 
-from bisect import bisect
-from types  import MappingProxyType
-from typing import Callable
+from bisect           import bisect
+from collections.abc  import Sequence
+from types            import MappingProxyType
+from typing           import Callable
 
 
 class Theme:
     """
-    Single source of truth for reactive color and label state
-    across the Chalkline dashboard.
+    Single source of truth for reactive color and label state across the
+    Chalkline dashboard.
 
-    Properties re-evaluate on every access so that Marimo's lazy
-    tab rendering always reads the current theme mode. Do not
-    cache any property value across renders.
+    Properties re-evaluate on every access so that Marimo's lazy tab
+    rendering always reads the current theme mode. Do not cache any property
+    value across renders.
     """
 
-    def __init__(self, dark_fn: Callable[[], bool]):
+    def __init__(
+        self,
+        dark_fn     : Callable[[], bool],
+        jz_labels   : dict[str, str],
+        type_labels : dict[str, str]
+    ):
         """
         Args:
-            dark_fn: Zero-argument callable returning `True` when
-                     the active Marimo theme is dark.
+            dark_fn     : Returns `True` when the active Marimo theme is dark.
+            jz_labels   : Job Zone int to display label.
+            type_labels : O*NET skill type key to display label.
         """
-        self.dark_fn = dark_fn
+        self.dark_fn     = dark_fn
+        self.jz_labels   = jz_labels
+        self.type_labels = type_labels
 
     @property
     def colors(self) -> MappingProxyType[str, str]:
@@ -36,8 +44,8 @@ class Theme:
         Active semantic color palette keyed by role name.
 
         Returns:
-            Immutable mapping with keys `accent`, `error`,
-            `foreground`, `muted`, `primary`, `success`.
+            Immutable mapping with keys `accent`, `error`, `foreground`, `muted`,
+            `primary`, `success`.
         """
         return MappingProxyType({
             "accent"     : "#7db3e0",
@@ -93,13 +101,25 @@ class Theme:
         Returns:
             Label such as `"Entry Level"` or `"Advanced"`.
         """
-        return {
-            1 : "Entry Level",
-            2 : "Some Preparation",
-            3 : "Mid-Career",
-            4 : "Experienced",
-            5 : "Advanced"
-        }.get(job_zone, str(job_zone))
+        return self.jz_labels.get(str(job_zone), str(job_zone))
+
+    def resolve(self, color: str | Sequence[str]) -> str | list[str]:
+        """
+        Resolve color role names to hex values from the active palette.
+
+        Strings not found in the palette pass through unchanged, so
+        pre-resolved hex values and numeric colorscale inputs are safe.
+
+        Args:
+            color: Single role name or hex string, or a sequence of them.
+
+        Returns:
+            Resolved hex string or list of hex strings.
+        """
+        c = self.colors
+        if isinstance(color, str):
+            return c.get(color, color)
+        return [c.get(v, v) for v in color]
 
     def score_color(self, score: float) -> str:
         """
@@ -123,12 +143,4 @@ class Theme:
         Returns:
             Display label such as `"Detailed Work Activities"`.
         """
-        return {
-            "ability"    : "Abilities",
-            "dwa"        : "Detailed Work Activities",
-            "knowledge"  : "Knowledge",
-            "skill"      : "Skills",
-            "task"       : "Tasks",
-            "technology" : "Technology Skills",
-            "tool"       : "Tools & Equipment"
-        }.get(skill_type, skill_type.title())
+        return self.type_labels.get(skill_type, skill_type.title())

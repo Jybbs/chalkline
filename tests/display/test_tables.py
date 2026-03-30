@@ -1,74 +1,88 @@
 """
 Tests for display-layer data builders.
 
-Validates fuzzy company matching and credential deduplication
-logic used by the career report.
+Validates credential deduplication via `Credential.key` and employer
+fuzzy matching via `StakeholderReference.match_employers`.
 """
 
 from typing import Callable
 
 from pytest import mark
 
-from chalkline.display.schemas  import _match_member
+from chalkline.pathways.loaders import StakeholderReference
 from chalkline.pathways.schemas import Reach
 
 
 @mark.parametrize("kind", ["apprenticeship", "program"])
 class TestCredentialDedup:
     """
-    Validate per-kind deduplication in `Reach.credentials_by_kind`.
+    Validate that `Credential.key` deduplicates correctly per kind.
     """
 
     def test_deduplicates(self, edge_factory: Callable, kind: str):
         """
         Duplicate credentials on two edges produce one unique entry.
         """
-        edge = edge_factory(kind)
-        assert len(Reach(advancement=[edge, edge]).credentials_by_kind(kind)) == 1
+        edge  = edge_factory(kind)
+        reach = Reach(advancement=[edge, edge])
+        assert len(reach.credentials_by_kind.get(kind, [])) == 1
 
     def test_empty_edges(self, edge_factory: Callable, kind: str):
         """
-        No credentials of the requested type returns empty dict.
+        No credentials of the requested type returns empty list.
         """
-        assert Reach(advancement=[edge_factory()]).credentials_by_kind(kind) == {}
+        reach = Reach(advancement=[edge_factory()])
+        assert reach.credentials_by_kind.get(kind, []) == []
 
 
-class TestMatchMember:
+class TestMatchEmployers:
     """
-    Validate SequenceMatcher-based company name matching.
+    Validate fuzzy company-to-member matching in
+    `StakeholderReference.match_employers`.
     """
 
-    def test_below_threshold(
+    def test_deduplicates_company(
         self,
-        member_names: tuple[list[dict], list[str]]
+        posting_factory : Callable,
+        reference       : StakeholderReference
     ):
         """
-        Unrelated company names return None.
+        Multiple postings from the same company produce one row.
         """
-        members, names = member_names
-        assert _match_member("acme corp", names, members) is None
+        postings = [posting_factory("Cianbro Corporation")] * 2
+        assert len(reference.match_employers(postings)) == 1
 
     def test_exact_match(
         self,
-        member_names: tuple[list[dict], list[str]]
+        posting_factory : Callable,
+        reference       : StakeholderReference
     ):
         """
-        Identical names produce a match.
+        Company names identical to a member produce a matched row.
         """
-        members, names = member_names
-        m = _match_member("cianbro corporation", names, members)
-        assert m is not None
-        assert m["name"] == "Cianbro Corporation"
+        rows = reference.match_employers([posting_factory("Cianbro Corporation")])
+        assert len(rows) == 1
+        assert rows[0]["name"] == "Cianbro Corporation"
 
     def test_fuzzy_match(
         self,
-        member_names: tuple[list[dict], list[str]]
+        posting_factory : Callable,
+        reference       : StakeholderReference
     ):
         """
-        Abbreviation and punctuation differences still match
-        above the 0.7 threshold.
+        Abbreviated or punctuated names still match above the 0.7
+        threshold.
         """
-        members, names = member_names
-        m = _match_member("rj grondin & sons", names, members)
-        assert m is not None
-        assert m["name"] == "R.J. Grondin and Sons"
+        rows = reference.match_employers([posting_factory("rj grondin & sons")])
+        assert len(rows) == 1
+        assert rows[0]["name"] == "R.J. Grondin and Sons"
+
+    def test_no_match(
+        self,
+        posting_factory : Callable,
+        reference       : StakeholderReference
+    ):
+        """
+        Unrelated company names produce no rows.
+        """
+        assert reference.match_employers([posting_factory("Acme Corp")]) == []

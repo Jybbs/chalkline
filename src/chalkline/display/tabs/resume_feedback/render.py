@@ -4,83 +4,73 @@ Resume Feedback tab for the Chalkline career report.
 
 import marimo as mo
 
-from functools import partial
-
-from chalkline.display.layout       import callout, header, skill_tree, stat_strip
-from chalkline.display.tabs.context import TabContext, load_content
-
-content = load_content(__file__)
+from chalkline.display.loaders import TabContext
+from chalkline.display.schemas import RadarTrace, SkillMetrics
 
 
 def resume_feedback_tab(ctx: TabContext) -> mo.Html:
     """
-    Render the Resume Feedback tab comparing the resume against
-    O*NET skill definitions.
+    Render the Resume Feedback tab comparing the resume against O*NET skill
+    definitions.
     """
-    radar_fig = ctx.charts.radar(
-        labels = [ctx.theme.type_label(t) for t in ctx.data.skills.all_types],
-        traces = [
-            {
-                "alpha"      : 0.15,
-                "color_role" : "accent",
-                "name"       : "All Skills",
-                "values"     : ctx.data.skills.resume_averages
-            },
-            {
-                "alpha"      : 0.15,
-                "color_role" : "success",
-                "dash"       : "dash",
-                "name"       : "Strengths Only",
-                "values"     : ctx.data.skills.demo_averages
-            }
-        ]
-    ) if ctx.data.skills.all_types else None
-
-    gap_scatter = ctx.charts.bubble_scatter(
-        height = 350,
-        points = ctx.data.skills.gap_scatter_points
-    ) if ctx.data.skills.gap_scatter_points else None
-
-    section = partial(content.section, soc_title=ctx.data.soc_title)
+    tab     = ctx.content.tab("resume_feedback")
+    skills  = SkillMetrics.from_result(ctx.result)
+    section = lambda key: tab.section(key, soc_title=ctx.profile.soc_title)
 
     return mo.vstack([
-        header(*section("how_compare")),
-        stat_strip({
-            "Strengths"            : str(len(ctx.data.result.demonstrated)),
-            "Growth Areas"         : str(len(ctx.data.result.gaps)),
-            "Alignment Percentile" : f"{ctx.data.match.percentile}%"
-        }),
-        callout(*content.hero.render(
-            percentile    = ctx.data.match.percentile,
-            posting_count = len(ctx.data.profile.postings),
-            soc_title     = ctx.data.soc_title
+        ctx.layout.header(section("how_compare")),
+        ctx.layout.stat_strip(zip(tab.stat_labels, skills.stat_values)),
+        ctx.layout.callout(*tab.hero.render(
+            posting_count = len(ctx.profile.postings),
+            soc_title     = ctx.profile.soc_title
         )),
 
-        header(*section("skill_profile")),
-        mo.ui.plotly(radar_fig) if radar_fig
-        else mo.md("No skill data available."),
+        ctx.layout.header(section("skill_profile")),
+        mo.ui.plotly(ctx.charts.radar(
+            labels = [ctx.theme.type_label(t) for t in skills.skill_groups],
+            traces = [
+                RadarTrace(
+                    color_role = "accent",
+                    name       = tab.chart_labels["all_skills_trace"],
+                    values     = skills.overall_averages
+                ),
+                RadarTrace(
+                    color_role = "success",
+                    dash       = "dash",
+                    name       = tab.chart_labels["strengths_trace"],
+                    values     = skills.strength_averages
+                )
+            ]
+        )) if skills.skill_groups
+        else mo.md(tab.fallbacks["no_skill_data"]),
 
-        header(*section("similarity_dist")),
-        mo.ui.plotly(ctx.charts.histogram_with_threshold(
+        ctx.layout.header(section("similarity_dist")),
+        mo.ui.plotly(ctx.charts.histogram(
             height    = 280,
-            scores    = ctx.data.skills.similarity_percentages,
-            threshold = ctx.data.skills.threshold_percentage
-        )) if ctx.data.skills.all_similarities
-        else mo.md("No similarity data."),
+            nbins     = 20,
+            threshold = ctx.result.mean_similarity,
+            x         = ctx.result.all_similarities,
+            x_title   = tab.chart_labels["similarity_x_title"],
+            y_title   = tab.chart_labels["similarity_y_title"]
+        )) if ctx.result.all_similarities
+        else mo.md(tab.fallbacks["no_similarity"]),
 
-        header(*section("strengths")),
-        skill_tree(ctx.data.skills.demo_groups, ctx.theme)
-        if ctx.data.skills.demo_groups
-        else mo.md("No demonstrated skills."),
+        ctx.layout.header(section("strengths")),
+        ctx.layout.skill_tree(True, skills.skill_groups, ctx.theme)
+        if skills.skill_groups
+        else mo.md(tab.fallbacks["no_strengths"]),
 
-        header(*section("growth")),
-        skill_tree(ctx.data.skills.gap_groups, ctx.theme)
-        if ctx.data.skills.gap_groups else mo.md("No gaps identified."),
+        ctx.layout.header(section("growth")),
+        ctx.layout.skill_tree(False, skills.skill_groups, ctx.theme)
+        if skills.skill_groups else mo.md(tab.fallbacks["no_gaps"]),
 
-        *([
-            header(*section("gap_priority")),
-            mo.ui.plotly(gap_scatter)
-        ] if gap_scatter else []),
+        *ctx.layout.section_if(skills.gap_scatter_points, tab, "gap_priority",
+            mo.ui.plotly(ctx.charts.bubble_scatter(
+                height  = 350,
+                points  = skills.gap_scatter_points,
+                x_title = tab.chart_labels["gap_x_title"],
+                y_title = tab.chart_labels["gap_y_title"]
+            )), soc_title=ctx.profile.soc_title),
 
-        callout(content.info)
+        ctx.layout.callout(tab.info)
     ])

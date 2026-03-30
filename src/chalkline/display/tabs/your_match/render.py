@@ -4,102 +4,112 @@ Your Match tab for the Chalkline career report.
 
 import marimo as mo
 
-from chalkline.display.layout       import callout, header, stat_strip
-from chalkline.display.tabs.context import TabContext, load_content
-
-content = load_content(__file__)
+from chalkline.display.loaders import TabContext
+from chalkline.display.schemas import LaborMetrics, MatchMetrics
+from chalkline.display.schemas import RadarTrace, SectorMetrics
 
 
 def your_match_tab(ctx: TabContext) -> mo.Html:
     """
-    Render the Your Match tab showing where the resume fits in
-    Maine's construction landscape.
+    Render the Your Match tab showing where the resume fits in Maine's
+    construction landscape.
     """
-    zones, counts = zip(*sorted(ctx.data.match.jz_counts.items()))
+    tab     = ctx.content.tab("your_match")
+    profile = ctx.profile
+    match   = MatchMetrics.from_result(ctx.result)
+    sectors = SectorMetrics.from_result(ctx.result)
+    labor   = LaborMetrics.from_record(
+        labor     = ctx.labor,
+        soc_title = profile.soc_title,
+        stat_keys = tab.labor_stats,
+        templates = tab.labor_templates
+    )
 
     return mo.vstack([
-        callout(*content.hero.render(
-            jz_label     = ctx.theme.jz_label(ctx.data.profile.job_zone).lower(),
-            outlook_text = ctx.data.labor_metrics.outlook_text,
-            salary_text  = ctx.data.labor_metrics.salary_text,
-            sector       = ctx.data.profile.sector,
-            size         = ctx.data.profile.size,
-            soc_title    = ctx.data.soc_title
+        ctx.layout.callout(*tab.hero.render(
+            jz_label     = ctx.theme.jz_label(profile.job_zone).lower(),
+            outlook_text = labor.outlook_text,
+            salary_text  = labor.salary_text,
+            sector       = profile.sector,
+            size         = profile.size,
+            soc_title    = profile.soc_title
         )),
-        stat_strip({
-            "Career Family"    : ctx.data.soc_title,
-            "Sector"           : ctx.data.profile.sector,
-            "Experience Level" : ctx.theme.jz_label(ctx.data.profile.job_zone),
-            "Postings"         : str(ctx.data.profile.size),
-            "Growth Areas"     : str(len(ctx.data.result.gaps)),
-            "Strengths"        : str(len(ctx.data.result.demonstrated))
-        }),
-        callout(content.info),
+        ctx.layout.stat_strip(zip(
+            tab.stat_labels,
+            [
+                profile.soc_title,
+                profile.sector,
+                ctx.theme.jz_label(profile.job_zone),
+                str(profile.size),
+                str(ctx.result.gap_count),
+                str(ctx.result.demonstrated_count)
+            ]
+        )),
+        ctx.layout.callout(tab.info),
 
         mo.hstack(
             [
-                mo.ui.plotly(ctx.charts.gauge(ctx.data.match.confidence)),
+                mo.ui.plotly(ctx.charts.gauge(
+                    title = tab.chart_labels["gauge_title"],
+                    value = match.confidence
+                )),
                 mo.ui.plotly(ctx.charts.radar(
                     height = 380,
-                    labels = ctx.data.match.top5_labels,
-                    traces = [{
-                        "alpha"      : 0.2,
-                        "color_role" : "accent",
-                        "name"       : "Top 5 Matches",
-                        "values"     : ctx.data.match.top5_values
-                    }]
+                    labels = list(match.top5),
+                    traces = [RadarTrace(
+                        alpha      = 0.2,
+                        color_role = "accent",
+                        name       = tab.chart_labels["radar_trace"],
+                        values     = list(match.top5.values())
+                    )]
                 ))
             ],
             widths=[1, 2]
         ),
 
-        *([
-            header(*content.section("labor_snapshot")),
-            stat_strip(ctx.data.labor_metrics.stat_strip)
-        ] if ctx.data.labor_metrics.stat_strip else []),
+        *ctx.layout.section_if(
+            labor.stat_strip,
+            tab,
+            "labor_snapshot",
+            ctx.layout.stat_strip(labor.stat_strip.items())
+        ),
 
-        *([
-            header(*content.section("maine_wages")),
-            mo.ui.plotly(ctx.charts.hbar(
-                color  = [
-                    ctx.theme.colors[r] for r in
-                    ("muted", "accent", "primary", "accent", "muted")
-                ],
-                height = 220,
-                title  = "Annual Salary ($)",
-                x      = [
-                    ctx.data.labor_metrics.wage_10,
-                    ctx.data.labor_metrics.wage_25,
-                    ctx.data.labor_metrics.wage_median,
-                    ctx.data.labor_metrics.wage_75,
-                    ctx.data.labor_metrics.wage_90
-                ],
-                y      = ["10th", "25th", "Median", "75th", "90th"]
-            ))
-        ] if ctx.data.labor_metrics.wage_median else []),
+        *ctx.layout.section_if(labor.wages, tab, "maine_wages",
+            mo.ui.plotly(ctx.charts.bar(
+                color      = ("muted", "accent", "primary", "accent", "muted"),
+                height     = 220,
+                horizontal = True,
+                title      = tab.chart_labels["salary_title"],
+                x          = labor.wages,
+                y          = tab.chart_lists["wage_ticks"]
+            ))),
 
-        header(*content.section("sector_affinity")),
-        mo.ui.plotly(ctx.charts.sector_donut(
-            height = 320,
-            labels = ctx.data.sectors.labels,
-            values = ctx.data.sectors.values
+        ctx.layout.header(tab.section("sector_affinity")),
+        mo.ui.plotly(ctx.charts.pie(
+            height   = 320,
+            hole     = 0.5,
+            labels   = sectors.scores,
+            marker   = dict(colors=ctx.charts.sector_colors(sectors.scores)),
+            textfont = dict(size=12),
+            textinfo = "label+percent",
+            values   = sectors.scores.values()
         )),
 
-        header(*content.section("proximity")),
-        mo.ui.plotly(ctx.charts.proximity_bar(
-            cluster_ids = ctx.data.match.cluster_ids,
-            height      = max(400, len(ctx.data.match.proximity_labels) * 26),
-            labels      = ctx.data.match.proximity_labels,
-            matched_id  = ctx.data.match.matched_id,
-            values      = ctx.data.match.proximity_values
+        ctx.layout.header(tab.section("proximity")),
+        mo.ui.plotly(ctx.charts.bar(
+            color      = ["primary"] + ["accent"] * (len(match.proximity) - 1),
+            height     = max(400, len(match.proximity) * 26),
+            horizontal = True,
+            title      = tab.chart_labels["distance_title"],
+            x          = match.proximity.values(),
+            y          = match.proximity
         )),
 
-        header(*content.section("jz_distribution")),
-        mo.ui.plotly(ctx.charts.vbar(
-            color  = ctx.theme.colors["accent"],
+        ctx.layout.header(tab.section("jz_distribution")),
+        mo.ui.plotly(ctx.charts.bar(
             height = 280,
-            title  = "Career Families in Top 10",
-            x      = [ctx.theme.jz_label(z) for z in zones],
-            y      = list(counts)
+            title  = tab.chart_labels["jz_title"],
+            x      = [ctx.theme.jz_label(z) for z in match.job_zones],
+            y      = match.job_zones.values()
         ))
     ])

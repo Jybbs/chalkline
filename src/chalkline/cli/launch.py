@@ -3,8 +3,7 @@ Launch the Marimo reactive notebook.
 
 Pre-fits the pipeline in CLI context so that cold-cache encoding and
 clustering run with the full Rich progress display rather than Marimo's
-minimal bar. If the Hamilton cache is already warm, fit returns in
-seconds.
+minimal bar. If the Hamilton cache is already warm, fit returns in seconds.
 """
 
 import typer
@@ -23,8 +22,8 @@ def launch(
     """
     🖥️ [bold]Launch[/bold] the Marimo career report notebook.
 
-    Pre-fits the pipeline with the full CLI progress display, then
-    starts `marimo run`. If the cache is warm the pre-fit is instant.
+    Pre-fits the pipeline with the full CLI progress display, then starts
+    `marimo run`. If the cache is warm the pre-fit is instant.
     """
     if not (app_path := Path.cwd() / "app" / "main.py").exists():
         typer.echo(

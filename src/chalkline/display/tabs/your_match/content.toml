@@ -10,6 +10,30 @@ The distances to all centroids produce the proximity rankings shown below, and t
 
 **Sector affinity** averages the distances from your resume to all career families within each construction sector (*Building Construction, Heavy Civil, and Specialty Trade*), converting to a percentage where higher values indicate stronger alignment. The **Job Zone distribution** shows which O*NET experience levels appear most among your closest matches, reflecting whether your background aligns with entry-level, mid-career, or advanced roles."""
 
+[chart_labels]
+distance_title = "Distance (lower = closer match)"
+gauge_title    = "Match Confidence"
+jz_title       = "Career Families in Top 10"
+radar_trace    = "Top 5 Matches"
+salary_title   = "Annual Salary ($)"
+
+[chart_lists]
+stat_labels = [
+    "Career Family", "Sector", "Experience Level",
+    "Postings", "Growth Areas", "Strengths"
+]
+wage_ticks  = ["10th", "25th", "Median", "75th", "90th"]
+
+[labor_stats]
+education   = "Typical Education"
+growth      = "10-Year Growth"
+median_wage = "Maine Median Wage"
+openings    = "Projected Openings"
+
+[labor_templates]
+bright_outlook = " O*NET designates this occupation **Bright Outlook** ({reasons})."
+salary         = " The median salary in Maine is **${wage}** per year."
+
 [sections.jz_distribution]
 title       = "Job Zone Distribution"
 description = "Experience levels represented among your 10 closest career families."

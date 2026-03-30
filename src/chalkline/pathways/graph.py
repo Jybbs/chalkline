@@ -15,8 +15,8 @@ from dataclasses              import dataclass, field
 from operator                 import eq, gt
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.pathways.schemas import CareerEdge, Clusters
-from chalkline.pathways.schemas import Credential, Reach
+from chalkline.pathways.clusters import Clusters
+from chalkline.pathways.schemas  import CareerEdge, Credential, Reach
 
 
 @dataclass(kw_only=True)
@@ -56,10 +56,7 @@ class CareerPathwayGraph:
         credential metadata to every edge.
         """
         self.node_ids     = np.array(self.clusters.cluster_ids)
-        self.job_zone_map = {
-            cid: self.clusters[cid].job_zone
-            for cid in self.clusters
-        }
+        self.job_zone_map = self.clusters.job_zone_map
         self.graph = nx.DiGraph()
 
         self.graph.add_nodes_from(
@@ -71,7 +68,7 @@ class CareerPathwayGraph:
                 "size"        : c.size,
                 "soc_title"   : c.soc_title
             })
-            for cid, c in sorted(self.clusters.items.items())
+            for cid, c in self.clusters.pairs()
         )
 
         self._add_edges(cosine_similarity(self.clusters.centroids))
@@ -81,11 +78,30 @@ class CareerPathwayGraph:
         ))
 
     @property
+    def brokerage(self) -> list[tuple[int, float]]:
+        """
+        Cluster IDs with brokerage scores, sorted descending by centrality.
+        """
+        from networkx import betweenness_centrality
+        return sorted(
+            betweenness_centrality(self.graph, weight="weight").items(),
+            key     = lambda x: x[1],
+            reverse = True
+        )
+
+    @property
     def edge_count(self) -> int:
         """
         Number of edges in the career pathway graph.
         """
         return self.graph.number_of_edges()
+
+    @property
+    def edge_weights(self) -> list[float]:
+        """
+        Cosine similarity weights for all edges.
+        """
+        return [w for _, _, w in self.graph.edges(data="weight")]
 
     def _add_edges(self, pairwise: np.ndarray):
         """
@@ -165,6 +181,7 @@ class CareerPathwayGraph:
         edges = [
             CareerEdge(
                 cluster_id = target,
+                soc_title  = self.clusters[target].soc_title,
                 **self.graph[cluster_id][target]
             )
             for target in self.graph.successors(cluster_id)

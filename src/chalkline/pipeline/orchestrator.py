@@ -12,12 +12,12 @@ config.
 from dataclasses import dataclass, fields
 from pathlib     import Path
 
-from chalkline.matching.matcher import ResumeMatcher
-from chalkline.matching.schemas import MatchResult
-from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import Clusters
-from chalkline.pipeline.encoder import SentenceEncoder
-from chalkline.pipeline.schemas import PipelineConfig
+from chalkline.matching.matcher  import ResumeMatcher
+from chalkline.matching.schemas  import MatchResult
+from chalkline.pathways.clusters import Clusters
+from chalkline.pathways.graph    import CareerPathwayGraph
+from chalkline.pipeline.encoder  import SentenceEncoder
+from chalkline.pipeline.schemas  import PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -112,8 +112,8 @@ class Chalkline:
 
     def match(self, pdf_bytes: bytes, label: str = "resume") -> MatchResult:
         """
-        Extract text from a PDF, clean it, and match against the
-        fitted career landscape.
+        Extract text from a PDF, clean it, and match against the fitted
+        career landscape.
 
         Handles the full chain from raw upload bytes to match result,
         writing to a temporary file for `pdfplumber` extraction.

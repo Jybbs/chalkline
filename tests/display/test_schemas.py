@@ -1,13 +1,49 @@
 """
-Tests for display-layer schemas, lazy-loading containers, and
-fuzzy matching utilities.
+Tests for display-layer schemas and lazy-loading containers.
 """
 
-from chalkline.display.schemas  import _match_member
-from chalkline.pathways.loaders import StakeholderReference
+from chalkline.display.schemas   import CareerTreemap, VarianceBreakdown
+from chalkline.display.theme     import Theme
+from chalkline.pathways.clusters import Clusters
+from chalkline.pathways.loaders  import StakeholderReference
+
+
+class TestCareerTreemap:
+    """
+    Validate treemap tile structure from cluster data.
+    """
+
+    def test_from_clusters(self, clusters: Clusters):
+        """
+        One header row per sector plus one tile per cluster, with
+        empty parents on sector headers.
+        """
+        tm = CareerTreemap.from_clusters(clusters)
+        assert len(tm.labels) == len(clusters.sectors) + len(clusters)
+        assert all(p == "" for p in tm.parents[:len(clusters.sectors)])
+
+
+class TestScoreColor:
+    """
+    Validate threshold-based color dispatch.
+    """
+
+    def test_score_bands(self, theme: Theme):
+        """
+        Scores below 40, between 40-70, and above 70 map to the
+        error, primary, and success palette roles.
+        """
+        c = theme.colors
+        assert theme.score_color(20) == c["error"]
+        assert theme.score_color(55) == c["primary"]
+        assert theme.score_color(85) == c["success"]
 
 
 class TestStakeholderReference:
+    """
+    Validate lazy-loading and missing-file fallback.
+    """
+
     def test_loads_json_on_access(self, tmp_path):
         """
         Attribute access deserializes the corresponding JSON file
@@ -27,20 +63,18 @@ class TestStakeholderReference:
         assert ref.nonexistent == []
 
 
-class TestMatchMember:
-    def test_above_threshold(self):
-        """
-        A company name sufficiently similar to a member name
-        returns the matched member dict.
-        """
-        members = [{"name": "Cianbro", "type": "GC"}]
-        result = _match_member("cianbro", ["cianbro"], members)
-        assert result == members[0]
+class TestVarianceBreakdown:
+    """
+    Validate SVD variance percentage conversion.
+    """
 
-    def test_below_threshold(self):
+    def test_from_svd(self):
         """
-        A company name dissimilar to all member names returns
-        None.
+        Ratios scale to percentages and accumulate into a
+        cumulative trace.
         """
-        members = [{"name": "Cianbro", "type": "GC"}]
-        assert _match_member("xyz corp", ["cianbro"], members) is None
+        vb = VarianceBreakdown.from_svd([0.35, 0.25, 0.15])
+        assert vb.components == [35.0, 25.0, 15.0]
+        assert vb.total == 75.0
+        assert vb.labels == ["PC1", "PC2", "PC3"]
+        assert vb.trace.y == [35.0, 60.0, 75.0]

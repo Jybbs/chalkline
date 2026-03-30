@@ -4,113 +4,109 @@ ML Internals tab renderer.
 
 import marimo as mo
 
-from chalkline.display.layout       import callout, header, process_flow, stat_strip
-from chalkline.display.tabs.context import TabContext, load_content
-
-content = load_content(__file__)
+from chalkline.display.loaders import TabContext
+from chalkline.display.schemas import MlMetrics
 
 
 def ml_internals_tab(ctx: TabContext) -> mo.Html:
     """
-    Render the ML Internals diagnostic tab with pipeline
-    statistics, variance charts, and cluster quality metrics.
+    Render the ML Internals diagnostic tab with pipeline statistics,
+    variance charts, and cluster quality metrics.
     """
+    tab         = ctx.content.tab("ml_internals")
+    ml          = MlMetrics.from_pipeline(ctx.pipeline)
+    template_kw = ml.model_dump() | {"total_variance": ml.variance.total}
 
     return mo.vstack([
-        header(*content.section("overview")),
-        stat_strip({
-            "Corpus Size"     : f"{ctx.data.ml.corpus_size:,}",
-            "Embedding Model" : ctx.data.ml.embedding_model,
-            "Clusters (k)"    : str(ctx.data.ml.cluster_count),
-            "SVD Components"  : str(ctx.data.ml.component_count),
-            "Pathway Edges"   : str(ctx.data.ml.edge_count)
-        }),
+        ctx.layout.header(tab.section("overview")),
+        ctx.layout.stat_strip(zip(tab.stat_labels, ml.stat_values)),
 
-        header(*content.section("pipeline")),
-        process_flow([
-            ("1", "Collect", f"{ctx.data.ml.corpus_size:,} postings from AGC Maine"),
-            ("2", "Encode",  ctx.data.ml.embedding_model),
-            ("3", "Reduce",  (
-                f"SVD to {ctx.data.ml.component_count}D "
-                f"({ctx.data.ml.total_variance:.0f}% variance)"
-            )),
-            ("4", "Cluster", f"Ward HAC, k={ctx.data.ml.cluster_count}"),
-            ("5", "Graph",   f"{ctx.data.ml.edge_count} pathway edges"),
-            ("6", "Match",   "Resume projection + gap analysis")
-        ]),
+        ctx.layout.header(tab.section("pipeline")),
+        ctx.layout.process_flow(s.render(**template_kw) for s in tab.process_steps),
 
-        header(*content.section(
-            "variance",
-            component_count = ctx.data.ml.component_count,
-            total_variance  = ctx.data.ml.total_variance
-        )),
-        mo.ui.plotly(ctx.charts.bar_line(
-            bar_x   = ctx.data.ml.pc_labels,
-            bar_y   = ctx.data.ml.explained_variance,
-            height  = 320,
-            line_x  = ctx.data.ml.pc_labels,
-            line_y  = ctx.data.ml.cumulative_variance,
-            y_title = "Variance Explained (%)"
+        ctx.layout.header(tab.section("variance", **template_kw)),
+        mo.ui.plotly(ctx.charts.bar(
+            height = 320,
+            line   = ml.variance.trace,
+            title  = tab.chart_labels["variance_title"],
+            x      = ml.variance.labels,
+            y      = ml.variance.components
         )),
 
-        header(*content.section("treemap")),
-        mo.ui.plotly(ctx.charts.sector_treemap(
-            height  = 450,
-            labels  = ctx.data.ml.treemap_labels,
-            parents = ctx.data.ml.treemap_parents,
-            sectors = ctx.data.ml.treemap_sectors,
-            values  = ctx.data.ml.treemap_values
+        ctx.layout.header(tab.section("treemap")),
+        mo.ui.plotly(ctx.charts.treemap(
+            branch_values = "total",
+            height        = 450,
+            labels        = ml.treemap.labels,
+            parents       = ml.treemap.parents,
+            sectors       = ml.treemap.sectors,
+            values        = ml.treemap.values
         )),
 
-        header(*content.section("gateways")),
-        mo.ui.plotly(ctx.charts.sector_hbar(
-            height  = max(300, len(ctx.data.ml.betweenness_labels) * 26),
-            labels  = ctx.data.ml.betweenness_labels,
-            sectors = ctx.data.ml.betweenness_sectors,
-            title   = "Betweenness Centrality",
-            values  = ctx.data.ml.betweenness_values
+        ctx.layout.header(tab.section("gateways")),
+        mo.ui.plotly(ctx.charts.bar(
+            color      = ctx.charts.sector_colors(ml.brokerage.sectors),
+            height     = max(300, len(ml.brokerage.labels) * 26),
+            horizontal = True,
+            title      = tab.chart_labels["brokerage_title"],
+            x          = ml.brokerage.values,
+            y          = ml.brokerage.labels
         )),
 
-        header(*content.section("cluster_separation")),
-        mo.ui.plotly(ctx.charts.sector_hbar(
-            height  = max(300, len(ctx.data.ml.silhouette_labels) * 26),
-            labels  = ctx.data.ml.silhouette_labels,
-            sectors = ctx.data.ml.silhouette_sectors,
-            title   = "Silhouette Coefficient",
-            values  = ctx.data.ml.silhouette_values
+        ctx.layout.header(tab.section("cluster_separation")),
+        mo.ui.plotly(ctx.charts.bar(
+            color      = ctx.charts.sector_colors(ml.silhouette.sectors),
+            height     = max(300, len(ml.silhouette.labels) * 26),
+            horizontal = True,
+            title      = tab.chart_labels["silhouette_title"],
+            x          = ml.silhouette.values,
+            y          = ml.silhouette.labels
         )),
 
-        header(*content.section("distances")),
+        ctx.layout.header(tab.section("distances")),
         mo.ui.plotly(ctx.charts.violin(
-            groups  = ctx.data.ml.pairwise_distances,
+            groups  = ml.pairwise_distances,
             height  = 350,
-            y_title = "Pairwise Centroid Distance"
+            y_title = tab.chart_labels["pairwise_title"]
         )),
 
-        header(*content.section("pathway_strength")),
+        ctx.layout.header(tab.section("pathway_strength")),
         mo.ui.plotly(ctx.charts.histogram(
             height  = 300,
             nbins   = 25,
-            x       = ctx.data.ml.edge_weights,
-            x_title = "Edge Weight (cosine similarity)",
-            y_title = "Count"
+            x       = ml.edge_weights,
+            x_title = tab.chart_labels["edge_weight_title"],
+            y_title = tab.chart_labels["count_title"]
         )),
 
-        header(*content.section("sector_dist")),
-        mo.ui.plotly(ctx.charts.sector_vbar(
+        ctx.layout.header(tab.section("sector_dist")),
+        mo.ui.plotly(ctx.charts.bar(
+            color  = ctx.charts.sector_colors(ml.sector_sizes),
             height = 300,
-            labels = ctx.data.ml.sector_labels,
-            title  = "Postings",
-            values = ctx.data.ml.sector_values
+            title  = tab.chart_labels["postings_title"],
+            x      = ml.sector_sizes,
+            y      = ml.sector_sizes.values()
         )),
 
-        header(*content.section("dendrogram")),
-        mo.ui.plotly(ctx.charts.dendrogram()),
+        ctx.layout.header(tab.section("dendrogram")),
+        mo.ui.plotly(ctx.charts.dendrogram(
+            annotation_text = tab.chart_labels["you"],
+            title           = tab.chart_labels["dendrogram"],
+            x_title         = tab.chart_labels["career_family"],
+            y_title         = tab.chart_labels["ward_distance"]
+        )),
 
-        header(*content.section("landscape")),
-        mo.ui.plotly(ctx.charts.landscape(ctx.data.result.coordinates)),
+        ctx.layout.header(tab.section("landscape")),
+        mo.ui.plotly(ctx.charts.landscape(
+            coordinates     = ctx.result.coordinates,
+            legend_families = tab.chart_labels["career_families"],
+            legend_resume   = tab.chart_labels["your_resume"],
+            title           = tab.chart_labels["landscape"],
+            x_title         = tab.chart_labels["svd_component_1"],
+            y_title         = tab.chart_labels["svd_component_2"]
+        )),
 
-        header(*content.section("cluster_profiles")),
-        mo.tree(ctx.data.ml.cluster_profiles),
-        callout(content.info)
+        ctx.layout.header(tab.section("cluster_profiles")),
+        mo.tree(ml.cluster_profiles),
+        ctx.layout.callout(tab.info)
     ])

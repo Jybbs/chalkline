@@ -5,7 +5,7 @@ Tests for HTML card builders.
 from datetime import date
 
 from chalkline.collection.schemas import Posting
-from chalkline.display.layout    import employer_card, posting_card
+from chalkline.display.loaders    import Layout
 
 
 class TestEmployerCard:
@@ -13,11 +13,11 @@ class TestEmployerCard:
     Validate conditional link rendering in employer cards.
     """
 
-    def test_career_url_included(self):
+    def test_career_url_included(self, layout: Layout):
         """
         Non-empty career URL renders both posting and career links.
         """
-        html = employer_card(
+        html = layout.employer_card(
             career_url  = "https://example.com/careers",
             member_type = "General",
             name        = "Acme Corp",
@@ -26,11 +26,11 @@ class TestEmployerCard:
         assert "View Posting" in html
         assert "Career Page" in html
 
-    def test_career_url_omitted(self):
+    def test_career_url_omitted(self, layout: Layout):
         """
         Empty career URL renders only the posting link.
         """
-        html = employer_card(
+        html = layout.employer_card(
             career_url  = "",
             member_type = "General",
             name        = "Acme Corp",
@@ -46,13 +46,13 @@ class TestPostingCard:
     posting cards.
     """
 
-    def test_long_truncates_at_word(self):
+    def test_long_truncates_at_word(self, layout: Layout):
         """
         Description over 200 characters truncates at the last word
         boundary before the limit and appends an ellipsis.
         """
         description = "alpha " * 40
-        html = posting_card(Posting(
+        html = layout.posting_card(Posting(
             company     = "Test Co",
             date_posted = None,
             description = description,
@@ -62,11 +62,11 @@ class TestPostingCard:
         assert "..." in html
         assert "al..." not in html
 
-    def test_null_location_fallback(self):
+    def test_null_location_fallback(self, layout: Layout):
         """
         Missing location falls back to "Maine" in the metadata line.
         """
-        html = posting_card(Posting(
+        html = layout.posting_card(Posting(
             company     = "Test Co",
             date_posted = None,
             description = "x" * 50,
@@ -75,13 +75,16 @@ class TestPostingCard:
         )).text
         assert "Maine" in html
 
-    def test_short_preserves(self):
+    def test_short_preserves(self, layout: Layout):
         """
         Description under 200 characters passes through without
         truncation or ellipsis.
         """
-        description = "A short but valid description for testing purposes, well over fifty."
-        html = posting_card(Posting(
+        description = (
+            "A short but valid description for testing"
+            " purposes, well over fifty."
+        )
+        html = layout.posting_card(Posting(
             company     = "Test Co",
             date_posted = date(2026, 1, 15),
             description = description,

@@ -5,12 +5,9 @@ Usage::
 
     from chalkline.display import tabs
 
-    tabs.splash(logo_dir, metrics)
+    tabs.splash(content, logo_dir, metrics)
     tabs.your_match(ctx)
-    tabs.career_paths(ctx, target_data, dropdown)
 """
-
-from .context import TabContext
 
 from .career_paths.render    import career_paths_tab    as career_paths
 from .job_postings.render    import job_postings_tab    as job_postings

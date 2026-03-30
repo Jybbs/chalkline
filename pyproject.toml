@@ -11,6 +11,7 @@ readme          = "README.md"
 requires-python = ">=3.14"
 license         = { text = "MIT" }
 dependencies    = [
+    "htpy",
     "loguru",
     "marimo",
     "networkx",
@@ -22,7 +23,7 @@ dependencies    = [
     "scikit-learn",
     "sf-hamilton[diskcache]",
     "tokenizers",
-    "typer",
+    "typer"
 ]
 
 [tool.uv]

@@ -4,6 +4,15 @@ Every job posting in the corpus was encoded as a **768-dimensional sentence embe
 
 Company names are matched against the **AGC Maine member directory** using fuzzy string matching (*SequenceMatcher with a 0.7 similarity threshold*), so minor spelling variations and abbreviations between the job board listing and the membership roll still produce correct matches. The title word cloud filters out common English words using **Zipf frequency** scores, keeping only terms distinctive enough to characterize the career family.'''
 
+[chart_labels]
+postings_title = "Number of Postings"
+
+[chart_lists]
+stat_labels = ["Postings in Family", "Companies Hiring", "Locations"]
+
+[fallbacks]
+no_company_data = "No company data."
+
 [sections.common_words]
 title       = "Common Job Title Words"
 description = "Most frequent words appearing in posting titles for this career family, sized by count."

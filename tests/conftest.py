@@ -16,7 +16,6 @@ independently tappable by any test module:
 import numpy as np
 
 from datetime              import date
-from json                  import loads
 from pathlib               import Path
 from pydantic              import TypeAdapter
 from pytest                import fixture
@@ -26,17 +25,16 @@ from sklearn.preprocessing import normalize
 from types                 import SimpleNamespace
 from typing                import Any, Callable
 
-from chalkline.collection.schemas import Corpus, Posting
+from chalkline.collection.schemas import Posting
 from chalkline.display.charts     import Charts
+from chalkline.display.loaders    import ContentLoader, Layout
 from chalkline.display.theme      import Theme
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
+from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import StakeholderReference
-from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import CareerEdge, Cluster, Clusters
-from chalkline.pathways.schemas   import Credential, Occupation, Reach, Task
-from chalkline.pipeline.schemas   import PipelineConfig
+from chalkline.pathways.schemas   import CareerEdge, Credential, Reach
 
 
 CLUSTER_COUNT   = 4
@@ -67,14 +65,6 @@ def _postings() -> list[Posting]:
 
 
 # ── Collection fixtures ─────────────────────────────────────────────
-
-
-@fixture
-def corpus() -> Corpus:
-    """
-    Posting corpus built from fixture data.
-    """
-    return Corpus({p.id: p for p in _postings()})
 
 
 @fixture
@@ -125,22 +115,6 @@ def lexicon_dir(tmp_path: Path) -> Path:
         (FIXTURES / "pathways" / "onet_occupations.json").read_text()
     )
     return tmp_path
-
-
-@fixture
-def lexicon_loader(lexicon_dir: Path) -> LexiconLoader:
-    """
-    Load all synthetic lexicon files via `LexiconLoader`.
-    """
-    return LexiconLoader(lexicon_dir)
-
-
-@fixture
-def occupations(lexicon_loader: LexiconLoader) -> list[Occupation]:
-    """
-    Synthetic O*NET occupation records from the loader.
-    """
-    return lexicon_loader.occupations
 
 
 # ── Embedding pipeline fixtures ──────────────────────────────────────
@@ -215,7 +189,11 @@ def clusters(
             size         = int((assignments == cid).sum()),
             soc_title    = f"Occupation {cid}",
             tasks        = [
-                Task(name=f"Task {cid}-{i}", vector=v)
+                Task(
+                    name       = f"Task {cid}-{i}",
+                    skill_type = ["dwa", "task"][i % 2],
+                    vector     = v
+                )
                 for i, v in enumerate(_embeddings(5, cid, unit=True))
             ]
         )
@@ -225,20 +203,6 @@ def clusters(
         centroids = centroids,
         items     = items,
         vectors   = cluster_vectors
-    )
-
-
-@fixture
-def config(tmp_path: Path) -> PipelineConfig:
-    """
-    Minimal pipeline config for tests.
-    """
-    return PipelineConfig(
-        cluster_count   = CLUSTER_COUNT,
-        component_count = COMPONENT_COUNT,
-        lexicon_dir     = tmp_path,
-        output_dir      = tmp_path,
-        postings_dir    = tmp_path
     )
 
 
@@ -344,14 +308,6 @@ def resume_matcher(
 
 
 @fixture
-def soc_vectors() -> np.ndarray:
-    """
-    Synthetic occupation embeddings (5 occupations, EMBEDDING_DIM).
-    """
-    return _embeddings(5, 99, unit=True)
-
-
-@fixture
 def svd(unit_vectors: np.ndarray) -> TruncatedSVD:
     """
     Fitted TruncatedSVD for resume projection tests.
@@ -368,6 +324,30 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
 
 
 # ── Display fixtures ─────────────────────────────────────────────────
+
+
+@fixture
+def charts(pathway_graph: CareerPathwayGraph) -> Charts:
+    """
+    Charts factory wired to the synthetic pathway graph.
+    """
+    return Charts(
+        matched_id = pathway_graph.clusters.cluster_ids[0],
+        pathway    = pathway_graph,
+        theme      = Theme(
+            dark_fn     = lambda: False,
+            jz_labels   = {str(i): f"JZ{i}" for i in range(1, 6)},
+            type_labels = {"skill": "Skills", "task": "Tasks"}
+        )
+    )
+
+
+@fixture
+def content() -> ContentLoader:
+    """
+    Centralized content loader for display-layer TOML.
+    """
+    return ContentLoader()
 
 
 @fixture
@@ -390,21 +370,18 @@ def edge_factory(
         return CareerEdge(
             cluster_id  = cluster_id,
             credentials = creds,
+            soc_title   = clusters[cluster_id].soc_title,
             weight      = 0.9
         )
     return _build
 
 
 @fixture
-def charts(pathway_graph: CareerPathwayGraph) -> Charts:
+def layout(content: ContentLoader) -> Layout:
     """
-    Charts factory wired to the synthetic pathway graph.
+    Layout renderer backed by the shared content loader.
     """
-    return Charts(
-        matched_id = pathway_graph.clusters.cluster_ids[0],
-        pathway    = pathway_graph,
-        theme      = Theme(dark_fn=lambda: False)
-    )
+    return Layout(content)
 
 
 @fixture
@@ -416,12 +393,19 @@ def match_result(resume_matcher: ResumeMatcher) -> MatchResult:
 
 
 @fixture
-def member_names(reference: StakeholderReference) -> tuple[list[dict], list[str]]:
+def posting_factory() -> Callable:
     """
-    AGC member records with pre-lowercased names for matching tests.
+    Factory for minimal `Posting` instances with a given company name.
     """
-    members = reference.agc_members
-    return members, [m["name"].lower() for m in members]
+    def _build(company: str) -> Posting:
+        return Posting(
+            company     = company,
+            date_posted = None,
+            description = "x" * 50,
+            source_url  = "https://example.com",
+            title       = "Test"
+        )
+    return _build
 
 
 @fixture
@@ -440,10 +424,16 @@ def reference() -> StakeholderReference:
     """
     Stakeholder reference data from display fixture JSONs.
     """
-    ref = StakeholderReference(FIXTURES / "display")
-    ref.agc_members = loads((FIXTURES / "display" / "members.json").read_text())
-    ref.career_urls = []
-    ref.job_boards  = loads((FIXTURES / "display" / "boards.json").read_text())
-    return ref
+    return StakeholderReference(FIXTURES / "display")
 
 
+@fixture
+def theme(content: ContentLoader) -> Theme:
+    """
+    Dashboard theme with labels loaded from the shared TOML.
+    """
+    return Theme(
+        dark_fn     = lambda: True,
+        jz_labels   = content.labels.job_zones,
+        type_labels = content.labels.skill_types
+    )

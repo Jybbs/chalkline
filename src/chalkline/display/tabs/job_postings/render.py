@@ -4,83 +4,68 @@ Job Postings tab for the Chalkline career report.
 
 import marimo as mo
 
-from functools import partial
-
-from chalkline.display.layout       import callout, card_grid, header
-from chalkline.display.layout       import posting_card, stat_strip
-from chalkline.display.tabs.context import TabContext, load_content
-
-content = load_content(__file__)
+from chalkline.display.loaders import TabContext
+from chalkline.display.schemas import JobPostingMetrics
 
 
 def job_postings_tab(ctx: TabContext) -> mo.Html:
     """
-    Render the Job Postings tab showing real postings from the
-    matched career family.
+    Render the Job Postings tab showing real postings from the matched
+    career family.
     """
-    postings = ctx.data.postings
-    section  = partial(content.section, soc_title=ctx.data.soc_title)
+    tab = ctx.content.tab("job_postings")
+
+    postings   = JobPostingMetrics.from_postings(ctx.profile.postings, ctx.reference)
+    section_kw = {"soc_title": ctx.profile.soc_title}
 
     return mo.vstack([
-        header(*section("overview")),
-        stat_strip({
-            "Postings in Family" : str(postings.posting_count),
-            "Companies Hiring"   : str(postings.unique_companies),
-            **({"Locations": str(postings.unique_locations)}
-               if postings.location_counts else {})
-        }),
+        ctx.layout.header(tab.section("overview", **section_kw)),
+        ctx.layout.stat_strip(zip(tab.stat_labels, postings.stat_values)),
 
-        header(*section("whos_hiring")),
-        mo.ui.plotly(ctx.charts.hbar(
-            color  = ctx.theme.colors["accent"],
-            height = max(300, len(postings.company_counts) * 28),
-            title  = "Number of Postings",
-            x      = [cnt for _, cnt in postings.company_counts],
-            y      = [name[:30] for name, _ in postings.company_counts]
+        ctx.layout.header(tab.section("whos_hiring", **section_kw)),
+        mo.ui.plotly(ctx.charts.bar(
+            height     = max(300, len(postings.companies) * 28),
+            horizontal = True,
+            title      = tab.chart_labels["postings_title"],
+            x          = postings.companies.values(),
+            y          = postings.companies
         ))
-        if postings.company_counts else mo.md("No company data."),
+        if postings.companies else mo.md(tab.fallbacks["no_company_data"]),
 
-        *([
-            header(*section("company_types")),
+        *ctx.layout.section_if(postings.members, tab, "company_types",
             mo.ui.plotly(ctx.charts.pie(
-                300,
+                height   = 300,
                 hole     = 0.4,
-                labels   = list(postings.member_types),
+                labels   = postings.members,
+                textfont = {"size": 11},
                 textinfo = "label+percent",
-                textfont = dict(size=11),
-                values   = list(postings.member_types.values())
-            ))
-        ] if postings.member_types else []),
+                values   = postings.members.values()
+            )), **section_kw),
 
-        *([
-            header(*section("locations")),
-            mo.ui.plotly(ctx.charts.hbar(
-                color  = ctx.theme.colors["success"],
-                height = max(250, len(postings.location_counts) * 28),
-                title  = "Number of Postings",
-                x      = [cnt for _, cnt in postings.location_counts],
-                y      = [loc[:30] for loc, _ in postings.location_counts]
-            ))
-        ] if postings.location_counts else []),
+        *ctx.layout.section_if(postings.locations, tab, "locations",
+            mo.ui.plotly(ctx.charts.bar(
+                color      = "success",
+                height     = max(250, len(postings.locations) * 28),
+                horizontal = True,
+                title      = tab.chart_labels["postings_title"],
+                x          = postings.locations.values(),
+                y          = postings.locations
+            )), **section_kw),
 
-        *([
-            header(*section("timeline")),
+        *ctx.layout.section_if(postings.dated, tab, "timeline",
             mo.ui.plotly(ctx.charts.timeline(
-                dates = postings.dated_dates,
-                hover = postings.dated_labels
-            ))
-        ] if postings.dated_dates else []),
+                dates = postings.dated.values(),
+                hover = postings.dated
+            )), **section_kw),
 
-        *([
-            header(*section("common_words")),
+        *ctx.layout.section_if(postings.titles, tab, "common_words",
             mo.ui.plotly(ctx.charts.treemap(
                 height = 350,
-                labels = [w   for w, _   in postings.title_words],
-                values = [cnt for _, cnt in postings.title_words]
-            ))
-        ] if postings.title_words else []),
+                labels = postings.titles,
+                values = postings.titles.values()
+            )), **section_kw),
 
-        header(*section("recent")),
-        card_grid([posting_card(p) for p in postings.recent]),
-        callout(content.info)
+        ctx.layout.header(tab.section("recent", **section_kw)),
+        ctx.layout.card_grid(ctx.layout.posting_card(p) for p in postings.recent),
+        ctx.layout.callout(tab.info)
     ])

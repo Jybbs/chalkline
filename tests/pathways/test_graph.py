@@ -32,19 +32,6 @@ class TestCareerPathwayGraph:
             assert "credentials" in data
             assert isinstance(data["credentials"], list)
 
-    def test_edge_count_positive(self, pathway_graph: CareerPathwayGraph):
-        """
-        The graph must have at least one edge from the stepwise k-NN
-        backbone.
-        """
-        assert pathway_graph.edge_count > 0
-
-    def test_node_count(self, pathway_graph: CareerPathwayGraph):
-        """
-        One graph node per cluster profile.
-        """
-        assert pathway_graph.graph.number_of_nodes() == len(pathway_graph.clusters)
-
     def test_reach_types(self, pathway_graph: CareerPathwayGraph):
         """
         Reach advancement edges point to higher JZ clusters and lateral

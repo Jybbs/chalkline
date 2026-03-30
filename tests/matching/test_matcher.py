@@ -2,6 +2,8 @@
 Tests for embedding-based resume matching with per-task gap analysis.
 """
 
+from chalkline.matching.schemas import MatchResult
+
 
 class TestResumeMatcher:
     """
@@ -9,44 +11,39 @@ class TestResumeMatcher:
     reach retrieval.
     """
 
-    def test_cluster_assigned(self, clusters, resume_matcher):
+    def test_cluster_assigned(self, clusters, match_result: MatchResult):
         """
         Match result assigns a valid cluster ID from the profile set.
         """
-        assert resume_matcher.match(
-            "Electrician with welding experience"
-        ).cluster_id in clusters
+        assert match_result.cluster_id in clusters
 
-    def test_cluster_distances(self, cluster_ids, resume_matcher):
+    def test_cluster_distances(self, cluster_ids, match_result: MatchResult):
         """
         Cluster distances are sorted ascending and cover all clusters.
         """
-        distances = [
-            d.distance
-            for d in resume_matcher.match("Construction worker").cluster_distances
-        ]
+        distances = [d.distance for d in match_result.cluster_distances]
         assert distances == sorted(distances)
         assert len(distances) == len(cluster_ids)
 
-    def test_gap_split(self, resume_matcher):
+    def test_confidence_range(self, match_result: MatchResult):
         """
-        Demonstrated and gaps partition the task set at the median.
+        Confidence is a 0-100 integer percentage.
         """
-        result = resume_matcher.match("Electrical wiring specialist")
-        assert len(result.demonstrated) + len(result.gaps) == 5
+        assert 0 <= match_result.confidence <= 100
 
-    def test_coordinates_shape(self, resume_matcher):
-        """
-        SVD coordinates have one entry per component for landscape
-        plotting.
-        """
-        result = resume_matcher.match("Structural steel welder")
-        assert len(result.coordinates) == 4
-
-    def test_sector_assigned(self, clusters, resume_matcher):
+    def test_sector_assigned(self, clusters, match_result: MatchResult):
         """
         Match result carries a sector string from the assigned cluster
         profile.
         """
-        result = resume_matcher.match("Heavy equipment operator")
-        assert result.sector == clusters[result.cluster_id].sector
+        assert match_result.sector == clusters[match_result.cluster_id].sector
+
+    def test_tasks_by_type(self, match_result: MatchResult):
+        """
+        Task grouping preserves total count across types.
+        """
+        by_type = match_result.tasks_by_type
+        assert sum(len(v) for v in by_type.values()) == len(
+            match_result.scored_tasks
+        )
+        assert len(by_type) >= 2

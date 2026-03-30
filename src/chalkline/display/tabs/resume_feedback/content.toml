@@ -1,6 +1,6 @@
 [hero]
 kind = "info"
-text = "Your resume is more aligned with **{soc_title}** than **{percentile}%** of the {posting_count} postings in this career family."
+text = "Your resume was matched to **{soc_title}** based on similarity to {posting_count} postings in this career family."
 
 [info]
 text = '''
@@ -11,6 +11,23 @@ $$\text{sim}(r, t) = \frac{r \cdot t}{\|r\| \|t\|}$$
 Scores closer to 1.0 mean your resume's language closely mirrors the task description. Tasks above the cluster median are strengths, and tasks below are growth areas. The **alignment percentile** compares your overall similarity against the distribution of posting similarities within the matched career family, answering the question: how does your resume stack up against the postings employers actually wrote?
 
 O\*NET organizes occupational competencies into seven element types spanning concrete work activities (*Tasks and Detailed Work Activities*), abstract capabilities (*Abilities, Knowledge, and Skills*), and technical proficiencies (*Technology Skills and Tools & Equipment*). The skill profile radar aggregates similarity scores within each type, giving a bird's-eye view of where your resume is strongest. The **gap priority scatter** plots each growth area by how large the individual gap is against how many gaps exist in that element type, so skills in the upper-right quadrant represent the highest-impact improvement opportunities.'''
+
+[chart_labels]
+all_skills_trace   = "All Skills"
+gap_x_title        = "Category Frequency (how many gaps in this type)"
+gap_y_title        = "Gap Magnitude (%)"
+similarity_x_title = "Similarity (%)"
+similarity_y_title = "Number of Skills"
+strengths_trace    = "Strengths Only"
+
+[chart_lists]
+stat_labels = ["Strengths", "Growth Areas"]
+
+[fallbacks]
+no_gaps       = "No gaps identified."
+no_similarity = "No similarity data."
+no_skill_data = "No skill data available."
+no_strengths  = "No demonstrated skills."
 
 [sections.gap_priority]
 title       = "Gap Priority"

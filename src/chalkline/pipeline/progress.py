@@ -11,14 +11,11 @@ context, delegates to `mo.status.progress_bar`.
 from collections.abc        import Callable
 from hamilton.lifecycle.api import GraphExecutionHook, NodeExecutionHook
 from loguru                 import logger
+from rich.progress          import Progress
 from sys                    import modules
 from time                   import perf_counter
-from typing                 import TYPE_CHECKING
 
 from chalkline.pipeline.encoder import SentenceEncoder
-
-if TYPE_CHECKING:
-    from rich.progress import Progress
 
 
 class DownloadBar:
@@ -142,8 +139,8 @@ class MarimoDisplay(PipelineProgress):
     """
     Progress display backed by `mo.status.progress_bar`.
 
-    Skips the progress bar entirely when the Hamilton cache is warm
-    (zero nodes to execute), avoiding an empty bar flash.
+    Skips the progress bar entirely when the Hamilton cache is warm (zero
+    nodes to execute), avoiding an empty bar flash.
     """
 
     def advance(self, node_name: str):
@@ -154,8 +151,8 @@ class MarimoDisplay(PipelineProgress):
 
     def begin_pipeline(self, total: int):
         """
-        Create the Marimo progress bar once the node count is known.
-        Returns immediately on a warm cache so no bar is shown.
+        Create the Marimo progress bar once the node count is known. Returns
+        immediately on a warm cache so no bar is shown.
         """
         self.manager = None
         if total == 0:
@@ -245,8 +242,8 @@ class RichDisplay(PipelineProgress):
 
     def begin_pipeline(self, total: int):
         """
-        Add the pipeline-level progress bar once the DAG starts and the
-        node count is known.
+        Add the pipeline-level progress bar once the DAG starts and the node
+        count is known.
         """
         self.pipeline_task = self.progress.add_task(
             "[bold]pipeline[/bold]",

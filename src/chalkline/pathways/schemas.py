@@ -1,67 +1,15 @@
 """
-Schemas for the career pathway domain.
+Pydantic models and enums for the career pathway domain.
 
-Defines O*NET occupation and credential reference models, the unified
-`Cluster` and `Clusters` dataclasses, and the career graph edge and
-reach models that together describe the fitted career landscape.
+Pure data contracts with field declarations, validators, and self-derived
+properties. Behavioral containers (`Cluster`, `Clusters`, `Task`) live in
+`clusters.py`. No query logic, no builders, no computational imports.
 """
 
-import numpy as np
-
-from dataclasses import dataclass, field
-from enum        import StrEnum
-from functools   import cached_property
-from pydantic    import BaseModel, Field
-from typing      import NamedTuple
-
-from chalkline.collection.schemas import Posting
-
-
-class LaborOutlook(BaseModel, extra="ignore"):
-    """
-    O*NET Bright Outlook designation for an occupation.
-    """
-
-    bright_outlook  : bool       = False
-    outlook_reasons : list[str]  = Field(default_factory=list)
-
-
-class LaborProjections(BaseModel, extra="ignore"):
-    """
-    BLS 10-year employment projections for an occupation.
-    """
-
-    change_percent : float | None = None
-    education      : str          = ""
-    openings       : float | None = None
-
-
-class LaborWages(BaseModel, extra="ignore"):
-    """
-    BLS OEWS annual wage percentiles for an occupation.
-    """
-
-    annual_10     : float        = 0
-    annual_25     : float        = 0
-    annual_75     : float        = 0
-    annual_90     : float        = 0
-    annual_median : float | None = None
-    employment    : int          = 0
-
-
-class LaborRecord(BaseModel, extra="ignore"):
-    """
-    Unified BLS and O*NET labor market data for one occupation.
-
-    Uses `extra="ignore"` because `labor.json` contains fields
-    beyond what the display layer needs (hourly wages, projected
-    employment, related occupations, training).
-    """
-
-    outlook     : LaborOutlook | None     = None
-    projections : LaborProjections | None = None
-    soc_title   : str
-    wages       : LaborWages | None       = None
+from collections.abc import Iterator
+from dataclasses     import dataclass
+from enum            import StrEnum
+from pydantic        import BaseModel, Field, field_validator, model_validator
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -74,129 +22,11 @@ class CareerEdge(BaseModel, extra="forbid"):
     destination_percentile and source_percentile dual-threshold rule.
     """
 
-    cluster_id  : int              = Field(ge=0)
+    cluster_id : int   = Field(ge=0)
+    soc_title  : str
+    weight     : float = Field(ge=-1, le=1)
+
     credentials : list[Credential] = Field(default_factory=list)
-    weight      : float
-
-
-@dataclass
-class Cluster:
-    """
-    Unified per-cluster representation combining profile metadata,
-    membership indices, resolved postings, and optional O*NET task
-    embeddings for gap analysis.
-    """
-
-    cluster_id   : int
-    job_zone     : int
-    members      : np.ndarray
-    modal_title  : str
-    postings     : list[Posting]
-    sector       : str
-    size         : int
-    soc_title    : str
-
-    tasks : list[Task] = field(default_factory=list)
-
-    @property
-    def display_label(self) -> str:
-        """
-        Human-readable cluster identifier for dropdown labels.
-        """
-        return f"Cluster {self.cluster_id}: {self.soc_title} (JZ {self.job_zone})"
-
-    @property
-    def profile_dict(self) -> dict[str, str | int]:
-        """
-        Display-ready profile summary for tree views.
-        """
-        return {
-            "Sector"      : self.sector,
-            "Job Zone"    : self.job_zone,
-            "Size"        : self.size,
-            "Modal Title" : self.modal_title
-        }
-
-    @property
-    def short_title(self) -> str:
-        """
-        Truncated SOC title for chart labels (30 chars max).
-        """
-        return self.soc_title[:30]
-
-    @property
-    def treemap_label(self) -> str:
-        """
-        Label for cluster in treemap visualization.
-        """
-        return f"{self.short_title} ({self.size})"
-
-
-@dataclass
-class Clusters:
-    """
-    Indexed collection of clusters with eagerly-derived matrices.
-
-    Constructed once after profiling is complete. Provides the per-cluster
-    dict for individual lookups and pre-stacked centroid and embedding
-    vector matrices for vectorized operations in graph construction, resume
-    matching, and visualization.
-    """
-
-    centroids : np.ndarray
-    items     : dict[int, Cluster]
-    vectors   : np.ndarray
-
-    cluster_ids : list[int] = field(init=False)
-
-    def __post_init__(self):
-        self.cluster_ids = sorted(self.items)
-
-    def __getitem__(self, cluster_id: int) -> Cluster:
-        """
-        Look up a cluster by ID.
-        """
-        return self.items[cluster_id]
-
-    def __iter__(self):
-        """
-        Iterate sorted cluster IDs.
-        """
-        return iter(self.cluster_ids)
-
-    def __len__(self) -> int:
-        """
-        Number of clusters.
-        """
-        return len(self.items)
-
-    def pairs(self):
-        """
-        Iterate (cluster_id, cluster) tuples in sorted ID order.
-        """
-        return ((cid, self.items[cid]) for cid in self.cluster_ids)
-
-    def by_sector(self, sector: str) -> list[tuple[int, Cluster]]:
-        """
-        All clusters in a given sector, sorted by job zone then
-        title.
-
-        Args:
-            sector: Sector name to filter by.
-        """
-        return sorted(
-            (
-                (cid, self.items[cid]) for cid in self.cluster_ids
-                if self.items[cid].sector == sector
-            ),
-            key=lambda x: (x[1].job_zone, x[1].soc_title)
-        )
-
-    def values(self):
-        """
-        Iterate cluster objects in sorted ID order.
-        """
-        return (self.items[cid] for cid in self.cluster_ids)
 
 
 class Credential(BaseModel, extra="forbid"):
@@ -217,6 +47,102 @@ class Credential(BaseModel, extra="forbid"):
 
     metadata : dict = Field(default_factory=dict)
     vector   : list[float] | None = Field(default=None, exclude=True)
+
+    @field_validator("metadata")
+    @classmethod
+    def _validate_metadata(cls, v: dict, info) -> dict:
+        """
+        Enforce required metadata keys per credential kind.
+        """
+        match info.data.get("kind"):
+            case "apprenticeship" : required = {"min_hours", "rapids_code"}
+            case "program"        : required = {"credential", "institution", "url"}
+            case _                : required = set()
+        if missing := required - v.keys():
+            raise ValueError(f"Missing keys for {info.data['kind']}: {missing}")
+        return v
+
+    @property
+    def hours(self) -> int | None:
+        """
+        Minimum apprenticeship term hours, if applicable.
+        """
+        return self.metadata.get("min_hours")
+
+    @property
+    def key(self) -> str | tuple[str, str]:
+        """
+        Deduplication key based on credential kind.
+
+        Apprenticeships deduplicate by RAPIDS code, programs by
+        (institution, label), and all others by label.
+        """
+        match self.kind:
+            case "apprenticeship" : return self.metadata["rapids_code"]
+            case "program"        : return (self.metadata["institution"], self.label)
+            case _                : return self.label
+
+    @property
+    def type_label(self) -> str:
+        """
+        Display name for the credential type, falling back to the titlecased
+        kind when metadata carries no specific label.
+        """
+        return self.metadata.get("credential", self.kind.title())
+
+
+class LaborRecord(BaseModel, extra="ignore"):
+    """
+    Unified BLS and O*NET labor market data for one occupation.
+
+    Flattens the nested `outlook`, `projections`, and `wages` objects from
+    `labor.json` into a single model. Uses `extra="ignore"` because the
+    source contains fields beyond what the display layer needs.
+    """
+
+    soc_title: str
+
+    annual_10       : float        = Field(default=0,    ge=0)
+    annual_25       : float        = Field(default=0,    ge=0)
+    annual_75       : float        = Field(default=0,    ge=0)
+    annual_90       : float        = Field(default=0,    ge=0)
+    annual_median   : float | None = Field(default=None, ge=0)
+    bright_outlook  : bool         = False
+    change_percent  : float | None = None
+    education       : str          = ""
+    employment      : int          = Field(default=0,    ge=0)
+    openings        : float | None = None
+    outlook_reasons : list[str]    = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_nested(cls, data):
+        """
+        Hoist fields from nested `outlook`, `projections`, and `wages`
+        objects to the top level.
+        """
+        if isinstance(data, dict):
+            for key in ("outlook", "projections", "wages"):
+                if (nested := data.pop(key, None)) and isinstance(nested, dict):
+                    data.update(nested)
+        return data
+
+    @property
+    def percentiles(self) -> list[float]:
+        """
+        Wage values at the 10th, 25th, median, 75th, and 90th percentiles.
+        Empty when median is unavailable.
+        """
+        if not self.annual_median:
+            return []
+
+        return [
+            self.annual_10,
+            self.annual_25,
+            self.annual_median,
+            self.annual_75,
+            self.annual_90
+        ]
 
 
 class Occupation(BaseModel, extra="forbid"):
@@ -270,19 +196,11 @@ class Occupations:
     """
     Indexed collection of O*NET occupations with derived views.
 
-    Wraps a list of `Occupation` records and provides a
-    cached skill-to-type lookup used by the display layer for
-    grouping skills by O*NET category.
+    Wraps a list of `Occupation` records and provides a cached skill-to-type
+    lookup used by the display layer for grouping skills by O*NET category.
     """
 
     items : list[Occupation]
-
-    @cached_property
-    def skill_type_index(self) -> dict[str, SkillType]:
-        """
-        Skill name to O*NET element type across all occupations.
-        """
-        return {s.name: s.type for occ in self.items for s in occ.skills}
 
     def __getitem__(self, index: int) -> Occupation:
         """
@@ -290,7 +208,7 @@ class Occupations:
         """
         return self.items[index]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Occupation]:
         """
         Iterate occupation records.
         """
@@ -301,6 +219,57 @@ class Occupations:
         Number of occupations.
         """
         return len(self.items)
+
+    @property
+    def skill_type_index(self) -> dict[str, SkillType]:
+        """
+        Skill name to O*NET element type across all occupations.
+        """
+        return {s.name: s.type for occ in self.items for s in occ.skills}
+
+
+class Reach(BaseModel, extra="forbid"):
+    """
+    Local reach exploration view from the matched cluster.
+
+    Shows advancement paths (edges to higher Job Zone clusters) and lateral
+    pivots (edges to same Job Zone clusters), each with per-edge credential
+    metadata identifying the training that bridges each specific transition.
+    """
+
+    advancement : list[CareerEdge] = Field(default_factory=list)
+    lateral     : list[CareerEdge] = Field(default_factory=list)
+
+    @property
+    def all_credentials(self) -> list[Credential]:
+        """
+        Flattened credentials from all edges.
+        """
+        return [c for edge in self.all_edges for c in edge.credentials]
+
+    @property
+    def all_edges(self) -> list[CareerEdge]:
+        """
+        Combined advancement and lateral edges.
+        """
+        return self.advancement + self.lateral
+
+    @property
+    def credentials_by_kind(self) -> dict[str, list[Credential]]:
+        """
+        Deduplicated credentials grouped by kind.
+
+        Uses `Credential.key` for deduplication, which is RAPIDS code for
+        apprenticeships, (institution, label) for programs, and label for
+        all others.
+        """
+        by_kind: dict[str, dict] = {}
+        for c in self.all_credentials:
+            by_kind.setdefault(c.kind, {})[c.key] = c
+        return {
+            k: sorted(v.values(), key=lambda c: c.label)
+            for k, v in sorted(by_kind.items())
+        }
 
 
 class Skill(BaseModel, extra="forbid"):
@@ -338,66 +307,3 @@ class SkillType(StrEnum):
     TASK       = "task"
     TECHNOLOGY = "technology"
     TOOL       = "tool"
-
-
-class Reach(BaseModel, extra="forbid"):
-    """
-    Local reach exploration view from the matched cluster.
-
-    Shows advancement paths (edges to higher Job Zone clusters) and lateral
-    pivots (edges to same Job Zone clusters), each with per-edge credential
-    metadata identifying the training that bridges each specific transition.
-    """
-
-    advancement : list[CareerEdge] = Field(default_factory=list)
-    lateral     : list[CareerEdge] = Field(default_factory=list)
-
-    @property
-    def all_credentials(self) -> list[Credential]:
-        """
-        Flattened credentials from all edges.
-        """
-        return [c for edge in self.all_edges for c in edge.credentials]
-
-    @property
-    def all_edges(self) -> list[CareerEdge]:
-        """
-        Combined advancement and lateral edges.
-        """
-        return self.advancement + self.lateral
-
-    def credentials_by_kind(self, kind: str) -> dict:
-        """
-        Deduplicated credentials of a given kind, keyed for
-        deduplication by the appropriate metadata field.
-
-        For apprenticeships, deduplicates by RAPIDS code.
-        For programs, deduplicates by (institution, label).
-        For others, deduplicates by label.
-
-        Args:
-            kind: Credential kind string ("apprenticeship",
-                  "program", "certification").
-
-        Returns:
-            Dict of unique credentials (values are Credential
-            objects).
-        """
-        match kind:
-            case "apprenticeship" : key = lambda c: c.metadata["rapids_code"]
-            case "program"        : key = lambda c: (c.metadata["institution"], c.label)
-            case _                : key = lambda c: c.label
-
-        return {key(c): c for c in self.all_credentials if c.kind == kind}
-
-
-class Task(NamedTuple):
-    """
-    A single O*NET Task or DWA element with its sentence embedding.
-
-    Produced during SOC task encoding and attached to `Cluster.tasks` for
-    per-task cosine gap analysis during resume matching.
-    """
-
-    name   : str
-    vector : np.ndarray

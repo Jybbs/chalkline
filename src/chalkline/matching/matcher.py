@@ -13,10 +13,10 @@ from dataclasses              import dataclass
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.matching.schemas import ClusterDistance, MatchResult, TaskGap
-from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import Clusters
-from chalkline.pipeline.encoder import SentenceEncoder
+from chalkline.matching.schemas  import ClusterDistance, MatchResult, ScoredTask
+from chalkline.pathways.clusters import Clusters
+from chalkline.pathways.graph    import CareerPathwayGraph
+from chalkline.pipeline.encoder  import SentenceEncoder
 
 
 @dataclass(kw_only=True)
@@ -42,46 +42,41 @@ class ResumeMatcher:
     graph    : CareerPathwayGraph
     svd      : TruncatedSVD
 
-    def _gap_analysis(
+    def _score_tasks(
         self,
         cluster_id  : int,
         resume_unit : np.ndarray
-    ) -> tuple[list[TaskGap], list[TaskGap]]:
+    ) -> list[ScoredTask]:
         """
-        Partition O*NET tasks into demonstrated and gap lists via
-        median-split cosine similarity against the resume embedding.
+        Score O*NET tasks by cosine similarity to the resume and flag each
+        as demonstrated (>= median) or gap (< median).
 
-            cos(𝐫, 𝐭ᵢ) ≥ S̃  →  demonstrated
-            cos(𝐫, 𝐭ᵢ) < S̃  →  gap
-
-        Demonstrated are sorted descending (strongest first), gaps ascending
-        (largest deficits first).
+        Results are sorted by descending similarity so strengths appear
+        first and the largest gaps appear last.
 
         Args:
             cluster_id  : For Task+DWA occupation lookup.
             resume_unit : L2-normalized resume embedding (1, embedding_dim).
-
-        Returns:
-            Tuple of (demonstrated tasks, gap tasks).
         """
         tasks = self.clusters[cluster_id].tasks
         if not tasks:
-            return [], []
+            return []
 
         task_matrix  = np.stack([t.vector for t in tasks])
         similarities = cosine_similarity(resume_unit, task_matrix)[0]
-        pairs        = [(t.name, s) for t, s in zip(tasks, similarities)]
-        threshold    = np.median(similarities)
-        return (
-            sorted(
-                [TaskGap(name=n, similarity=s) for n, s in pairs if s >= threshold],
-                key     = lambda t: t.similarity,
-                reverse = True
-            ),
-            sorted(
-                [TaskGap(name=n, similarity=s) for n, s in pairs if s < threshold],
-                key = lambda t: t.similarity
-            )
+        threshold    = float(np.median(similarities))
+        return sorted(
+            [
+                ScoredTask(
+                    demonstrated = s >= threshold,
+                    name         = t.name,
+                    similarity   = s,
+                    skill_type   = t.skill_type
+                )
+                for t, s in zip(tasks, similarities)
+            ],
+            key     = lambda t: t.similarity,
+            reverse = True
         )
 
     def match(self, resume_text: str) -> MatchResult:
@@ -107,21 +102,22 @@ class ResumeMatcher:
         resume_svd  = self.svd.transform(resume_unit)[0]
         distances   = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
 
-        ranked             = np.argsort(distances)
-        cluster_id         = self.clusters.cluster_ids[ranked[0]]
-        demonstrated, gaps = self._gap_analysis(cluster_id, resume_unit)
+        ranked     = np.argsort(distances)
+        cluster_id = self.clusters.cluster_ids[ranked[0]]
         return MatchResult(
             cluster_distances = [
                 ClusterDistance(
-                    cluster_id = self.clusters.cluster_ids[index],
-                    distance   = distances[index]
+                    cluster_id = (cid := self.clusters.cluster_ids[index]),
+                    distance   = distances[index],
+                    job_zone   = (c := self.clusters[cid]).job_zone,
+                    sector     = c.sector,
+                    soc_title  = c.soc_title
                 )
                 for index in ranked
             ],
             cluster_id   = cluster_id,
             coordinates  = resume_svd.tolist(),
-            demonstrated = demonstrated,
-            gaps         = gaps,
             reach        = self.graph.reach(cluster_id),
+            scored_tasks = self._score_tasks(cluster_id, resume_unit),
             sector       = self.clusters[cluster_id].sector
         )

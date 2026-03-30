@@ -12,11 +12,18 @@ def _():
 
     from pathlib import Path
 
-    from chalkline.display.theme import Theme
+    from chalkline.display.loaders import ContentLoader, Layout
+    from chalkline.display.theme   import Theme
 
-    theme = Theme(dark_fn=lambda: mo.app_meta().theme == "dark")
+    content = ContentLoader()
+    layout  = Layout(content)
+    theme   = Theme(
+        dark_fn     = lambda: mo.app_meta().theme == "dark",
+        jz_labels   = content.labels.job_zones,
+        type_labels = content.labels.skill_types
+    )
 
-    return Path, mo, theme
+    return Path, content, layout, mo, theme
 
 
 # ── Pipeline loading ────────────────────────────────────────────────
@@ -57,11 +64,11 @@ def _(Path):
 # ── Upload widget ───────────────────────────────────────────────────
 
 @app.cell
-def _(mo):
+def _(content, mo):
     upload = mo.ui.file(
         filetypes = [".pdf"],
         kind      = "area",
-        label     = "Drop a resume PDF here"
+        label     = content.labels.upload_label
     )
     return (upload,)
 
@@ -69,13 +76,17 @@ def _(mo):
 # ── Splash page ─────────────────────────────────────────────────────
 
 @app.cell
-def _(Path, labor, mo, pipeline, upload):
-    from chalkline.display.schemas import build_splash
+def _(Path, content, labor, mo, pipeline, upload):
+    from chalkline.display.schemas import SplashMetrics
     from chalkline.display.tabs    import splash
 
     mo.stop(bool(upload.value), mo.md(""))
     mo.vstack([
-        splash(Path(__file__).parent / "assets", build_splash(pipeline, labor)),
+        splash(
+            content,
+            Path(__file__).parent / "assets",
+            SplashMetrics.from_pipeline(labor, pipeline)
+        ),
         upload
     ])
     return
@@ -84,39 +95,29 @@ def _(Path, labor, mo, pipeline, upload):
 # ── Upload gate + matching ──────────────────────────────────────────
 
 @app.cell
-def _(labor, mo, occupations, pipeline, reference, upload):
-    from chalkline.display.schemas import DisplayData
-
+def _(content, mo, pipeline, upload):
     mo.stop(not upload.value, mo.md(""))
 
-    with mo.status.spinner("Analyzing your resume..."):
+    with mo.status.spinner(content.labels.spinner_text):
         result = pipeline.match(
             (resume := upload.value[0]).contents,
             label = resume.name
         )
 
-    data = DisplayData(
-        labor       = labor,
-        occupations = occupations,
-        pipeline    = pipeline,
-        reference   = reference,
-        result      = result
-    )
-    return (data,)
+    profile = pipeline.clusters[result.cluster_id]
+    return profile, result
 
 
 # ── Match bar ──────────────────────────────────────────────────────
 
 @app.cell
-def _(data, mo, theme, upload):
-    from chalkline.display.layout import match_bar
-
+def _(layout, mo, profile, theme, upload):
     mo.stop(not upload.value, mo.md(""))
-    match_bar(
-        jz_label  = theme.jz_label(data.profile.job_zone),
-        postings  = data.profile.size,
-        sector    = data.profile.sector,
-        soc_title = data.profile.soc_title
+    layout.match_bar(
+        jz_label  = theme.jz_label(profile.job_zone),
+        postings  = profile.size,
+        sector    = profile.sector,
+        soc_title = profile.soc_title
     )
     return
 
@@ -124,11 +125,11 @@ def _(data, mo, theme, upload):
 # ── Charts ──────────────────────────────────────────────────────────
 
 @app.cell
-def _(data, pipeline, theme):
+def _(pipeline, result, theme):
     from chalkline.display.charts import Charts
 
     charts = Charts(
-        matched_id = data.result.cluster_id,
+        matched_id = result.cluster_id,
         pathway    = pipeline.graph,
         theme      = theme
     )
@@ -138,31 +139,39 @@ def _(data, pipeline, theme):
 # ── Target dropdown ─────────────────────────────────────────────────
 
 @app.cell
-def _(data):
-    from chalkline.display.layout import target_dropdown
-
-    dropdown = target_dropdown(data.cluster_options, data.profile.display_label)
+def _(layout, pipeline, profile):
+    dropdown = layout.target_dropdown(
+        {p.display_label: cid for cid, p in pipeline.clusters.pairs()},
+        profile.display_label
+    )
     return (dropdown,)
 
 
 # ── Target resolution ───────────────────────────────────────────────
 
 @app.cell
-def _(data, dropdown):
-    target_data = data.for_target(dropdown.value or data.result.cluster_id)
-    return (target_data,)
+def _(dropdown, result):
+    target_id = dropdown.value or result.cluster_id
+    return (target_id,)
 
 
 # ── Tab context ─────────────────────────────────────────────────────
 
 @app.cell
-def _(charts, data, theme):
-    from chalkline.display.tabs import TabContext
+def _(charts, content, labor, layout, occupations, pipeline, profile, reference, result, theme):
+    from chalkline.display.loaders import TabContext
 
     ctx = TabContext(
-        charts = charts,
-        data   = data,
-        theme  = theme
+        charts      = charts,
+        content     = content,
+        layout      = layout,
+        labor       = labor,
+        occupations = occupations,
+        pipeline    = pipeline,
+        profile     = profile,
+        reference   = reference,
+        result      = result,
+        theme       = theme
     )
     return (ctx,)
 
@@ -170,17 +179,18 @@ def _(charts, data, theme):
 # ── Tab layout ──────────────────────────────────────────────────────
 
 @app.cell
-def _(ctx, dropdown, mo, target_data):
+def _(content, ctx, dropdown, mo, target_id):
     from chalkline.display import tabs
 
+    tn = content.labels.tab_names
     mo.ui.tabs(
         {
-            "Your Match"      : lambda: tabs.your_match(ctx),
-            "Resume Feedback" : lambda: tabs.resume_feedback(ctx),
-            "Career Paths"    : lambda: tabs.career_paths(ctx, target_data, dropdown),
-            "Job Postings"    : lambda: tabs.job_postings(ctx),
-            "Next Steps"      : lambda: tabs.next_steps(ctx, target_data),
-            "ML Internals"    : lambda: tabs.ml_internals(ctx)
+            tn["your_match"]      : lambda: tabs.your_match(ctx),
+            tn["resume_feedback"] : lambda: tabs.resume_feedback(ctx),
+            tn["career_paths"]    : lambda: tabs.career_paths(ctx, dropdown, target_id),
+            tn["job_postings"]    : lambda: tabs.job_postings(ctx),
+            tn["next_steps"]      : lambda: tabs.next_steps(ctx, target_id),
+            tn["ml_internals"]    : lambda: tabs.ml_internals(ctx)
         },
         lazy = True
     )

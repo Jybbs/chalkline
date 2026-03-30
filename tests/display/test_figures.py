@@ -5,8 +5,6 @@ Validates that `Charts` produces figures with expected trace
 counts, annotations, and structural invariants.
 """
 
-import plotly.graph_objects as go
-
 from chalkline.display.charts   import Charts
 from chalkline.pathways.schemas import Reach
 
@@ -16,53 +14,81 @@ class TestCharts:
     Validate figure construction from synthetic pipeline fixtures.
     """
 
+    def test_bar_horizontal(self, charts: Charts):
+        """
+        Horizontal bar sets x-axis title and reverses the y-axis.
+        """
+        layout = charts.bar(
+            height     = 300,
+            horizontal = True,
+            title      = "Count",
+            x          = [10, 20],
+            y          = ["A", "B"]
+        ).to_dict()["layout"]
+        assert layout["xaxis"]["title"]["text"] == "Count"
+        assert layout["yaxis"]["autorange"] == "reversed"
+
+    def test_bar_vertical(self, charts: Charts):
+        """
+        Vertical bar sets y-axis title with no reversed axis.
+        """
+        layout = charts.bar(
+            height = 300,
+            title  = "Count",
+            x      = ["A", "B"],
+            y      = [10, 20]
+        ).to_dict()["layout"]
+        assert layout["yaxis"]["title"]["text"] == "Count"
+
     def test_dendrogram_annotation(self, charts: Charts):
         """
-        Dendrogram figure contains a "You" annotation for the
-        matched cluster.
+        Dendrogram annotation text appears in the figure layout.
         """
-        layout = charts.dendrogram().to_dict()["layout"]
-        assert layout["annotations"]
-        assert "You" in [a["text"] for a in layout["annotations"]]
+        layout = charts.dendrogram(
+            annotation_text = "Here",
+            title           = "D",
+            x_title         = "X",
+            y_title         = "Y"
+        ).to_dict()["layout"]
+        texts = [a["text"] for a in layout["annotations"]]
+        assert "Here" in texts
 
     def test_dendrogram_traces(self, charts: Charts):
         """
-        Dendrogram figure contains at least one line trace for the
+        Dendrogram contains at least one line trace for the
         U-links.
         """
-        traces = charts.dendrogram().to_dict()["data"]
-        assert len(traces) >= 1
-        assert traces[0]["mode"] == "lines"
+        fig = charts.dendrogram(
+            annotation_text = "X",
+            title           = "D",
+            x_title         = "X",
+            y_title         = "Y"
+        )
+        assert fig.to_dict()["data"][0]["mode"] == "lines"
 
-    def test_landscape_matched(self, charts: Charts):
+    def test_landscape_resume_trace(self, charts: Charts):
         """
-        Landscape figure without coordinates contains the career
-        families trace.
+        Landscape with coordinates adds a second trace for the
+        resume marker.
         """
-        traces = charts.landscape([]).to_dict()["data"]
-        assert len(traces) >= 1
-        assert traces[0]["name"] == "Career Families"
-
-    def test_landscape_resume(self, charts: Charts):
-        """
-        Landscape figure with coordinates adds a resume marker
-        trace.
-        """
-        traces = charts.landscape([0.1, 0.2]).to_dict()["data"]
-        assert len(traces) == 2
-        assert traces[1]["name"] == "Your Resume"
+        fig = charts.landscape(
+            coordinates     = [0.1, 0.2],
+            legend_families = "F",
+            legend_resume   = "R",
+            title           = "L",
+            x_title         = "X",
+            y_title         = "Y"
+        )
+        assert len(fig.to_dict()["data"]) == 2
 
     def test_pathways_edges(self, charts: Charts, reach: Reach):
         """
         Pathways figure contains edge and node traces.
         """
-        target_id = charts.cluster_ids[0]
-        traces = charts.pathways(reach, target_id).to_dict()["data"]
-        assert len(traces) >= 2
+        fig = charts.pathways(
+            reach      = reach,
+            target_id  = charts.cluster_ids[0],
+            title      = "P"
+        )
+        assert len(fig.to_dict()["data"]) >= 2
 
-    def test_returns_go_figure(self, charts: Charts):
-        """
-        All builder methods return `go.Figure` instances.
-        """
-        assert isinstance(charts.dendrogram(), go.Figure)
-        assert isinstance(charts.landscape([]), go.Figure)

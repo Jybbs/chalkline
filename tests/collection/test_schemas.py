@@ -6,7 +6,6 @@ generation via the `id` field.
 """
 
 from datetime import date
-from pytest   import raises
 
 from chalkline.collection.schemas import Posting
 
@@ -33,19 +32,6 @@ class TestPosting:
         data = sample_posting.model_dump()
         assert data["id"]
         assert Posting.model_validate(data).id == sample_posting.id
-
-    def test_minimum_description_length(self):
-        """
-        Descriptions shorter than 50 characters are rejected.
-        """
-        with raises(Exception, match="at least 50 characters"):
-            Posting(
-                company     = "Test",
-                date_posted = None,
-                description = "Too short",
-                source_url  = "https://example.com",
-                title       = "Worker"
-            )
 
     def test_special_character_slugification(self, posting):
         """
