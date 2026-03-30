@@ -114,7 +114,7 @@ class Layout:
             cls       : CSS class for the wrapper div.
             **attrs   : Additional HTML attributes on the wrapper.
         """
-        return mo.Html(str(div(f".{cls}", **attrs)[children]))
+        return mo.Html(str(div(f".{cls}", **attrs)[children].__html__()))
 
     def board_card(self, **kwargs) -> mo.Html:
         """
@@ -201,9 +201,9 @@ class Layout:
         description, title = section
         return mo.vstack([
             mo.md(f"#### {title}"),
-            mo.Html(str(span(style="color: var(--muted-foreground);")[
-                description
-            ]))
+            mo.Html(str(
+                span(style="color: var(--muted-foreground);")[description].__html__()
+            ))
         ])
 
     def match_bar(

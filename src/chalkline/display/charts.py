@@ -11,6 +11,7 @@ import numpy                as np
 import plotly.graph_objects as go
 
 from collections.abc       import Collection, Iterable, Sequence
+from plotly.colors         import hex_to_rgb
 from networkx              import betweenness_centrality, spring_layout
 from sklearn.preprocessing import normalize
 
@@ -126,12 +127,12 @@ class Charts:
         self,
         height     : int,
         title      : str,
-        color      : str | Sequence           = "accent",
+        color      : str | Sequence         = "accent",
         horizontal : bool                   = False,
         line       : Trace | None           = None,
         series     : Iterable[Trace] | None = None,
-        x          : Iterable | None        = None,
-        y          : Iterable | None        = None,
+        x          : Sequence               = (),
+        y          : Sequence               = (),
         **marker_kw
     ) -> go.Figure:
         """
@@ -184,6 +185,7 @@ class Charts:
             )
 
         color      = self.theme.resolve(color)
+        x, y       = list(x), list(y)
         bar_trace  = go.Bar(
             marker      = dict(color=color, cornerradius=4, **marker_kw),
             name        = "Individual" if line else None,
@@ -286,7 +288,7 @@ class Charts:
             textfont     = dict(size=10),
             textposition = "middle right",
             x            = [c.job_zone for c in clusters],
-            y            = range(len(clusters))
+            y            = list(range(len(clusters)))
         ))
         return self._apply_layout(
             fig, max(300, len(clusters) * 45),
@@ -294,8 +296,8 @@ class Charts:
             xaxis  = dict(
                 dtick    = 1,
                 range    = [0.5, 5.5],
-                ticktext = tick_labels,
-                tickvals = range(1, 6),
+                ticktext = list(tick_labels),
+                tickvals = list(range(1, 6)),
                 title    = x_title
             ),
             yaxis  = dict(visible=False)
@@ -583,17 +585,27 @@ class Charts:
             yaxis       = hidden_axis
         )
 
-    def pie(self, height: int, **trace_kw) -> go.Figure:
+    def pie(
+        self,
+        height : int,
+        labels : Iterable | None = None,
+        values : Iterable | None = None,
+        **trace_kw
+    ) -> go.Figure:
         """
         Pie or donut chart with tight margins and no legend.
 
         Args:
             height     : Figure height in pixels.
-            **trace_kw : Keywords forwarded to `go.Pie(...)`.
+            labels     : Slice labels (materialized to list for Plotly).
+            values     : Slice values (materialized to list for Plotly).
+            **trace_kw : Extra keywords forwarded to `go.Pie(...)`.
 
         Returns:
             Configured pie/donut figure.
         """
+        if labels is not None: trace_kw["labels"] = list(labels)
+        if values is not None: trace_kw["values"] = list(values)
         return self._apply_layout(
             go.Figure(go.Pie(**trace_kw)), height,
             margin     = dict.fromkeys("blrt", 20),
@@ -624,7 +636,7 @@ class Charts:
             color = self.theme.colors[t.color_role]
             fig.add_trace(go.Scatterpolar(
                 fill      = "toself",
-                fillcolor = f"{color}{round(t.alpha * 255):02x}",
+                fillcolor = f"rgba{(*hex_to_rgb(color), t.alpha)}",
                 line      = dict(color=color, dash=t.dash, width=2),
                 name      = t.name,
                 r         = [*t.values, t.values[0]],
@@ -666,6 +678,7 @@ class Charts:
         Returns:
             Configured timeline scatter figure.
         """
+        dates, hover = list(dates), list(hover) if hover else None
         return self._apply_layout(
             go.Figure(go.Scatter(
                 hovertext = hover,
@@ -701,9 +714,11 @@ class Charts:
         Returns:
             Configured treemap figure.
         """
-        marker = {
-            "colors": self.sector_colors(sectors)
-        } if sectors else {"cornerradius": 4},
+        labels, values = list(labels), list(values)
+        marker = (
+            {"colors": self.sector_colors(sectors)}
+            if sectors else {"cornerradius": 4}
+        )
         fig    = go.Figure(go.Treemap(
             branchvalues = branch_values,
             labels       = labels,
@@ -712,8 +727,8 @@ class Charts:
             textinfo     = None if sectors else "label+value",
             values       = values
         ))
-        margin = {} if sectors else dict(b=10, l=10, r=10, t=10)
-        return self._apply_layout(fig, height, **margin)
+        kw = {"margin": dict.fromkeys("blrt", 10)} if not sectors else {}
+        return self._apply_layout(fig, height, **kw)
 
     def violin(
         self,
