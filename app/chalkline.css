@@ -1,48 +1,46 @@
 @import url("https://fonts.googleapis.com/css2?family=Fira+Code&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap");
 
 
 /* ── Tokens ──────────────────────────────────────────────────── */
 
 :root {
-    color-scheme: light dark;
+    color-scheme: dark;
 
-    --heading-font   : "Lora", "Georgia", serif;
-    --monospace-font : "Fira Code", monospace;
+    --marimo-text-font      : "DM Sans", system-ui, sans-serif;
+    --marimo-heading-font   : "Lora", "Georgia", serif;
+    --marimo-monospace-font : "Fira Code", monospace;
 
     --radius: 8px;
 
-    --accent           : light-dark(#3b6298, #7db3e0);
-    --background       : light-dark(#f9f9f7, #1a1a1a);
-    --border           : light-dark(#e5e5e0, #333333);
-    --card             : light-dark(#ffffff, #242424);
-    --card-foreground  : light-dark(#1a1a1a, #e0e0e0);
-    --foreground       : light-dark(#1a1a1a, #ebebeb);
-    --muted            : light-dark(#f0ede6, #2a2a2a);
-    --muted-foreground : light-dark(#6b7280, #999999);
-    --primary          : light-dark(#8a6b1e, #E8C840);
-    --secondary        : light-dark(#2d6e38, #8cc5a3);
+    --accent           : #7db3e0;
+    --background       : #1a1a1a;
+    --border           : #333333;
+    --card             : #242424;
+    --card-foreground  : #e0e0e0;
+    --foreground       : #ebebeb;
+    --muted            : #2a2a2a;
+    --muted-foreground : #999999;
+    --primary          : #E8C840;
+    --secondary        : #8cc5a3;
 
+    --on-color             : #1a1a1a;
     --accent-foreground    : var(--on-color);
-    --on-color             : light-dark(#ffffff, #1a1a1a);
-    --primary-foreground   : light-dark(#1a1a1a, #1a1a1a);
+    --primary-foreground   : var(--on-color);
     --secondary-foreground : var(--on-color);
 
-    --error              : light-dark(#b33a2b, #e8876f);
+    --error              : #e8876f;
     --error-foreground   : var(--on-color);
     --link               : var(--accent);
     --success            : var(--secondary);
     --success-foreground : var(--on-color);
 
-    --cl-building  : light-dark(#2e6da4, #5a9fd4);
-    --cl-highway   : light-dark(#b05a20, #e0854a);
-    --cl-specialty : light-dark(#267a4b, #5cb878);
+    --cl-building  : #5a9fd4;
+    --cl-highway   : #e0854a;
+    --cl-specialty : #5cb878;
 
-    --base-shadow: light-dark(
-        hsl(0 0% 85% / 0.4),
-        hsl(0 0% 0% / 0.6)
-    );
+    --base-shadow: hsl(0 0% 0% / 0.6);
 }
 
 /* ── Cards ───────────────────────────────────────────────────── */
@@ -62,27 +60,35 @@
     & .badge             { margin-inline-start: 0.5rem; }
     & .meta              { font-size: 0.85em; }
 
-    & a {
-        border             : 1px solid var(--link);
-        border-radius      : var(--radius);
-        color              : var(--link);
-        display            : inline-block;
-        font-weight        : 600;
-        margin-block-start : 0.5rem;
-        padding            : 0.3rem 0.75rem;
-        text-decoration    : none;
-        transition         : background 0.15s, color 0.15s;
-
-        &:hover, &:focus-visible {
-            background : var(--link);
-            color      : var(--on-color);
-        }
-    }
+    position : relative;
 
     & p {
         font-size    : 0.9em;
         margin-block : 0.5rem;
     }
+}
+
+.cl-card-link {
+    align-items     : center;
+    background      : var(--muted);
+    border          : 1px solid var(--border);
+    border-radius   : 50%;
+    bottom          : 0.75rem;
+    color           : var(--muted-foreground);
+    display         : flex;
+    height          : 1.75rem;
+    justify-content : center;
+    position        : absolute;
+    right           : 0.75rem;
+    text-decoration : none;
+    transition      : background 0.15s, border-color 0.15s, color 0.15s;
+    width           : 1.75rem;
+}
+
+.cl-card-link:hover {
+    background   : var(--accent);
+    border-color : var(--accent);
+    color        : var(--on-color);
 }
 
 .cl-card-grid {
@@ -261,6 +267,10 @@ marimo-file label {
     text-align  : end;
 }
 
+.cl-score-low  { color: var(--error); }
+.cl-score-mid  { color: var(--primary); }
+.cl-score-high { color: var(--secondary); }
+
 .cl-group-label { flex: 1; }
 
 .cl-group-count {
@@ -306,6 +316,30 @@ marimo-file label {
 .cl-flow-detail {
     color     : var(--muted-foreground);
     font-size : 0.75rem;
+}
+
+/* ── Section headers ────────────────────────────────────────── */
+
+.cl-section-desc { color: var(--muted-foreground); }
+
+/* ── Global spacing ─────────────────────────────────────────── */
+
+/* ── Marimo prose overrides ─────────────────────────────────── */
+
+.markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5,
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5 {
+    color       : var(--foreground);
+    font-family : var(--heading-font);
+    font-weight : 700;
+}
+
+.markdown code, .prose code,
+.cl-callout code {
+    color : var(--foreground);
+}
+
+.markdown a, .prose a {
+    color : var(--accent);
 }
 
 /* ── Chart background override ──────────────────────────────── */

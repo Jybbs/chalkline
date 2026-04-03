@@ -1,104 +1,104 @@
 [info]
 text = '''
-The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `all-mpnet-base-v2` into **768-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
+The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `gte-base-en-v1.5` into **768-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
 
 **Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options. The **dendrogram** shows the full merge hierarchy that Ward's method considered before cutting at $k = 20$ families, revealing which career families are most similar to each other at progressively coarser granularity.'''
 
 [chart_labels]
-brokerage_title    = "Brokerage"
-career_families    = "Career Families"
-career_family      = "Career Family"
-count_title        = "Count"
-dendrogram         = "Hierarchical Clustering Dendrogram"
-edge_weight_title  = "Edge Weight (cosine similarity)"
-landscape          = "Career Landscape (SVD Components 1-2)"
-pairwise_title     = "Pairwise Centroid Distance"
-postings_title     = "Postings"
-silhouette_title   = "Silhouette Coefficient"
-svd_component_1    = "SVD Component 1"
-svd_component_2    = "SVD Component 2"
-variance_title     = "Variance Explained (%)"
-ward_distance      = "Ward Distance"
-you                = "You"
-your_resume        = "Your Resume"
+brokerage_title    = 'Brokerage'
+career_families    = 'Career Families'
+career_family      = 'Career Family'
+count_title        = 'Count'
+dendrogram         = 'Hierarchical Clustering Dendrogram'
+edge_weight_title  = 'Edge Weight (cosine similarity)'
+landscape          = 'Career Landscape (SVD Components 1-2)'
+pairwise_title     = 'Pairwise Centroid Distance'
+postings_title     = 'Postings'
+silhouette_title   = 'Silhouette Coefficient'
+svd_component_1    = 'SVD Component 1'
+svd_component_2    = 'SVD Component 2'
+variance_title     = 'Variance Explained (%)'
+ward_distance      = 'Ward Distance'
+you                = 'You'
+your_resume        = 'Your Resume'
 
 [chart_lists]
 stat_labels = ["Corpus Size", "Embedding Model", "Clusters (k)", "SVD Components", "Pathway Edges"]
 
 [[process_steps]]
-number = "1"
-label  = "Collect"
-detail = "{corpus_size:,} postings from AGC Maine"
+number = '1'
+label  = 'Collect'
+detail = '{corpus_size:,} postings from AGC Maine'
 
 [[process_steps]]
-number = "2"
-label  = "Encode"
-detail = "{embedding_model}"
+number = '2'
+label  = 'Encode'
+detail = '{embedding_model}'
 
 [[process_steps]]
-number = "3"
-label  = "Reduce"
-detail = "SVD to {component_count}D ({total_variance:.0f}% variance)"
+number = '3'
+label  = 'Reduce'
+detail = 'SVD to {component_count}D ({total_variance:.0f}% variance)'
 
 [[process_steps]]
-number = "4"
-label  = "Cluster"
-detail = "Ward HAC, k={cluster_count}"
+number = '4'
+label  = 'Cluster'
+detail = 'Ward HAC, k={cluster_count}'
 
 [[process_steps]]
-number = "5"
-label  = "Graph"
-detail = "{edge_count} pathway edges"
+number = '5'
+label  = 'Graph'
+detail = '{edge_count} pathway edges'
 
 [[process_steps]]
-number = "6"
-label  = "Match"
-detail = "Resume projection + gap analysis"
+number = '6'
+label  = 'Match'
+detail = 'Resume projection + gap analysis'
 
 [sections.cluster_profiles]
-title       = "Cluster Profiles"
-description = "Metadata for each career family produced by the pipeline."
+title       = 'Cluster Profiles'
+description = 'Metadata for each career family produced by the pipeline.'
 
 [sections.cluster_separation]
-title       = "Cluster Separation"
-description = "Silhouette coefficients measure how well each career family is separated from its neighbors. Higher is better. Colored by sector."
+title       = 'Cluster Separation'
+description = 'Silhouette coefficients measure how well each career family is separated from its neighbors. Higher is better. Colored by sector.'
 
 [sections.dendrogram]
-title       = "Hierarchical Clustering Dendrogram"
-description = "Ward-linkage agglomerative clustering builds a tree of every possible merge, then cuts at k=20."
+title       = 'Hierarchical Clustering Dendrogram'
+description = 'Ward-linkage agglomerative clustering builds a tree of every possible merge, then cuts at k=20.'
 
 [sections.distances]
-title       = "Inter-Cluster Distance Distribution"
-description = "Pairwise distances between cluster centroids, grouped by sector. Wider spread means more diversity within the sector."
+title       = 'Inter-Cluster Distance Distribution'
+description = 'Pairwise distances between cluster centroids, grouped by sector. Wider spread means more diversity within the sector.'
 
 [sections.gateways]
-title       = "Gateway Careers"
-description = "Career families that bridge the most pathways, sorted by brokerage score. High brokerage means the role is a common stepping stone."
+title       = 'Gateway Careers'
+description = 'Career families that bridge the most pathways, sorted by brokerage score. High brokerage means the role is a common stepping stone.'
 
 [sections.landscape]
-title       = "Career Landscape"
-description = "All 20 career family centroids projected onto the first two SVD components. Your resume is the gold star."
+title       = 'Career Landscape'
+description = 'All 20 career family centroids projected onto the first two SVD components. Your resume is the gold star.'
 
 [sections.overview]
-title       = "Under the Hood"
-description = "Technical details of how Chalkline analyzes the job market. This section is for evaluating the methodology."
+title       = 'Under the Hood'
+description = 'Technical details of how Chalkline analyzes the job market. This section is for evaluating the methodology.'
 
 [sections.pathway_strength]
-title       = "Pathway Strength Distribution"
-description = "How similar connected career families are. Higher weight means the transition is more natural."
+title       = 'Pathway Strength Distribution'
+description = 'How similar connected career families are. Higher weight means the transition is more natural.'
 
 [sections.pipeline]
-title       = "Pipeline Process"
-description = "The six-stage pipeline that transforms raw job postings into a navigable career landscape."
+title       = 'Pipeline Process'
+description = 'The six-stage pipeline that transforms raw job postings into a navigable career landscape.'
 
 [sections.sector_dist]
-title       = "Sector Distribution"
-description = "How the corpus breaks down across construction sectors."
+title       = 'Sector Distribution'
+description = 'How the corpus breaks down across construction sectors.'
 
 [sections.treemap]
-title       = "Career Landscape Treemap"
-description = "All career families grouped by sector, sized by posting count. Larger tiles represent more postings."
+title       = 'Career Landscape Treemap'
+description = 'All career families grouped by sector, sized by posting count. Larger tiles represent more postings.'
 
 [sections.variance]
-title       = "Variance Explained"
-description = "How much information each SVD component captures. The first {component_count} components retain {total_variance:.1f}% of the total variance."
+title       = 'Variance Explained'
+description = 'How much information each SVD component captures. The first {component_count} components retain {total_variance:.1f}% of the total variance.'

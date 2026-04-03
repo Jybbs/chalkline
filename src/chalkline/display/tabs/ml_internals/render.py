@@ -17,14 +17,14 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
     ml          = MlMetrics.from_pipeline(ctx.pipeline)
     template_kw = ml.model_dump() | {"total_variance": ml.variance.total}
 
-    return mo.vstack([
-        ctx.layout.header(tab.section("overview")),
-        ctx.layout.stat_strip(zip(tab.stat_labels, ml.stat_values)),
+    return ctx.layout.stack(
+        ctx.layout.header(tab, "overview"),
+        ctx.layout.stats(zip(tab.stat_labels, ml.stat_values)),
 
-        ctx.layout.header(tab.section("pipeline")),
+        ctx.layout.header(tab, "pipeline"),
         ctx.layout.process_flow(s.render(**template_kw) for s in tab.process_steps),
 
-        ctx.layout.header(tab.section("variance", **template_kw)),
+        ctx.layout.header(tab, "variance", **template_kw),
         mo.ui.plotly(ctx.charts.bar(
             height = 320,
             line   = ml.variance.trace,
@@ -33,7 +33,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y      = ml.variance.components
         )),
 
-        ctx.layout.header(tab.section("treemap")),
+        ctx.layout.header(tab, "treemap"),
         mo.ui.plotly(ctx.charts.treemap(
             branch_values = "total",
             height        = 450,
@@ -43,7 +43,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             values        = ml.treemap.values
         )),
 
-        ctx.layout.header(tab.section("gateways")),
+        ctx.layout.header(tab, "gateways"),
         mo.ui.plotly(ctx.charts.bar(
             color      = ctx.charts.sector_colors(ml.brokerage.sectors),
             height     = max(300, len(ml.brokerage.labels) * 26),
@@ -53,7 +53,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y          = ml.brokerage.labels
         )),
 
-        ctx.layout.header(tab.section("cluster_separation")),
+        ctx.layout.header(tab, "cluster_separation"),
         mo.ui.plotly(ctx.charts.bar(
             color      = ctx.charts.sector_colors(ml.silhouette.sectors),
             height     = max(300, len(ml.silhouette.labels) * 26),
@@ -63,14 +63,14 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y          = ml.silhouette.labels
         )),
 
-        ctx.layout.header(tab.section("distances")),
+        ctx.layout.header(tab, "distances"),
         mo.ui.plotly(ctx.charts.violin(
             groups  = ml.pairwise_distances,
             height  = 350,
             y_title = tab.chart_labels["pairwise_title"]
         )),
 
-        ctx.layout.header(tab.section("pathway_strength")),
+        ctx.layout.header(tab, "pathway_strength"),
         mo.ui.plotly(ctx.charts.histogram(
             height  = 300,
             nbins   = 25,
@@ -79,7 +79,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y_title = tab.chart_labels["count_title"]
         )),
 
-        ctx.layout.header(tab.section("sector_dist")),
+        ctx.layout.header(tab, "sector_dist"),
         mo.ui.plotly(ctx.charts.bar(
             color  = ctx.charts.sector_colors(ml.sector_sizes),
             height = 300,
@@ -88,7 +88,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y      = ml.sector_sizes.values()
         )),
 
-        ctx.layout.header(tab.section("dendrogram")),
+        ctx.layout.header(tab, "dendrogram"),
         mo.ui.plotly(ctx.charts.dendrogram(
             annotation_text = tab.chart_labels["you"],
             title           = tab.chart_labels["dendrogram"],
@@ -96,7 +96,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y_title         = tab.chart_labels["ward_distance"]
         )),
 
-        ctx.layout.header(tab.section("landscape")),
+        ctx.layout.header(tab, "landscape"),
         mo.ui.plotly(ctx.charts.landscape(
             coordinates     = ctx.result.coordinates,
             legend_families = tab.chart_labels["career_families"],
@@ -106,7 +106,7 @@ def ml_internals_tab(ctx: TabContext) -> mo.Html:
             y_title         = tab.chart_labels["svd_component_2"]
         )),
 
-        ctx.layout.header(tab.section("cluster_profiles")),
+        ctx.layout.header(tab, "cluster_profiles"),
         mo.tree(ml.cluster_profiles),
         ctx.layout.callout(tab.info)
-    ])
+    )

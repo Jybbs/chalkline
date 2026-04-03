@@ -31,8 +31,8 @@ def next_steps_tab(
     maine       = boards.get("maine", [])
     national    = boards.get("national", [])
 
-    return mo.vstack([
-        ctx.layout.header(tab.section("overview", soc_title=profile.soc_title)),
+    return ctx.layout.stack(
+        ctx.layout.header(tab, "overview", soc_title=profile.soc_title),
 
         *ctx.layout.section_if(cred_counts, tab, "credentials",
             mo.ui.plotly(ctx.charts.pie(
@@ -69,7 +69,7 @@ def next_steps_tab(
         ),
 
         *ctx.layout.section_if(programs, tab, "programs",
-            ctx.layout.card_grid([
+            ctx.layout.grid([
                 ctx.layout.program_card(**p.metadata, name=p.label)
                 for p in programs
             ]),
@@ -86,7 +86,7 @@ def next_steps_tab(
                 e["member_type"] for e in employers if e["member_type"]
             ))
             else []),
-            ctx.layout.card_grid([
+            ctx.layout.grid([
                 ctx.layout.employer_card(**e)
                 for e in employers
             ]),
@@ -94,7 +94,7 @@ def next_steps_tab(
         ),
 
         *ctx.layout.section_if(maine or national, tab, "boards",
-            ctx.layout.card_grid([
+            ctx.layout.grid([
                 ctx.layout.board_card(**b)
                 for b in maine + national
             ]),
@@ -108,4 +108,4 @@ def next_steps_tab(
         ),
 
         ctx.layout.callout(tab.info)
-    ])
+    )

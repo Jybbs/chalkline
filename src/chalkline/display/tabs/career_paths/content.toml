@@ -7,37 +7,37 @@ Credentials are attached to edges via a **dual-threshold cosine filter** that ma
 The **career ladder** positions all families in your sector by O\*NET Job Zone, showing which roles sit at the same experience level and which require stepping up. Edge weights in the network reflect how similar the job postings are between connected families, so stronger connections represent more natural career transitions where your existing skills transfer most readily. Credentials are categorized as **apprenticeships** (*earn-while-you-learn DOL-registered programs*), **educational programs** (*community college and university degrees*), or **certifications** (*industry-recognized credentials from CareerOneStop*).'''
 
 [chart_labels]
-job_zone_axis        = "Job Zone"
-pathways_title       = "Career Pathways from {soc_title}"
-route_strength_title = "Path Strength (cosine similarity)"
+job_zone_axis        = 'Job Zone'
+pathways_title       = 'Career Pathways from {soc_title}'
+route_strength_title = 'Path Strength (cosine similarity)'
 
 [directions]
-advancement = "Advancement"
-lateral     = "Lateral"
+advancement = 'Advancement'
+lateral     = 'Lateral'
 
 [columns.credentials]
-credential = "Credential"
-direction  = "Direction"
-hours      = "Hours"
-target     = "Target"
-type       = "Type"
+credential = 'Credential'
+direction  = 'Direction'
+hours      = 'Hours'
+target     = 'Target'
+type       = 'Type'
 
 [sections.career_ladder]
-title       = "Career Ladder"
-description = "All career families in {sector}, positioned by experience level. Your selected family is highlighted."
+title       = 'Career Ladder'
+description = 'All career families in {sector}, positioned by experience level. Your selected family is highlighted.'
 
 [sections.credentials]
-title       = "Credentials bridging these transitions ({count})"
+title       = 'Credentials bridging these transitions ({count})'
 description = ""
 
 [sections.movement]
-title       = "Movement Options"
-description = "{adv_count} advancement paths (higher experience level) and {lat_count} lateral moves (same level) from {soc_title}."
+title       = 'Movement Options'
+description = '{adv_count} advancement paths (higher experience level) and {lat_count} lateral moves (same level) from {soc_title}.'
 
 [sections.overview]
-title       = "Career Pathways"
-description = "Each connection represents a plausible career move between families at the same experience level (lateral) or one level up (advancement), weighted by how similar the roles are."
+title       = 'Career Pathways'
+description = 'Each connection represents a plausible career move between families at the same experience level (lateral) or one level up (advancement), weighted by how similar the roles are.'
 
 [sections.route_strength]
-title       = "Path Strength Comparison"
-description = "How strongly each destination connects to your selected career family. Higher similarity means a more natural transition."
+title       = 'Path Strength Comparison'
+description = 'How strongly each destination connects to your selected career family. Higher similarity means a more natural transition.'

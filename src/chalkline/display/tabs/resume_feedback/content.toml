@@ -1,10 +1,10 @@
 [hero]
-kind = "info"
-text = "Your resume was matched to **{soc_title}** based on similarity to {posting_count} postings in this career family."
+kind = 'info'
+text = 'Your resume was matched to **{soc_title}** based on similarity to {posting_count} postings in this career family.'
 
 [info]
 text = '''
-Each task from O*NET's occupation profile is encoded as a **768-dimensional sentence embedding** using `all-mpnet-base-v2`, the same model applied to every job posting in the corpus. Your resume receives the same treatment, producing a single embedding vector. **Cosine similarity** measures the directional alignment between your resume vector and each task vector:
+Each task from O\*NET's occupation profile is encoded as a **768-dimensional sentence embedding** using `gte-base-en-v1.5`, the same model applied to every job posting in the corpus. Your resume receives the same treatment, producing a single embedding vector. **Cosine similarity** measures the directional alignment between your resume vector and each task vector:
 
 $$\text{sim}(r, t) = \frac{r \cdot t}{\|r\| \|t\|}$$
 
@@ -13,42 +13,42 @@ Scores closer to 1.0 mean your resume's language closely mirrors the task descri
 O\*NET organizes occupational competencies into seven element types spanning concrete work activities (*Tasks and Detailed Work Activities*), abstract capabilities (*Abilities, Knowledge, and Skills*), and technical proficiencies (*Technology Skills and Tools & Equipment*). The skill profile radar aggregates similarity scores within each type, giving a bird's-eye view of where your resume is strongest. The **gap priority scatter** plots each growth area by how large the individual gap is against how many gaps exist in that element type, so skills in the upper-right quadrant represent the highest-impact improvement opportunities.'''
 
 [chart_labels]
-all_skills_trace   = "All Skills"
-gap_x_title        = "Category Frequency (how many gaps in this type)"
-gap_y_title        = "Gap Magnitude (%)"
-similarity_x_title = "Similarity (%)"
-similarity_y_title = "Number of Skills"
-strengths_trace    = "Strengths Only"
+all_skills_trace   = 'All Skills'
+gap_x_title        = 'Category Frequency (how many gaps in this type)'
+gap_y_title        = 'Gap Magnitude (%)'
+similarity_x_title = 'Similarity (%)'
+similarity_y_title = 'Number of Skills'
+strengths_trace    = 'Strengths Only'
 
 [chart_lists]
 stat_labels = ["Strengths", "Growth Areas"]
 
 [fallbacks]
-no_gaps       = "No gaps identified."
-no_similarity = "No similarity data."
-no_skill_data = "No skill data available."
-no_strengths  = "No demonstrated skills."
+no_gaps       = 'No gaps identified.'
+no_similarity = 'No similarity data.'
+no_skill_data = 'No skill data available.'
+no_strengths  = 'No demonstrated skills.'
 
 [sections.gap_priority]
-title       = "Gap Priority"
-description = "Which gaps matter most? Skills in categories with many gaps AND large individual gap sizes should be prioritized. Larger, darker bubbles represent bigger opportunities."
+title       = 'Gap Priority'
+description = 'Which gaps matter most? Skills in categories with many gaps AND large individual gap sizes should be prioritized. Larger, darker bubbles represent bigger opportunities.'
 
 [sections.growth]
-title       = "Growth Opportunities"
-description = "Skills most postings mention that your resume doesn't strongly reflect yet."
+title       = 'Growth Opportunities'
+description = 'Skills most postings mention that your resume doesn’t strongly reflect yet.'
 
 [sections.how_compare]
-title       = "How Your Skills Compare"
-description = "We compared your resume against O*NET skill definitions for {soc_title} using language similarity. Scores closer to 100% mean your resume strongly reflects that skill."
+title       = 'How Your Skills Compare'
+description = 'We compared your resume against O\*NET skill definitions for {soc_title} using language similarity. Scores closer to 100% mean your resume strongly reflects that skill.'
 
 [sections.similarity_dist]
-title       = "Similarity Distribution"
-description = "How your skill scores are spread. The dashed line marks the median. Skills to the right are strengths, skills to the left are gaps."
+title       = 'Similarity Distribution'
+description = 'How your skill scores are spread. The dashed line marks the median. Skills to the right are strengths, skills to the left are gaps.'
 
 [sections.skill_profile]
-title       = "Skill Profile by Category"
-description = "Average similarity across O*NET skill types. The solid area covers all skills, the dashed line shows only your demonstrated strengths."
+title       = 'Skill Profile by Category'
+description = 'Average similarity across O\*NET skill types. The solid area covers all skills, the dashed line shows only your demonstrated strengths.'
 
 [sections.strengths]
-title       = "Your Strengths"
-description = "Skills your resume demonstrates. Expand a category to see individual scores."
+title       = 'Your Strengths'
+description = 'Skills your resume demonstrates. Expand a category to see individual scores.'

@@ -18,7 +18,7 @@ def _():
     content = ContentLoader()
     layout  = Layout(content)
     theme   = Theme(
-        dark_fn     = lambda: mo.app_meta().theme == "dark",
+        dark_fn     = lambda: True,
         jz_labels   = content.labels.job_zones,
         type_labels = content.labels.skill_types
     )

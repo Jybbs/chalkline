@@ -52,8 +52,8 @@ def career_paths_tab(
         for c in e.credentials
     ]
 
-    return mo.vstack([
-        ctx.layout.header(tab.section("overview")),
+    return ctx.layout.stack(
+        ctx.layout.header(tab, "overview"),
         dropdown,
         mo.ui.plotly(ctx.charts.pathways(
             reach     = reach,
@@ -124,4 +124,4 @@ def career_paths_tab(
             },
             multiple = True
         )] if credential_rows else [])
-    ])
+    )

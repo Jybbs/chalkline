@@ -1,5 +1,5 @@
-tagline = "Career mapping for Maine's construction industry"
-title   = "Chalkline"
+tagline = 'Career mapping for Maine’s construction industry'
+title   = 'Chalkline'
 
 stat_labels = [
     "Job Postings", "Companies", "Maine Locations", "Career Families",

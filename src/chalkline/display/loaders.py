@@ -86,11 +86,13 @@ class Layout:
         """
         self.content = content
 
-    def _link(self, key: str, url: str):
+    def _link(self, url: str):
         """
-        Anchor element with link text from shared card labels.
+        External link icon anchored to the bottom-right of a card.
         """
-        return a(href=url)[self.content.labels.card_links[key]]
+        return a(".cl-card-link", href=url, target="_blank")[
+            Markup(mo.icon("lucide:external-link", size=14).text)
+        ]
 
     def _stat(self, label: str, value: str):
         """
@@ -131,15 +133,11 @@ class Layout:
 
     def callout(self, text: str, kind: str = "info") -> mo.Html:
         """
-        Branded callout with left-border accent matching the splash theme.
-
-        Uses `.cl-callout` CSS with `data-kind` variants instead of Marimo's
-        default `mo.callout`, so callouts inherit the dashboard's Lora serif
-        typography and design tokens.
+        Branded callout with left-border accent.
 
         Args:
             kind : Semantic variant ("info", "success", "warn").
-            text : Markdown string.
+            text : Markdown string rendered inside the callout.
 
         Returns:
             Styled callout element.
@@ -148,21 +146,6 @@ class Layout:
             Markup(mo.md(text).text),
             cls       = "cl-callout",
             data_kind = kind
-        )
-
-    def card_grid(self, cards: Iterable[mo.Html]) -> mo.Html:
-        """
-        Arrange cards in a responsive two-column grid.
-
-        Args:
-            cards: Card elements to arrange.
-
-        Returns:
-            Grid container wrapping all cards.
-        """
-        return self._to_html(
-            [Markup(c.text) for c in cards],
-            cls = "cl-card-grid"
         )
 
     def employer_card(self, **kwargs) -> mo.Html:
@@ -176,34 +159,49 @@ class Layout:
         return self._to_html(
             strong[kwargs["name"]],
             span(".badge")[kwargs["member_type"]], br,
-            self._link("view_posting", kwargs["posting_url"]),
-            [
-                " \u00b7 ",
-                self._link("career_page", career_url)
-            ] if career_url else None,
+            self._link(kwargs["posting_url"]),
             cls = "cl-card"
         )
 
-    def header(self, section: tuple[str, str]) -> mo.Html:
+    def grid(self, cards: Iterable[mo.Html]) -> mo.Html:
         """
-        Chart section with a bold title and a one-sentence explanation.
-
-        Every visualization in the dashboard gets a header that says what it
-        shows and why it matters, with technical terms contextualized
-        inline.
+        Arrange cards in a responsive two-column CSS grid.
 
         Args:
-            section: (description, title) pair from `TabContent.section()`.
+            cards: Card elements to arrange.
+
+        Returns:
+            Grid container wrapping all cards.
+        """
+        return self._to_html(
+            [Markup(c.text) for c in cards],
+            cls = "cl-card-grid"
+        )
+
+    def header(
+        self,
+        tab : TabContent,
+        key : str,
+        **fmt
+    ) -> mo.Html:
+        """
+        Section header with a bold serif title and muted description.
+
+        Absorbs the `tab.section()` lookup so call sites pass the tab
+        and key directly instead of a pre-resolved tuple.
+
+        Args:
+            tab  : Tab content holding section definitions.
+            key  : Section key to look up.
+            **fmt : Format kwargs forwarded to `tab.section()`.
 
         Returns:
             Vertically stacked title and description.
         """
-        description, title = section
+        description, title = tab.section(key, **fmt)
         return mo.vstack([
             mo.md(f"#### {title}"),
-            mo.Html(str(
-                span(style="color: var(--muted-foreground);")[description].__html__()
-            ))
+            self._to_html(description, cls="cl-section-desc")
         ])
 
     def match_bar(
@@ -236,8 +234,8 @@ class Layout:
 
     def posting_card(self, posting: Posting) -> mo.Html:
         """
-        Job posting card with title, company, location, date, truncated
-        description, and a link to the original listing.
+        Job posting card with title, company, location, date, and a
+        link to the original listing.
 
         Args:
             posting: Corpus posting record.
@@ -245,9 +243,6 @@ class Layout:
         Returns:
             Styled card element.
         """
-        if len(description := posting.description) > 200:
-            description = description[:200].rsplit(" ", 1)[0] + "..."
-
         location = posting.location or self.content.labels.fallback_location
         date_str = (
             f" \u00b7 {posting.date_posted:%b %d, %Y}"
@@ -258,8 +253,7 @@ class Layout:
             strong[posting.title], br,
             span(".secondary")[posting.company], br,
             span(".meta")[location, date_str],
-            p[description],
-            self._link("view_posting", posting.source_url),
+            self._link(posting.source_url),
             cls = "cl-card"
         )
 
@@ -300,26 +294,34 @@ class Layout:
             strong[kwargs["name"]], br,
             span(".secondary")[kwargs["institution"]],
             f" \u00b7 ", span[kwargs["credential"]], br,
-            self._link("program_details", kwargs["url"]),
+            self._link(kwargs["url"]),
             cls = "cl-card"
         )
 
-    def section_if(self, condition, tab, key, *body, **fmt) -> list:
+    def section_if(
+        self,
+        condition : object,
+        tab       : TabContent,
+        key       : str,
+        *body,
+        **fmt
+    ) -> list:
         """
         Conditionally render a headed section.
 
         Returns a header followed by body elements when `condition` is
-        truthy, or an empty list for unpacking into `mo.vstack`.
+        truthy, or an empty list for unpacking into a `stack` call.
 
         Args:
             condition : Truthy value gating the section.
+            tab       : Tab content with section definitions.
+            key       : Section key to look up.
+            *body     : Elements to render below the header.
             **fmt     : Format kwargs for `tab.section()`.
-            key       : Section key in the tab's content.
-            tab       : TabContent with section definitions.
         """
         if not condition:
             return []
-        return [self.header(tab.section(key, **fmt)), *body]
+        return [self.header(tab, key, **fmt), *body]
 
     def skill_tree(
         self,
@@ -339,14 +341,13 @@ class Layout:
         Args:
             demonstrated : True for strengths, False for gaps.
             groups       : Skill type to scored skill lists.
-            theme        : For `score_color` and `type_label` access.
+            theme        : For `type_label` access.
 
         Returns:
             Styled HTML tree element.
         """
         score = lambda v: span(
-            ".cl-skill-score",
-            style=f"color:{theme.score_color(v)}"
+            f".cl-skill-score.cl-score-{theme.score_tier(v)}"
         )[f"{v}%"]
 
         return self._to_html(
@@ -419,29 +420,45 @@ class Layout:
             cls = "cl-splash"
         )
 
-    def stat_strip(
+    def stack(
         self,
-        stats : Iterable[tuple[str, str]],
-        cls   : str = "cl-stat-row"
+        *items    : object,
+        direction : str   = "v",
+        gap       : float = 1.5,
+        **kw
     ) -> mo.Html:
         """
-        Responsive grid of branded stats.
-
-        Uses Lora serif, gold primary values, and the same `.cl-stat-value`
-        / `.cl-stat-label` classes as the splash page. The grid adapts from
-        2 to 6 columns based on the number of stats and viewport width.
+        Stack items vertically or horizontally with consistent spacing.
 
         Args:
-            cls   : Wrapper CSS class. Defaults to `"cl-stat-row"` for tab stat strips;
-                    splash passes `"cl-stats"`.
-            stats : (label, value) pairs in display order.
+            *items    : Elements to stack (charts, callouts, headers).
+            direction : `"v"` for vertical, `"h"` for horizontal.
+            gap       : Spacing between items in rem.
+            **kw      : Forwarded to the Marimo stack function
+                        (e.g. `widths`, `align`, `justify`).
 
         Returns:
-            HTML grid element with responsive column sizing.
+            Composed Marimo HTML element.
+        """
+        fn = mo.vstack if direction == "v" else mo.hstack
+        return fn(items=list(items), gap=gap, **kw)
+
+    def stats(self, pairs: Iterable[tuple[str, str]]) -> mo.Html:
+        """
+        Responsive grid of branded stat tiles.
+
+        Each pair renders as a gold value over a muted label, using the
+        same `.cl-stat-value` / `.cl-stat-label` classes as the splash.
+
+        Args:
+            pairs: (label, value) tuples in display order.
+
+        Returns:
+            Responsive grid element.
         """
         return self._to_html(
-            *[self._stat(label, value) for label, value in stats],
-            cls = cls
+            *[self._stat(label, value) for label, value in pairs],
+            cls = "cl-stat-row"
         )
 
     def target_dropdown(

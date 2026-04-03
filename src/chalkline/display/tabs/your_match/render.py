@@ -25,7 +25,7 @@ def your_match_tab(ctx: TabContext) -> mo.Html:
         templates = tab.labor_templates
     )
 
-    return mo.vstack([
+    return ctx.layout.stack(
         ctx.layout.callout(*tab.hero.render(
             jz_label     = ctx.theme.jz_label(profile.job_zone).lower(),
             outlook_text = labor.outlook_text,
@@ -34,7 +34,7 @@ def your_match_tab(ctx: TabContext) -> mo.Html:
             size         = profile.size,
             soc_title    = profile.soc_title
         )),
-        ctx.layout.stat_strip(zip(
+        ctx.layout.stats(zip(
             tab.stat_labels,
             [
                 profile.soc_title,
@@ -47,31 +47,30 @@ def your_match_tab(ctx: TabContext) -> mo.Html:
         )),
         ctx.layout.callout(tab.info),
 
-        mo.hstack(
-            [
-                mo.ui.plotly(ctx.charts.gauge(
-                    title = tab.chart_labels["gauge_title"],
-                    value = match.confidence
-                )),
-                mo.ui.plotly(ctx.charts.radar(
-                    height = 380,
-                    labels = list(match.top5),
-                    traces = [RadarTrace(
-                        alpha      = 0.2,
-                        color_role = "accent",
-                        name       = tab.chart_labels["radar_trace"],
-                        values     = list(match.top5.values())
-                    )]
-                ))
-            ],
-            widths=[1, 2]
+        ctx.layout.stack(
+            mo.ui.plotly(ctx.charts.gauge(
+                title = tab.chart_labels["gauge_title"],
+                value = match.confidence
+            )),
+            mo.ui.plotly(ctx.charts.radar(
+                height = 380,
+                labels = list(match.top5),
+                traces = [RadarTrace(
+                    alpha      = 0.2,
+                    color_role = "accent",
+                    name       = tab.chart_labels["radar_trace"],
+                    values     = list(match.top5.values())
+                )]
+            )),
+            direction = "h",
+            widths    = [1, 2]
         ),
 
         *ctx.layout.section_if(
             labor.stat_strip,
             tab,
             "labor_snapshot",
-            ctx.layout.stat_strip(labor.stat_strip.items())
+            ctx.layout.stats(labor.stat_strip.items())
         ),
 
         *ctx.layout.section_if(labor.wages, tab, "maine_wages",
@@ -84,18 +83,38 @@ def your_match_tab(ctx: TabContext) -> mo.Html:
                 y          = tab.chart_lists["wage_ticks"]
             ))),
 
-        ctx.layout.header(tab.section("sector_affinity")),
-        mo.ui.plotly(ctx.charts.pie(
-            height   = 320,
-            hole     = 0.5,
-            labels   = sectors.scores,
-            marker   = dict(colors=ctx.charts.sector_colors(sectors.scores)),
-            textfont = dict(size=12),
-            textinfo = "label+percent",
-            values   = sectors.scores.values()
-        )),
+        ctx.layout.stack(
+            ctx.layout.stack(
+                ctx.layout.header(tab, "sector_affinity"),
+                mo.ui.plotly(ctx.charts.pie(
+                    height   = 320,
+                    hole     = 0.5,
+                    labels   = sectors.scores,
+                    marker   = dict(
+                        colors=ctx.charts.sector_colors(sectors.scores)
+                    ),
+                    textfont = dict(size=12),
+                    textinfo = "label+percent",
+                    values   = sectors.scores.values()
+                ))
+            ),
+            ctx.layout.stack(
+                ctx.layout.header(tab, "jz_distribution"),
+                mo.ui.plotly(ctx.charts.bar(
+                    color  = "primary",
+                    height = 320,
+                    title  = tab.chart_labels["jz_title"],
+                    x      = [
+                        ctx.theme.jz_label(z) for z in match.job_zones
+                    ],
+                    y      = match.job_zones.values()
+                ))
+            ),
+            direction = "h",
+            widths    = [1, 1]
+        ),
 
-        ctx.layout.header(tab.section("proximity")),
+        ctx.layout.header(tab, "proximity"),
         mo.ui.plotly(ctx.charts.bar(
             color      = ["primary"] + ["accent"] * (len(match.proximity) - 1),
             height     = max(400, len(match.proximity) * 26),
@@ -103,13 +122,5 @@ def your_match_tab(ctx: TabContext) -> mo.Html:
             title      = tab.chart_labels["distance_title"],
             x          = match.proximity.values(),
             y          = match.proximity
-        )),
-
-        ctx.layout.header(tab.section("jz_distribution")),
-        mo.ui.plotly(ctx.charts.bar(
-            height = 280,
-            title  = tab.chart_labels["jz_title"],
-            x      = [ctx.theme.jz_label(z) for z in match.job_zones],
-            y      = match.job_zones.values()
         ))
-    ])
+    )

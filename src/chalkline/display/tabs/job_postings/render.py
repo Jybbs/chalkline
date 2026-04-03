@@ -18,11 +18,11 @@ def job_postings_tab(ctx: TabContext) -> mo.Html:
     postings   = JobPostingMetrics.from_postings(ctx.profile.postings, ctx.reference)
     section_kw = {"soc_title": ctx.profile.soc_title}
 
-    return mo.vstack([
-        ctx.layout.header(tab.section("overview", **section_kw)),
-        ctx.layout.stat_strip(zip(tab.stat_labels, postings.stat_values)),
+    return ctx.layout.stack(
+        ctx.layout.header(tab, "overview", **section_kw),
+        ctx.layout.stats(zip(tab.stat_labels, postings.stat_values)),
 
-        ctx.layout.header(tab.section("whos_hiring", **section_kw)),
+        ctx.layout.header(tab, "whos_hiring", **section_kw),
         mo.ui.plotly(ctx.charts.bar(
             height     = max(300, len(postings.companies) * 28),
             horizontal = True,
@@ -65,7 +65,7 @@ def job_postings_tab(ctx: TabContext) -> mo.Html:
                 values = postings.titles.values()
             )), **section_kw),
 
-        ctx.layout.header(tab.section("recent", **section_kw)),
-        ctx.layout.card_grid(ctx.layout.posting_card(p) for p in postings.recent),
+        ctx.layout.header(tab, "recent", **section_kw),
+        ctx.layout.grid(ctx.layout.posting_card(p) for p in postings.recent),
         ctx.layout.callout(tab.info)
-    ])
+    )

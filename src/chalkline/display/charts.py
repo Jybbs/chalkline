@@ -68,12 +68,11 @@ class Charts:
         """
         fig.update_layout(**{
             "font"   : {
-                "color"  : self.theme.colors["foreground"],
-                "family" : "Inter, system-ui, sans-serif",
-                "size"   : 12
+                "color" : self.theme.colors["foreground"],
+                "size"  : 12
             },
             "height" : height,
-            "margin" : {"b" : 40, "l" : 20, "r" : 20, "t" : 10},
+            "margin" : {"b" : 50, "l" : 30, "r" : 30, "t" : 20},
             "paper_bgcolor" : "rgba(0,0,0,0)",
             "plot_bgcolor"  : "rgba(0,0,0,0)",
             "template"      : self.theme.template,

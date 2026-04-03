@@ -13,54 +13,72 @@ def resume_feedback_tab(ctx: TabContext) -> mo.Html:
     Render the Resume Feedback tab comparing the resume against O*NET skill
     definitions.
     """
-    tab     = ctx.content.tab("resume_feedback")
-    skills  = SkillMetrics.from_result(ctx.result)
-    section = lambda key: tab.section(key, soc_title=ctx.profile.soc_title)
+    tab        = ctx.content.tab("resume_feedback")
+    skills     = SkillMetrics.from_result(ctx.result)
+    section_kw = {"soc_title": ctx.profile.soc_title}
 
-    return mo.vstack([
-        ctx.layout.header(section("how_compare")),
-        ctx.layout.stat_strip(zip(tab.stat_labels, skills.stat_values)),
+    return ctx.layout.stack(
+        ctx.layout.header(tab, "how_compare", **section_kw),
+        ctx.layout.stats(zip(tab.stat_labels, skills.stat_values)),
         ctx.layout.callout(*tab.hero.render(
             posting_count = len(ctx.profile.postings),
             soc_title     = ctx.profile.soc_title
         )),
 
-        ctx.layout.header(section("skill_profile")),
-        mo.ui.plotly(ctx.charts.radar(
-            labels = [ctx.theme.type_label(t) for t in skills.skill_groups],
-            traces = [
-                RadarTrace(
-                    color_role = "accent",
-                    name       = tab.chart_labels["all_skills_trace"],
-                    values     = skills.overall_averages
-                ),
-                RadarTrace(
-                    color_role = "success",
-                    dash       = "dash",
-                    name       = tab.chart_labels["strengths_trace"],
-                    values     = skills.strength_averages
-                )
-            ]
-        )) if skills.skill_groups
-        else mo.md(tab.fallbacks["no_skill_data"]),
+        ctx.layout.stack(
+            ctx.layout.stack(
+                ctx.layout.header(tab, "skill_profile", **section_kw),
+                mo.ui.plotly(ctx.charts.radar(
+                    labels = [
+                        ctx.theme.type_label(t)
+                        for t in skills.skill_groups
+                    ],
+                    traces = [
+                        RadarTrace(
+                            color_role = "accent",
+                            name       = tab.chart_labels[
+                                "all_skills_trace"
+                            ],
+                            values     = skills.overall_averages
+                        ),
+                        RadarTrace(
+                            color_role = "success",
+                            dash       = "dash",
+                            name       = tab.chart_labels[
+                                "strengths_trace"
+                            ],
+                            values     = skills.strength_averages
+                        )
+                    ]
+                )) if skills.skill_groups
+                else mo.md(tab.fallbacks["no_skill_data"])
+            ),
+            ctx.layout.stack(
+                ctx.layout.header(tab, "similarity_dist", **section_kw),
+                mo.ui.plotly(ctx.charts.histogram(
+                    height    = 340,
+                    nbins     = 20,
+                    threshold = ctx.result.mean_similarity,
+                    x         = ctx.result.all_similarities,
+                    x_title   = tab.chart_labels[
+                        "similarity_x_title"
+                    ],
+                    y_title   = tab.chart_labels[
+                        "similarity_y_title"
+                    ]
+                )) if ctx.result.all_similarities
+                else mo.md(tab.fallbacks["no_similarity"])
+            ),
+            direction = "h",
+            widths    = [1, 1]
+        ),
 
-        ctx.layout.header(section("similarity_dist")),
-        mo.ui.plotly(ctx.charts.histogram(
-            height    = 280,
-            nbins     = 20,
-            threshold = ctx.result.mean_similarity,
-            x         = ctx.result.all_similarities,
-            x_title   = tab.chart_labels["similarity_x_title"],
-            y_title   = tab.chart_labels["similarity_y_title"]
-        )) if ctx.result.all_similarities
-        else mo.md(tab.fallbacks["no_similarity"]),
-
-        ctx.layout.header(section("strengths")),
+        ctx.layout.header(tab, "strengths", **section_kw),
         ctx.layout.skill_tree(True, skills.skill_groups, ctx.theme)
         if skills.skill_groups
         else mo.md(tab.fallbacks["no_strengths"]),
 
-        ctx.layout.header(section("growth")),
+        ctx.layout.header(tab, "growth", **section_kw),
         ctx.layout.skill_tree(False, skills.skill_groups, ctx.theme)
         if skills.skill_groups else mo.md(tab.fallbacks["no_gaps"]),
 
@@ -73,4 +91,4 @@ def resume_feedback_tab(ctx: TabContext) -> mo.Html:
             )), soc_title=ctx.profile.soc_title),
 
         ctx.layout.callout(tab.info)
-    ])
+    )
