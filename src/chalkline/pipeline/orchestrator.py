@@ -46,6 +46,20 @@ class Chalkline:
         )
 
     @property
+    def cluster_count(self) -> int:
+        """
+        Number of career families.
+        """
+        return len(self.clusters)
+
+    @property
+    def component_count(self) -> int:
+        """
+        Number of SVD components in the reduced embedding space.
+        """
+        return self.config.component_count
+
+    @property
     def corpus_size(self) -> int:
         """
         Total postings across all clusters.
@@ -53,11 +67,47 @@ class Chalkline:
         return sum(c.size for c in self.clusters.values())
 
     @property
+    def embed_dim(self) -> int:
+        """
+        Dimensionality of the sentence embeddings from the encoder.
+        """
+        return self.matcher.encoder.dimension
+
+    @property
+    def model_name(self) -> str:
+        """
+        Short name of the sentence encoder model.
+        """
+        return self.matcher.encoder.name.split("/")[-1]
+
+    @property
+    def occupation_count(self) -> int:
+        """
+        Number of distinct O*NET occupations assigned to clusters.
+        """
+        return len({c.soc_title for c in self.clusters.values()})
+
+    @property
     def sector_count(self) -> int:
         """
         Number of distinct sectors across clusters.
         """
         return len(self.clusters.sectors)
+
+    @property
+    def substitutions(self) -> dict[str, str]:
+        """
+        Template variables for display-layer content rendering.
+        """
+        return {
+            "embed_dim"     : str(self.embed_dim),
+            "model_name"    : self.model_name,
+            "n_clusters"    : str(self.cluster_count),
+            "n_occupations" : str(self.occupation_count),
+            "n_postings"    : f"{self.corpus_size:,}",
+            "n_sectors"     : str(self.sector_count),
+            "svd_components": str(self.component_count),
+        }
 
     @staticmethod
     def fit(config: PipelineConfig, log_level: str = "INFO") -> Chalkline:

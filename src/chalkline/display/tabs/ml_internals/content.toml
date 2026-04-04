@@ -1,8 +1,8 @@
 [info]
 text = '''
-The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `gte-base-en-v1.5` into **768-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
+The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `{model_name}` into **{embed_dim}-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
 
-**Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options. The **dendrogram** shows the full merge hierarchy that Ward's method considered before cutting at $k = 20$ families, revealing which career families are most similar to each other at progressively coarser granularity.'''
+**Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options. The **dendrogram** shows the full merge hierarchy that Ward's method considered before cutting at $k = {n_clusters}$ families, revealing which career families are most similar to each other at progressively coarser granularity.'''
 
 [chart_labels]
 brokerage_title    = 'Brokerage'
@@ -65,7 +65,7 @@ description = 'Silhouette coefficients measure how well each career family is se
 
 [sections.dendrogram]
 title       = 'Hierarchical Clustering Dendrogram'
-description = 'Ward-linkage agglomerative clustering builds a tree of every possible merge, then cuts at k=20.'
+description = 'Ward-linkage agglomerative clustering builds a tree of every possible merge, then cuts at k={n_clusters}.'
 
 [sections.distances]
 title       = 'Inter-Cluster Distance Distribution'
@@ -77,7 +77,7 @@ description = 'Career families that bridge the most pathways, sorted by brokerag
 
 [sections.landscape]
 title       = 'Career Landscape'
-description = 'All 20 career family centroids projected onto the first two SVD components. Your resume is the gold star.'
+description = 'All {n_clusters} career family centroids projected onto the first two SVD components. Your resume is the gold star.'
 
 [sections.overview]
 title       = 'Under the Hood'

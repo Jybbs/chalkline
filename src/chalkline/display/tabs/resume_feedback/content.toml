@@ -4,9 +4,9 @@ text = 'Your resume was matched to **{soc_title}** based on similarity to {posti
 
 [info]
 text = '''
-Each task from O\*NET's occupation profile is encoded as a **768-dimensional sentence embedding** using `gte-base-en-v1.5`, the same model applied to every job posting in the corpus. Your resume receives the same treatment, producing a single embedding vector. **Cosine similarity** measures the directional alignment between your resume vector and each task vector:
+Each task from O\*NET's occupation profile is encoded as a **{embed_dim}-dimensional sentence embedding** using `{model_name}`, the same model applied to every job posting in the corpus. Your resume receives the same treatment, producing a single embedding vector. **Cosine similarity** measures the directional alignment between your resume vector and each task vector:
 
-$$\text{sim}(r, t) = \frac{r \cdot t}{\|r\| \|t\|}$$
+$$\text{{sim}}(r, t) = \frac{{r \cdot t}}{{\|r\| \|t\|}}$$
 
 Scores closer to 1.0 mean your resume's language closely mirrors the task description. Tasks above the cluster median are strengths, and tasks below are growth areas. The **alignment percentile** compares your overall similarity against the distribution of posting similarities within the matched career family, answering the question: how does your resume stack up against the postings employers actually wrote?
 
@@ -39,7 +39,7 @@ description = 'Skills most postings mention that your resume doesn’t strongly 
 
 [sections.how_compare]
 title       = 'How Your Skills Compare'
-description = 'We compared your resume against O\*NET skill definitions for {soc_title} using language similarity. Scores closer to 100% mean your resume strongly reflects that skill.'
+description = 'We compared your resume against O*NET skill definitions for {soc_title} using language similarity. Scores closer to 100% mean your resume strongly reflects that skill.'
 
 [sections.similarity_dist]
 title       = 'Similarity Distribution'
@@ -47,7 +47,7 @@ description = 'How your skill scores are spread. The dashed line marks the media
 
 [sections.skill_profile]
 title       = 'Skill Profile by Category'
-description = 'Average similarity across O\*NET skill types. The solid area covers all skills, the dashed line shows only your demonstrated strengths.'
+description = 'Average similarity across O*NET skill types. The solid area covers all skills, the dashed line shows only your demonstrated strengths.'
 
 [sections.strengths]
 title       = 'Your Strengths'

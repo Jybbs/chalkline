@@ -49,6 +49,7 @@ class SentenceEncoder:
         self.tokenizer = Tokenizer.from_pretrained(name)
         self.tokenizer.enable_padding()
 
+        self.dimension = self.session.get_outputs()[0].shape[-1]
         self.on_batch: Callable[[int, int], None] | None = None
 
     def __reduce__(self) -> tuple:

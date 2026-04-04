@@ -1,6 +1,6 @@
 [info]
 text = '''
-Every job posting in the corpus was encoded as a **768-dimensional sentence embedding** using `gte-base-en-v1.5`, then grouped via **Ward-linkage hierarchical agglomerative clustering** into 20 career families. The postings shown here are the actual listings whose embeddings fell into your matched family's cluster, meaning they use similar language to describe similar work.
+Every job posting in the corpus was encoded as a **{embed_dim}-dimensional sentence embedding** using `{model_name}`, then grouped via **Ward-linkage hierarchical agglomerative clustering** into {n_clusters} career families. The postings shown here are the actual listings whose embeddings fell into your matched family's cluster, meaning they use similar language to describe similar work.
 
 Company names are matched against the **AGC Maine member directory** using fuzzy string matching (*SequenceMatcher with a 0.7 similarity threshold*), so minor spelling variations and abbreviations between the job board listing and the membership roll still produce correct matches. The title word cloud filters out common English words using **Zipf frequency** scores, keeping only terms distinctive enough to characterize the career family.'''
 

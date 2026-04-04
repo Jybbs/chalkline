@@ -116,7 +116,7 @@ def your_match_tab(ctx: TabContext) -> mo.Html:
 
         ctx.layout.header(tab, "proximity"),
         mo.ui.plotly(ctx.charts.bar(
-            color      = ["primary"] + ["accent"] * (len(match.proximity) - 1),
+            color      = ctx.charts.sector_colors(match.sectors.values()),
             height     = max(400, len(match.proximity) * 26),
             horizontal = True,
             title      = tab.chart_labels["distance_title"],

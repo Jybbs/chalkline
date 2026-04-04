@@ -1,7 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fira+Code&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap");
-
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code&family=Lora:wght@400;700&display=swap");
 
 /* ── Tokens ──────────────────────────────────────────────────── */
 
@@ -12,55 +9,45 @@
     --marimo-heading-font   : "Lora", "Georgia", serif;
     --marimo-monospace-font : "Fira Code", monospace;
 
-    --radius: 8px;
+    --cl-radius: 8px;
 
-    --accent           : #7db3e0;
-    --background       : #1a1a1a;
-    --border           : #333333;
-    --card             : #242424;
-    --card-foreground  : #e0e0e0;
-    --foreground       : #ebebeb;
-    --muted            : #2a2a2a;
-    --muted-foreground : #999999;
-    --primary          : #E8C840;
-    --secondary        : #8cc5a3;
+    --cl-accent           : #7db3e0;
+    --cl-border           : #333;
+    --cl-card             : #242424;
+    --cl-card-foreground  : #e0e0e0;
+    --cl-foreground       : #ebebeb;
+    --cl-muted            : #2a2a2a;
+    --cl-muted-foreground : #999;
+    --cl-primary          : #e8c840;
+    --cl-secondary        : #8cc5a3;
 
-    --on-color             : #1a1a1a;
-    --accent-foreground    : var(--on-color);
-    --primary-foreground   : var(--on-color);
-    --secondary-foreground : var(--on-color);
-
-    --error              : #e8876f;
-    --error-foreground   : var(--on-color);
-    --link               : var(--accent);
-    --success            : var(--secondary);
-    --success-foreground : var(--on-color);
+    --cl-error    : #e8876f;
+    --cl-on-color : #1a1a1a;
 
     --cl-building  : #5a9fd4;
     --cl-highway   : #e0854a;
     --cl-specialty : #5cb878;
 
-    --base-shadow: hsl(0 0% 0% / 0.6);
+    --cl-base-shadow: #0009;
 }
 
 /* ── Cards ───────────────────────────────────────────────────── */
 
 .cl-card {
-    background          : var(--card);
-    border-inline-start : 4px solid var(--primary);
-    border-radius       : var(--radius);
-    color               : var(--card-foreground);
+    background          : var(--cl-card);
+    border-inline-start : 4px solid var(--cl-primary);
+    border-radius       : var(--cl-radius);
+    color               : var(--cl-card-foreground);
     margin-block-end    : 0.75rem;
     padding             : 1rem 1.25rem;
+    position            : relative;
     transition          : box-shadow 0.2s;
 
-    &:hover              { box-shadow: 0 4px 12px var(--base-shadow); }
+    &:hover              { box-shadow: 0 4px 12px var(--cl-base-shadow); }
     & .secondary         { opacity: 0.7; }
     & :is(.badge, .meta) { opacity: 0.6; }
     & .badge             { margin-inline-start: 0.5rem; }
     & .meta              { font-size: 0.85em; }
-
-    position : relative;
 
     & p {
         font-size    : 0.9em;
@@ -69,79 +56,70 @@
 }
 
 .cl-card-link {
-    align-items     : center;
-    background      : var(--muted);
-    border          : 1px solid var(--border);
+    background      : var(--cl-muted);
+    border          : 1px solid var(--cl-border);
     border-radius   : 50%;
     bottom          : 0.75rem;
-    color           : var(--muted-foreground);
-    display         : flex;
+    color           : var(--cl-muted-foreground);
+    display         : grid;
     height          : 1.75rem;
-    justify-content : center;
+    place-items     : center;
     position        : absolute;
     right           : 0.75rem;
     text-decoration : none;
     transition      : background 0.15s, border-color 0.15s, color 0.15s;
     width           : 1.75rem;
-}
 
-.cl-card-link:hover {
-    background   : var(--accent);
-    border-color : var(--accent);
-    color        : var(--on-color);
+    &:hover {
+        background   : var(--cl-accent);
+        border-color : var(--cl-accent);
+        color        : var(--cl-on-color);
+    }
 }
 
 .cl-card-grid {
     display               : grid;
     gap                   : 0.75rem;
-    grid-template-columns : repeat(
-        auto-fit, minmax(min(100%, 20rem), 1fr)
-    );
+    grid-template-columns : repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
 
     & > .cl-card { margin-block-end: 0; }
 }
 
-
 /* ── Splash ──────────────────────────────────────────────────── */
 
 .cl-splash {
-    align-items     : center;
-    display         : flex;
-    flex-direction  : column;
-    gap             : 0.5rem;
-    justify-content : center;
-    min-height      : 50vh;
-    padding         : 5rem 4rem 2rem;
-    text-align      : center;
+    align-content : center;
+    display       : grid;
+    gap           : 0.5rem;
+    justify-items : center;
+    min-height    : 50vh;
+    padding       : 5rem 4rem 2rem;
+    text-align    : center;
 }
 
 .cl-brand {
     align-items : center;
     display     : flex;
     gap         : 1rem;
+
+    & h1 {
+        color  : var(--cl-foreground);
+        font   : 700 3rem var(--marimo-heading-font);
+        margin : 0;
+    }
 }
 
 .cl-logo {
-    -webkit-mask-repeat : no-repeat;
-    -webkit-mask-size   : contain;
-    background-color    : var(--primary);
-    display             : inline-block;
-    height              : 3.5rem;
-    mask-repeat         : no-repeat;
-    mask-size           : contain;
-    width               : 3.5rem;
-}
-
-.cl-brand h1 {
-    color       : var(--foreground);
-    font-family : var(--heading-font);
-    font-size   : 3rem;
-    font-weight : 700;
-    margin      : 0;
+    background  : var(--cl-primary);
+    display     : inline-block;
+    height      : 3.5rem;
+    mask-repeat : no-repeat;
+    mask-size   : contain;
+    width       : 3.5rem;
 }
 
 .cl-tagline {
-    color     : var(--muted-foreground);
+    color     : var(--cl-muted-foreground);
     font-size : 1.2rem;
     margin    : 0;
 }
@@ -157,14 +135,12 @@
 }
 
 .cl-stat-value {
-    color       : var(--primary);
-    font-family : var(--heading-font);
-    font-size   : 1.8rem;
-    font-weight : 700;
+    color : var(--cl-primary);
+    font  : 700 1.8rem var(--marimo-heading-font);
 }
 
 .cl-stat-label {
-    color              : var(--muted-foreground);
+    color              : var(--cl-muted-foreground);
     font-size          : 0.85rem;
     margin-block-start : 0.2rem;
 }
@@ -172,11 +148,12 @@
 /* ── Match bar ───────────────────────────────────────────────── */
 
 .cl-match-bar {
-    color       : var(--muted-foreground);
-    font-size   : 0.95rem;
-    padding     : 0.75rem 0;
+    color              : var(--cl-muted-foreground);
+    font-size          : 0.95rem;
+    margin-block-end   : -0.75rem;
+    padding            : 0.5rem 0;
 
-    & strong { color: var(--foreground); }
+    & strong { color: var(--cl-foreground); }
 }
 
 /* Force Marimo file upload to fill container width */
@@ -185,7 +162,6 @@ marimo-file > div,
 marimo-file label {
     width : 100% !important;
 }
-
 
 /* ── Stat strip ─────────────────────────────────────────────── */
 
@@ -200,81 +176,77 @@ marimo-file label {
 /* ── Callouts ───────────────────────────────────────────────── */
 
 .cl-callout {
-    background          : var(--muted);
-    border-inline-start : 4px solid var(--accent);
-    border-radius       : var(--radius);
-    color               : var(--foreground);
+    background          : var(--cl-muted);
+    border-inline-start : 4px solid var(--cl-accent);
+    border-radius       : var(--cl-radius);
+    color               : var(--cl-foreground);
     font-size           : 0.95rem;
     line-height         : 1.6;
     padding             : 1rem 1.25rem;
 
-    &[data-kind="success"] { border-inline-start-color: var(--secondary); }
-    &[data-kind="warn"]    { border-inline-start-color: var(--error); }
+    &[data-kind="success"] { border-inline-start-color: var(--cl-secondary); }
+    &[data-kind="warn"]    { border-inline-start-color: var(--cl-error); }
 
-    & strong { color: var(--primary); }
+    & strong { color: var(--cl-primary); }
 }
 
 /* ── Skill tree ────────────────────────────────────────────── */
 
 .cl-skill-tree {
-    display        : flex;
-    flex-direction : column;
-    gap            : 0.25rem;
+    display : grid;
+    gap     : 0.25rem;
 }
 
 .cl-skill-group > summary {
-    align-items      : center;
-    background       : var(--muted);
-    border-radius    : var(--radius);
-    cursor           : pointer;
-    display          : flex;
-    font-family      : var(--heading-font);
-    font-weight      : 600;
-    gap              : 0.75rem;
-    justify-content  : space-between;
-    padding          : 0.6rem 1rem;
+    align-items     : center;
+    background      : var(--cl-muted);
+    border-radius   : var(--cl-radius);
+    cursor          : pointer;
+    display         : flex;
+    font-family     : var(--marimo-heading-font);
+    font-weight     : 600;
+    gap             : 0.75rem;
+    justify-content : space-between;
+    padding         : 0.6rem 1rem;
+
+    &::marker { color: var(--cl-muted-foreground); }
 }
 
-.cl-skill-group > summary::marker { color: var(--muted-foreground); }
-
 .cl-skill-group[open] > summary {
-    border-end-end-radius   : 0;
-    border-end-start-radius : 0;
+    border-radius: var(--cl-radius) var(--cl-radius) 0 0;
 }
 
 .cl-skill-item {
-    align-items        : center;
-    border-block-end   : 1px solid var(--border);
-    display            : flex;
-    gap                : 0.75rem;
-    justify-content    : space-between;
-    padding            : 0.4rem 1rem 0.4rem 2rem;
+    align-items      : center;
+    border-block-end : 1px solid var(--cl-border);
+    display          : flex;
+    gap              : 0.75rem;
+    justify-content  : space-between;
+    padding          : 0.4rem 1rem 0.4rem 2rem;
+
+    &:last-child { border-block-end: none; }
 }
 
-.cl-skill-item:last-child { border-block-end: none; }
-
 .cl-skill-name {
-    color     : var(--foreground);
+    color     : var(--cl-foreground);
     flex      : 1;
     font-size : 0.9rem;
 }
 
 .cl-skill-score {
-    font-family : var(--heading-font);
-    font-size   : 1rem;
-    font-weight : 700;
-    min-width   : 3rem;
-    text-align  : end;
+    font       : 700 1rem var(--marimo-heading-font);
+    min-width  : 3rem;
+    text-align : end;
 }
 
-.cl-score-low  { color: var(--error); }
-.cl-score-mid  { color: var(--primary); }
-.cl-score-high { color: var(--secondary); }
+.cl-score-low  { color: var(--cl-error); }
+.cl-score-mid  { color: var(--cl-primary); }
+.cl-score-high { color: var(--cl-secondary); }
 
 .cl-group-label { flex: 1; }
 
 .cl-group-count {
-    color     : var(--muted-foreground);
+    color     : var(--cl-muted-foreground);
     font-size : 0.85em;
 }
 
@@ -287,63 +259,116 @@ marimo-file label {
     gap         : 0.5rem;
 }
 
-.cl-flow-arrow {
-    color     : var(--muted-foreground);
-    font-size : 1.2rem;
-}
+.cl-flow-arrow  { color: var(--cl-muted-foreground); font-size: 1.2rem; }
+.cl-flow-detail { color: var(--cl-muted-foreground); font-size: 0.75rem; }
+.cl-flow-label  { font-size: 0.9rem; font-weight: 600; }
+.cl-flow-num    { color: var(--cl-primary); font: 700 1.2rem var(--marimo-heading-font); }
 
 .cl-flow-step {
-    background    : var(--muted);
-    border-radius : var(--radius);
+    background    : var(--cl-muted);
+    border-radius : var(--cl-radius);
     flex          : 1;
     min-width     : 8rem;
     padding       : 0.6rem 1rem;
     text-align    : center;
 }
 
-.cl-flow-num {
-    color       : var(--primary);
-    font-family : var(--heading-font);
-    font-size   : 1.2rem;
-    font-weight : 700;
+/* ── Glossary tooltips ──────────────────────────────────────── */
+
+.cl-term {
+    cursor                    : help;
+    position                  : relative;
+    text-decoration           : underline dotted var(--cl-primary);
+    text-decoration-thickness : 1px;
+    text-underline-offset     : 3px;
 }
 
-.cl-flow-label {
-    font-size   : 0.9rem;
-    font-weight : 600;
+.cl-tip {
+    background       : var(--cl-card);
+    border           : 1px solid var(--cl-border);
+    border-radius    : var(--cl-radius);
+    box-shadow       : 0 4px 16px var(--cl-base-shadow);
+    color            : var(--cl-foreground);
+    font-size        : 0.85rem;
+    left             : 0;
+    line-height      : 1.5;
+    max-width        : 22rem;
+    min-width        : 14rem;
+    opacity          : 0;
+    padding          : 0.75rem 1rem;
+    pointer-events   : none;
+    position         : absolute;
+    top              : calc(100% + 0.4rem);
+    transform        : translateY(-2px);
+    transition       : opacity 100ms ease, transform 100ms ease;
+    transition-delay : 150ms;
+    white-space      : pre-line;
+    width            : max-content;
+    z-index          : 100;
 }
 
-.cl-flow-detail {
-    color     : var(--muted-foreground);
-    font-size : 0.75rem;
+.cl-tip::before {
+    bottom       : 100%;
+    content      : '';
+    height       : 0.5rem;
+    inset-inline : 0;
+    position     : absolute;
+}
+
+.cl-term:hover > .cl-tip {
+    opacity          : 1;
+    pointer-events   : auto;
+    transform        : translateY(0);
+    transition-delay : 0ms;
+}
+
+.cl-tip-title {
+    color            : var(--cl-primary);
+    display          : block;
+    font             : 700 0.9rem var(--marimo-heading-font);
+    margin-block-end : 0.35rem;
+    white-space      : nowrap;
+}
+
+.cl-tip-rule {
+    border             : none;
+    border-block-start : 1px solid var(--cl-border);
+    margin-block       : 0.4rem;
+}
+
+.cl-tip-body {
+    color   : var(--cl-muted-foreground);
+    display : block;
+
+    & strong { color: var(--cl-foreground); }
+}
+
+.cl-tip-link {
+    color           : var(--cl-accent);
+    display         : inline-block;
+    font-size       : 0.8rem;
+    text-decoration : none;
+
+    &:hover { text-decoration: underline; }
 }
 
 /* ── Section headers ────────────────────────────────────────── */
 
-.cl-section-desc { color: var(--muted-foreground); }
-
-/* ── Global spacing ─────────────────────────────────────────── */
+.cl-section-desc { color: var(--cl-muted-foreground); }
 
 /* ── Marimo prose overrides ─────────────────────────────────── */
 
-.markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5,
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5 {
-    color       : var(--foreground);
-    font-family : var(--heading-font);
+:is(.markdown, .prose) :is(h1, h2, h3, h4, h5) {
+    color       : var(--cl-foreground);
+    font-family : var(--marimo-heading-font);
     font-weight : 700;
 }
 
-.markdown code, .prose code,
-.cl-callout code {
-    color : var(--foreground);
-}
-
-.markdown a, .prose a {
-    color : var(--accent);
-}
+:is(.markdown, .prose, .cl-callout) code { color: var(--cl-foreground); }
+:is(.markdown, .prose) a                 { color: var(--cl-accent); }
 
 /* ── Chart background override ──────────────────────────────── */
 
-code, pre, kbd { font-family: var(--monospace-font); }
+code, pre, kbd { font-family: var(--marimo-monospace-font); }
 
 .js-plotly-plot .plotly .main-svg { background: transparent !important; }

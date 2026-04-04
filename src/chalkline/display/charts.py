@@ -130,8 +130,8 @@ class Charts:
         horizontal : bool                   = False,
         line       : Trace | None           = None,
         series     : Iterable[Trace] | None = None,
-        x          : Sequence               = (),
-        y          : Sequence               = (),
+        x          : Iterable               = (),
+        y          : Iterable               = (),
         **marker_kw
     ) -> go.Figure:
         """

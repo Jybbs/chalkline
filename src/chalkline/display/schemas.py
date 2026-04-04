@@ -260,6 +260,7 @@ class MatchMetrics(BaseModel, extra="forbid"):
     confidence : int = Field(ge=0, le=100)
     job_zones  : dict[int, int]
     proximity  : dict[str, float]
+    sectors    : dict[str, str]
     top5       : dict[str, float]
 
     @field_validator("job_zones", mode="after")
@@ -282,6 +283,7 @@ class MatchMetrics(BaseModel, extra="forbid"):
             confidence = result.confidence,
             job_zones  = Counter(cd.job_zone for cd in cds[:10]),
             proximity  = {cd.soc_title: round(cd.distance, 3) for cd in cds},
+            sectors    = {cd.soc_title: cd.sector for cd in cds},
             top5       = {
                 cd.soc_title: round(100 * (1 - cd.distance / max_dist), 1)
                 for cd in cds[:5]

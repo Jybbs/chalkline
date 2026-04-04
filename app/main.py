@@ -12,18 +12,17 @@ def _():
 
     from pathlib import Path
 
-    from chalkline.display.loaders import ContentLoader, Layout
+    from chalkline.display.loaders import ContentLoader
     from chalkline.display.theme   import Theme
 
     content = ContentLoader()
-    layout  = Layout(content)
     theme   = Theme(
         dark_fn     = lambda: True,
         jz_labels   = content.labels.job_zones,
         type_labels = content.labels.skill_types
     )
 
-    return Path, content, layout, mo, theme
+    return Path, content, mo, theme
 
 
 # ── Pipeline loading ────────────────────────────────────────────────
@@ -106,6 +105,16 @@ def _(content, mo, pipeline, upload):
 
     profile = pipeline.clusters[result.cluster_id]
     return profile, result
+
+
+# ── Layout ─────────────────────────────────────────────────────────
+
+@app.cell
+def _(content, pipeline):
+    from chalkline.display.loaders import Layout
+
+    layout = Layout(content, pipeline.substitutions)
+    return (layout,)
 
 
 # ── Match bar ──────────────────────────────────────────────────────

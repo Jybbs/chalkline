@@ -11,10 +11,12 @@ notebook.
 """
 
 import marimo as mo
+import re
 
 from collections.abc import Iterable
 from functools       import cached_property
-from htpy            import a, br, details, div, h1, p, span, strong, summary
+from htpy            import a, br, details, div, h1, hr, p, span, strong, summary
+from markdown_it     import MarkdownIt
 from markupsafe      import Markup
 from pathlib         import Path
 from statistics      import fmean
@@ -51,6 +53,32 @@ class ContentLoader:
         self.display_dir = display_dir or Path(__file__).resolve().parent
 
     @cached_property
+    def glossary(self) -> tuple[re.Pattern, dict[str, tuple]]:
+        """
+        Single alternation regex and definition lookup for all glossary
+        terms, sorted longest-first so multi-word terms match before
+        their substrings.
+
+        Each lookup value is a tuple of (title, definition, url, url_label)
+        supporting rich tooltip rendering with optional links.
+        """
+        with (self.display_dir / "tabs/shared/glossary.toml").open("rb") as f:
+            terms = sorted(load(f)["terms"], key=lambda e: -len(e["term"]))
+        alts = "|".join(re.escape(e["term"]) for e in terms)
+        return (
+            re.compile(rf"\b({alts})\b", re.IGNORECASE),
+            {
+                e["term"].lower(): (
+                    e["term"],
+                    e["definition"],
+                    e.get("url", ""),
+                    e.get("url_label", ""),
+                )
+                for e in terms
+            }
+        )
+
+    @cached_property
     def labels(self) -> Labels:
         """
         Shared display labels validated from `tabs/shared/content.toml`.
@@ -79,12 +107,20 @@ class Layout:
     Plotly figures from theme state.
     """
 
-    def __init__(self, content: ContentLoader):
+    def __init__(
+        self,
+        content       : ContentLoader,
+        substitutions : dict[str, str] | None = None
+    ):
         """
         Args:
-            content: Loader providing shared labels and tab content.
+            content       : Loader providing shared labels and tab content.
+            substitutions : Corpus-level values (e.g. `n_postings`,
+                            `n_clusters`) substituted into TOML template
+                            strings at render time.
         """
-        self.content = content
+        self.content       = content
+        self.substitutions = substitutions or {}
 
     def _link(self, url: str):
         """
@@ -118,6 +154,60 @@ class Layout:
         """
         return mo.Html(str(div(f".{cls}", **attrs)[children].__html__()))
 
+    def annotate(self, text: str) -> str:
+        """
+        Annotate the first occurrence of each glossary term with
+        an interactive tooltip popover via a single `re.sub` pass.
+
+        Each popover contains a bold title, a description with
+        inline emphasis rendered by `markdown-it-py`, and an
+        optional outbound link. Terms are matched
+        case-insensitively and longest-first to prevent partial
+        overlap.
+
+        Args:
+            text: Rendered HTML to scan for glossary matches.
+        """
+        pattern, lookup = self.content.glossary
+        markdown_it     = MarkdownIt("zero").enable(["emphasis"])
+        seen: set[str]  = set()
+
+        def render(raw: str) -> Markup:
+            """
+            Apply template substitution and inline emphasis to a
+            glossary definition, returning safe HTML.
+            """
+            return Markup(
+                markdown_it.renderInline(raw.format_map(self.substitutions))
+            )
+
+        def replace(m: re.Match) -> str:
+            """
+            Build a tooltip popover for a matched glossary term,
+            skipping duplicates within the same text block.
+            """
+            if (key := m.group().lower()) in seen:
+                return m.group()
+            seen.add(key)
+
+            title, definition, url, url_label = lookup[key]
+            children: list = [
+                strong(".cl-tip-title")[title],
+                hr(".cl-tip-rule"),
+                span(".cl-tip-body")[render(definition)]
+            ]
+            if url:
+                children.append(hr(".cl-tip-rule"))
+                children.append(a(
+                    ".cl-tip-link",
+                    href   = url, 
+                    target = "_blank"
+                )[url_label])
+
+            return str(span(".cl-term")[m.group(), span(".cl-tip")[children]])
+
+        return pattern.sub(replace, text)
+
     def board_card(self, **kwargs) -> mo.Html:
         """
         Job board card with name, focus area, best-for description, and
@@ -143,7 +233,7 @@ class Layout:
             Styled callout element.
         """
         return self._to_html(
-            Markup(mo.md(text).text),
+            Markup(self.annotate(mo.md(text.format_map(self.substitutions)).text)),
             cls       = "cl-callout",
             data_kind = kind
         )
@@ -198,11 +288,15 @@ class Layout:
         Returns:
             Vertically stacked title and description.
         """
-        description, title = tab.section(key, **fmt)
-        return mo.vstack([
+        description, title = tab.section(key, **self.substitutions, **fmt)
+        return self.stack(
             mo.md(f"#### {title}"),
-            self._to_html(description, cls="cl-section-desc")
-        ])
+            self._to_html(
+                Markup(self.annotate(mo.md(description).text)),
+                cls = "cl-section-desc"
+            ),
+            gap = 0.25
+        )
 
     def match_bar(
         self,

@@ -4,7 +4,7 @@ text = 'Your resume most closely matches **{soc_title}** in **{sector}**. This i
 
 [info]
 text = '''
-Your resume was encoded with the same **sentence transformer** used on all 922 job postings, then projected into the pipeline's 10-dimensional SVD space (*the same reduction applied during clustering*). The match is determined by **nearest-centroid classification**, finding which of the 20 career family centroids your projected resume vector is closest to via Euclidean distance.
+Your resume was encoded with the same **sentence transformer** used on all {n_postings} job postings, then projected into the pipeline's {svd_components}-dimensional SVD space (*the same reduction applied during clustering*). The match is determined by **nearest-centroid classification**, finding which of the {n_clusters} career family centroids your projected resume vector is closest to via Euclidean distance.
 
 The distances to all centroids produce the proximity rankings shown below, and the **matched career family** is the one with the smallest distance to your resume's position in the embedding space.
 
@@ -40,7 +40,7 @@ description = 'Experience levels represented among your 10 closest career famili
 
 [sections.labor_snapshot]
 title       = 'Labor Market Snapshot'
-description = 'Wage and employment data for this occupation from the Bureau of Labor Statistics and O\*NET.'
+description = 'Wage and employment data for this occupation from the Bureau of Labor Statistics and O*NET.'
 
 [sections.maine_wages]
 title       = 'Maine Wage Distribution'
@@ -48,7 +48,7 @@ description = 'Annual salary percentiles for this occupation in Maine from BLS O
 
 [sections.proximity]
 title       = 'Proximity to All Career Families'
-description = 'How close your resume is to each of the 20 career families. Your best match is highlighted. Lower distance means a closer fit.'
+description = 'How close your resume is to each of the {n_clusters} career families. Your best match is highlighted. Lower distance means a closer fit.'
 
 [sections.sector_affinity]
 title       = 'Sector Affinity'
