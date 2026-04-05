@@ -65,9 +65,10 @@ class Clusters:
     matching, and visualization.
     """
 
-    centroids : np.ndarray
-    items     : dict[int, Cluster]
-    vectors   : np.ndarray
+    centroids      : np.ndarray
+    items          : dict[int, Cluster]
+    soc_similarity : np.ndarray
+    vectors        : np.ndarray
 
     cluster_ids: list[int] = field(init=False)
 
@@ -104,6 +105,19 @@ class Clusters:
             p.company for c in self.values()
             for p in c.postings if p.company
         })
+    
+    @property
+    def cosine_similarity_matrix(self) -> list[list[float]]:
+        """
+        Cosine similarity between all cluster centroids as a 2D list for
+        heatmap rendering.
+        """
+        from sklearn.metrics.pairwise import cosine_similarity
+        matrix = cosine_similarity(self.centroids)
+        return [
+            [round(float(v), 3) for v in row]
+            for row in matrix
+        ]
 
     @property
     def job_zone_map(self) -> dict[int, int]:

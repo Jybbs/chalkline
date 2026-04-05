@@ -8,7 +8,7 @@ Company names are matched against the **AGC Maine member directory** using fuzzy
 postings_title = 'Number of Postings'
 
 [chart_lists]
-stat_labels = ["Postings in Family", "Companies Hiring", "Locations"]
+stat_labels = ["Postings", "Companies", "Locations", "AGC Members", "Newest Posting", "With Dates"]
 
 [fallbacks]
 no_company_data = 'No company data.'
@@ -36,6 +36,22 @@ description = 'The most recent job listings, newest first.'
 [sections.timeline]
 title       = 'Posting Timeline'
 description = 'When these postings were collected, showing recent market activity.'
+
+[sections.descriptions]
+title       = 'What Employers Ask For'
+description = 'Most distinctive words from posting descriptions, revealing the skills and requirements employers emphasize.'
+
+[sections.freshness_funnel]
+title       = 'Posting Recency'
+description = 'How many postings fall within recent time windows, showing whether the market is active right now.'
+
+[sections.location_share]
+title       = 'Location Share'
+description = 'Proportional distribution of postings across Maine locations.'
+
+[sections.freshness]
+title       = 'Posting Freshness'
+description = 'How old postings are in days. Concentrated near zero means active hiring.'
 
 [sections.whos_hiring]
 title       = 'Who’s Hiring'

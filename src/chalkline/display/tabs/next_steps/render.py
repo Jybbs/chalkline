@@ -7,6 +7,7 @@ import marimo as mo
 from collections import Counter
 
 from chalkline.display.loaders import TabContext
+from chalkline.display.schemas import HierarchyData
 
 
 def next_steps_tab(
@@ -32,29 +33,34 @@ def next_steps_tab(
     national    = boards.get("national", [])
 
     return ctx.layout.stack(
-        ctx.layout.header(tab, "overview", soc_title=profile.soc_title),
+        ctx.layout.overview(tab, "overview", soc_title=profile.soc_title),
 
-        *ctx.layout.section_if(cred_counts, tab, "credentials",
-            mo.ui.plotly(ctx.charts.pie(
-                height   = 280,
-                hole     = 0.4,
-                labels   = cred_counts.keys(),
-                textfont = dict(size=11),
-                textinfo = "label+value",
-                values   = cred_counts.values()
-            ))
-        ),
-
-        *ctx.layout.section_if(apprenticeships, tab, "apprenticeships",
-            mo.ui.plotly(ctx.charts.bar(
-                color      = (hours := [a.hours for a in apprenticeships]),
-                colorscale = "Teal",
-                height     = max(250, len(apprenticeships) * 32),
-                horizontal = True,
-                title      = tab.chart_labels["min_hours_title"],
-                x          = hours,
-                y          = [a.label[:35] for a in apprenticeships]
-            ))
+        ctx.layout.stack(
+            ctx.layout.stack(
+                ctx.layout.header(tab, "credentials"),
+                mo.ui.plotly(ctx.charts.pie(
+                    height   = 280,
+                    hole     = 0.4,
+                    labels   = [*cred_counts],
+                    textfont = dict(size=11),
+                    textinfo = "label+value",
+                    values   = [*cred_counts.values()]
+                ))
+            ) if cred_counts else mo.md(""),
+            ctx.layout.stack(
+                ctx.layout.header(tab, "apprenticeships"),
+                mo.ui.plotly(ctx.charts.bar(
+                    color      = (hours := [a.hours for a in apprenticeships]),
+                    colorscale = "Teal",
+                    height     = max(250, len(apprenticeships) * 32),
+                    horizontal = True,
+                    title      = tab.chart_labels["min_hours_title"],
+                    x          = hours,
+                    y          = [a.label for a in apprenticeships]
+                ))
+            ) if apprenticeships else mo.md(""),
+            direction = "h",
+            widths    = [1, 2]
         ),
 
         *ctx.layout.section_if(wage_ladder, tab, "wages",
@@ -78,9 +84,11 @@ def next_steps_tab(
 
         *ctx.layout.section_if(employers, tab, "employers",
             *([mo.ui.plotly(ctx.charts.treemap(
-                height = 300,
-                labels = list(emp_types),
-                values = list(emp_types.values())
+                data   = HierarchyData(
+                    labels = list(emp_types),
+                    values = list(emp_types.values())
+                ),
+                height = 300
             ))]
             if (emp_types := Counter(
                 e["member_type"] for e in employers if e["member_type"]

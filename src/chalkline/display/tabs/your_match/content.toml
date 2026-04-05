@@ -11,7 +11,7 @@ The distances to all centroids produce the proximity rankings shown below, and t
 **Sector affinity** averages the distances from your resume to all career families within each construction sector (*Building Construction, Heavy Civil, and Specialty Trade*), converting to a percentage where higher values indicate stronger alignment. The **Job Zone distribution** shows which O\*NET experience levels appear most among your closest matches, reflecting whether your background aligns with entry-level, mid-career, or advanced roles.'''
 
 [chart_labels]
-distance_title = 'Distance (lower = closer match)'
+distance_title = 'Distance (<i>lower = closer match</i>)'
 gauge_title    = 'Match Confidence'
 jz_title       = 'Career Families in Top 10'
 radar_trace    = 'Top 5 Matches'
@@ -46,6 +46,26 @@ description = 'Wage and employment data for this occupation from the Bureau of L
 title       = 'Maine Wage Distribution'
 description = 'Annual salary percentiles for this occupation in Maine from BLS OEWS 2024.'
 
+[sections.distance_by_sector]
+title       = 'Distance by Sector'
+description = 'How your resume distances spread within each construction sector. Tight distributions mean consistent alignment, wide ones mean mixed affinity.'
+
+[sections.gap_concentration]
+title       = 'Gap Concentration'
+description = 'Which O*NET skill types carry the most growth areas. Larger tiles represent more gaps in that category.'
+
+[sections.similarity_overview]
+title       = 'Skill Similarity Distribution'
+description = 'How your similarity scores spread across all O*NET skills. The dashed line marks the median threshold between strengths and gaps.'
+
+[sections.skill_waterfall]
+title       = 'Skill Balance Sheet'
+description = 'Starting from demonstrated strengths, each bar subtracts gaps by skill type to show the net readiness balance.'
+
+[sections.career_transitions]
+title       = 'Career Transitions'
+description = 'Advancement paths (*green*) flow to higher experience levels. Lateral moves (*blue*) shift specialization at the same level. Flow thickness reflects how similar the roles are.'
+
 [sections.proximity]
 title       = 'Proximity to All Career Families'
 description = 'How close your resume is to each of the {n_clusters} career families. Your best match is highlighted. Lower distance means a closer fit.'
@@ -53,3 +73,7 @@ description = 'How close your resume is to each of the {n_clusters} career famil
 [sections.sector_affinity]
 title       = 'Sector Affinity'
 description = 'Which areas of construction your resume aligns with most, based on average similarity to career families in each sector.'
+
+[sections.skill_landscape]
+title       = 'Skill Landscape'
+description = 'Every O*NET competency for your matched occupation, organized by type. Green segments are demonstrated strengths, red segments are growth areas. Click to explore.'

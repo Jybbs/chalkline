@@ -2,13 +2,13 @@
 Tests for display-layer schemas and lazy-loading containers.
 """
 
-from chalkline.display.schemas   import CareerTreemap, VarianceBreakdown
+from chalkline.display.schemas   import HierarchyData, VarianceBreakdown
 from chalkline.display.theme     import Theme
 from chalkline.pathways.clusters import Clusters
 from chalkline.pathways.loaders  import StakeholderReference
 
 
-class TestCareerTreemap:
+class TestHierarchyData:
     """
     Validate treemap tile structure from cluster data.
     """
@@ -18,7 +18,8 @@ class TestCareerTreemap:
         One header row per sector plus one tile per cluster, with
         empty parents on sector headers.
         """
-        tm = CareerTreemap.from_clusters(clusters)
+        tm = HierarchyData.from_clusters(clusters)
+        assert tm.parents is not None
         assert len(tm.labels) == len(clusters.sectors) + len(clusters)
         assert all(p == "" for p in tm.parents[:len(clusters.sectors)])
 

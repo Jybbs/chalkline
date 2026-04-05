@@ -5,8 +5,7 @@ Validates that `Charts` produces figures with expected trace
 counts, annotations, and structural invariants.
 """
 
-from chalkline.display.charts   import Charts
-from chalkline.pathways.schemas import Reach
+from chalkline.display.charts import Charts
 
 
 class TestCharts:
@@ -80,15 +79,4 @@ class TestCharts:
             y_title         = "Y"
         )
         assert len(fig.to_dict()["data"]) == 2
-
-    def test_pathways_edges(self, charts: Charts, reach: Reach):
-        """
-        Pathways figure contains edge and node traces.
-        """
-        fig = charts.pathways(
-            reach      = reach,
-            target_id  = charts.cluster_ids[0],
-            title      = "P"
-        )
-        assert len(fig.to_dict()["data"]) >= 2
 

@@ -54,7 +54,7 @@ def _embeddings(rows: int, seed: int, unit: bool = False) -> np.ndarray:
     Deterministic random embeddings for test fixtures.
     """
     vectors = np.random.RandomState(seed).randn(rows, EMBEDDING_DIM).astype(np.float32)
-    return normalize(vectors) if unit else vectors
+    return np.asarray(normalize(vectors)) if unit else vectors
 
 
 def _postings() -> list[Posting]:
@@ -159,10 +159,10 @@ def cluster_vectors(
     Mean posting embedding per cluster, L2-normalized (CLUSTER_COUNT,
     EMBEDDING_DIM).
     """
-    return normalize(np.stack([
+    return np.asarray(normalize(np.stack([
         raw_vectors[assignments == cid].mean(axis=0)
         for cid in sorted(np.unique(assignments))
-    ]))
+    ])))
 
 
 @fixture
@@ -200,9 +200,10 @@ def clusters(
         for cid in cluster_ids
     }
     return Clusters(
-        centroids = centroids,
-        items     = items,
-        vectors   = cluster_vectors
+        centroids      = centroids,
+        items          = items,
+        soc_similarity = np.zeros((CLUSTER_COUNT, 1), dtype=np.float32),
+        vectors        = cluster_vectors
     )
 
 
@@ -320,7 +321,7 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     """
     L2-normalized posting embeddings.
     """
-    return normalize(raw_vectors)
+    return np.asarray(normalize(raw_vectors))
 
 
 # ── Display fixtures ─────────────────────────────────────────────────
@@ -335,7 +336,6 @@ def charts(pathway_graph: CareerPathwayGraph) -> Charts:
         matched_id = pathway_graph.clusters.cluster_ids[0],
         pathway    = pathway_graph,
         theme      = Theme(
-            dark_fn     = lambda: False,
             jz_labels   = {str(i): f"JZ{i}" for i in range(1, 6)},
             type_labels = {"skill": "Skills", "task": "Tasks"}
         )
@@ -433,7 +433,6 @@ def theme(content: ContentLoader) -> Theme:
     Dashboard theme with labels loaded from the shared TOML.
     """
     return Theme(
-        dark_fn     = lambda: True,
         jz_labels   = content.labels.job_zones,
         type_labels = content.labels.skill_types
     )

@@ -56,10 +56,10 @@ def cluster_vectors(assignments: np.ndarray, raw_vectors: np.ndarray) -> np.ndar
     Mean posting embedding per cluster in the full embedding space,
     L2-normalized for cosine similarity against occupations and credentials.
     """
-    return normalize(np.stack([
+    return np.asarray(normalize(np.stack([
         raw_vectors[assignments == cid].mean(axis=0)
         for cid in sorted(np.unique(assignments))
-    ]))
+    ])))
 
 
 def clusters(
@@ -103,9 +103,10 @@ def clusters(
     }
 
     return Clusters(
-        centroids = centroids,
-        items     = items,
-        vectors   = cluster_vectors
+        centroids      = centroids,
+        items          = items,
+        soc_similarity = soc_similarity,
+        vectors        = cluster_vectors
     )
 
 

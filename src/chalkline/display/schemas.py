@@ -22,54 +22,18 @@ from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
 from chalkline.pipeline.orchestrator import Chalkline
 
 
-class CareerTreemap(BaseModel, extra="forbid"):
-    """
-    Treemap tile data for the career landscape visualization.
-
-    Each list is positionally aligned so that index `i` across all four
-    fields describes one tile. Sector header rows (with zero values and
-    empty parents) appear first, followed by one row per cluster parented
-    under its sector.
-    """
-
-    labels  : Sequence[str]
-    parents : Sequence[str]
-    sectors : Sequence[str]
-    values  : Sequence[int]
-
-    @classmethod
-    def from_clusters(cls, clusters: Clusters) -> CareerTreemap:
-        """
-        Build treemap tiles from the fitted cluster collection.
-
-        Prepends one header row per sector, then appends each cluster as a
-        child tile under its sector.
-
-        Args:
-            clusters: Fitted `Clusters` instance.
-        """
-        rows = (
-            [(s, "", s, 0) for s in clusters.sectors]
-            + [(f"{c.soc_title} ({c.size})", c.sector, c.sector, c.size)
-               for c in clusters.values()]
-        )
-        labels, parents, sectors, values = zip(*rows)
-
-        return cls(
-            labels  = labels,
-            parents = parents,
-            sectors = sectors,
-            values  = values
-        )
-
-
 class GapScatterPoint(BaseModel, extra="forbid"):
     """
-    A single point in the gap priority scatter plot.
+    A single point in a bubble scatter plot.
+
+    Shared between gap priority scatter (*resume feedback tab*) where
+    magnitude is the non-negative gap size, and quality scatter (*ML
+    internals tab*) where magnitude is a signed silhouette coefficient
+    scaled to percentage.
     """
 
     frequency : int   = Field(ge=1)
-    magnitude : float = Field(ge=0, le=100)
+    magnitude : float = Field(ge=-100, le=100)
     text      : str
 
 
@@ -89,18 +53,63 @@ class HeroContent(BaseModel, extra="forbid"):
         return self.text.format(**kwargs), self.kind
 
 
+class HierarchyData(BaseModel, extra="forbid"):
+    """
+    Typed bundle for hierarchical chart data (sunburst, treemap).
+
+    Positionally aligned lists where index `i` across all fields describes
+    one tile. `labels` and `values` are required; optional fields enable
+    multi-level hierarchies (`parents`, `ids`), custom node colors
+    (`colors`), or automatic sector coloring (`sectors`).
+    """
+
+    labels : Sequence[str]
+    values : Sequence[int | float]
+
+    colors  : Sequence[str] | None = None
+    ids     : Sequence[str] | None = None
+    parents : Sequence[str] | None = None
+    sectors : Sequence[str] | None = None
+
+    @classmethod
+    def from_clusters(cls, clusters: Clusters) -> HierarchyData:
+        """
+        Build a sector → cluster hierarchy from the fitted cluster
+        collection.
+
+        Prepends one header row per sector with the total posting count,
+        then appends each cluster as a child tile under its sector.
+        """
+        sector_totals = clusters.sector_sizes
+        rows = (
+            [(s, "", s, sector_totals.get(s, 0)) for s in clusters.sectors]
+            + [(f"{c.soc_title} ({c.size})", c.sector, c.sector, c.size)
+               for c in clusters.values()]
+        )
+        labels, parents, sectors, values = zip(*rows)
+
+        return cls(
+            labels  = labels,
+            parents = parents,
+            sectors = sectors,
+            values  = values
+        )
+
+
 class JobPostingMetrics(BaseModel, extra="forbid"):
     """
     Aggregated posting statistics for the matched career family.
     """
 
-    companies   : dict[str, int]
-    dated       : dict[str, date]
-    locations   : dict[str, int]
-    members     : dict[str, int]
-    recent      : list[Posting]
-    stat_values : list[str]
-    titles      : dict[str, int]
+    companies    : dict[str, int]
+    dated        : dict[str, date]
+    descriptions : dict[str, int]
+    freshness    : list[int]
+    locations    : dict[str, int]
+    members      : dict[str, int]
+    recent       : list[Posting]
+    stat_values  : list[str]
+    titles       : dict[str, int]
 
     @classmethod
     def from_postings(
@@ -115,37 +124,63 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
             postings  : Posting objects from the matched cluster.
             reference : Stakeholder reference for AGC member lookup.
         """
+        from difflib  import get_close_matches
         from wordfreq import zipf_frequency
 
         companies = Counter(p.company  for p in postings if p.company)
         locations = Counter(p.location for p in postings if p.location).most_common(15)
         by_date   = attrgetter("date_posted")
         dated     = sorted(filter(by_date, postings), key=by_date, reverse=True)
+        today     = date.today()
 
-        agc_lookup = {
-            m["name"].lower(): m.get("type", "")
-            for m in reference.agc_members
+        agc_names = [m["name"] for m in reference.agc_members]
+        agc_types = {m["name"].lower(): m.get("type", "") for m in reference.agc_members}
+
+        agc_matched = {
+            c for c in companies
+            if get_close_matches(c, agc_names, n=1, cutoff=0.7)
         }
 
-        member_types = Counter({
-            mtype: count
-            for company, count in companies.items()
-            if (mtype := agc_lookup.get(company.lower(), ""))
-        })
+        member_types = Counter(
+            agc_types.get(match[0].lower(), "Unknown")
+            for c in agc_matched
+            if (match := get_close_matches(c, agc_names, n=1, cutoff=0.7))
+        )
+
+        freshness = [
+            (today - p.date_posted).days
+            for p in postings
+            if p.date_posted
+        ]
+
+        descriptions = dict(
+            Counter(
+                w for p in postings
+                for word in p.description.split()
+                if  len(w := word.strip(".,;:!?()[]\"'").lower()) > 3
+                and zipf_frequency(w, "en") < 4.5
+            ).most_common(20)
+        )
 
         stat_values = [
-            str(v) for v in [len(postings), len(companies), len(locations) or None]
-            if v is not None
+            str(len(postings)),
+            str(len(companies)),
+            str(len(locations)),
+            str(len(agc_matched)),
+            f"{min(freshness)}d" if freshness else "N/A",
+            str(len(dated))
         ]
 
         return cls(
-            companies   = {name[:30]: n for name, n in companies.most_common(15)},
-            dated       = {p.company or p.title: p.date_posted for p in dated},
-            locations   = {loc[:30]: n for loc, n in locations},
-            members     = member_types,
-            recent      = dated[:12],
-            stat_values = stat_values,
-            titles      = dict(
+            companies    = {name: n for name, n in companies.most_common(15)},
+            dated        = {p.company or p.title: p.date_posted for p in dated},
+            descriptions = descriptions,
+            freshness    = freshness,
+            locations    = dict(locations),
+            members      = member_types,
+            recent       = dated[:12],
+            stat_values  = stat_values,
+            titles       = dict(
                 Counter(
                     w for p in postings
                     for word in p.title.split()
@@ -190,7 +225,6 @@ class LaborMetrics(BaseModel, extra="forbid"):
         stat_strip = {
             stat_keys[key]: template.format(value)
             for key, value, template in [
-                ("education",   record.education,      "{}"),
                 ("growth",      record.change_percent, "{:+.1f}%"),
                 ("median_wage", record.annual_median,  "${:,.0f}"),
                 ("openings",    record.openings,       "{:,.0f}K/yr")
@@ -257,11 +291,12 @@ class MatchMetrics(BaseModel, extra="forbid"):
     Core match quality metrics derived from cluster distances.
     """
 
-    confidence : int = Field(ge=0, le=100)
-    job_zones  : dict[int, int]
-    proximity  : dict[str, float]
-    sectors    : dict[str, str]
-    top5       : dict[str, float]
+    confidence    : int = Field(ge=0, le=100)
+    job_zones     : dict[int, int]
+    proximity     : dict[str, float]
+    runner_up_gap : float
+    sectors       : dict[str, str]
+    top5          : dict[str, float]
 
     @field_validator("job_zones", mode="after")
     @classmethod
@@ -280,11 +315,12 @@ class MatchMetrics(BaseModel, extra="forbid"):
         cds      = result.cluster_distances
         max_dist = result.max_distance
         return cls(
-            confidence = result.confidence,
-            job_zones  = Counter(cd.job_zone for cd in cds[:10]),
-            proximity  = {cd.soc_title: round(cd.distance, 3) for cd in cds},
-            sectors    = {cd.soc_title: cd.sector for cd in cds},
-            top5       = {
+            confidence    = result.confidence,
+            job_zones     = Counter(cd.job_zone for cd in cds[:10]),
+            proximity     = {cd.soc_title: round(cd.distance, 3) for cd in cds},
+            runner_up_gap = round(cds[1].distance - cds[0].distance, 3) if len(cds) > 1 else 0,
+            sectors       = {cd.soc_title: cd.sector for cd in cds},
+            top5          = {
                 cd.soc_title: round(100 * (1 - cd.distance / max_dist), 1)
                 for cd in cds[:5]
             }
@@ -302,7 +338,9 @@ class MlMetrics(BaseModel, extra="forbid"):
 
     brokerage          : SectorRanking
     cluster_count      : int
+    cluster_heatmap    : dict[str, list[float]]
     cluster_profiles   : dict[str, dict]
+    company_count      : int
     component_count    : int
     corpus_size        : int
     edge_count         : int
@@ -311,8 +349,16 @@ class MlMetrics(BaseModel, extra="forbid"):
     pairwise_distances : dict[str, list[float]]
     sector_sizes       : dict[str, int]
     silhouette         : SectorRanking
-    treemap            : CareerTreemap
+    soc_heatmap        : dict[str, list[float]]
+    treemap            : HierarchyData
     variance           : VarianceBreakdown
+
+    @property
+    def median_silhouette(self) -> float:
+        """
+        Median silhouette coefficient across all clusters.
+        """
+        return round(sorted(self.silhouette.values)[len(self.silhouette.values) // 2], 3)
 
     @property
     def stat_values(self) -> list[str]:
@@ -321,10 +367,12 @@ class MlMetrics(BaseModel, extra="forbid"):
         """
         return [
             f"{self.corpus_size:,}",
-            self.embedding_model,
             str(self.cluster_count),
             str(self.component_count),
-            str(self.edge_count)
+            str(self.edge_count),
+            f"{self.variance.total:.1f}%",
+            str(self.median_silhouette),
+            str(self.company_count)
         ]
 
     @classmethod
@@ -342,10 +390,24 @@ class MlMetrics(BaseModel, extra="forbid"):
         ratio     = pipeline.matcher.svd.explained_variance_ratio_
         brokerage = SectorRanking.from_ranking(clusters, pipeline.graph.brokerage)
 
+        soc_heatmap = {
+            clusters[cid].display_label: [
+                round(float(v), 3) for v in clusters.soc_similarity[i]
+            ]
+            for i, cid in enumerate(clusters.cluster_ids)
+        }
+
+        cluster_labels = [clusters[cid].soc_title for cid in clusters.cluster_ids]
+        cluster_heatmap = dict(zip(
+            cluster_labels, clusters.cosine_similarity_matrix
+        ))
+
         return cls(
             brokerage          = brokerage,
             cluster_count      = len(clusters),
+            cluster_heatmap    = cluster_heatmap,
             cluster_profiles   = clusters.profile_map,
+            company_count      = clusters.company_count,
             component_count    = pipeline.config.component_count,
             corpus_size        = pipeline.corpus_size,
             edge_count         = pipeline.graph.edge_count,
@@ -354,7 +416,8 @@ class MlMetrics(BaseModel, extra="forbid"):
             pairwise_distances = clusters.pairwise_distances,
             sector_sizes       = clusters.sector_sizes,
             silhouette         = SectorRanking.from_tuples(clusters.silhouette_scores),
-            treemap            = CareerTreemap.from_clusters(clusters),
+            soc_heatmap        = soc_heatmap,
+            treemap            = HierarchyData.from_clusters(clusters),
             variance           = VarianceBreakdown.from_svd(ratio)
         )
 
@@ -374,19 +437,6 @@ class ProcessStep(BaseModel, extra="forbid"):
         `process_flow()`.
         """
         return self.number, self.label, self.detail.format(**kwargs)
-
-
-class RadarTrace(NamedTuple):
-    """
-    Typed trace for polar radar charts.
-    """
-
-    color_role : str
-    name       : str
-    values     : Sequence[float]
-
-    alpha : float      = 0.15
-    dash  : str | None = None
 
 
 class SectionContent(BaseModel, extra="forbid"):
@@ -496,12 +546,25 @@ class SkillMetrics(BaseModel, extra="forbid"):
         return [
             GapScatterPoint(
                 frequency = len(gaps),
-                magnitude = round(100 - s.pct, 1),
-                text      = s.name[:60]
+                magnitude = max(0.0, round(100 - s.pct, 1)),
+                text      = s.name
             )
             for gaps in gaps_by_type.values()
             for s in gaps
         ]
+
+    @property
+    def demonstration_rates(self) -> dict[str, float]:
+        """
+        Percentage of demonstrated skills per O*NET type.
+        """
+        return {
+            stype: round(
+                100 * sum(s.demonstrated for s in skills) / len(skills), 1
+            )
+            for stype, skills in self.skill_groups.items()
+            if skills
+        }
 
     @property
     def overall_averages(self) -> list[float]:
@@ -520,7 +583,34 @@ class SkillMetrics(BaseModel, extra="forbid"):
         """
         demo  = sum(s.demonstrated for v in self.skill_groups.values() for s in v)
         total = sum(len(v) for v in self.skill_groups.values())
-        return [str(demo), str(total - demo)]
+        return [
+            str(demo),
+            str(total - demo),
+            str(len(self.skill_groups)),
+            f"{round(100 * demo / total)}%" if total else "0%",
+            str(total)
+        ]
+
+    @property
+    def top_gaps(self) -> list[ScoredTask]:
+        """
+        Top 5 gap skills by deficit (lowest similarity).
+        """
+        return sorted(
+            [s for v in self.skill_groups.values() for s in v if not s.demonstrated],
+            key=lambda s: s.similarity
+        )[:5]
+
+    @property
+    def top_strengths(self) -> list[ScoredTask]:
+        """
+        Top 5 demonstrated skills by similarity score.
+        """
+        return sorted(
+            [s for v in self.skill_groups.values() for s in v if s.demonstrated],
+            key=lambda s: s.similarity,
+            reverse=True
+        )[:5]
 
     @property
     def strength_averages(self) -> list[float]:

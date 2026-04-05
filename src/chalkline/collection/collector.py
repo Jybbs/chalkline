@@ -10,9 +10,13 @@ persist deduplicated postings through the storage layer.
 
 from loguru  import logger
 from pathlib import Path
+from typing  import TYPE_CHECKING
 
 from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import CorpusStorage
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 
 class Collector:

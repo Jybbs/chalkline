@@ -1,168 +1,116 @@
 """
 Plotly theme for the Chalkline Marimo dashboard.
 
-Provides a `Theme` class with color and label accessors, and registers a
-custom `chalkline_dark` Plotly template on import. The template overlays
-`plotly_dark` with explicit font colors for every text-bearing component
-so that chart labels, gauge ticks, polar axis text, and pie slice labels
-are always legible.
+Provides a `Theme` class that owns the unified color palette, sector color
+mapping, skill type labels, Job Zone labels, and the registered Plotly
+template. Each instance registers its template with Plotly on construction,
+making `template="chalkline_dark"` resolve globally.
 """
 
 import plotly.graph_objects as go
 import plotly.io            as pio
 
-from bisect          import bisect
-from collections.abc import Sequence
-from types           import MappingProxyType
-from typing          import Callable
-
-
-def _register_template() -> None:
-    """
-    Build and register the Chalkline dark Plotly template.
-
-    Overlays `plotly_dark` with explicit font colors on cartesian axes,
-    polar axes, indicator gauges, and pie slices. The base template
-    supplies backgrounds, gridlines, and colorways while the overlay
-    controls text legibility.
-    """
-    fg   = "#ebebeb"
-    grid = "#333333"
-
-    t = go.layout.Template()
-
-    t.layout.font = dict(color=fg, family="DM Sans, system-ui, sans-serif")
-    t.layout.paper_bgcolor = "rgba(0,0,0,0)"
-    t.layout.plot_bgcolor = "rgba(0,0,0,0)"
-
-    axis_shared = dict(
-        griddash      = "dot",
-        gridcolor     = grid,
-        tickfont      = dict(color=fg),
-        title         = dict(font=dict(color=fg), standoff=12),
-        zerolinecolor = grid,
-    )
-    t.layout.xaxis = dict(**axis_shared)
-    t.layout.yaxis = dict(**axis_shared, ticklabelstandoff=8)
-
-    t.layout.polar = dict(
-        angularaxis = dict(
-            griddash  = "dot",
-            gridcolor = grid,
-            linecolor = grid,
-            tickfont  = dict(color=fg),
-        ),
-        bgcolor = "rgba(0,0,0,0)",
-        radialaxis = dict(
-            griddash  = "dot",
-            gridcolor = grid,
-            linecolor = grid,
-            tickfont  = dict(color=fg),
-        ),
-    )
-
-    t.layout.colorway = [
-        "#7db3e0",
-        "#e0854a",
-        "#8cc5a3",
-        "#E8C840",
-        "#e8876f",
-        "#5a9fd4",
-        "#5cb878",
-        "#c49bdb",
-        "#d4a574",
-        "#7ecfc0",
-    ]
-    t.layout.legend = dict(font=dict(color=fg))
-
-    t.data.indicator = [go.Indicator(
-        gauge  = dict(axis=dict(tickfont=dict(color=fg))),
-        number = dict(font=dict(color=fg)),
-        title  = dict(font=dict(color=fg)),
-    )]
-
-    t.data.pie = [go.Pie(
-        insidetextfont  = dict(color=fg),
-        outsidetextfont = dict(color=fg),
-        textfont        = dict(color=fg),
-        textposition    = "outside",
-    )]
-
-    base = pio.templates["plotly_dark"]
-    merged = go.layout.Template(base)
-    merged.update(t)
-    pio.templates["chalkline_dark"] = merged
-
-
-_register_template()
+from bisect     import bisect
+from types      import MappingProxyType
 
 
 class Theme:
     """
-    Single source of truth for color and label state across the
-    Chalkline dashboard.
+    Single source of truth for color and label state across the Chalkline
+    dashboard.
     """
-
-    COLORS: MappingProxyType[str, str] = MappingProxyType({
-        "accent"     : "#7db3e0",
-        "error"      : "#e8876f",
-        "foreground" : "#ebebeb",
-        "muted"      : "#999999",
-        "primary"    : "#E8C840",
-        "success"    : "#8cc5a3",
-    })
-
-    SECTOR_COLORS: MappingProxyType[str, str] = MappingProxyType({
-        "Building Construction" : "#5a9fd4",
-        "Heavy Civil"           : "#e0854a",
-        "Specialty Trade"       : "#5cb878",
-    })
-
-    TEMPLATE: str = "chalkline_dark"
 
     def __init__(
         self,
-        dark_fn     : Callable[[], bool],
         jz_labels   : dict[str, str],
         type_labels : dict[str, str]
     ):
         """
         Args:
-            dark_fn     : Retained for API compatibility but always True.
-            jz_labels   : Job Zone int to display label.
+            jz_labels   : Job Zone integer key to display label.
             type_labels : O*NET skill type key to display label.
         """
-        self.dark_fn     = dark_fn
+        self.colors = MappingProxyType({
+            "accent"     : "#7db3e0",
+            "building"   : "#5a9fd4",
+            "cream"      : "#d4a574",
+            "error"      : "#e8876f",
+            "foreground" : "#ebebeb",
+            "grid"       : "#333333",
+            "heavy"      : "#e0854a",
+            "highlight"  : "#dc143c",
+            "lavender"   : "#c49bdb",
+            "muted"      : "#999999",
+            "primary"    : "#E8C840",
+            "specialty"  : "#5cb878",
+            "success"    : "#8cc5a3",
+            "teal"       : "#7ecfc0",
+        })
+        self.sectors = MappingProxyType({
+            "Building Construction"      : self.colors["building"],
+            "Heavy Highway Construction" : self.colors["heavy"],
+            "Specialty Trade"            : self.colors["specialty"],
+        })
         self.jz_labels   = jz_labels
         self.type_labels = type_labels
+        self.template    = "chalkline_dark"
+        self._register_template()
 
-    @property
-    def colors(self) -> MappingProxyType[str, str]:
+    def _register_template(self) -> None:
         """
-        Semantic color palette keyed by role name.
+        Build and register the Chalkline dark Plotly template.
 
-        Returns:
-            Immutable mapping with keys `accent`, `error`, `foreground`,
-            `muted`, `primary`, `success`.
+        Overlays `plotly_dark` with the palette colorway, transparent
+        backgrounds, dotted palette gridlines, and the Chalkline font. Text
+        colors propagate to every axis tick, title, legend, indicator, and
+        pie slice via Plotly's `layout.font` inheritance, which
+        `plotly_dark` itself relies on and sets no descendant-level font
+        overrides against.
         """
-        return self.COLORS
+        axis_shared = dict(
+            griddash      = "dot",
+            gridcolor     = self.colors["grid"],
+            title         = dict(standoff=12),
+            zerolinecolor = self.colors["grid"],
+        )
 
-    @property
-    def sector_colors(self) -> MappingProxyType[str, str]:
-        """
-        Construction sector to hex color mapping.
+        polar_axis = dict(
+            griddash  = "dot",
+            gridcolor = self.colors["grid"],
+            linecolor = self.colors["grid"],
+        )
 
-        Returns:
-            Immutable mapping of sector name to hex color.
-        """
-        return self.SECTOR_COLORS
+        overlay = {
+            "layout": {
+                "colorway": [self.colors[k] for k in (
+                    "accent", "heavy", "success", "primary", "error",
+                    "building", "specialty", "lavender", "cream", "teal",
+                )],
+                "font"          : dict(
+                    color  = self.colors["foreground"],
+                    family = "DM Sans, system-ui, sans-serif",
+                ),
+                "margin"        : dict(b=50, l=30, r=30, t=20),
+                "paper_bgcolor" : "rgba(0,0,0,0)",
+                "plot_bgcolor"  : "rgba(0,0,0,0)",
+                "polar"         : dict(
+                    angularaxis = polar_axis,
+                    bgcolor     = "rgba(0,0,0,0)",
+                    radialaxis  = polar_axis,
+                ),
+                "xaxis"         : axis_shared,
+                "yaxis"         : dict(**axis_shared, ticklabelstandoff=8),
+            },
+            "data": {
+                "bar"       : [go.Bar(marker=dict(cornerradius=4))],
+                "histogram" : [go.Histogram(marker=dict(cornerradius=4))],
+                "pie"       : [go.Pie(textposition="outside")],
+            },
+        }
 
-    @property
-    def template(self) -> str:
-        """
-        Active Plotly template name.
-        """
-        return self.TEMPLATE
+        merged = go.layout.Template(pio.templates["plotly_dark"])
+        merged.update(overlay)
+        pio.templates[self.template] = merged
 
     def jz_label(self, job_zone: int) -> str:
         """
@@ -175,24 +123,6 @@ class Theme:
             Label such as `"Entry Level"` or `"Advanced"`.
         """
         return self.jz_labels.get(str(job_zone), str(job_zone))
-
-    def resolve(self, color: str | Sequence[str]) -> str | list[str]:
-        """
-        Resolve color role names to hex values from the palette.
-
-        Strings not found in the palette pass through unchanged, so
-        pre-resolved hex values and numeric colorscale inputs are safe.
-
-        Args:
-            color: Single role name or hex string, or a sequence of them.
-
-        Returns:
-            Resolved hex string or list of hex strings.
-        """
-        c = self.colors
-        if isinstance(color, str):
-            return c.get(color, color)
-        return [c.get(v, v) for v in color]
 
     def score_color(self, score: float) -> str:
         """
@@ -210,8 +140,8 @@ class Theme:
         """
         Map a 0-100 percentage score to a CSS tier class suffix.
 
-        Uses the same 40/70 thresholds as `score_color` so the HTML
-        skill tree and Plotly gauge stay in sync.
+        Uses the same 40/70 thresholds as `score_color` so the HTML skill
+        tree and Plotly gauge stay in sync.
 
         Args:
             score: Numeric score between 0 and 100.

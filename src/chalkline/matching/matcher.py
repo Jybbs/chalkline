@@ -63,7 +63,11 @@ class ResumeMatcher:
             return []
 
         task_matrix  = np.stack([t.vector for t in tasks])
-        similarities = cosine_similarity(resume_unit, task_matrix)[0]
+        similarities = np.clip(
+            cosine_similarity(resume_unit, task_matrix)[0],
+            -1.0,
+            1.0,
+        )
         threshold    = float(np.median(similarities))
         return sorted(
             [

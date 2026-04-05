@@ -17,7 +17,6 @@ def _():
 
     content = ContentLoader()
     theme   = Theme(
-        dark_fn     = lambda: True,
         jz_labels   = content.labels.job_zones,
         type_labels = content.labels.skill_types
     )

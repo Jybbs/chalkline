@@ -9,7 +9,7 @@ The **career ladder** positions all families in your sector by O\*NET Job Zone, 
 [chart_labels]
 job_zone_axis        = 'Job Zone'
 pathways_title       = 'Career Pathways from {soc_title}'
-route_strength_title = 'Path Strength (cosine similarity)'
+route_strength_title = 'Path Strength (<i>cosine similarity</i>)'
 
 [directions]
 advancement = 'Advancement'
@@ -26,17 +26,37 @@ type       = 'Type'
 title       = 'Career Ladder'
 description = 'All career families in {sector}, positioned by experience level. Your selected family is highlighted.'
 
+[sections.credential_hours]
+title       = 'Training Investment'
+description = 'Total apprenticeship and program hours required for each advancement path. Shorter bars mean faster transitions.'
+
+[sections.credential_matrix]
+title       = 'Credential Coverage'
+description = 'How many credentials of each type bridge each career transition. Brighter cells indicate more training options for that path.'
+
 [sections.credentials]
 title       = 'Credentials bridging these transitions ({count})'
 description = ""
 
+[sections.landscape_sunburst]
+title       = 'Career Landscape'
+description = 'All {n_clusters} career families organized by sector and experience level. Click to explore.'
+
 [sections.movement]
 title       = 'Movement Options'
-description = '{adv_count} advancement paths (higher experience level) and {lat_count} lateral moves (same level) from {soc_title}.'
+description = '{adv_count} advancement paths (*higher experience level*) and {lat_count} lateral moves (*same level*) from {soc_title}.'
+
+[sections.sector_mobility]
+title       = 'Sector Mobility'
+description = 'How career transitions flow across sectors and experience levels. Wider ribbons indicate more common pathways.'
+
+[sections.wage_progression]
+title       = 'Wage Comparison'
+description = 'Median annual wages in Maine for the selected family and all reachable destinations.'
 
 [sections.overview]
 title       = 'Career Pathways'
-description = 'Each connection represents a plausible career move between families at the same experience level (lateral) or one level up (advancement), weighted by how similar the roles are.'
+description = 'Each connection represents a plausible career move between families at the same experience level (*lateral*) or one level up (*advancement*), weighted by how similar the roles are.'
 
 [sections.route_strength]
 title       = 'Path Strength Comparison'

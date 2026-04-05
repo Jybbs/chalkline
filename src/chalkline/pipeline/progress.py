@@ -11,7 +11,7 @@ context, delegates to `mo.status.progress_bar`.
 from collections.abc        import Callable
 from hamilton.lifecycle.api import GraphExecutionHook, NodeExecutionHook
 from loguru                 import logger
-from rich.progress          import Progress
+from rich.progress          import Progress, TaskID
 from sys                    import modules
 from time                   import perf_counter
 
@@ -256,15 +256,15 @@ class RichDisplay(PipelineProgress):
         batches.
         """
         progress = self.progress
+        task_id  = TaskID(-1)
 
         def on_batch(current: int, total: int):
+            nonlocal task_id
             if current == 0:
-                on_batch.task_id = progress.add_task(
-                    f"{label} ·", total = total
-                )
-            progress.update(on_batch.task_id, completed = current + 1)
+                task_id = progress.add_task(f"{label} ·", total=total)
+            progress.update(task_id, completed=current + 1)
             if current + 1 == total:
-                progress.remove_task(on_batch.task_id)
+                progress.remove_task(task_id)
 
         return on_batch
 

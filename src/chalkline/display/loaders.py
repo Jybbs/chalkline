@@ -21,7 +21,7 @@ from markupsafe      import Markup
 from pathlib         import Path
 from statistics      import fmean
 from tomllib         import load
-from typing          import NamedTuple
+from typing          import Literal, NamedTuple
 
 from chalkline.collection.schemas    import Posting
 from chalkline.display.charts        import Charts
@@ -56,25 +56,39 @@ class ContentLoader:
     def glossary(self) -> tuple[re.Pattern, dict[str, tuple]]:
         """
         Single alternation regex and definition lookup for all glossary
-        terms, sorted longest-first so multi-word terms match before
-        their substrings.
+        terms, sorted longest-first so multi-word terms match before their
+        substrings.
+
+        Each entry's `term` plus any entries in its optional `aliases` list
+        all resolve to the same tooltip content, with the canonical `term`
+        shown as the title. This lets the content layer mention an acronym
+        or plural anywhere and still surface the detailed definition on
+        first occurrence.
 
         Each lookup value is a tuple of (title, definition, url, url_label)
         supporting rich tooltip rendering with optional links.
         """
         with (self.display_dir / "tabs/shared/glossary.toml").open("rb") as f:
-            terms = sorted(load(f)["terms"], key=lambda e: -len(e["term"]))
-        alts = "|".join(re.escape(e["term"]) for e in terms)
+            entries = load(f)["terms"]
+        pairs = sorted(
+            (
+                (key, entry)
+                for entry in entries
+                for key in (entry["term"], *entry.get("aliases", ()))
+            ),
+            key = lambda p: -len(p[0])
+        )
+        alts = "|".join(re.escape(key) for key, _ in pairs)
         return (
             re.compile(rf"\b({alts})\b", re.IGNORECASE),
             {
-                e["term"].lower(): (
-                    e["term"],
-                    e["definition"],
-                    e.get("url", ""),
-                    e.get("url_label", ""),
+                key.lower(): (
+                    entry["term"],
+                    entry["definition"],
+                    entry.get("url", ""),
+                    entry.get("url_label", ""),
                 )
-                for e in terms
+                for key, entry in pairs
             }
         )
 
@@ -115,9 +129,8 @@ class Layout:
         """
         Args:
             content       : Loader providing shared labels and tab content.
-            substitutions : Corpus-level values (e.g. `n_postings`,
-                            `n_clusters`) substituted into TOML template
-                            strings at render time.
+            substitutions : Corpus-level values (e.g. `n_postings`, `n_clusters`)
+                            substituted into TOML template strings at render time.
         """
         self.content       = content
         self.substitutions = substitutions or {}
@@ -156,14 +169,13 @@ class Layout:
 
     def annotate(self, text: str) -> str:
         """
-        Annotate the first occurrence of each glossary term with
-        an interactive tooltip popover via a single `re.sub` pass.
+        Annotate the first occurrence of each glossary term with an
+        interactive tooltip popover via a single `re.sub` pass.
 
-        Each popover contains a bold title, a description with
-        inline emphasis rendered by `markdown-it-py`, and an
-        optional outbound link. Terms are matched
-        case-insensitively and longest-first to prevent partial
-        overlap.
+        Each popover contains a bold title, a description with inline
+        emphasis rendered by `markdown-it-py`, and an optional outbound
+        link. Terms are matched case-insensitively and longest-first to
+        prevent partial overlap.
 
         Args:
             text: Rendered HTML to scan for glossary matches.
@@ -174,8 +186,8 @@ class Layout:
 
         def render(raw: str) -> Markup:
             """
-            Apply template substitution and inline emphasis to a
-            glossary definition, returning safe HTML.
+            Apply template substitution and inline emphasis to a glossary
+            definition, returning safe HTML.
             """
             return Markup(
                 markdown_it.renderInline(raw.format_map(self.substitutions))
@@ -183,14 +195,17 @@ class Layout:
 
         def replace(m: re.Match) -> str:
             """
-            Build a tooltip popover for a matched glossary term,
-            skipping duplicates within the same text block.
-            """
-            if (key := m.group().lower()) in seen:
-                return m.group()
-            seen.add(key)
+            Build a tooltip popover for a matched glossary term, skipping
+            duplicates within the same text block.
 
-            title, definition, url, url_label = lookup[key]
+            Dedup keys on the canonical title (not the raw match text), so
+            an acronym and its full form in the same paragraph produce
+            exactly one tooltip.
+            """
+            title, definition, url, url_label = lookup[m.group().lower()]
+            if (canonical := title.lower()) in seen:
+                return m.group()
+            seen.add(canonical)
             children: list = [
                 strong(".cl-tip-title")[title],
                 hr(".cl-tip-rule"),
@@ -277,8 +292,8 @@ class Layout:
         """
         Section header with a bold serif title and muted description.
 
-        Absorbs the `tab.section()` lookup so call sites pass the tab
-        and key directly instead of a pre-resolved tuple.
+        Absorbs the `tab.section()` lookup so call sites pass the tab and
+        key directly instead of a pre-resolved tuple.
 
         Args:
             tab  : Tab content holding section definitions.
@@ -328,8 +343,8 @@ class Layout:
 
     def posting_card(self, posting: Posting) -> mo.Html:
         """
-        Job posting card with title, company, location, date, and a
-        link to the original listing.
+        Job posting card with title, company, location, date, and a link to
+        the original listing.
 
         Args:
             posting: Corpus posting record.
@@ -514,11 +529,40 @@ class Layout:
             cls = "cl-splash"
         )
 
+    def overview(
+        self,
+        tab : TabContent,
+        key : str,
+        **fmt
+    ) -> mo.Html:
+        """
+        Tab overview rendered as a branded banner.
+
+        Uses a dedicated `.cl-overview` style with a gold top accent and
+        serif title to visually distinguish explanatory tab openers from
+        both chart headers and standard callouts.
+
+        Args:
+            tab  : Tab content holding section definitions.
+            key  : Section key to look up.
+            **fmt : Format kwargs forwarded to `tab.section()`.
+
+        Returns:
+            Styled overview banner with serif title and body description.
+        """
+        description, title = tab.section(key, **self.substitutions, **fmt)
+        body_html          = self.annotate(mo.md(description).text)
+        return self._to_html(
+            div(".cl-overview-title")[title],
+            div(".cl-overview-body")[Markup(body_html)],
+            cls = "cl-overview"
+        )
+
     def stack(
         self,
         *items    : object,
-        direction : str   = "v",
-        gap       : float = 1.5,
+        direction : Literal["v", "h"] = "v",
+        gap       : float             = 1.5,
         **kw
     ) -> mo.Html:
         """
@@ -528,21 +572,21 @@ class Layout:
             *items    : Elements to stack (charts, callouts, headers).
             direction : `"v"` for vertical, `"h"` for horizontal.
             gap       : Spacing between items in rem.
-            **kw      : Forwarded to the Marimo stack function
-                        (e.g. `widths`, `align`, `justify`).
+            **kw      : Forwarded to the Marimo stack function (e.g. `widths`,
+                        `justify`).
 
         Returns:
             Composed Marimo HTML element.
         """
         fn = mo.vstack if direction == "v" else mo.hstack
-        return fn(items=list(items), gap=gap, **kw)
+        return fn(items=list(items), align="stretch", gap=gap, **kw)
 
     def stats(self, pairs: Iterable[tuple[str, str]]) -> mo.Html:
         """
         Responsive grid of branded stat tiles.
 
-        Each pair renders as a gold value over a muted label, using the
-        same `.cl-stat-value` / `.cl-stat-label` classes as the splash.
+        Each pair renders as a gold value over a muted label, using the same
+        `.cl-stat-value` / `.cl-stat-label` classes as the splash.
 
         Args:
             pairs: (label, value) tuples in display order.

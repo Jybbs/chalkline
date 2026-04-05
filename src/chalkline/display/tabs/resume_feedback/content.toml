@@ -14,20 +14,48 @@ O\*NET organizes occupational competencies into seven element types spanning con
 
 [chart_labels]
 all_skills_trace   = 'All Skills'
-gap_x_title        = 'Category Frequency (how many gaps in this type)'
+gap_x_title        = 'Category Frequency (<i>how many gaps in this type</i>)'
 gap_y_title        = 'Gap Magnitude (%)'
 similarity_x_title = 'Similarity (%)'
 similarity_y_title = 'Number of Skills'
 strengths_trace    = 'Strengths Only'
 
 [chart_lists]
-stat_labels = ["Strengths", "Growth Areas"]
+stat_labels = ["Strengths", "Growth Areas", "Skill Types", "Demo Rate", "Total Skills"]
 
 [fallbacks]
 no_gaps       = 'No gaps identified.'
 no_similarity = 'No similarity data.'
 no_skill_data = 'No skill data available.'
 no_strengths  = 'No demonstrated skills.'
+
+[sections.demonstration_rate]
+title       = 'Demonstration Rate by Category'
+description = 'What percentage of skills in each O*NET category your resume demonstrates. Categories below 50% are the broadest improvement opportunities.'
+
+[sections.confidence_gauge]
+title       = 'Match Confidence'
+description = 'Overall confidence in the resume-to-cluster match, based on relative distance to the nearest career family.'
+
+[sections.gap_types]
+title       = 'Gap Distribution by Type'
+description = 'Which O*NET skill categories contain the most growth areas.'
+
+[sections.score_violin]
+title       = 'Score Distributions by Type'
+description = 'How similarity scores spread within each skill category. Wide violins indicate uneven competency within a type.'
+
+[sections.skill_waterfall]
+title       = 'Skill Balance by Type'
+description = 'Starting from total skills, each category subtracts its gaps to show where the largest deficits accumulate.'
+
+[sections.skill_flow]
+title       = 'Skill Flow'
+description = 'How skills flow from O*NET category through demonstrated vs gap classification into score ranges. Wider ribbons mean more skills taking that path.'
+
+[sections.skill_funnel]
+title       = 'Confidence Funnel'
+description = 'How the total skill pool narrows at each confidence threshold, from all skills down to top strengths above 85%.'
 
 [sections.gap_priority]
 title       = 'Gap Priority'
