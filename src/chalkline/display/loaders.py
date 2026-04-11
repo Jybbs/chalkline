@@ -10,27 +10,28 @@ dependencies that every tab renderer needs, constructed once in the Marimo
 notebook.
 """
 
-import marimo as mo
 import re
 
-from collections.abc import Iterable
-from functools       import cached_property
-from htpy            import a, br, details, div, h1, hr, p, span, strong, summary
-from markdown_it     import MarkdownIt
-from markupsafe      import Markup
-from pathlib         import Path
-from statistics      import fmean
-from tomllib         import load
-from typing          import Literal, NamedTuple
+from bisect               import bisect
+from collections.abc      import Iterable
+from functools            import cache, cached_property
+from htpy                 import a, br, div, Element, h1, hr, p, span, strong
+from marimo               import Html, hstack, icon, md, ui, vstack
+from markdown_it          import MarkdownIt
+from markupsafe           import Markup
+from pathlib              import Path
+from plotly.graph_objects import Figure
+from tomllib              import load
+from typing               import Literal, NamedTuple
 
 from chalkline.collection.schemas    import Posting
 from chalkline.display.charts        import Charts
-from chalkline.display.schemas       import Labels, SplashMetrics, TabContent
+from chalkline.display.schemas       import Labels, ProcessStep, TabContent
 from chalkline.display.theme         import Theme
 from chalkline.matching.schemas      import MatchResult, ScoredTask
 from chalkline.pathways.clusters     import Cluster
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
-from chalkline.pathways.schemas      import Occupations
+from chalkline.pathways.schemas      import Credential, Occupation
 from chalkline.pipeline.orchestrator import Chalkline
 
 
@@ -86,7 +87,7 @@ class ContentLoader:
                     entry["term"],
                     entry["definition"],
                     entry.get("url", ""),
-                    entry.get("url_label", ""),
+                    entry.get("url_label", "")
                 )
                 for key, entry in pairs
             }
@@ -100,9 +101,10 @@ class ContentLoader:
         with (self.display_dir / "tabs" / "shared" / "content.toml").open("rb") as f:
             return Labels.model_validate(load(f))
 
+    @cache
     def tab(self, name: str) -> TabContent:
         """
-        Load and validate a tab's `content.toml`.
+        Load and validate a tab's `content.toml`, cached per name.
 
         Args:
             name: Tab directory name (e.g. `"your_match"`, `"splash"`).
@@ -135,13 +137,44 @@ class Layout:
         self.content       = content
         self.substitutions = substitutions or {}
 
+    @cached_property
+    def external_icon(self) -> Markup:
+        """
+        External-link icon SVG, rendered once per Layout and reused
+        across every card builder that calls `_link`.
+        """
+        return Markup(icon("lucide:external-link", size=14).text)
+
+    @cached_property
+    def markdown_it(self) -> MarkdownIt:
+        """
+        Inline-emphasis Markdown parser, instantiated once per Layout.
+
+        `annotate` is called dozens of times per render (once per callout,
+        header, overview, sidebar, etc.), so the parser is cached on the
+        Layout instance instead of rebuilt per call.
+        """
+        return MarkdownIt("zero").enable(["emphasis"])
+
     def _link(self, url: str):
         """
         External link icon anchored to the bottom-right of a card.
         """
-        return a(".cl-card-link", href=url, target="_blank")[
-            Markup(mo.icon("lucide:external-link", size=14).text)
-        ]
+        return a(".cl-card-link", href=url, target="_blank")[self.external_icon]
+
+    def _section_html(
+        self,
+        tab : TabContent,
+        key : str,
+        **fmt
+    ) -> tuple[str, Markup]:
+        """
+        Render a section's title and description through the glossary
+        annotator, returning `(title, body_markup)` for header/overview
+        wrappers to compose into their own shapes.
+        """
+        description, title = tab.section(key, **self.substitutions, **fmt)
+        return title, Markup(self.annotate(md(description).text))
 
     def _stat(self, label: str, value: str):
         """
@@ -152,12 +185,12 @@ class Layout:
             div(".cl-stat-label")[label]
         ]
 
-    def _to_html(self, *children, cls: str, **attrs) -> mo.Html:
+    def to_html(self, *children, cls: str, **attrs) -> Html:
         """
-        Wrap children in a classed div and convert to `mo.Html`.
+        Wrap children in a classed div and convert to `Html`.
 
         Single boundary between htpy's typed element tree and Marimo's
-        `Html` wrapper. Every public method that returns `mo.Html` from htpy
+        `Html` wrapper. Every public method that returns `Html` from htpy
         elements goes through this.
 
         Args:
@@ -165,7 +198,7 @@ class Layout:
             cls       : CSS class for the wrapper div.
             **attrs   : Additional HTML attributes on the wrapper.
         """
-        return mo.Html(str(div(f".{cls}", **attrs)[children].__html__()))
+        return Html(str(div(f".{cls}", **attrs)[children].__html__()))
 
     def annotate(self, text: str) -> str:
         """
@@ -181,7 +214,6 @@ class Layout:
             text: Rendered HTML to scan for glossary matches.
         """
         pattern, lookup = self.content.glossary
-        markdown_it     = MarkdownIt("zero").enable(["emphasis"])
         seen: set[str]  = set()
 
         def render(raw: str) -> Markup:
@@ -190,7 +222,7 @@ class Layout:
             definition, returning safe HTML.
             """
             return Markup(
-                markdown_it.renderInline(raw.format_map(self.substitutions))
+                self.markdown_it.renderInline(raw.format_map(self.substitutions))
             )
 
         def replace(m: re.Match) -> str:
@@ -215,7 +247,7 @@ class Layout:
                 children.append(hr(".cl-tip-rule"))
                 children.append(a(
                     ".cl-tip-link",
-                    href   = url, 
+                    href   = url,
                     target = "_blank"
                 )[url_label])
 
@@ -223,12 +255,12 @@ class Layout:
 
         return pattern.sub(replace, text)
 
-    def board_card(self, **kwargs) -> mo.Html:
+    def board_card(self, **kwargs) -> Html:
         """
         Job board card with name, focus area, best-for description, and
         category tag.
         """
-        return self._to_html(
+        return self.to_html(
             strong[kwargs["name"]],
             span(".badge")[kwargs["category"]], br,
             span(".secondary")[kwargs["focus"]], br,
@@ -236,7 +268,7 @@ class Layout:
             cls = "cl-card"
         )
 
-    def callout(self, text: str, kind: str = "info") -> mo.Html:
+    def callout(self, text: str, kind: str = "info") -> Html:
         """
         Branded callout with left-border accent.
 
@@ -247,28 +279,55 @@ class Layout:
         Returns:
             Styled callout element.
         """
-        return self._to_html(
-            Markup(self.annotate(mo.md(text.format_map(self.substitutions)).text)),
+        return self.to_html(
+            Markup(self.annotate(md(text.format_map(self.substitutions)).text)),
             cls       = "cl-callout",
             data_kind = kind
         )
 
-    def employer_card(self, **kwargs) -> mo.Html:
+    def credential_card(self, credential: Credential, theme: Theme) -> Html:
         """
-        AGC employer card with company name, member type, and links.
+        Credential card with kind-aware accent color and metadata.
+
+        Args:
+            credential : Pathways credential with kind and metadata.
+            theme      : For accent color lookup via `credential_color`.
+
+        Returns:
+            Styled card element with kind badge and detail line.
+        """
+        detail = " \u00b7 ".join(filter(None, (
+            f"{credential.hours:,} hours" if credential.hours else "",
+            credential.metadata.get("institution", "")
+        )))
+
+        return self.to_html(
+            span(
+                ".cl-badge",
+                style=f"background:{theme.credential_color(credential.kind)}"
+            )[credential.type_label],
+            " ",
+            strong[credential.label],
+            *([br, span(".secondary")[detail]] if detail else ()),
+            *([self._link(url)] if (url := credential.metadata.get("url")) else ()),
+            cls="cl-card"
+        )
+
+    def employer_card(self, **kwargs) -> Html:
+        """
+        AGC employer card with company name, member type, and posting link.
 
         Kwargs:
-            career_url, member_type, name, posting_url.
+            member_type, name, posting_url.
         """
-        career_url = kwargs.get("career_url", "")
-        return self._to_html(
+        return self.to_html(
             strong[kwargs["name"]],
             span(".badge")[kwargs["member_type"]], br,
             self._link(kwargs["posting_url"]),
             cls = "cl-card"
         )
 
-    def grid(self, cards: Iterable[mo.Html]) -> mo.Html:
+    def grid(self, cards: Iterable[Html]) -> Html:
         """
         Arrange cards in a responsive two-column CSS grid.
 
@@ -278,7 +337,7 @@ class Layout:
         Returns:
             Grid container wrapping all cards.
         """
-        return self._to_html(
+        return self.to_html(
             [Markup(c.text) for c in cards],
             cls = "cl-card-grid"
         )
@@ -288,7 +347,7 @@ class Layout:
         tab : TabContent,
         key : str,
         **fmt
-    ) -> mo.Html:
+    ) -> Html:
         """
         Section header with a bold serif title and muted description.
 
@@ -303,45 +362,35 @@ class Layout:
         Returns:
             Vertically stacked title and description.
         """
-        description, title = tab.section(key, **self.substitutions, **fmt)
+        title, body = self._section_html(tab, key, **fmt)
         return self.stack(
-            mo.md(f"#### {title}"),
-            self._to_html(
-                Markup(self.annotate(mo.md(description).text)),
-                cls = "cl-section-desc"
-            ),
+            md(f"#### {title}"),
+            self.to_html(body, cls="cl-section-desc"),
             gap = 0.25
         )
 
-    def match_bar(
-        self,
-        jz_label  : str,
-        postings  : int,
-        sector    : str,
-        soc_title : str
-    ) -> mo.Html:
+    def match_bar(self, profile: Cluster) -> Html:
         """
         Compact breadcrumb bar summarizing the matched career family.
 
-        Displayed between the upload gate and the tabbed report so the user
-        always sees which family they matched to.
+        Displayed between the upload gate and the tabbed report so the
+        user always sees which family they matched to.
 
         Args:
-            jz_label  : Human-readable Job Zone label.
-            postings  : Number of postings in the matched family.
-            sector    : Construction sector name.
-            soc_title : O*NET occupation title.
+            profile: Matched career cluster.
 
         Returns:
             Single-line bar element with `.cl-match-bar` styling.
         """
-        return self._to_html(
-            strong[soc_title],
-            f" \u00b7 {sector} \u00b7 {jz_label} \u00b7 {postings} postings",
+        return self.to_html(
+            strong[profile.soc_title],
+            f" \u00b7 {profile.sector}"
+            f" \u00b7 {self.content.labels.job_zones[profile.job_zone]}"
+            f" \u00b7 {profile.size} postings",
             cls = "cl-match-bar"
         )
 
-    def posting_card(self, posting: Posting) -> mo.Html:
+    def posting_card(self, posting: Posting) -> Html:
         """
         Job posting card with title, company, location, date, and a link to
         the original listing.
@@ -352,59 +401,71 @@ class Layout:
         Returns:
             Styled card element.
         """
-        location = posting.location or self.content.labels.fallback_location
-        date_str = (
-            f" \u00b7 {posting.date_posted:%b %d, %Y}"
-            if posting.date_posted else ""
-        )
-
-        return self._to_html(
+        return self.to_html(
             strong[posting.title], br,
             span(".secondary")[posting.company], br,
-            span(".meta")[location, date_str],
+            span(".meta")[
+                posting.location or self.content.labels.fallback_location,
+                f" \u00b7 {posting.date_posted:%b %d, %Y}" 
+                if posting.date_posted else ""
+            ],
             self._link(posting.source_url),
             cls = "cl-card"
         )
 
-    def process_flow(self, steps: Iterable[tuple[str, str, str]]) -> mo.Html:
+    def process_flow(self, steps: Iterable[ProcessStep]) -> Html:
         """
         Pipeline process flow diagram as a CSS flexbox strip.
 
-        Each step renders as a numbered card with a label and detail line,
-        connected by arrow separators.
+        Each step renders as a numbered card with a label and detail
+        line, connected by arrow separators.
 
         Args:
-            steps: Tuples of (number, label, detail) per stage.
+            steps: Process steps with pre-formatted detail lines.
 
         Returns:
             Horizontal flow diagram element.
         """
         arrow = div(".cl-flow-arrow")["\u2192"]
         cards = []
-        for num, label, detail in steps:
+        for step in steps:
             if cards:
                 cards.append(arrow)
             cards.append(div(".cl-flow-step")[
-                div(".cl-flow-num")[num],
-                div(".cl-flow-label")[label],
-                div(".cl-flow-detail")[detail]
+                div(".cl-flow-num")[step.number],
+                div(".cl-flow-label")[step.label],
+                div(".cl-flow-detail")[step.detail]
             ])
-        return self._to_html(*cards, cls="cl-flow")
+        return self.to_html(*cards, cls="cl-flow")
 
-    def program_card(self, **kwargs) -> mo.Html:
+    def ranked_list(
+        self,
+        heading : str,
+        skills  : list[ScoredTask],
+        theme   : Theme
+    ) -> Html:
         """
-        Educational program card with program name, institution, credential
-        type, and enrollment link.
+        Compact heading + percentage-bar list for scored skills.
 
-        Kwargs:
-            credential, institution, name, url.
+        Each row sets a `--row-color` CSS custom property from the score
+        color, and the stylesheet applies it to both the fill bar's
+        background and the percentage text's color. The Python layer
+        only emits the value once per row.
         """
-        return self._to_html(
-            strong[kwargs["name"]], br,
-            span(".secondary")[kwargs["institution"]],
-            f" \u00b7 ", span[kwargs["credential"]], br,
-            self._link(kwargs["url"]),
-            cls = "cl-card"
+        return self.to_html(
+            div(".cl-ranked-heading")[heading],
+            *(
+                div(".cl-skill-row", 
+                    style=f"--row-color:{theme.score_color(task.pct)}")[
+                        span(".cl-skill-name")[task.name],
+                        div(".cl-skill-bar")[
+                            div(".cl-skill-fill", style=f"width:{task.pct}%")
+                        ],
+                        span(".cl-skill-pct")[f"{task.pct:.0f}%"]
+                    ]
+                for task in skills
+            ),
+            cls = "cl-ranked-list"
         )
 
     def section_if(
@@ -412,120 +473,60 @@ class Layout:
         condition : object,
         tab       : TabContent,
         key       : str,
-        *body,
+        chart     : Figure,
         **fmt
     ) -> list:
         """
-        Conditionally render a headed section.
+        Conditionally render a headed chart panel.
 
-        Returns a header followed by body elements when `condition` is
-        truthy, or an empty list for unpacking into a `stack` call.
+        Returns a header followed by the wrapped Plotly chart when
+        `condition` is truthy, or an empty list for unpacking into a
+        `stack` call. Bakes the `ui.plotly` wrap so call sites match
+        `panel`'s signature.
 
         Args:
             condition : Truthy value gating the section.
             tab       : Tab content with section definitions.
             key       : Section key to look up.
-            *body     : Elements to render below the header.
+            chart     : Plotly figure to render below the header.
             **fmt     : Format kwargs for `tab.section()`.
         """
         if not condition:
             return []
-        return [self.header(tab, key, **fmt), *body]
-
-    def skill_tree(
-        self,
-        demonstrated : bool,
-        groups       : dict[str, list[ScoredTask]],
-        theme        : Theme
-    ) -> mo.Html:
-        """
-        Collapsible skill explorer tree grouped by O*NET category, filtered
-        to either demonstrated or gap skills.
-
-        Each category group is a `<details>/<summary>` element showing the
-        category name, skill count, and average score on the summary row.
-        Individual skills inside show the full O*NET name with a
-        conditional-colored percentage score.
-
-        Args:
-            demonstrated : True for strengths, False for gaps.
-            groups       : Skill type to scored skill lists.
-            theme        : For `type_label` access.
-
-        Returns:
-            Styled HTML tree element.
-        """
-        score = lambda v: span(
-            f".cl-skill-score.cl-score-{theme.score_tier(v)}"
-        )[f"{v}%"]
-
-        return self._to_html(
-            *[
-                details(".cl-skill-group")[
-                    summary[
-                        span(".cl-group-label")[
-                            theme.type_label(stype)
-                        ],
-                        span(".cl-group-count")[str(len(filtered))],
-                        score(round(fmean(s.pct for s in filtered), 1))
-                    ],
-                    [
-                        div(".cl-skill-item")[
-                            span(".cl-skill-name")[s.name],
-                            score(s.pct)
-                        ]
-                        for s in filtered
-                    ]
-                ]
-                for stype in (
-                    "skill", "ability", "knowledge",
-                    "task", "dwa", "technology", "tool", "other"
-                )
-                if (all_skills := groups.get(stype))
-                if (filtered   := [
-                    s for s in all_skills
-                    if s.demonstrated == demonstrated
-                ])
-            ],
-            cls = "cl-skill-tree"
-        )
+        return [self.header(tab, key, **fmt), ui.plotly(chart)]
 
     def splash(
         self,
-        logo_src : str,
-        metrics  : SplashMetrics,
-        tab      : TabContent
-    ) -> mo.Html:
+        logo_src    : str,
+        stat_values : list[str],
+        tab         : TabContent
+    ) -> Html:
         """
         Pre-upload splash page with branding and corpus statistics.
 
         The logo uses a CSS mask-image so the splash works without a static
-        file server.
+        file server. Stats render through the same `cl-stat-row` grid that
+        the in-tab `Layout.stats` builds, so the splash and tabs share one
+        stat-tile layout.
 
         Args:
-            logo_src : Base64 data URI for the logo image.
-            metrics  : Pre-computed corpus and labor statistics.
-            tab      : Splash tab content with stat labels, tagline, and title.
+            logo_src    : Base64 data URI for the logo image.
+            stat_values : Pre-formatted stat strings aligned with `tab.stat_labels`.
+            tab         : Splash tab content with stat labels, tagline, and title.
 
         Returns:
             Full-width splash element with logo, tagline, and stats.
         """
-        mask = (
-            f"mask-image:url({logo_src});"
-            f"-webkit-mask-image:url({logo_src})"
-        )
-        return self._to_html(
+        mask = f"mask-image:url({logo_src});-webkit-mask-image:url({logo_src})"
+        return self.to_html(
             div(".cl-brand")[
                 span(".cl-logo", style=mask),
                 h1[tab.title]
             ],
             p(".cl-tagline")[tab.tagline],
-            div(".cl-stats")[
-                [
-                    self._stat(label, value)
-                    for label, value in zip(tab.stat_labels, metrics.stat_values)
-                ]
-            ],
+            div(".cl-stat-row")[[
+                self._stat(*p) for p in zip(tab.stat_labels, stat_values)
+            ]],
             cls = "cl-splash"
         )
 
@@ -534,7 +535,7 @@ class Layout:
         tab : TabContent,
         key : str,
         **fmt
-    ) -> mo.Html:
+    ) -> Html:
         """
         Tab overview rendered as a branded banner.
 
@@ -550,26 +551,46 @@ class Layout:
         Returns:
             Styled overview banner with serif title and body description.
         """
-        description, title = tab.section(key, **self.substitutions, **fmt)
-        body_html          = self.annotate(mo.md(description).text)
-        return self._to_html(
+        title, body = self._section_html(tab, key, **fmt)
+        return self.to_html(
             div(".cl-overview-title")[title],
-            div(".cl-overview-body")[Markup(body_html)],
+            div(".cl-overview-body")[body],
             cls = "cl-overview"
         )
 
-    def stack(
+    def panel(
         self,
+        tab   : TabContent,
+        key   : str,
+        chart : Figure,
+        **fmt
+    ) -> Html:
+        """
+        Stack a section header above a Plotly chart as one logical unit.
+
+        The core tab-renderer primitive: every chart panel is a header
+        followed by a Plotly figure, grouped so rows inside `two_col`
+        stay aligned and top-level charts share the same grouping.
+        """
+        return self.stack(
+            self.header(tab, key, **fmt),
+            ui.plotly(chart)
+        )
+
+    @staticmethod
+    def stack(
         *items    : object,
+        align     : Literal["start", "end", "center", "stretch"] = "stretch",
         direction : Literal["v", "h"] = "v",
         gap       : float             = 1.5,
         **kw
-    ) -> mo.Html:
+    ) -> Html:
         """
         Stack items vertically or horizontally with consistent spacing.
 
         Args:
             *items    : Elements to stack (charts, callouts, headers).
+            align     : Cross-axis alignment forwarded to the Marimo stack.
             direction : `"v"` for vertical, `"h"` for horizontal.
             gap       : Spacing between items in rem.
             **kw      : Forwarded to the Marimo stack function (e.g. `widths`,
@@ -578,10 +599,20 @@ class Layout:
         Returns:
             Composed Marimo HTML element.
         """
-        fn = mo.vstack if direction == "v" else mo.hstack
-        return fn(items=list(items), align="stretch", gap=gap, **kw)
+        fn = vstack if direction == "v" else hstack
+        return fn(items=list(items), gap=gap, align=align, **kw)
 
-    def stats(self, pairs: Iterable[tuple[str, str]]) -> mo.Html:
+    @staticmethod
+    def two_col(left: object, right: object) -> Html:
+        """
+        Two-column horizontal stack with equal widths.
+
+        Shorthand for the most common chart-pair layout in the methods
+        and data tabs.
+        """
+        return Layout.stack(left, right, direction="h", widths=[1, 1])
+
+    def stats(self, pairs: Iterable[tuple[str, str]]) -> Html:
         """
         Responsive grid of branded stat tiles.
 
@@ -594,31 +625,68 @@ class Layout:
         Returns:
             Responsive grid element.
         """
-        return self._to_html(
+        return self.to_html(
             *[self._stat(label, value) for label, value in pairs],
             cls = "cl-stat-row"
         )
 
-    def target_dropdown(
-        self,
-        cluster_options : dict[str, int],
-        default_label   : str
-    ) -> mo.ui.dropdown:
+    def wage_display(self, delta: float | None, theme: Theme) -> Element:
         """
-        Searchable dropdown for exploring career families.
+        Wage delta element: bold signed dollar amount in success/error
+        color, or a muted "unavailable" message when `delta` is `None`.
+        """
+        if delta is None:
+            return span(".secondary")["Wage data unavailable"]
+        return span(
+            style=f"color:{theme.wage_color(delta)};font-size:1.2em;font-weight:bold"
+        )[f"{'+' if delta >= 0 else ''}${delta:,.0f}/yr"]
+
+    def you_are_here(
+        self,
+        confidence : int,
+        profile    : Cluster,
+        theme      : Theme,
+        wage       : float | None = None
+    ) -> Html:
+        """
+        Persistent sidebar identity card for the matched career
+        family.
+
+        Red left-accent card showing the user's matched position in
+        the career landscape. Confidence renders as a verdict label
+        rather than a gauge, with the underlying percentage in small
+        text.
 
         Args:
-            cluster_options : Display label to cluster ID mapping.
-            default_label   : Initially selected label.
+            confidence : Match confidence 0-100.
+            profile    : Matched career cluster.
+            theme      : For confidence color and JZ label.
+            wage       : Annual median wage (optional).
 
         Returns:
-            Configured dropdown widget.
+            Styled sidebar identity card.
         """
-        return mo.ui.dropdown(
-            label      = self.content.labels.dropdown_label,
-            options    = cluster_options,
-            searchable = True,
-            value      = default_label
+        verdict = ("Exploratory", "Multiple good fits", "Strong match")[
+            bisect((40, 70), confidence)
+        ]
+        sector_bg     = theme.sectors.get(profile.sector, theme.colors["muted"])
+        verdict_style = f"color:{theme.score_color(confidence)};font-weight:bold"
+
+        return self.to_html(
+            div(".cl-yah-title")[profile.soc_title],
+            div(".cl-yah-meta")[
+                span(".cl-badge", style=f"background:{sector_bg}")[profile.sector],
+                " \u00b7 ",
+                span[self.content.labels.job_zones[profile.job_zone]]
+            ],
+            div(".cl-yah-stats")[
+                span(style=verdict_style)[verdict],
+                span(".secondary")[f" ({confidence}%)"],
+                " \u00b7 ",
+                span[f"{profile.size} postings"],
+                f" \u00b7 ${wage:,.0f} median" if wage else ""
+            ],
+            cls = "cl-you-are-here"
         )
 
 
@@ -635,7 +703,7 @@ class TabContext(NamedTuple):
     content     : ContentLoader
     labor       : LaborLoader
     layout      : Layout
-    occupations : Occupations
+    occupations : list[Occupation]
     pipeline    : Chalkline
     profile     : Cluster
     reference   : StakeholderReference

@@ -10,6 +10,7 @@ import numpy as np
 
 from collections.abc import Iterator
 from dataclasses     import dataclass, field
+from functools       import cached_property
 from typing          import NamedTuple
 
 from chalkline.collection.schemas import Posting
@@ -19,13 +20,12 @@ from chalkline.collection.schemas import Posting
 class Cluster:
     """
     Unified per-cluster representation combining profile metadata,
-    membership indices, resolved postings, and optional O*NET task
-    embeddings for gap analysis.
+    resolved postings, and optional O*NET task embeddings for gap
+    analysis.
     """
 
     cluster_id  : int
     job_zone    : int
-    members     : np.ndarray
     modal_title : str
     postings    : list[Posting]
     sector      : str
@@ -40,18 +40,6 @@ class Cluster:
         Human-readable cluster identifier for dropdown labels.
         """
         return f"Cluster {self.cluster_id}: {self.soc_title} (JZ {self.job_zone})"
-
-    @property
-    def profile_dict(self) -> dict[str, str | int]:
-        """
-        Display-ready profile summary for tree views.
-        """
-        return {
-            "Job Zone"    : self.job_zone,
-            "Modal Title" : self.modal_title,
-            "Sector"      : self.sector,
-            "Size"        : self.size
-        }
 
 
 @dataclass
@@ -105,18 +93,17 @@ class Clusters:
             p.company for c in self.values()
             for p in c.postings if p.company
         })
-    
-    @property
+
+    @cached_property
     def cosine_similarity_matrix(self) -> list[list[float]]:
         """
         Cosine similarity between all cluster centroids as a 2D list for
         heatmap rendering.
         """
         from sklearn.metrics.pairwise import cosine_similarity
-        matrix = cosine_similarity(self.centroids)
         return [
             [round(float(v), 3) for v in row]
-            for row in matrix
+            for row in cosine_similarity(self.centroids)
         ]
 
     @property
@@ -136,7 +123,7 @@ class Clusters:
             for p in c.postings if p.location
         })
 
-    @property
+    @cached_property
     def pairwise_distances(self) -> dict[str, list[float]]:
         """
         Euclidean distances between all centroid pairs, grouped by sector of
@@ -157,9 +144,17 @@ class Clusters:
         """
         Display label to profile summary for all clusters.
         """
-        return {c.display_label: c.profile_dict for c in self.values()}
+        return {
+            c.display_label: {
+                "Job Zone"    : c.job_zone,
+                "Modal Title" : c.modal_title,
+                "Sector"      : c.sector,
+                "Size"        : c.size
+            }
+            for c in self.values()
+        }
 
-    @property
+    @cached_property
     def sector_array(self) -> np.ndarray:
         """
         Sector name per cluster as a numpy array for sklearn APIs.
@@ -183,7 +178,7 @@ class Clusters:
         """
         return sorted({p.sector for p in self.values()})
 
-    @property
+    @cached_property
     def silhouette_scores(self) -> list[tuple[str, str, float]]:
         """
         Per-cluster silhouette coefficients against sector labels, resolved
@@ -196,59 +191,24 @@ class Clusters:
         return sorted(
             (
                 (c.soc_title, c.sector, round(float(s), 3))
-                for cid, s in zip(self.cluster_ids, scores)
-                for c in [self.items[cid]]
+                for c, s in zip(self.values(), scores)
             ),
             key     = lambda x: x[2],
             reverse = True
         )
 
-    def by_sector(self, sector: str) -> list[tuple[int, Cluster]]:
+    @cached_property
+    def sizes(self) -> list[int]:
         """
-        All clusters in a given sector, sorted by job zone then title.
-
-        Args:
-            sector: Sector name to filter by.
+        Posting count per cluster in sorted cluster-ID order.
         """
-        return sorted(
-            (
-                (cid, c) for cid in self.cluster_ids
-                if (c := self.items[cid]).sector == sector
-            ),
-            key=lambda x: (x[1].job_zone, x[1].soc_title)
-        )
-
-    def pairs(self) -> Iterator[tuple[int, Cluster]]:
-        """
-        Iterate (cluster_id, cluster) tuples in sorted ID order.
-        """
-        return ((cid, self.items[cid]) for cid in self.cluster_ids)
-
-    def sector_keywords(self, sector: str) -> set[str]:
-        """
-        Extract keywords from cluster profile titles in a sector for
-        filtering job boards and other sector-specific resources.
-
-        Args:
-            sector: Sector name to extract keywords from.
-        """
-        return {
-            w.lower()
-            for w in (
-                f"{sector} " + " ".join(
-                    f"{p.soc_title} {p.modal_title}"
-                    for p in self.values()
-                    if p.sector.lower() == sector.lower()
-                )
-            ).split()
-            if w.isalpha() and len(w) >= 4
-        }
+        return [c.size for c in self.values()]
 
     def values(self) -> Iterator[Cluster]:
         """
         Iterate cluster objects in sorted ID order.
         """
-        return (c for _, c in self.pairs())
+        return (self.items[cid] for cid in self.cluster_ids)
 
 
 class Task(NamedTuple):
@@ -259,6 +219,5 @@ class Task(NamedTuple):
     per-task cosine gap analysis during resume matching.
     """
 
-    name       : str
-    skill_type : str
-    vector     : np.ndarray
+    name   : str
+    vector : np.ndarray

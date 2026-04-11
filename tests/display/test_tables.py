@@ -1,38 +1,12 @@
 """
 Tests for display-layer data builders.
 
-Validates credential deduplication via `Credential.key` and employer
-fuzzy matching via `StakeholderReference.match_employers`.
+Validates employer fuzzy matching via `StakeholderReference.match_employers`.
 """
 
 from typing import Callable
 
-from pytest import mark
-
 from chalkline.pathways.loaders import StakeholderReference
-from chalkline.pathways.schemas import Reach
-
-
-@mark.parametrize("kind", ["apprenticeship", "program"])
-class TestCredentialDedup:
-    """
-    Validate that `Credential.key` deduplicates correctly per kind.
-    """
-
-    def test_deduplicates(self, edge_factory: Callable, kind: str):
-        """
-        Duplicate credentials on two edges produce one unique entry.
-        """
-        edge  = edge_factory(kind)
-        reach = Reach(advancement=[edge, edge])
-        assert len(reach.credentials_by_kind.get(kind, [])) == 1
-
-    def test_empty_edges(self, edge_factory: Callable, kind: str):
-        """
-        No credentials of the requested type returns empty list.
-        """
-        reach = Reach(advancement=[edge_factory()])
-        assert reach.credentials_by_kind.get(kind, []) == []
 
 
 class TestMatchEmployers:

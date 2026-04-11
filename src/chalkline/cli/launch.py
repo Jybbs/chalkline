@@ -39,7 +39,6 @@ def launch(
     Chalkline.fit(
         config = PipelineConfig(
             lexicon_dir  = Path("data/lexicons"),
-            output_dir   = Path(".cache/pipeline"),
             postings_dir = Path("data/postings")
         ),
         log_level = "DEBUG" if verbose else "INFO"

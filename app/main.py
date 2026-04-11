@@ -16,10 +16,7 @@ def _():
     from chalkline.display.theme   import Theme
 
     content = ContentLoader()
-    theme   = Theme(
-        jz_labels   = content.labels.job_zones,
-        type_labels = content.labels.skill_types
-    )
+    theme   = Theme()
 
     return Path, content, mo, theme
 
@@ -38,7 +35,6 @@ def _(Path, mo):
     ):
         pipeline = Chalkline.fit(PipelineConfig(
             lexicon_dir  = Path("data/lexicons"),
-            output_dir   = Path(".cache/pipeline"),
             postings_dir = Path("data/postings")
         ))
     return (pipeline,)
@@ -47,11 +43,11 @@ def _(Path, mo):
 # ── Reference data ──────────────────────────────────────────────────
 
 @app.cell
-def _(Path):
+def _(Path, pipeline):
     from chalkline.pathways.loaders import LaborLoader, LexiconLoader
     from chalkline.pathways.loaders import StakeholderReference
 
-    lexicon_dir = Path("data/lexicons")
+    lexicon_dir = pipeline.config.lexicon_dir
     labor       = LaborLoader(lexicon_dir / "labor.json")
     occupations = LexiconLoader(lexicon_dir).occupations
     reference   = StakeholderReference(Path("data/stakeholder/reference"))
@@ -75,18 +71,14 @@ def _(content, mo):
 
 @app.cell
 def _(Path, content, labor, mo, pipeline, upload):
-    from chalkline.display.schemas import SplashMetrics
+    from chalkline.display.loaders import Layout
     from chalkline.display.tabs    import splash
 
     mo.stop(bool(upload.value), mo.md(""))
-    mo.vstack([
-        splash(
-            content,
-            Path(__file__).parent / "assets",
-            SplashMetrics.from_pipeline(labor, pipeline)
-        ),
+    Layout.stack(
+        splash(content, labor, Path(__file__).parent / "assets", pipeline),
         upload
-    ])
+    )
     return
 
 
@@ -116,20 +108,6 @@ def _(content, pipeline):
     return (layout,)
 
 
-# ── Match bar ──────────────────────────────────────────────────────
-
-@app.cell
-def _(layout, mo, profile, theme, upload):
-    mo.stop(not upload.value, mo.md(""))
-    layout.match_bar(
-        jz_label  = theme.jz_label(profile.job_zone),
-        postings  = profile.size,
-        sector    = profile.sector,
-        soc_title = profile.soc_title
-    )
-    return
-
-
 # ── Charts ──────────────────────────────────────────────────────────
 
 @app.cell
@@ -144,23 +122,59 @@ def _(pipeline, result, theme):
     return (charts,)
 
 
-# ── Target dropdown ─────────────────────────────────────────────────
+# ── Match bar ──────────────────────────────────────────────────────
 
 @app.cell
-def _(layout, pipeline, profile):
-    dropdown = layout.target_dropdown(
-        {p.display_label: cid for cid, p in pipeline.clusters.pairs()},
-        profile.display_label
+def _(layout, mo, profile, upload):
+    mo.stop(not upload.value, mo.md(""))
+    layout.match_bar(profile)
+    return
+
+
+# ── Map widget ─────────────────────────────────────────────────────
+
+@app.cell
+def _(content, labor, mo, pipeline, result, theme):
+    from chalkline.display.tabs.map.widget import PathwayMap
+
+    map_widget = mo.ui.anywidget(PathwayMap.from_graph(
+        clusters   = pipeline.clusters,
+        graph      = pipeline.graph,
+        labels     = content.labels,
+        labor      = labor,
+        matched_id = result.cluster_id,
+        theme      = theme
+    ))
+    return (map_widget,)
+
+
+# ── Sidebar card ───────────────────────────────────────────────────
+
+@app.cell
+def _(labor, layout, profile, result, theme):
+    sidebar = layout.you_are_here(
+        confidence = result.confidence,
+        profile    = profile,
+        theme      = theme,
+        wage       = labor.wage(profile.soc_title)
     )
-    return (dropdown,)
+    return (sidebar,)
 
 
-# ── Target resolution ───────────────────────────────────────────────
+# ── Route computation ──────────────────────────────────────────────
 
 @app.cell
-def _(dropdown, result):
-    target_id = dropdown.value or result.cluster_id
-    return (target_id,)
+def _(labor, map_widget, pipeline, profile, result):
+    from chalkline.display.schemas import RouteDetail
+
+    route = RouteDetail.from_selection(
+        labor       = labor,
+        pipeline    = pipeline,
+        profile     = profile,
+        result      = result,
+        selected_id = map_widget.value["selected_id"]
+    )
+    return (route,)
 
 
 # ── Tab context ─────────────────────────────────────────────────────
@@ -172,8 +186,8 @@ def _(charts, content, labor, layout, occupations, pipeline, profile, reference,
     ctx = TabContext(
         charts      = charts,
         content     = content,
-        layout      = layout,
         labor       = labor,
+        layout      = layout,
         occupations = occupations,
         pipeline    = pipeline,
         profile     = profile,
@@ -184,21 +198,25 @@ def _(charts, content, labor, layout, occupations, pipeline, profile, reference,
     return (ctx,)
 
 
-# ── Tab layout ──────────────────────────────────────────────────────
+# ── Three-tab layout ───────────────────────────────────────────────
 
 @app.cell
-def _(content, ctx, dropdown, mo, target_id):
-    from chalkline.display import tabs
+def _(ctx, map_widget, mo, route, sidebar):
+    from chalkline.display.tabs.data.render    import data_tab
+    from chalkline.display.tabs.map.render     import map_tab
+    from chalkline.display.tabs.methods.render import methods_tab
 
-    tn = content.labels.tab_names
+    tn = ctx.content.labels.tab_names
     mo.ui.tabs(
         {
-            tn["your_match"]      : lambda: tabs.your_match(ctx),
-            tn["resume_feedback"] : lambda: tabs.resume_feedback(ctx),
-            tn["career_paths"]    : lambda: tabs.career_paths(ctx, dropdown, target_id),
-            tn["job_postings"]    : lambda: tabs.job_postings(ctx),
-            tn["next_steps"]      : lambda: tabs.next_steps(ctx, target_id),
-            tn["ml_internals"]    : lambda: tabs.ml_internals(ctx)
+            tn["map"]     : lambda: map_tab(
+                ctx     = ctx,
+                route   = route,
+                sidebar = sidebar,
+                widget  = map_widget
+            ),
+            tn["data"]    : lambda: data_tab(ctx),
+            tn["methods"] : lambda: methods_tab(ctx)
         },
         lazy = True
     )
@@ -206,4 +224,5 @@ def _(content, ctx, dropdown, mo, target_id):
 
 
 if __name__ == "__main__":
+
     app.run()

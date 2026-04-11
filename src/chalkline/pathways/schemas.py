@@ -6,10 +6,8 @@ properties. Behavioral containers (`Cluster`, `Clusters`, `Task`) live in
 `clusters.py`. No query logic, no builders, no computational imports.
 """
 
-from collections.abc import Iterator
-from dataclasses     import dataclass
-from enum            import StrEnum
-from pydantic        import BaseModel, Field, field_validator, model_validator
+from enum     import StrEnum
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -23,10 +21,9 @@ class CareerEdge(BaseModel, extra="forbid"):
     """
 
     cluster_id : int   = Field(ge=0)
-    soc_title  : str
     weight     : float = Field(ge=-1, le=1)
 
-    credentials : list[Credential] = Field(default_factory=list)
+    credentials: list[Credential] = Field(default_factory=list)
 
 
 class Credential(BaseModel, extra="forbid"):
@@ -63,24 +60,21 @@ class Credential(BaseModel, extra="forbid"):
         return v
 
     @property
+    def description(self) -> str:
+        """
+        Parenthesized display string combining type label and optional
+        term hours.
+        """
+        if self.hours:
+            return f"({self.type_label}, {self.hours:,} hours)"
+        return f"({self.type_label})"
+
+    @property
     def hours(self) -> int | None:
         """
         Minimum apprenticeship term hours, if applicable.
         """
         return self.metadata.get("min_hours")
-
-    @property
-    def key(self) -> str | tuple[str, str]:
-        """
-        Deduplication key based on credential kind.
-
-        Apprenticeships deduplicate by RAPIDS code, programs by
-        (institution, label), and all others by label.
-        """
-        match self.kind:
-            case "apprenticeship" : return self.metadata["rapids_code"]
-            case "program"        : return (self.metadata["institution"], self.label)
-            case _                : return self.label
 
     @property
     def type_label(self) -> str:
@@ -93,26 +87,19 @@ class Credential(BaseModel, extra="forbid"):
 
 class LaborRecord(BaseModel, extra="ignore"):
     """
-    Unified BLS and O*NET labor market data for one occupation.
+    BLS and O*NET labor market data for one occupation.
 
-    Flattens the nested `outlook`, `projections`, and `wages` objects from
-    `labor.json` into a single model. Uses `extra="ignore"` because the
-    source contains fields beyond what the display layer needs.
+    Flattens the nested `outlook`, `projections`, and `wages` objects
+    from `labor.json` into a single model. Uses `extra="ignore"` so the
+    source can carry additional fields beyond what the display layer
+    needs without failing validation.
     """
 
     soc_title: str
 
-    annual_10       : float        = Field(default=0,    ge=0)
-    annual_25       : float        = Field(default=0,    ge=0)
-    annual_75       : float        = Field(default=0,    ge=0)
-    annual_90       : float        = Field(default=0,    ge=0)
-    annual_median   : float | None = Field(default=None, ge=0)
-    bright_outlook  : bool         = False
-    change_percent  : float | None = None
-    education       : str          = ""
-    employment      : int          = Field(default=0,    ge=0)
-    openings        : float | None = None
-    outlook_reasons : list[str]    = Field(default_factory=list)
+    annual_median  : float | None = Field(default=None, ge=0)
+    bright_outlook : bool         = False
+    employment     : int          = Field(default=0, ge=0)
 
     @model_validator(mode="before")
     @classmethod
@@ -126,23 +113,6 @@ class LaborRecord(BaseModel, extra="ignore"):
                 if (nested := data.pop(key, None)) and isinstance(nested, dict):
                     data.update(nested)
         return data
-
-    @property
-    def percentiles(self) -> list[float]:
-        """
-        Wage values at the 10th, 25th, median, 75th, and 90th percentiles.
-        Empty when median is unavailable.
-        """
-        if not self.annual_median:
-            return []
-
-        return [
-            self.annual_10,
-            self.annual_25,
-            self.annual_median,
-            self.annual_75,
-            self.annual_90
-        ]
 
 
 class Occupation(BaseModel, extra="forbid"):
@@ -191,43 +161,6 @@ class Occupation(BaseModel, extra="forbid"):
         ]
 
 
-@dataclass
-class Occupations:
-    """
-    Indexed collection of O*NET occupations with derived views.
-
-    Wraps a list of `Occupation` records and provides a cached skill-to-type
-    lookup used by the display layer for grouping skills by O*NET category.
-    """
-
-    items : list[Occupation]
-
-    def __getitem__(self, index: int) -> Occupation:
-        """
-        Look up an occupation by index.
-        """
-        return self.items[index]
-
-    def __iter__(self) -> Iterator[Occupation]:
-        """
-        Iterate occupation records.
-        """
-        return iter(self.items)
-
-    def __len__(self) -> int:
-        """
-        Number of occupations.
-        """
-        return len(self.items)
-
-    @property
-    def skill_type_index(self) -> dict[str, SkillType]:
-        """
-        Skill name to O*NET element type across all occupations.
-        """
-        return {s.name: s.type for occ in self.items for s in occ.skills}
-
-
 class Reach(BaseModel, extra="forbid"):
     """
     Local reach exploration view from the matched cluster.
@@ -239,37 +172,6 @@ class Reach(BaseModel, extra="forbid"):
 
     advancement : list[CareerEdge] = Field(default_factory=list)
     lateral     : list[CareerEdge] = Field(default_factory=list)
-
-    @property
-    def all_credentials(self) -> list[Credential]:
-        """
-        Flattened credentials from all edges.
-        """
-        return [c for edge in self.all_edges for c in edge.credentials]
-
-    @property
-    def all_edges(self) -> list[CareerEdge]:
-        """
-        Combined advancement and lateral edges.
-        """
-        return self.advancement + self.lateral
-
-    @property
-    def credentials_by_kind(self) -> dict[str, list[Credential]]:
-        """
-        Deduplicated credentials grouped by kind.
-
-        Uses `Credential.key` for deduplication, which is RAPIDS code for
-        apprenticeships, (institution, label) for programs, and label for
-        all others.
-        """
-        by_kind: dict[str, dict] = {}
-        for c in self.all_credentials:
-            by_kind.setdefault(c.kind, {})[c.key] = c
-        return {
-            k: sorted(v.values(), key=lambda c: c.label)
-            for k, v in sorted(by_kind.items())
-        }
 
 
 class Skill(BaseModel, extra="forbid"):

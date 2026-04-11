@@ -9,12 +9,12 @@ embeddings, and assembles a reach view with per-edge credential metadata.
 
 import numpy as np
 
-from dataclasses              import dataclass
+from dataclasses              import dataclass, field
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.matching.schemas  import ClusterDistance, MatchResult, ScoredTask
-from chalkline.pathways.clusters import Clusters
+from chalkline.matching.schemas  import MatchResult, ScoredTask
+from chalkline.pathways.clusters import Cluster, Clusters, Task
 from chalkline.pathways.graph    import CareerPathwayGraph
 from chalkline.pipeline.encoder  import SentenceEncoder
 
@@ -42,11 +42,9 @@ class ResumeMatcher:
     graph    : CareerPathwayGraph
     svd      : TruncatedSVD
 
-    def _score_tasks(
-        self,
-        cluster_id  : int,
-        resume_unit : np.ndarray
-    ) -> list[ScoredTask]:
+    resume_embedding : np.ndarray = field(init=False, repr=False)
+
+    def _score_tasks(self, tasks: list[Task]) -> list[ScoredTask]:
         """
         Score O*NET tasks by cosine similarity to the resume and flag each
         as demonstrated (>= median) or gap (< median).
@@ -55,18 +53,16 @@ class ResumeMatcher:
         first and the largest gaps appear last.
 
         Args:
-            cluster_id  : For Task+DWA occupation lookup.
-            resume_unit : L2-normalized resume embedding (1, embedding_dim).
+            tasks: Task+DWA elements with embedding vectors.
         """
-        tasks = self.clusters[cluster_id].tasks
         if not tasks:
             return []
 
         task_matrix  = np.stack([t.vector for t in tasks])
         similarities = np.clip(
-            cosine_similarity(resume_unit, task_matrix)[0],
+            cosine_similarity(self.resume_embedding, task_matrix)[0],
             -1.0,
-            1.0,
+            1.0
         )
         threshold    = float(np.median(similarities))
         return sorted(
@@ -74,8 +70,7 @@ class ResumeMatcher:
                 ScoredTask(
                     demonstrated = s >= threshold,
                     name         = t.name,
-                    similarity   = s,
-                    skill_type   = t.skill_type
+                    similarity   = s
                 )
                 for t, s in zip(tasks, similarities)
             ],
@@ -102,26 +97,27 @@ class ResumeMatcher:
         Returns:
             `MatchResult` with cluster, gaps, and reach.
         """
-        resume_unit = self.encoder.encode([resume_text])
-        resume_svd  = self.svd.transform(resume_unit)[0]
-        distances   = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
-
-        ranked     = np.argsort(distances)
-        cluster_id = self.clusters.cluster_ids[ranked[0]]
+        self.resume_embedding = self.encoder.encode([resume_text])
+        
+        resume_svd = self.svd.transform(self.resume_embedding)[0]
+        distances  = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
+        cluster_id = self.clusters.cluster_ids[int(np.argmin(distances))]
         return MatchResult(
-            cluster_distances = [
-                ClusterDistance(
-                    cluster_id = (cid := self.clusters.cluster_ids[index]),
-                    distance   = distances[index],
-                    job_zone   = (c := self.clusters[cid]).job_zone,
-                    sector     = c.sector,
-                    soc_title  = c.soc_title
-                )
-                for index in ranked
-            ],
-            cluster_id   = cluster_id,
-            coordinates  = resume_svd.tolist(),
-            reach        = self.graph.reach(cluster_id),
-            scored_tasks = self._score_tasks(cluster_id, resume_unit),
-            sector       = self.clusters[cluster_id].sector
+            cluster_distances = distances.tolist(),
+            cluster_id        = cluster_id,
+            coordinates       = resume_svd.tolist(),
+            reach             = self.graph.reach(cluster_id)
         )
+
+    def score_destination(self, cluster: Cluster) -> list[ScoredTask]:
+        """
+        Score a destination cluster's O*NET tasks against the user's
+        resume embedding stored from the most recent `match` call.
+
+        Args:
+            cluster: Destination career family with task embeddings.
+
+        Returns:
+            Scored tasks sorted by descending similarity.
+        """
+        return self._score_tasks(cluster.tasks)

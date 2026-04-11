@@ -28,10 +28,10 @@ def clean_text(raw: str) -> str:
     if not raw:
         return ""
 
-    return sub(
-        r"\s+", " ",
-        sub(r"[^\x00-\x7f]", " ", sub(r"(?m)^\s*\d+\s*$", "", raw))
-    ).strip()
+    text = sub(r"(?m)^\s*\d+\s*$", "", raw)
+    text = sub(r"[^\x00-\x7f]", " ", text)
+    text = sub(r"\s+", " ", text)
+    return text.strip()
 
 
 def extract_pdf(path: Path, label: str | None = None) -> str:

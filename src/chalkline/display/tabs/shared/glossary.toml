@@ -247,15 +247,6 @@ url        = 'https://en.wikipedia.org/wiki/Distance_matrix'
 url_label  = 'Distance matrix on Wikipedia'
 
 [[terms]]
-term       = 'parallel coordinates'
-aliases    = ['parallel coordinate plot', 'parcoords']
-definition = '''A visualization technique that draws each data point as a **polyline crossing multiple parallel vertical axes**, one axis per dimension.
-
-Patterns in the ribbon bundles reveal correlated structure across dimensions that separate charts cannot show. Widely used in high-dimensional exploratory data analysis.'''
-url        = 'https://en.wikipedia.org/wiki/Parallel_coordinates'
-url_label  = 'Parallel coordinates on Wikipedia'
-
-[[terms]]
 term       = 'posting'
 aliases    = ['postings']
 definition = '''An individual **job listing** from the AGC Maine corpus.

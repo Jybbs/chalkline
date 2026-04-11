@@ -10,15 +10,13 @@ configured `go.Figure`. All color resolution happens internally via theme.
 import numpy                as np
 import plotly.graph_objects as go
 
-from collections.abc       import Collection, Iterable, Mapping, Sequence
+from collections.abc       import Iterable, Mapping, Sequence
 from itertools             import chain
-from networkx              import betweenness_centrality
 from plotly.basedatatypes  import BaseTraceType
 from sklearn.preprocessing import normalize
 
-from chalkline.display.schemas   import GapScatterPoint, HierarchyData, Trace
+from chalkline.display.schemas   import SectorRanking
 from chalkline.display.theme     import Theme
-from chalkline.pathways.clusters import Cluster
 from chalkline.pathways.graph    import CareerPathwayGraph
 
 
@@ -78,8 +76,9 @@ class Charts:
             trace_or_fig if isinstance(trace_or_fig, go.Figure)
             else go.Figure(trace_or_fig)
         )
-        if x_title := overrides.pop("x_title", ""): overrides["xaxis_title"] = x_title
-        if y_title := overrides.pop("y_title", ""): overrides["yaxis_title"] = y_title
+        for short, long in (("x_title", "xaxis_title"), ("y_title", "yaxis_title")):
+            if value := overrides.pop(short, ""):
+                overrides[long] = value
         fig.update_layout(
             height   = height,
             template = self.theme.template,
@@ -87,58 +86,20 @@ class Charts:
         )
         return fig
 
-    def _node_colors(self, node_ids: np.ndarray, **highlights: int) -> np.ndarray:
+    def _node_colors(self, node_ids: np.ndarray) -> np.ndarray:
         """
-        Assign colors to graph nodes with semantic highlights.
-
-        Nodes matching `matched_id` render in the highlight palette color;
-        all others render in the accent color. Additional keyword arguments
-        map a palette key to a cluster ID override.
+        Assign colors to graph nodes with the matched cluster highlighted.
 
         Args:
-            node_ids     : Array of cluster IDs to color.
-            **highlights : Palette key to cluster ID pairs.
+            node_ids: Array of cluster IDs to color.
 
         Returns:
             String array of hex colors aligned with `node_ids`.
         """
-        colors = np.where(
+        return np.where(
             node_ids == self.matched_id,
             self.theme.colors["highlight"],
-            self.theme.colors["accent"],
-        )
-        for role, cid in highlights.items():
-            colors = np.where(node_ids == cid, self.theme.colors[role], colors)
-        return colors
-
-    def _parallel(
-        self,
-        klass      : type,
-        colorscale : str,
-        dimensions : Sequence[dict],
-        height     : int,
-        color      : Sequence[float] | None,
-        **extra
-    ) -> go.Figure:
-        """
-        Shared builder for parallel-categories and parallel-coordinates
-        diagrams, which share identical dimension and line structure.
-
-        Args:
-            colorscale : Plotly colorscale name for the line color mapping.
-            klass      : `go.Parcats` or `go.Parcoords`.
-            **extra    : Trace-specific keywords (e.g. `hoveron`).
-        """
-        return self._apply_layout(
-            klass(
-                dimensions = dimensions,
-                line       = dict(
-                    color      = color,
-                    colorscale = colorscale
-                ),
-                **extra
-            ),
-            height = height
+            self.theme.colors["accent"]
         )
 
     def _node_hover(self, node_ids: Iterable[int]) -> list[str]:
@@ -162,29 +123,27 @@ class Charts:
         self,
         height     : int,
         title      : str,
-        color      : str | Sequence         = "accent",
-        horizontal : bool                   = False,
-        line       : Trace | None           = None,
-        series     : Iterable[Trace] | None = None,
-        x          : Sequence               = (),
-        y          : Sequence               = (),
-        **marker_kw
+        color      : str | Sequence = "accent",
+        data       : Mapping | None = None,
+        horizontal : bool           = False,
+        line       : Mapping | None = None,
+        x          : Sequence       = (),
+        y          : Sequence       = ()
     ) -> go.Figure:
         """
-        Bar chart with optional horizontal orientation, grouping, and line
-        overlay.
+        Bar chart with optional horizontal orientation and line overlay.
 
-        Pass `x`/`y` for a single-series bar, `series` for a grouped bar
-        with per-series color roles, or `x`/`y` plus `line` for a
-        bar-and-line combo.
+        Pass `x`/`y` for explicit sequences, or `data` (a label-to-value
+        mapping) to derive both axes from a dict — labels become categories
+        and values become bar lengths, swapped for `horizontal=True`. Pass
+        `line` for a bar-and-line combo.
 
         Args:
-            color      : Single hex color or per-bar color list (single-series only).
+            color      : Single hex color or per-bar color list.
+            data       : Label-to-value mapping; overrides `x`/`y` when set.
             height     : Figure height in pixels.
             horizontal : Flip to horizontal bars.
             line       : Overlay scatter trace for combo charts.
-            marker_kw  : Extra keywords for `go.Bar(marker=...)` (single-series only).
-            series     : Typed traces for grouped bar mode.
             title      : Value-axis label.
             x          : Bar values (horizontal) or categories (vertical).
             y          : Categories (horizontal) or bar values (vertical).
@@ -192,39 +151,24 @@ class Charts:
         Returns:
             Configured bar figure.
         """
+        if data is not None:
+            labels = list(data)
+            values = list(data.values())
+            x      = values if horizontal else labels
+            y      = labels if horizontal else values
+
         layout = (
             dict(x_title=title, yaxis=dict(autorange="reversed"))
             if horizontal
             else dict(y_title=title)
         )
 
-        if series:
-            fig = go.Figure(data=[
-                go.Bar(
-                    marker      = dict(color=self.theme.colors[s.color_role]),
-                    name        = s.name,
-                    orientation = "h" if horizontal else None,
-                    x           = s.x,
-                    y           = s.y
-                )
-                for s in series
-            ])
-            return self._apply_layout(
-                fig, height,
-                barmode = "group",
-                legend  = dict(orientation="h", y=-0.15),
-                **layout
-            )
-
-        color = (
-            self.theme.colors.get(color, color) if isinstance(color, str)
-            else [
-                self.theme.colors.get(c, c) 
-                if isinstance(c, str) else c for c in color
-            ]
+        color     = (
+            self.theme.resolve_color(color) if isinstance(color, str)
+            else [self.theme.resolve_color(c) for c in color]
         )
-        bar_trace  = go.Bar(
-            marker      = dict(color=color, **marker_kw),
+        bar_trace = go.Bar(
+            marker      = dict(color=color),
             name        = "Individual" if line else None,
             orientation = "h" if horizontal else None,
             x           = x,
@@ -237,9 +181,9 @@ class Charts:
                     line   = dict(color=self.theme.colors["primary"], width=2),
                     marker = dict(size=6),
                     mode   = "lines+markers",
-                    name   = line.name or "Cumulative",
-                    x      = line.x,
-                    y      = line.y
+                    name   = "Cumulative",
+                    x      = list(line),
+                    y      = list(line.values())
                 )]),
                 height,
                 legend = dict(orientation="h", y=-0.2),
@@ -250,97 +194,44 @@ class Charts:
 
     def bubble_scatter(
         self,
-        height  : int,
-        points  : Iterable[GapScatterPoint],
-        x_title : str,
-        y_title : str
+        brokerage  : SectorRanking,
+        height     : int,
+        silhouette : SectorRanking,
+        x_title    : str,
+        y_title    : str
     ) -> go.Figure:
         """
-        Gap-priority bubble scatter colored by magnitude.
+        Bubble scatter of brokerage centrality vs silhouette coefficient.
 
-        Extracts display lists from `GapScatterPoint` objects. Marker size
-        scales with magnitude, color uses the OrRd palette, and axes show
-        frequency vs magnitude.
+        Brokerage values become integer-percentage x-coordinates (min 1
+        for marker visibility), silhouette values become one-decimal
+        y-coordinates and marker color/size, and brokerage labels carry
+        the hover text.
 
         Args:
-            height : Figure height in pixels.
-            points : Gap scatter points with frequency, magnitude, and hover text.
+            brokerage  : Per-cluster brokerage centrality ranking.
+            height     : Figure height in pixels.
+            silhouette : Per-cluster silhouette coefficient ranking.
 
         Returns:
             Configured scatter figure.
         """
-        hovertext, magnitudes, frequencies = (
-            zip(*((p.text, p.magnitude, p.frequency) for p in points))
-            if points else ((), (), ())
-        )
+        magnitudes = [round(s * 100, 1) for s in silhouette.values]
         return self._apply_layout(
             go.Scatter(
-                hovertext = hovertext,
+                hovertext = brokerage.labels,
                 marker    = dict(
                     color      = magnitudes,
                     colorscale = "OrRd",
                     size       = [max(8, m / 3) for m in magnitudes]
                 ),
                 mode      = "markers",
-                x         = frequencies,
+                x         = [max(1, round(b * 100)) for b in brokerage.values],
                 y         = magnitudes
             ),
             height  = height,
             x_title = x_title,
             y_title = y_title
-        )
-
-    def career_ladder(
-        self,
-        clusters    : Collection[Cluster],
-        tick_labels : Sequence[str],
-        x_title     : str,
-        target_id   : int | None = None
-    ) -> go.Figure:
-        """
-        Scatter of career families positioned by Job Zone.
-
-        Extracts parallel display lists from `Cluster` objects and
-        highlights the target cluster in primary color. All others are
-        colored by their sector.
-
-        Args:
-            clusters  : Same-sector clusters sorted by Job Zone.
-            target_id : Cluster ID to highlight.
-
-        Returns:
-            Configured scatter figure.
-        """
-        colors = [
-            self.theme.colors["primary"]
-            if target_id is not None and c.cluster_id == target_id
-            else self.theme.sectors[c.sector]
-            for c in clusters
-        ]
-
-        fig = go.Figure(go.Scatter(
-            hovertext    = [f"{c.soc_title} ({c.size} postings)" for c in clusters],
-            marker       = dict(
-                color = colors,
-                size  = [max(10, c.size / 3) for c in clusters]
-            ),
-            mode         = "markers+text",
-            text         = [c.soc_title for c in clusters],
-            textfont     = dict(size=10),
-            textposition = "middle right",
-            x            = [c.job_zone for c in clusters],
-            y            = list(range(len(clusters)))
-        ))
-        return self._apply_layout(
-            fig, max(300, len(clusters) * 45),
-            xaxis  = dict(
-                dtick    = 1,
-                range    = [0.5, 5.5],
-                ticktext = tick_labels,
-                tickvals = list(range(1, 6)),
-                title    = x_title
-            ),
-            yaxis  = dict(visible=False)
         )
 
     def dendrogram(
@@ -402,115 +293,81 @@ class Charts:
     def funnel(
         self,
         height : int,
-        labels : Sequence[str],
-        values : Sequence[int | float],
-        color  : str = "accent"
+        stages : Mapping[str, int | float]
     ) -> go.Figure:
         """
         Horizontal funnel showing progressive narrowing.
 
+        Stage names are decorated with their values in parentheses so
+        the rendered label includes both name and count.
+
         Args:
-            color  : Theme role for funnel segments.
             height : Figure height in pixels.
-            labels : Stage labels top to bottom.
-            values : Stage values (decreasing).
+            stages : Stage name to value mapping in display order.
         """
         fig = go.Figure(go.Funnel(
-            marker    = dict(color=self.theme.colors.get(color, color)),
+            marker    = dict(color=self.theme.colors["accent"]),
             textinfo  = "value+percent initial",
-            x         = values,
-            y         = labels
-        ))
-        return self._apply_layout(fig, height)
-
-    def gauge(
-        self,
-        title  : str,
-        value  : float,
-        height : int = 250
-    ) -> go.Figure:
-        """
-        Semicircular gauge indicator with tri-color bands.
-
-        Args:
-            height : Figure height in pixels.
-            title  : Label displayed below the gauge.
-            value  : Integer percentage 0-100.
-
-        Returns:
-            Configured gauge figure.
-        """
-        fig = go.Figure(go.Indicator(
-            domain = dict(x=[0, 1], y=[0, 1]),
-            gauge  = dict(
-                axis  = dict(range=[0, 100], ticksuffix="%"),
-                bar   = dict(color=self.theme.score_color(50)),
-                steps = [
-                    dict(color=self.theme.score_color(mid), range=[lo, hi])
-                    for lo, mid, hi in ((0, 20, 40), (40, 50, 70), (70, 80, 100))
-                ]
-            ),
-            mode   = "gauge+number",
-            number = dict(suffix="%"),
-            title  = dict(font=dict(size=14), text=title),
-            value  = value
+            x         = list(stages.values()),
+            y         = [f"{name} ({count:,})" for name, count in stages.items()]
         ))
         return self._apply_layout(fig, height)
 
     def heatmap(
         self,
-        columns : Sequence[str],
-        height  : int,
-        labels  : Sequence[str],
-        values  : Sequence[Sequence[float]],
-        x_title : str = "",
-        y_title : str = ""
+        data    : Mapping[str, Sequence[float]],
+        columns : Sequence[str] | None = None,
+        height  : int           | None = None,
+        x_title : str                  = "",
+        y_title : str                  = ""
     ) -> go.Figure:
         """
         Annotated heatmap with diverging color scale.
 
+        Rows come from `data.keys()` and cell values from `data.values()`.
+        `columns` defaults to the row labels (square heatmaps) and `height`
+        auto-scales by row count.
+
         Args:
-            columns : Column labels along the x-axis.
-            height  : Figure height in pixels.
-            labels  : Row labels along the y-axis.
-            values  : 2D array of values (rows x columns).
+            columns : Column axis labels, defaults to row labels.
+            data    : Row label to row values mapping.
+            height  : Figure height in pixels, auto-scaled when omitted.
             x_title : X-axis title.
             y_title : Y-axis title.
         """
+        labels = list(data)
         return self._apply_layout(
             go.Heatmap(
                 colorscale   = "Teal",
                 texttemplate = "%{z:.2f}",
-                x            = columns,
+                x            = columns if columns is not None else labels,
                 y            = labels,
-                z            = values
+                z            = list(data.values())
             ),
-            height          = height,
+            height          = height or max(400, len(labels) * 28),
             x_title         = x_title,
-            y_title         = y_title,
             xaxis_side      = "top",
+            y_title         = y_title,
             yaxis_autorange = "reversed"
         )
 
     def histogram(
         self,
-        height    : int,
-        nbins     : int,
-        x         : Sequence[float],
-        x_title   : str,
-        y_title   : str,
-        threshold : float | None = None
+        height  : int,
+        nbins   : int,
+        x       : Sequence[float],
+        x_title : str,
+        y_title : str
     ) -> go.Figure:
         """
-        Histogram with themed accent color and optional threshold line.
+        Histogram with themed accent color.
 
         Args:
-            height    : Figure height in pixels.
-            nbins     : Number of bins.
-            threshold : X-position for a dashed vertical line.
-            x         : Values to bin.
-            x_title   : X-axis label.
-            y_title   : Y-axis label.
+            height  : Figure height in pixels.
+            nbins   : Number of bins.
+            x       : Values to bin.
+            x_title : X-axis label.
+            y_title : Y-axis label.
 
         Returns:
             Configured histogram figure.
@@ -520,42 +377,11 @@ class Charts:
             nbinsx = nbins,
             x      = x
         ))
-        if threshold is not None:
-            fig.add_vline(
-                line_color = self.theme.colors["primary"],
-                line_dash  = "dash",
-                line_width = 2,
-                x          = threshold
-            )
         return self._apply_layout(
             fig, height,
             x_title = x_title,
             y_title = y_title
         )
-
-    def indicator(
-        self,
-        height    : int,
-        reference : float,
-        title     : str,
-        value     : float
-    ) -> go.Figure:
-        """
-        Big-number indicator with delta from reference.
-
-        Args:
-            height    : Figure height in pixels.
-            reference : Baseline for delta computation.
-            title     : Indicator title text.
-            value     : Current value.
-        """
-        fig = go.Figure(go.Indicator(
-            delta  = dict(reference=reference),
-            mode   = "number+delta",
-            title  = dict(text=title),
-            value  = value
-        ))
-        return self._apply_layout(fig, height)
 
     def landscape(
         self,
@@ -578,7 +404,7 @@ class Charts:
         Returns:
             Configured landscape scatter figure.
         """
-        brokerage = betweenness_centrality(self.pathway.graph, weight="weight")
+        brokerage = self.pathway.centrality
         centroids = self.pathway.clusters.centroids
 
         traces = [go.Scatter(
@@ -618,180 +444,35 @@ class Charts:
             y_title    = y_title
         )
 
-    def parcats(
-        self,
-        dimensions : Sequence[dict],
-        height     : int,
-        color      : Sequence[float] | None = None,
-        hoveron    : str = "color"
-    ) -> go.Figure:
+    def ranking_bar(self, ranking: SectorRanking, title: str) -> go.Figure:
         """
-        Parallel categories diagram showing flow across dimensions.
-
-        Args:
-            color      : Numeric array for ribbon coloring.
-            dimensions : List of dicts with `label` and `values` keys.
-            height     : Figure height in pixels.
-            hoveron    : Hover target ("dimension", "color", or "category").
+        Horizontal bar chart of a `SectorRanking`, colored per-cluster by
+        parent sector and auto-scaled by cluster count.
         """
-        return self._parallel(
-            go.Parcats, "RdYlGn", dimensions, height, color,
-            hoveron = hoveron
+        return self.bar(
+            color      = self.theme.sector_colors(ranking.sectors),
+            data       = ranking.value_map,
+            height     = max(300, len(ranking.labels) * 26),
+            horizontal = True,
+            title      = title
         )
 
-    def parcoords(
-        self,
-        dimensions : Sequence[dict],
-        height     : int,
-        color      : Sequence[float] | None = None
-    ) -> go.Figure:
+    def treemap(self, data: Mapping[str, int | float], height: int) -> go.Figure:
         """
-        Parallel coordinates plot for multi-dimensional comparison.
+        Treemap of label/value tiles.
 
         Args:
-            color      : Numeric array for line coloring.
-            dimensions : List of dicts with `label`, `values`, and optional `range`
-                         keys.
-            height     : Figure height in pixels.
-        """
-        return self._parallel(go.Parcoords, "Teal", dimensions, height, color)
-
-    def pie(
-        self,
-        height : int,
-        labels : Sequence,
-        values : Sequence,
-        **trace_kw
-    ) -> go.Figure:
-        """
-        Pie or donut chart with no legend.
-
-        Args:
-            height     : Figure height in pixels.
-            labels     : Slice labels.
-            values     : Slice values.
-            **trace_kw : Extra keywords forwarded to `go.Pie(...)`.
-
-        Returns:
-            Configured pie/donut figure.
-        """
-        return self._apply_layout(
-            go.Figure(go.Pie(labels=labels, values=values, **trace_kw)),
-            height,
-            showlegend = False
-        )
-
-    def sankey(
-        self,
-        height : int,
-        labels : Sequence[str],
-        links  : dict,
-        colors : Sequence[str] | None = None
-    ) -> go.Figure:
-        """
-        Sankey flow diagram.
-
-        Args:
-            colors : Per-node hex colors.
+            data   : Label-to-value mapping rendered as tiles.
             height : Figure height in pixels.
-            labels : Node labels.
-            links  : Dict with `source`, `target`, `value`, and optional `label` and
-                     `color` keys.
-        """
-        fig = go.Figure(go.Sankey(
-            node = dict(
-                color = colors,
-                label = labels,
-                pad   = 20
-            ),
-            link = links
-        ))
-        return self._apply_layout(fig, height)
-
-    def sunburst(
-        self,
-        data          : HierarchyData,
-        height        : int,
-        branch_values : str | None = None
-    ) -> go.Figure:
-        """
-        Sunburst chart for hierarchical decomposition.
-
-        Args:
-            branch_values : Plotly branch aggregation mode (e.g. "total").
-            data          : Typed hierarchy bundle with labels, values, and optional
-                            ids/parents/colors.
-            height        : Figure height in pixels.
-        """
-        fig = go.Figure(go.Sunburst(
-            branchvalues = branch_values,
-            ids          = data.ids,
-            labels       = data.labels,
-            marker       = dict(colors=data.colors) if data.colors else {},
-            parents      = data.parents,
-            values       = data.values
-        ))
-        return self._apply_layout(fig, height)
-
-    def timeline(
-        self,
-        dates  : Sequence,
-        height : int = 180,
-        hover  : Sequence[str] | None = None
-    ) -> go.Figure:
-        """
-        Strip scatter of dates along a hidden y-axis.
-
-        Args:
-            dates  : Date values for the x-axis.
-            height : Figure height in pixels.
-            hover  : Hover labels per point.
-
-        Returns:
-            Configured timeline scatter figure.
-        """
-        return self._apply_layout(
-            go.Figure(go.Scatter(
-                hovertext = hover,
-                marker    = dict(color=self.theme.colors["accent"], size=8),
-                mode      = "markers",
-                x         = dates,
-                y         = [1] * len(dates)
-            )),
-            height,
-            yaxis = dict(visible=False)
-        )
-
-    def treemap(
-        self,
-        data          : HierarchyData,
-        height        : int,
-        branch_values : str | None = None
-    ) -> go.Figure:
-        """
-        Treemap with optional sector coloring and hierarchy.
-
-        Args:
-            branch_values : Plotly branch aggregation mode (e.g. "total").
-            data          : Typed hierarchy bundle with labels, values, and optional
-                            parents/sectors for color resolution.
-            height        : Figure height in pixels.
 
         Returns:
             Configured treemap figure.
         """
-        parents = data.parents if data.parents else [""] * len(data.labels)
-        marker  = (
-            {"colors": [self.theme.sectors[s] for s in data.sectors]}
-            if data.sectors else {"cornerradius": 4}
-        )
         fig = go.Figure(go.Treemap(
-            branchvalues = branch_values,
-            labels       = data.labels,
-            marker       = marker,
-            parents      = parents,
-            textinfo     = None if data.sectors else "label+value",
-            values       = data.values
+            labels   = list(data),
+            marker   = {"cornerradius": 4},
+            textinfo = "label+value",
+            values   = list(data.values())
         ))
         return self._apply_layout(fig, height)
 
@@ -799,19 +480,13 @@ class Charts:
         self,
         groups  : dict[str, list[float]],
         height  : int,
-        y_title : str,
-        colors  : Mapping[str, str] = {}
+        y_title : str
     ) -> go.Figure:
         """
-        Violin plots grouped by label.
-
-        Keys present in `colors` get their mapped line color; unmatched keys
-        fall through to Plotly's colorway, which assigns distinct palette
-        colors per violin in rendering order.
+        Violin plots grouped by label, with Plotly's default colorway
+        assigning distinct palette colors per violin in rendering order.
 
         Args:
-            colors  : Label to hex color mapping for explicit per-group line coloring.
-                      Empty by default.
             groups  : Label to list of values.
             height  : Figure height in pixels.
             y_title : Y-axis label.
@@ -822,13 +497,12 @@ class Charts:
         fig = go.Figure(data=[
             go.Violin(
                 box      = dict(visible=True),
-                line     = dict(color=colors[key]) if key in colors else None,
                 meanline = dict(visible=True),
                 name     = key,
                 y        = values
             )
-            for key in sorted(groups)
-            if (values := groups[key])
+            for key, values in sorted(groups.items())
+            if values
         ])
         return self._apply_layout(
             fig, height,
@@ -836,34 +510,3 @@ class Charts:
             y_title    = y_title
         )
 
-    def waterfall(
-        self,
-        height   : int,
-        measures : Sequence[str],
-        text     : Sequence[str],
-        x        : Sequence[str],
-        y        : Sequence[float]
-    ) -> go.Figure:
-        """
-        Waterfall chart showing cumulative gain or loss.
-
-        Args:
-            height   : Figure height in pixels.
-            measures : "relative", "total", or "absolute" per bar.
-            text     : Annotation text per bar.
-            x        : Category labels.
-            y        : Delta values (positive or negative).
-        """
-        marker = lambda role: dict(marker=dict(color=self.theme.colors[role]))
-        fig    = go.Figure(go.Waterfall(
-            connector    = dict(line=dict(color=self.theme.colors["muted"])),
-            decreasing   = marker("error"),
-            increasing   = marker("success"),
-            measure      = measures,
-            text         = text,
-            textposition = "outside",
-            totals       = marker("primary"),
-            x            = x,
-            y            = y
-        ))
-        return self._apply_layout(fig, height)

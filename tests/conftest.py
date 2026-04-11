@@ -34,7 +34,7 @@ from chalkline.matching.schemas   import MatchResult
 from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import StakeholderReference
-from chalkline.pathways.schemas   import CareerEdge, Credential, Reach
+from chalkline.pathways.schemas   import Credential
 
 
 CLUSTER_COUNT   = 4
@@ -182,18 +182,13 @@ def clusters(
         cid: Cluster(
             cluster_id   = cid,
             job_zone     = job_zone_map[cid],
-            members      = np.where(assignments == cid)[0],
             modal_title  = f"Title {cid}",
             postings     = [],
             sector       = f"Sector {cid % 2}",
             size         = int((assignments == cid).sum()),
             soc_title    = f"Occupation {cid}",
             tasks        = [
-                Task(
-                    name       = f"Task {cid}-{i}",
-                    skill_type = ["dwa", "task"][i % 2],
-                    vector     = v
-                )
+                Task(name=f"Task {cid}-{i}", vector=v)
                 for i, v in enumerate(_embeddings(5, cid, unit=True))
             ]
         )
@@ -297,8 +292,7 @@ def resume_matcher(
     Resume matcher built from synthetic embeddings with mock encoder.
     """
     mock_encoder: Any = SimpleNamespace(
-        encode = lambda texts,
-        unit   = True: _embeddings(len(texts), seed=len(texts), unit=unit)
+        encode=lambda t, unit=True: _embeddings(len(t), seed=len(t), unit=unit)
     )
     return ResumeMatcher(
         clusters = clusters,
@@ -313,7 +307,10 @@ def svd(unit_vectors: np.ndarray) -> TruncatedSVD:
     """
     Fitted TruncatedSVD for resume projection tests.
     """
-    return TruncatedSVD(n_components=COMPONENT_COUNT, random_state=42).fit(unit_vectors)
+    return TruncatedSVD(
+        n_components = COMPONENT_COUNT, 
+        random_state = 42
+    ).fit(unit_vectors)
 
 
 @fixture
@@ -335,10 +332,7 @@ def charts(pathway_graph: CareerPathwayGraph) -> Charts:
     return Charts(
         matched_id = pathway_graph.clusters.cluster_ids[0],
         pathway    = pathway_graph,
-        theme      = Theme(
-            jz_labels   = {str(i): f"JZ{i}" for i in range(1, 6)},
-            type_labels = {"skill": "Skills", "task": "Tasks"}
-        )
+        theme      = Theme()
     )
 
 
@@ -348,32 +342,6 @@ def content() -> ContentLoader:
     Centralized content loader for display-layer TOML.
     """
     return ContentLoader()
-
-
-@fixture
-def edge_factory(
-    clusters    : Clusters,
-    credentials : list[Credential]
-) -> Callable:
-    """
-    Factory for `CareerEdge` instances with a default cluster ID and
-    optional credential filtering by kind.
-    """
-    cluster_id = next(iter(clusters))
-
-    def _build(kind: str | None = None) -> CareerEdge:
-        creds = (
-            [next(c for c in credentials if c.kind == kind)]
-            if kind
-            else []
-        )
-        return CareerEdge(
-            cluster_id  = cluster_id,
-            credentials = creds,
-            soc_title   = clusters[cluster_id].soc_title,
-            weight      = 0.9
-        )
-    return _build
 
 
 @fixture
@@ -409,17 +377,6 @@ def posting_factory() -> Callable:
 
 
 @fixture
-def reach(
-    clusters      : Clusters,
-    pathway_graph : CareerPathwayGraph
-) -> Reach:
-    """
-    Reach view from the first cluster in the graph.
-    """
-    return pathway_graph.reach(clusters.cluster_ids[0])
-
-
-@fixture
 def reference() -> StakeholderReference:
     """
     Stakeholder reference data from display fixture JSONs.
@@ -428,11 +385,8 @@ def reference() -> StakeholderReference:
 
 
 @fixture
-def theme(content: ContentLoader) -> Theme:
+def theme() -> Theme:
     """
-    Dashboard theme with labels loaded from the shared TOML.
+    Dashboard theme with the unified color palette.
     """
-    return Theme(
-        jz_labels   = content.labels.job_zones,
-        type_labels = content.labels.skill_types
-    )
+    return Theme()

@@ -2,26 +2,9 @@
 Tests for display-layer schemas and lazy-loading containers.
 """
 
-from chalkline.display.schemas   import HierarchyData, VarianceBreakdown
+from chalkline.display.schemas   import VarianceBreakdown
 from chalkline.display.theme     import Theme
-from chalkline.pathways.clusters import Clusters
 from chalkline.pathways.loaders  import StakeholderReference
-
-
-class TestHierarchyData:
-    """
-    Validate treemap tile structure from cluster data.
-    """
-
-    def test_from_clusters(self, clusters: Clusters):
-        """
-        One header row per sector plus one tile per cluster, with
-        empty parents on sector headers.
-        """
-        tm = HierarchyData.from_clusters(clusters)
-        assert tm.parents is not None
-        assert len(tm.labels) == len(clusters.sectors) + len(clusters)
-        assert all(p == "" for p in tm.parents[:len(clusters.sectors)])
 
 
 class TestScoreColor:
@@ -71,11 +54,10 @@ class TestVarianceBreakdown:
 
     def test_from_svd(self):
         """
-        Ratios scale to percentages and accumulate into a
-        cumulative trace.
+        Ratios scale to percentages with correct total and component
+        labels.
         """
         vb = VarianceBreakdown.from_svd([0.35, 0.25, 0.15])
         assert vb.components == [35.0, 25.0, 15.0]
         assert vb.total == 75.0
         assert vb.labels == ["PC1", "PC2", "PC3"]
-        assert vb.trace.y == [35.0, 60.0, 75.0]

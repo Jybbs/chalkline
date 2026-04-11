@@ -2,26 +2,24 @@
 Lexicon and reference data loading for the embedding pipeline.
 
 Deserializes and validates JSON files from disk into typed domain objects.
-`LexiconLoader` handles O*NET occupation data with slugified filenames.
-`LaborLoader` handles BLS labor market records keyed by SOC title for O(1)
-lookup. `StakeholderReference` lazily loads AGC Maine stakeholder JSON files
-on first attribute access.
+`LexiconLoader` handles O*NET occupation data. `LaborLoader` handles BLS
+labor market records keyed by SOC title for O(1) lookup.
+`StakeholderReference` lazily loads AGC Maine stakeholder JSON files on
+first attribute access.
 """
 
-from collections.abc import Iterable, ValuesView
 from dataclasses     import dataclass
 from difflib         import get_close_matches
 from json            import loads
 from loguru          import logger
 from numpy           import argmax, ndarray
-from operator        import attrgetter
 from pathlib         import Path
 from pydantic        import TypeAdapter
-from slugify         import slugify
-from typing          import Any, NamedTuple
+from statistics      import median
+from typing          import Any
 
 from chalkline.collection.schemas import Posting
-from chalkline.pathways.schemas   import LaborRecord, Occupation, Occupations
+from chalkline.pathways.schemas   import LaborRecord, Occupation
 
 
 class LaborLoader:
@@ -49,8 +47,7 @@ class LaborLoader:
         Median of annual median wages across occupations, or 0 if no wage
         data exists.
         """
-        from statistics import median
-        wages = [r.annual_median for r in self.values() if r.annual_median]
+        wages = [r.annual_median for r in self.items.values() if r.annual_median]
         return median(wages) if wages else 0
 
     @property
@@ -58,52 +55,28 @@ class LaborLoader:
         """
         Count of occupations with Bright Outlook designation.
         """
-        return sum(r.bright_outlook for r in self.values())
+        return sum(r.bright_outlook for r in self.items.values())
 
     @property
     def total_employment(self) -> int:
         """
         Aggregate employment across all occupations.
         """
-        return sum(r.employment for r in self.values())
+        return sum(r.employment for r in self.items.values())
 
-    def get(self, soc_title: str) -> LaborRecord | None:
+    def wage(self, soc_title: str) -> float | None:
         """
-        Look up labor data by SOC title.
+        Annual median wage for a SOC title, or None if unavailable.
         """
-        return self.items.get(soc_title)
-
-    def values(self) -> ValuesView[LaborRecord]:
-        """
-        Iterate all labor records.
-        """
-        return self.items.values()
-
-    def wage_pairs(self, soc_titles: Iterable[str]) -> list[WagePair]:
-        """
-        Sorted (title, wage) pairs for titles with available wage data.
-
-        Args:
-            soc_titles: Occupation titles to look up.
-        """
-        return sorted(
-            (
-                WagePair(title, rec.annual_median)
-                for title in soc_titles
-                if (rec := self.get(title)) and rec.annual_median
-            ),
-            key=attrgetter("wage")
-        )
+        return record.annual_median if (record := self.items.get(soc_title)) else None
 
 
 class LexiconLoader:
     """
-    Load and validate lexicon files from a directory.
+    Load and validate the O*NET occupation lexicon from a directory.
 
-    Each attribute holds the validated contents of one lexicon file, falling
-    back to an empty list if the file is missing. File names are derived
-    from the label via `slugify` to match the canonical layout in
-    `data/lexicons/`.
+    `occupations` holds the validated `list[Occupation]`, falling back to
+    an empty list if `onet.json` is missing.
     """
 
     def __init__(self, lexicon_dir: Path):
@@ -111,30 +84,14 @@ class LexiconLoader:
         Args:
             lexicon_dir: Must contain `onet.json`.
         """
-        self.lexicon_dir = lexicon_dir
-        self.occupations = Occupations(items=self._load(list[Occupation], "O*NET"))
-
-    def _load(self, schema: type, label: str) -> list:
-        """
-        Validate a JSON lexicon file, returning an empty list if missing.
-
-        Derives the filename from `label` via `slugify` so that callers
-        specify only the human-readable lexicon name.
-
-        Args:
-            schema : Element type for the `TypeAdapter`.
-            label  : Slugified to derive the filename.
-
-        Returns:
-            Validated list of lexicon entries.
-        """
-        path = self.lexicon_dir / f"{slugify(label, separator='')}.json"
+        path = lexicon_dir / "onet.json"
         try:
-            return TypeAdapter(schema).validate_json(path.read_bytes())
-
+            self.occupations = TypeAdapter(
+                list[Occupation]
+            ).validate_json(path.read_bytes())
         except FileNotFoundError:
-            logger.warning(f"{label} lexicon not found at {path}")
-            return []
+            logger.warning(f"O*NET lexicon not found at {path}")
+            self.occupations = []
 
     def nearest_occupation(self, similarity_row: ndarray) -> Occupation:
         """
@@ -168,22 +125,25 @@ class StakeholderReference:
         setattr(self, name, value)
         return value
 
-    def filter_boards(self, keywords: set[str]) -> dict[str, list[dict]]:
+    def filter_boards(self, keywords: set[str], limit: int = 4) -> list[dict]:
         """
-        Filter job boards by keyword presence in focus and best-for fields,
-        grouped by region.
+        Job boards whose focus or best-for fields mention any of the given
+        keywords, flattened across regions and capped at `limit`.
 
         Args:
-            keywords: Sector-derived terms to match against.
+            keywords : Sector-derived terms to match against.
+            limit    : Maximum total boards to return.
         """
         def matches(board: dict) -> bool:
             text = f"{board.get('focus', '')} {board.get('best_for', '')}".lower()
             return any(kw in text for kw in keywords)
 
-        return {
-            region: [b for b in boards if matches(b)]
-            for region, boards in self.job_boards.items()
-        }
+        return [
+            b
+            for boards in self.job_boards.values()
+            for b in boards
+            if matches(b)
+        ][:limit]
 
     def match_employers(self, postings: list[Posting]) -> list[dict]:
         """
@@ -193,27 +153,18 @@ class StakeholderReference:
         Args:
             postings: Posting objects from the target cluster.
         """
-        names      = [m["name"].lower() for m in self.agc_members]
-        urls       = {e["company"].lower(): e["url"] for e in self.career_urls}
-        by_company = {p.company.lower(): p.source_url for p in postings}
+        members_by_lower = {m["name"].lower(): m for m in self.agc_members}
+        by_company       = {p.company.lower(): p.source_url for p in postings}
 
         return list({
             member["name"]: {
-                "career_url"  : urls.get(member["name"].lower(), ""),
                 "member_type" : member["type"],
                 "name"        : member["name"],
                 "posting_url" : by_company[company]
             }
             for company in sorted(by_company)
-            if (hits := get_close_matches(company, names))
-            and (member := self.agc_members[names.index(hits[0])])
+            if (hits   := get_close_matches(company, members_by_lower))
+            and (member := members_by_lower[hits[0]])
         }.values())
 
 
-class WagePair(NamedTuple):
-    """
-    SOC title paired with annual median wage for display.
-    """
-
-    title : str
-    wage  : float

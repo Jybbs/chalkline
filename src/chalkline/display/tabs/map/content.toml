@@ -1,0 +1,23 @@
+title   = 'Career Map'
+tagline = 'Click any career family to see how to get there.'
+
+[hero]
+kind = 'info'
+text = 'Explore career pathways from **{soc_title}** in **{sector}**. Highlighted connections show your strongest transitions, with credentials and wage data for each move.'
+
+[chart_labels]
+gaps_heading      = 'Top Growth Areas'
+strengths_heading = 'Top Strengths'
+
+[sections.evidence]
+title       = 'Skills & Evidence'
+description = 'Skill profile and gap analysis for the selected career move.'
+
+[sections.actions]
+title       = 'Action Plan'
+description = 'Credentials, programs, employers, and job boards that bridge the selected transition.'
+
+[fallbacks]
+no_gaps       = 'No significant skill gaps identified for this transition.'
+no_resources  = 'No resources found for this transition.'
+no_selection  = 'Click a career family on the map to see the route details.'

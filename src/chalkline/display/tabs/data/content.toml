@@ -1,25 +1,27 @@
-[info]
-text = '''
+info = '''
 Every job posting in the corpus was encoded as a **{embed_dim}-dimensional sentence embedding** using `{model_name}`, then grouped via **Ward-linkage hierarchical agglomerative clustering** into {n_clusters} career families. The postings shown here are the actual listings whose embeddings fell into your matched family's cluster, meaning they use similar language to describe similar work.
 
 Company names are matched against the **AGC Maine member directory** using fuzzy string matching (*SequenceMatcher with a 0.7 similarity threshold*), so minor spelling variations and abbreviations between the job board listing and the membership roll still produce correct matches. The title word cloud filters out common English words using **Zipf frequency** scores, keeping only terms distinctive enough to characterize the career family.'''
 
+stat_labels = ["Postings", "Companies", "Locations", "AGC Members", "Newest Posting", "With Dates"]
+
 [chart_labels]
 postings_title = 'Number of Postings'
-
-[chart_lists]
-stat_labels = ["Postings", "Companies", "Locations", "AGC Members", "Newest Posting", "With Dates"]
 
 [fallbacks]
 no_company_data = 'No company data.'
 
-[sections.common_words]
+[sections.common_titles]
 title       = 'Common Job Title Words'
 description = 'Most frequent words appearing in posting titles for this career family, sized by count.'
 
-[sections.company_types]
-title       = 'What Kinds of Companies'
-description = 'AGC member types represented in this career family’s postings.'
+[sections.freshness]
+title       = 'When These Postings Were Collected'
+description = 'Postings grouped by month, showing how recent and active the corpus is for this career family.'
+
+[sections.common_descriptions]
+title       = 'What Employers Ask For'
+description = 'Most distinctive words from posting descriptions, revealing the skills and requirements employers emphasize.'
 
 [sections.locations]
 title       = 'Where the Jobs Are'
@@ -32,26 +34,6 @@ description = 'These are actual job postings from Maine construction companies t
 [sections.recent]
 title       = 'Recent Postings'
 description = 'The most recent job listings, newest first.'
-
-[sections.timeline]
-title       = 'Posting Timeline'
-description = 'When these postings were collected, showing recent market activity.'
-
-[sections.descriptions]
-title       = 'What Employers Ask For'
-description = 'Most distinctive words from posting descriptions, revealing the skills and requirements employers emphasize.'
-
-[sections.freshness_funnel]
-title       = 'Posting Recency'
-description = 'How many postings fall within recent time windows, showing whether the market is active right now.'
-
-[sections.location_share]
-title       = 'Location Share'
-description = 'Proportional distribution of postings across Maine locations.'
-
-[sections.freshness]
-title       = 'Posting Freshness'
-description = 'How old postings are in days. Concentrated near zero means active hiring.'
 
 [sections.whos_hiring]
 title       = 'Who’s Hiring'

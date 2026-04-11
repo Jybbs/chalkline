@@ -13,13 +13,12 @@ class PipelineConfig(BaseModel, extra="forbid"):
     """
     End-to-end configuration for the Chalkline pipeline.
 
-    Required path fields locate the corpus, lexicons, and output
-    directories. Optional fields control hyperparameters with defaults tuned
-    for the 922-posting Maine construction corpus.
+    Required path fields locate the corpus and lexicons. Optional fields
+    control hyperparameters with defaults tuned for the 922-posting Maine
+    construction corpus.
     """
 
     lexicon_dir  : Path
-    output_dir   : Path
     postings_dir : Path
 
     cluster_count          : int = Field(default=20,  ge=2)
@@ -38,10 +37,3 @@ class PipelineConfig(BaseModel, extra="forbid"):
         Hamilton disk cache directory for fitted node results.
         """
         return Path(".cache") / "hamilton"
-
-    @property
-    def pipeline_dir(self) -> Path:
-        """
-        Default directory for serialized pipeline artifacts.
-        """
-        return self.output_dir / "pipeline"

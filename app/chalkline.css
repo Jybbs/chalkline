@@ -9,29 +9,23 @@
     --marimo-heading-font   : "Lora", "Georgia", serif;
     --marimo-monospace-font : "Fira Code", monospace;
 
-    --cl-radius: 8px;
-
     --cl-accent           : #7db3e0;
+    --cl-base-shadow      : #0009;
     --cl-border           : #333;
     --cl-card             : #242424;
     --cl-card-foreground  : #e0e0e0;
+    --cl-error            : #e8876f;
     --cl-foreground       : #ebebeb;
+    --cl-highlight        : #dc143c;
     --cl-muted            : #2a2a2a;
     --cl-muted-foreground : #999;
+    --cl-on-color         : #1a1a1a;
     --cl-primary          : #e8c840;
+    --cl-radius           : 8px;
     --cl-secondary        : #8cc5a3;
-
-    --cl-error    : #e8876f;
-    --cl-on-color : #1a1a1a;
-
-    --cl-building  : #5a9fd4;
-    --cl-highway   : #e0854a;
-    --cl-specialty : #5cb878;
-
-    --cl-base-shadow: #0009;
 }
 
-/* ── Cards ───────────────────────────────────────────────────── */
+/* ── Cards & containers ──────────────────────────────────────── */
 
 .cl-card {
     background          : var(--cl-card);
@@ -85,8 +79,6 @@
     & > .cl-card { margin-block-end: 0; }
 }
 
-/* ── Splash ──────────────────────────────────────────────────── */
-
 .cl-splash {
     align-content : center;
     display       : grid;
@@ -124,16 +116,6 @@
     margin    : 0;
 }
 
-.cl-stats {
-    display               : grid;
-    gap                   : 2rem 4rem;
-    grid-template-columns : repeat(4, 1fr);
-    max-width             : 56rem;
-    padding               : 2.5rem 0;
-    text-align            : center;
-    width                 : 100%;
-}
-
 .cl-stat-value {
     color : var(--cl-primary);
     font  : 700 1.8rem var(--marimo-heading-font);
@@ -144,8 +126,6 @@
     font-size          : 0.85rem;
     margin-block-start : 0.2rem;
 }
-
-/* ── Match bar ───────────────────────────────────────────────── */
 
 .cl-match-bar {
     color              : var(--cl-muted-foreground);
@@ -163,8 +143,6 @@ marimo-file label {
     width : 100% !important;
 }
 
-/* ── Stat strip ─────────────────────────────────────────────── */
-
 .cl-stat-row {
     display               : grid;
     gap                   : 1rem 2rem;
@@ -173,8 +151,6 @@ marimo-file label {
     text-align            : center;
     width                 : 100%;
 }
-
-/* ── Overview banner ────────────────────────────────────────── */
 
 .cl-overview {
     background         : var(--cl-card);
@@ -187,10 +163,7 @@ marimo-file label {
 
 .cl-overview-title {
     color            : var(--cl-primary);
-    font-family      : var(--marimo-heading-font);
-    font-size        : 1.3rem;
-    font-weight      : 700;
-    line-height      : 1.3;
+    font             : 700 1.3rem/1.3 var(--marimo-heading-font);
     margin-block-end : 0.6rem;
 }
 
@@ -202,8 +175,6 @@ marimo-file label {
     & strong { color: var(--cl-foreground); }
     & p      { margin: 0; }
 }
-
-/* ── Callouts ───────────────────────────────────────────────── */
 
 .cl-callout {
     background          : var(--cl-muted);
@@ -220,7 +191,7 @@ marimo-file label {
     & strong { color: var(--cl-primary); }
 }
 
-/* ── Skill tree ────────────────────────────────────────────── */
+/* ── Skills, flow & rankings ─────────────────────────────────── */
 
 .cl-skill-tree {
     display : grid;
@@ -280,8 +251,6 @@ marimo-file label {
     font-size : 0.85em;
 }
 
-/* ── Process flow ─────────────────────────────────────────────── */
-
 .cl-flow {
     align-items : center;
     display     : flex;
@@ -303,16 +272,130 @@ marimo-file label {
     text-align    : center;
 }
 
+.cl-route-card,
+.cl-you-are-here {
+    background          : var(--cl-card);
+    border-inline-start : 4px solid var(--cl-primary);
+    border-radius       : var(--cl-radius);
+    box-shadow          : 0 4px 12px var(--cl-base-shadow);
+    color               : var(--cl-card-foreground);
+    display             : grid;
+}
+
+.cl-route-card {
+    gap     : 1rem;
+    padding : 1.5rem 1.75rem;
+
+    & .secondary { color: var(--cl-muted-foreground); }
+}
+
+.cl-route-header {
+    align-items : baseline;
+    color       : var(--cl-foreground);
+    display     : flex;
+    flex-wrap   : wrap;
+    font        : 700 1.15rem var(--marimo-heading-font);
+    gap         : 0.5rem;
+}
+
+.cl-route-wage {
+    background    : var(--cl-muted);
+    border-radius : var(--cl-radius);
+    padding       : 0.75rem 1rem;
+    text-align    : center;
+}
+
+.cl-route-section {
+    border-block-start  : 1px solid var(--cl-border);
+    display             : grid;
+    gap                 : 0.4rem;
+    padding-block-start : 0.75rem;
+}
+
+.cl-ranked-heading,
+.cl-route-label {
+    color          : var(--cl-primary);
+    font           : 600 0.8rem var(--marimo-text-font);
+    letter-spacing : 0.05em;
+    text-transform : uppercase;
+}
+
+.cl-you-are-here {
+    border-inline-start-color : var(--cl-error);
+    gap                       : 0.6rem;
+    padding                   : 1.25rem 1.5rem;
+}
+
+.cl-yah-title {
+    color : var(--cl-foreground);
+    font  : 700 1.1rem var(--marimo-heading-font);
+}
+
+.cl-yah-meta {
+    align-items : center;
+    color       : var(--cl-muted-foreground);
+    display     : flex;
+    flex-wrap   : wrap;
+    font-size   : 0.85rem;
+    gap         : 0.4rem;
+}
+
+.cl-yah-stats {
+    color       : var(--cl-foreground);
+    font-size   : 0.85rem;
+    line-height : 1.6;
+
+    & .secondary { color: var(--cl-muted-foreground); }
+}
+
+.cl-badge {
+    border-radius  : 999px;
+    color          : var(--cl-on-color);
+    display        : inline-block;
+    font           : 600 0.7rem var(--marimo-text-font);
+    letter-spacing : 0.03em;
+    padding        : 0.15rem 0.6rem;
+    text-transform : uppercase;
+}
+
+.cl-ranked-list {
+    display : grid;
+    gap     : 0.5rem;
+}
+
+.cl-skill-row {
+    align-items           : center;
+    display               : grid;
+    gap                   : 0.75rem;
+    grid-template-columns : 12rem 1fr 3rem;
+}
+
+.cl-skill-bar {
+    background    : var(--cl-muted);
+    border-radius : 999px;
+    height        : 0.5rem;
+    overflow      : hidden;
+}
+
+.cl-skill-fill {
+    background : var(--row-color);
+    height     : 100%;
+    transition : width 0.3s ease;
+}
+
+.cl-skill-pct {
+    color      : var(--row-color);
+    font       : 600 0.85rem var(--marimo-heading-font);
+    text-align : end;
+}
+
 /* ── Glossary tooltips ──────────────────────────────────────── */
 
 .cl-term {
-    cursor                    : help;
-    position                  : relative;
-    text-decoration-color     : var(--cl-primary);
-    text-decoration-line      : underline;
-    text-decoration-style     : dotted;
-    text-decoration-thickness : 1px;
-    text-underline-offset     : 3px;
+    cursor                : help;
+    position              : relative;
+    text-decoration       : underline dotted var(--cl-primary) 1px;
+    text-underline-offset : 3px;
 }
 
 .cl-tip {
@@ -384,11 +467,61 @@ marimo-file label {
     &:hover { text-decoration: underline; }
 }
 
-/* ── Section headers ────────────────────────────────────────── */
-
 .cl-section-desc { color: var(--cl-muted-foreground); }
 
-/* ── Marimo prose overrides ─────────────────────────────────── */
+/* ── Pathway map widget ──────────────────────────────────────── */
+
+.cl-pathway-map .arrow-marker { fill: var(--cl-muted-foreground); }
+.cl-pathway-map .edge         { fill: none; }
+.cl-pathway-map .node         { cursor: pointer; }
+.cl-pathway-map .node-rect    { fill: var(--cl-border); }
+
+.cl-pathway-map .col-label {
+    fill        : var(--cl-muted-foreground);
+    font-family : var(--marimo-heading-font);
+    font-size   : 12px;
+}
+
+.cl-pathway-map .cred-badge-circle {
+    fill         : var(--cl-card);
+    stroke       : var(--cl-muted-foreground);
+    stroke-width : 0.8;
+}
+
+.cl-pathway-map .cred-badge-text {
+    fill      : var(--cl-foreground);
+    font-size : 9px;
+}
+
+.cl-pathway-map .matched-glow {
+    fill         : none;
+    opacity      : 0.3;
+    stroke       : var(--cl-highlight);
+    stroke-width : 1;
+}
+
+.cl-pathway-map .node-subtitle {
+    fill      : var(--cl-muted-foreground);
+    font-size : 10px;
+}
+
+.cl-pathway-map .node-title {
+    fill        : var(--cl-foreground);
+    font-family : var(--marimo-text-font);
+    font-size   : 11px;
+}
+
+.cl-pathway-map .you-are-here {
+    fill        : var(--cl-highlight);
+    font-size   : 10px;
+    font-weight : bold;
+}
+
+.cl-pathway-map .node:is(.matched, .selected) > .node-rect { stroke-width: 2.5; }
+.cl-pathway-map .node.matched  > .node-rect { stroke: var(--cl-highlight); }
+.cl-pathway-map .node.selected > .node-rect { stroke: var(--cl-primary); }
+
+/* ── Marimo overrides ────────────────────────────────────────── */
 
 :is(.markdown, .prose) :is(h1, h2, h3, h4, h5) {
     color       : var(--cl-foreground);
@@ -398,8 +531,6 @@ marimo-file label {
 
 :is(.markdown, .prose, .cl-callout) code { color: var(--cl-foreground); }
 :is(.markdown, .prose) a                 { color: var(--cl-accent); }
-
-/* ── Chart background override ──────────────────────────────── */
 
 code, pre, kbd { font-family: var(--marimo-monospace-font); }
 

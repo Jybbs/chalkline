@@ -13,10 +13,6 @@ def fit(
         Path,
         typer.Option(help="📚 Path to lexicon JSON files.")
     ] = Path("data/lexicons"),
-    output_dir: Annotated[
-        Path,
-        typer.Option(help="🧱 Cache directory for fitted artifacts.")
-    ] = Path(".cache/pipeline"),
     postings_dir: Annotated[
         Path,
         typer.Option(help="🗄️ Directory containing the posting corpus.")
@@ -40,7 +36,6 @@ def fit(
     pipeline = Chalkline.fit(
         config = PipelineConfig(
             lexicon_dir  = lexicon_dir,
-            output_dir   = output_dir,
             postings_dir = postings_dir
         ),
         log_level = "DEBUG" if verbose else "INFO"

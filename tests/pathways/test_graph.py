@@ -32,29 +32,74 @@ class TestCareerPathwayGraph:
             assert "credentials" in data
             assert isinstance(data["credentials"], list)
 
-    def test_reach_types(self, pathway_graph: CareerPathwayGraph):
+    def test_reach_types(
+        self,
+        job_zone_map  : dict[int, int],
+        pathway_graph : CareerPathwayGraph
+    ):
         """
         Reach advancement edges point to higher JZ clusters and lateral
         edges point to same JZ clusters.
         """
         for cluster_id in pathway_graph.clusters:
             reach       = pathway_graph.reach(cluster_id)
-            source_zone = pathway_graph.job_zone_map[cluster_id]
+            source_zone = job_zone_map[cluster_id]
             for edge in reach.advancement:
-                assert pathway_graph.job_zone_map[edge.cluster_id] > source_zone
+                assert job_zone_map[edge.cluster_id] > source_zone
             for edge in reach.lateral:
-                assert pathway_graph.job_zone_map[edge.cluster_id] == source_zone
+                assert job_zone_map[edge.cluster_id] == source_zone
 
-    def test_upward_stepwise(self, pathway_graph: CareerPathwayGraph):
+    def test_upward_stepwise(
+        self,
+        job_zone_map  : dict[int, int],
+        pathway_graph : CareerPathwayGraph
+    ):
         """
         Upward edges connect only to the next JZ level, never skipping
         tiers.
         """
-        job_zone_levels = sorted(set(pathway_graph.job_zone_map.values()))
-        next_zone       = dict(zip(job_zone_levels, job_zone_levels[1:]))
+        levels    = sorted(set(job_zone_map.values()))
+        next_zone = dict(zip(levels, levels[1:]))
 
         for source, target in pathway_graph.graph.edges():
-            source_zone = pathway_graph.job_zone_map[source]
-            target_zone = pathway_graph.job_zone_map[target]
+            source_zone = job_zone_map[source]
+            target_zone = job_zone_map[target]
             if target_zone > source_zone:
                 assert target_zone == next_zone[source_zone]
+
+    def test_widest_path_endpoints(
+        self,
+        cluster_ids   : list[int],
+        pathway_graph : CareerPathwayGraph
+    ):
+        """
+        Widest path between connected nodes starts at source and ends
+        at target with at least two entries.
+        """
+        path = pathway_graph.try_widest_path(cluster_ids[0], cluster_ids[-1])
+        assert path[0] == cluster_ids[0]
+        assert path[-1] == cluster_ids[-1]
+        assert len(path) >= 2
+
+    def test_widest_path_nonexistent_target(
+        self,
+        cluster_ids   : list[int],
+        pathway_graph : CareerPathwayGraph
+    ):
+        """
+        Querying a node absent from the graph returns an empty list.
+        """
+        assert pathway_graph.try_widest_path(cluster_ids[0], 9999) == []
+
+    def test_widest_path_self_loop(
+        self,
+        cluster_ids   : list[int],
+        pathway_graph : CareerPathwayGraph
+    ):
+        """
+        Widest path from a node to itself returns a single-element
+        list.
+        """
+        assert pathway_graph.try_widest_path(cluster_ids[0], cluster_ids[0]) == [
+            cluster_ids[0]
+        ]

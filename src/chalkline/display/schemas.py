@@ -1,99 +1,25 @@
 """
-Pydantic metric models for the Chalkline display layer.
+Display-layer data models for the Chalkline career report.
 
 Each model defines a data shape consumed by tab renderers and chart
-builders, with a `from_` factory classmethod that constructs the model from
-raw pipeline state.
+builders, with a `from_` factory classmethod that constructs the model
+from raw pipeline state.
 """
 
-from collections     import Counter
-from collections.abc import Iterable, Sequence
+from collections     import Counter, defaultdict
+from collections.abc import Iterable
 from datetime        import date
-from itertools       import accumulate
 from operator        import attrgetter
-from pydantic        import BaseModel, Field, field_validator, model_validator
-from statistics      import fmean
-from typing          import Literal, NamedTuple, Self
+from pydantic        import BaseModel
+from statistics      import median
+from typing          import NamedTuple, Self
 
 from chalkline.collection.schemas    import Posting
 from chalkline.matching.schemas      import MatchResult, ScoredTask
-from chalkline.pathways.clusters     import Clusters
+from chalkline.pathways.clusters     import Cluster, Clusters
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
+from chalkline.pathways.schemas      import Credential
 from chalkline.pipeline.orchestrator import Chalkline
-
-
-class GapScatterPoint(BaseModel, extra="forbid"):
-    """
-    A single point in a bubble scatter plot.
-
-    Shared between gap priority scatter (*resume feedback tab*) where
-    magnitude is the non-negative gap size, and quality scatter (*ML
-    internals tab*) where magnitude is a signed silhouette coefficient
-    scaled to percentage.
-    """
-
-    frequency : int   = Field(ge=1)
-    magnitude : float = Field(ge=-100, le=100)
-    text      : str
-
-
-class HeroContent(BaseModel, extra="forbid"):
-    """
-    Callout text and semantic kind for a tab hero banner.
-    """
-
-    text: str
-
-    kind: Literal["info", "success", "warn"] = "info"
-
-    def render(self, **kwargs) -> tuple[str, str]:
-        """
-        Format text and return `(content, kind)` for `callout()`.
-        """
-        return self.text.format(**kwargs), self.kind
-
-
-class HierarchyData(BaseModel, extra="forbid"):
-    """
-    Typed bundle for hierarchical chart data (sunburst, treemap).
-
-    Positionally aligned lists where index `i` across all fields describes
-    one tile. `labels` and `values` are required; optional fields enable
-    multi-level hierarchies (`parents`, `ids`), custom node colors
-    (`colors`), or automatic sector coloring (`sectors`).
-    """
-
-    labels : Sequence[str]
-    values : Sequence[int | float]
-
-    colors  : Sequence[str] | None = None
-    ids     : Sequence[str] | None = None
-    parents : Sequence[str] | None = None
-    sectors : Sequence[str] | None = None
-
-    @classmethod
-    def from_clusters(cls, clusters: Clusters) -> HierarchyData:
-        """
-        Build a sector → cluster hierarchy from the fitted cluster
-        collection.
-
-        Prepends one header row per sector with the total posting count,
-        then appends each cluster as a child tile under its sector.
-        """
-        sector_totals = clusters.sector_sizes
-        rows = (
-            [(s, "", s, sector_totals.get(s, 0)) for s in clusters.sectors]
-            + [(f"{c.soc_title} ({c.size})", c.sector, c.sector, c.size)
-               for c in clusters.values()]
-        )
-        labels, parents, sectors, values = zip(*rows)
-
-        return cls(
-            labels  = labels,
-            parents = parents,
-            sectors = sectors,
-            values  = values
-        )
 
 
 class JobPostingMetrics(BaseModel, extra="forbid"):
@@ -101,12 +27,10 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
     Aggregated posting statistics for the matched career family.
     """
 
+    by_month     : dict[str, int]
     companies    : dict[str, int]
-    dated        : dict[str, date]
     descriptions : dict[str, int]
-    freshness    : list[int]
     locations    : dict[str, int]
-    members      : dict[str, int]
     recent       : list[Posting]
     stat_values  : list[str]
     titles       : dict[str, int]
@@ -127,203 +51,238 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
         from difflib  import get_close_matches
         from wordfreq import zipf_frequency
 
+        top_15    = lambda c: dict(c.most_common(15))
         companies = Counter(p.company  for p in postings if p.company)
-        locations = Counter(p.location for p in postings if p.location).most_common(15)
+        locations = Counter(p.location for p in postings if p.location)
         by_date   = attrgetter("date_posted")
         dated     = sorted(filter(by_date, postings), key=by_date, reverse=True)
         today     = date.today()
 
         agc_names = [m["name"] for m in reference.agc_members]
-        agc_types = {m["name"].lower(): m.get("type", "") for m in reference.agc_members}
 
         agc_matched = {
             c for c in companies
             if get_close_matches(c, agc_names, n=1, cutoff=0.7)
         }
 
-        member_types = Counter(
-            agc_types.get(match[0].lower(), "Unknown")
-            for c in agc_matched
-            if (match := get_close_matches(c, agc_names, n=1, cutoff=0.7))
-        )
-
-        freshness = [
-            (today - p.date_posted).days
+        by_month = dict(sorted(Counter(
+            p.date_posted.strftime("%Y-%m")
             for p in postings
             if p.date_posted
-        ]
+        ).items()))
 
-        descriptions = dict(
-            Counter(
-                w for p in postings
-                for word in p.description.split()
-                if  len(w := word.strip(".,;:!?()[]\"'").lower()) > 3
-                and zipf_frequency(w, "en") < 4.5
-            ).most_common(20)
-        )
+        descriptions = dict(Counter(
+            w for p in postings
+            for word in p.description.split()
+            if  len(w := word.strip(".,;:!?()[]\"'").lower()) > 3
+            and zipf_frequency(w, "en") < 4.5
+        ).most_common(20))
+
+        titles = dict(Counter(
+            w for p in postings
+            for word in p.title.split()
+            if  len(w := word.strip(".,;:!?()[]").lower()) > 2
+            and zipf_frequency(w, "en") < 5.0
+        ).most_common(25))
 
         stat_values = [
             str(len(postings)),
             str(len(companies)),
             str(len(locations)),
             str(len(agc_matched)),
-            f"{min(freshness)}d" if freshness else "N/A",
+            f"{(today - dated[0].date_posted).days}d" if dated else "N/A",
             str(len(dated))
         ]
 
         return cls(
-            companies    = {name: n for name, n in companies.most_common(15)},
-            dated        = {p.company or p.title: p.date_posted for p in dated},
+            by_month     = by_month,
+            companies    = top_15(companies),
             descriptions = descriptions,
-            freshness    = freshness,
-            locations    = dict(locations),
-            members      = member_types,
+            locations    = top_15(locations),
             recent       = dated[:12],
             stat_values  = stat_values,
-            titles       = dict(
-                Counter(
-                    w for p in postings
-                    for word in p.title.split()
-                    if  len(w := word.strip(".,;:!?()[]").lower()) > 2
-                    and zipf_frequency(w, "en") < 5.0
-                ).most_common(25)
-            )
+            titles       = titles
         )
 
 
-class LaborMetrics(BaseModel, extra="forbid"):
+class JobZoneBreakdown(NamedTuple):
     """
-    BLS and O*NET labor market data for the matched occupation.
+    Cluster counts by Job Zone with cross-tabulated sector breakdown.
+
+    Groups the two related views the methods tab needs together so they
+    travel as one field on `MlMetrics` instead of two parallel fields.
     """
 
-    outlook_text : str            = ""
-    salary_text  : str            = ""
-    stat_strip   : dict[str, str] = Field(default_factory=dict)
-    wages        : list[float]    = Field(default_factory=list)
+    counts : dict[int, int]
+    matrix : dict[str, list[int]]
 
-    @classmethod
-    def from_record(
-        cls,
-        labor      : LaborLoader,
-        soc_title  : str,
-        stat_keys  : dict[str, str],
-        templates  : LaborTemplates | None = None
-    ) -> LaborMetrics:
+    def labeled_counts(self, names: dict[int, str]) -> dict[str, int]:
         """
-        Extract and format BLS labor market data for one occupation.
-
-        Args:
-            labor     : BLS labor market data keyed by SOC title.
-            soc_title : SOC title to look up.
-            stat_keys : Display label per stat, keyed by `"median_wage"`, `"growth"`,
-                        `"openings"`, `"education"`.
-            templates : Prose templates for outlook and salary text.
+        Apply a level-to-name map to produce a label-keyed count dict.
         """
-        if not (record := labor.get(soc_title)):
-            return cls()
-
-        stat_strip = {
-            stat_keys[key]: template.format(value)
-            for key, value, template in [
-                ("growth",      record.change_percent, "{:+.1f}%"),
-                ("median_wage", record.annual_median,  "${:,.0f}"),
-                ("openings",    record.openings,       "{:,.0f}K/yr")
-            ]
-            if value
-        }
-
-        if templates:
-            outlook_text = (
-                templates.bright_outlook.format(
-                    reasons=", ".join(record.outlook_reasons)
-                )
-                if record.bright_outlook else ""
-            )
-            salary_text = (
-                templates.salary.format(wage=f"{record.annual_median:,.0f}")
-                if record.percentiles else ""
-            )
-        else:
-            outlook_text = salary_text = ""
-
-        return cls(
-            outlook_text = outlook_text,
-            salary_text  = salary_text,
-            stat_strip   = stat_strip,
-            wages        = record.percentiles
-        )
-
-
-class LaborTemplates(BaseModel, extra="forbid"):
-    """
-    Format-string templates for labor market prose callouts.
-
-    Each template uses Python `.format()` placeholders that the consuming
-    factory fills at render time.
-    """
-
-    bright_outlook : str
-    salary         : str
+        return {names[level]: count for level, count in self.counts.items()}
 
 
 class Labels(BaseModel, extra="forbid"):
     """
     Shared display labels loaded from `tabs/shared/labels.toml`.
 
-    Cross-cutting text used by Theme, layout helpers, and the Marimo
-    notebook itself. Validated at load time so that missing keys surface
+    Cross-cutting text used by layout helpers and the Marimo notebook
+    itself. Validated at load time so that missing keys surface
     immediately rather than at render time.
     """
 
-    card_links        : dict[str, str]
-    dropdown_label    : str
     fallback_location : str
-    job_zones         : dict[str, str]
-    job_zones_abbr    : dict[str, str]
-    skill_types       : dict[str, str]
+    job_zones         : dict[int, str]
+    map_you_are_here  : str
     spinner_text      : str
     tab_names         : dict[str, str]
     upload_label      : str
 
 
-class MatchMetrics(BaseModel, extra="forbid"):
+class MapGeometry(BaseModel, extra="forbid"):
     """
-    Core match quality metrics derived from cluster distances.
+    Static layout geometry for the pathway map widget.
+
+    Owns every pixel-level constant, opacity tier, and text-fit
+    threshold the layout factory consumes, so the JS renderer receives
+    a consistent dimensions payload and the Python side has a single
+    source of truth instead of scattered literals.
     """
 
-    confidence    : int = Field(ge=0, le=100)
-    job_zones     : dict[int, int]
-    proximity     : dict[str, float]
-    runner_up_gap : float
-    sectors       : dict[str, str]
-    top5          : dict[str, float]
+    col_gap              : int               = 90
+    default_total_width  : int               = 600
+    edge_midpoint_offset : int               = 30
+    hop_opacities        : tuple[float, ...] = (1, 1, 0.5, 0.2)
+    node_h               : int               = 52
+    node_spacing         : int               = 25
+    node_w               : int               = 140
+    pad                  : int               = 40
+    sector_gap           : int               = 60
+    title_char_limit     : int               = 22
+    top_pad              : int               = 50
 
-    @field_validator("job_zones", mode="after")
-    @classmethod
-    def _sort_job_zones(cls, v: dict[int, int]) -> dict[int, int]:
-        return dict(sorted(v.items()))
-
-    @classmethod
-    def from_result(cls, result: MatchResult) -> MatchMetrics:
+    @property
+    def col_pitch(self) -> int:
         """
-        Derive match confidence, top-5 radar, proximity bars, and Job Zone
-        distribution.
+        Horizontal pixels between adjacent Job Zone column centers.
+        """
+        return self.node_w + self.col_gap
+
+    @property
+    def dimensions(self) -> dict[str, int]:
+        """
+        Card height, card width, and outer padding for the JS payload.
+        """
+        return self.model_dump(include={"node_h", "node_w", "pad"})
+
+    @property
+    def max_hop_index(self) -> int:
+        """
+        Largest valid index into `hop_opacities` for clamping BFS hops.
+        """
+        return len(self.hop_opacities) - 1
+
+    @property
+    def row_height(self) -> int:
+        """
+        Vertical pixels per node row including inter-node spacing.
+        """
+        return self.node_h + self.node_spacing
+
+
+class MapLayout(NamedTuple):
+    """
+    Precomputed spatial layout for the career pathway map widget.
+
+    Groups deterministic node positions, Job Zone column metadata, and
+    SVG dimensions so they travel together from `from_clusters` through
+    serialization into the D3 renderer.
+    """
+
+    columns      : list[dict]
+    positions    : dict[int, dict[str, int]]
+    total_height : int
+    total_width  : int
+
+    def labeled_columns(self, names: dict[int, str]) -> list[dict]:
+        """
+        Pair each column's x position with its label from `names`.
+
+        Resolves Job Zone level integers to display strings so the map
+        widget can drop the result straight into its JSON payload
+        without re-iterating `columns` at the call site.
+        """
+        return [
+            {
+                "label" : names[c["job_zone"]],
+                "x"     : c["x"]
+            }
+            for c in self.columns
+        ]
+
+    @classmethod
+    def from_clusters(cls, clusters: Clusters, geometry: MapGeometry) -> MapLayout:
+        """
+        Deterministic grid layout placing clusters in Job Zone columns
+        with vertical sector banding.
+
+        Sectors stack top-to-bottom in `clusters.sectors` order, each
+        sized by the busiest column it contains so columns inside a band
+        share a baseline.
 
         Args:
-            result: Match result from resume projection.
+            clusters : Fitted cluster container with metadata.
+            geometry : Pixel constants for nodes, gaps, and padding.
         """
-        cds      = result.cluster_distances
-        max_dist = result.max_distance
-        return cls(
-            confidence    = result.confidence,
-            job_zones     = Counter(cd.job_zone for cd in cds[:10]),
-            proximity     = {cd.soc_title: round(cd.distance, 3) for cd in cds},
-            runner_up_gap = round(cds[1].distance - cds[0].distance, 3) if len(cds) > 1 else 0,
-            sectors       = {cd.soc_title: cd.sector for cd in cds},
-            top5          = {
-                cd.soc_title: round(100 * (1 - cd.distance / max_dist), 1)
-                for cd in cds[:5]
+        def col_center(level: int) -> int:
+            return (level - 1) * geometry.col_pitch + geometry.node_w // 2
+
+        groups = defaultdict(list)
+        for cluster in clusters.values():
+            groups[cluster.job_zone, cluster.sector].append(cluster.cluster_id)
+
+        max_per_sector = defaultdict(int)
+        for (_, sector), node_ids in groups.items():
+            max_per_sector[sector] = max(max_per_sector[sector], len(node_ids))
+
+        band_y   = {}
+        y_cursor = geometry.top_pad
+        for sector in clusters.sectors:
+            if sector not in max_per_sector:
+                continue
+            band_y[sector] = y_cursor
+            y_cursor += (
+                max_per_sector[sector] * geometry.row_height + geometry.sector_gap
+            )
+
+        positions = {}
+        for (level, sector), node_ids in groups.items():
+            base_y = band_y.get(sector, geometry.top_pad)
+            for i, node_id in enumerate(node_ids):
+                positions[node_id] = {
+                    "x" : col_center(level),
+                    "y" : base_y + i * geometry.row_height + geometry.node_h // 2
+                }
+
+        job_zone_levels = sorted({level for level, _ in groups})
+        columns = [
+            {
+                "job_zone" : level,
+                "x"        : col_center(level)
             }
+            for level in job_zone_levels
+        ]
+        total_width = (
+            col_center(max(job_zone_levels)) + geometry.node_w // 2
+            if job_zone_levels else geometry.default_total_width
+        )
+
+        return cls(
+            columns      = columns,
+            positions    = positions,
+            total_height = y_cursor,
+            total_width  = total_width
         )
 
 
@@ -345,20 +304,34 @@ class MlMetrics(BaseModel, extra="forbid"):
     corpus_size        : int
     edge_count         : int
     edge_weights       : list[float]
+    embed_dim          : int
     embedding_model    : str
+    job_zone           : JobZoneBreakdown
     pairwise_distances : dict[str, list[float]]
     sector_sizes       : dict[str, int]
     silhouette         : SectorRanking
     soc_heatmap        : dict[str, list[float]]
-    treemap            : HierarchyData
     variance           : VarianceBreakdown
+
+    @property
+    def funnel_stages(self) -> dict[str, int]:
+        """
+        Pipeline-narrowing stages in display order for the data funnel.
+        """
+        return {
+            "Raw Postings"   : self.corpus_size,
+            "Embedding Dims" : self.embed_dim,
+            "SVD Components" : self.component_count,
+            "Clusters"       : self.cluster_count,
+            "Pathway Edges"  : self.edge_count
+        }
 
     @property
     def median_silhouette(self) -> float:
         """
         Median silhouette coefficient across all clusters.
         """
-        return round(sorted(self.silhouette.values)[len(self.silhouette.values) // 2], 3)
+        return round(median(self.silhouette.values), 3)
 
     @property
     def stat_values(self) -> list[str]:
@@ -375,6 +348,17 @@ class MlMetrics(BaseModel, extra="forbid"):
             str(self.company_count)
         ]
 
+    @property
+    def template_kwargs(self) -> dict[str, object]:
+        """
+        Substitution kwargs for `ProcessStep.detail` and any TOML
+        descriptions templated against pipeline state.
+        """
+        return self.model_dump(include={
+            "cluster_count", "component_count", "corpus_size",
+            "edge_count", "embedding_model"
+        }) | {"total_variance": self.variance.total}
+
     @classmethod
     def from_pipeline(cls, pipeline: Chalkline) -> MlMetrics:
         """
@@ -390,17 +374,27 @@ class MlMetrics(BaseModel, extra="forbid"):
         ratio     = pipeline.matcher.svd.explained_variance_ratio_
         brokerage = SectorRanking.from_ranking(clusters, pipeline.graph.brokerage)
 
-        soc_heatmap = {
-            clusters[cid].display_label: [
+        job_zone_counts : Counter = Counter()
+        sector_pairs    : Counter = Counter()
+        for c in clusters.values():
+            job_zone_counts[c.job_zone]        += 1
+            sector_pairs[c.sector, c.job_zone] += 1
+        job_zone_levels = sorted(job_zone_counts)
+        job_zone        = JobZoneBreakdown(
+            counts = dict(sorted(job_zone_counts.items())),
+            matrix = {
+                sector: [sector_pairs[sector, level] for level in job_zone_levels]
+                for sector in clusters.sectors
+            }
+        )
+
+        soc_heatmap     : dict[str, list[float]] = {}
+        cluster_heatmap : dict[str, list[float]] = {}
+        for i, cluster in enumerate(clusters.values()):
+            soc_heatmap[cluster.display_label] = [
                 round(float(v), 3) for v in clusters.soc_similarity[i]
             ]
-            for i, cid in enumerate(clusters.cluster_ids)
-        }
-
-        cluster_labels = [clusters[cid].soc_title for cid in clusters.cluster_ids]
-        cluster_heatmap = dict(zip(
-            cluster_labels, clusters.cosine_similarity_matrix
-        ))
+            cluster_heatmap[cluster.soc_title] = clusters.cosine_similarity_matrix[i]
 
         return cls(
             brokerage          = brokerage,
@@ -412,12 +406,13 @@ class MlMetrics(BaseModel, extra="forbid"):
             corpus_size        = pipeline.corpus_size,
             edge_count         = pipeline.graph.edge_count,
             edge_weights       = pipeline.graph.edge_weights,
+            embed_dim          = pipeline.embed_dim,
             embedding_model    = pipeline.config.embedding_model,
+            job_zone           = job_zone,
             pairwise_distances = clusters.pairwise_distances,
             sector_sizes       = clusters.sector_sizes,
             silhouette         = SectorRanking.from_tuples(clusters.silhouette_scores),
             soc_heatmap        = soc_heatmap,
-            treemap            = HierarchyData.from_clusters(clusters),
             variance           = VarianceBreakdown.from_svd(ratio)
         )
 
@@ -431,12 +426,139 @@ class ProcessStep(BaseModel, extra="forbid"):
     label  : str
     number : str
 
-    def render(self, **kwargs) -> tuple[str, str, str]:
+    def render(self, **kwargs) -> Self:
         """
-        Format detail and return `(number, label, detail)` for
-        `process_flow()`.
+        Return a copy with `detail` formatted against the given kwargs.
+
+        Used by `Layout.process_flow` to substitute corpus-level values
+        like `{corpus_size}` and `{cluster_count}` into each step's
+        detail line at render time.
         """
-        return self.number, self.label, self.detail.format(**kwargs)
+        return self.model_copy(update={"detail": self.detail.format(**kwargs)})
+
+
+class RouteDetail(NamedTuple):
+    """
+    Joined route data for the Map tab's route card.
+
+    Holds the source and destination `Cluster` objects for dot-notation
+    access to SOC titles, sectors, Job Zones, and postings. Constructed
+    via `from_selection`, which resolves the matched cluster's adjacent
+    reach first and falls back to the widest-path tree query.
+    """
+
+    credentials      : list[Credential]
+    destination      : Cluster
+    destination_wage : float | None
+    path             : list[int]
+    scored_tasks     : list[ScoredTask]
+    source           : Cluster
+    source_wage      : float | None
+    weight           : float
+
+    @property
+    def is_multi_hop(self) -> bool:
+        """
+        Whether the route traverses intermediate clusters.
+        """
+        return len(self.path) > 2
+
+    @property
+    def step_count(self) -> int:
+        """
+        Number of hops the route traverses (edges, not nodes).
+        """
+        return len(self.path) - 1
+
+    @property
+    def top_credential(self) -> Credential | None:
+        """
+        Fastest-path credential (first in the ranked list), or `None`.
+        """
+        return self.credentials[0] if self.credentials else None
+
+    @property
+    def top_gaps(self) -> list[ScoredTask]:
+        """
+        Five largest skill gaps by deficit (lowest similarity).
+        """
+        return sorted(
+            (t for t in self.scored_tasks if not t.demonstrated),
+            key=lambda t: t.similarity
+        )[:5]
+
+    @property
+    def top_strengths(self) -> list[ScoredTask]:
+        """
+        Five strongest demonstrated skills. `scored_tasks` is already sorted
+        by descending similarity, so taking the first five matches.
+        """
+        return [t for t in self.scored_tasks if t.demonstrated][:5]
+
+    @property
+    def transition_summary(self) -> str:
+        """
+        Source-to-destination SOC titles joined by a right arrow.
+        """
+        return f"{self.source.soc_title} \u2192 {self.destination.soc_title}"
+
+    @property
+    def wage_delta(self) -> float | None:
+        """
+        Annual wage difference from source to destination.
+        """
+        if self.source_wage is None or self.destination_wage is None:
+            return None
+        return self.destination_wage - self.source_wage
+
+    @classmethod
+    def from_selection(
+        cls,
+        labor       : LaborLoader,
+        pipeline    : Chalkline,
+        profile     : Cluster,
+        result      : MatchResult,
+        selected_id : int
+    ) -> Self | None:
+        """
+        Build a route from a clicked map node, or `None` if the click is
+        invalid (no selection, the matched cluster itself, or no path
+        connects the source and destination).
+
+        Tries the matched cluster's adjacent reach first for a single-hop
+        edge; falls back to the widest-path multi-hop tree query.
+        """
+        if selected_id < 0 or selected_id == result.cluster_id:
+            return None
+
+        destination = pipeline.clusters[selected_id]
+        adjacent    = next(
+            (
+                e for e in result.reach.advancement + result.reach.lateral
+                if e.cluster_id == selected_id
+            ),
+            None
+        )
+        if adjacent is not None:
+            edges = [adjacent]
+            path  = [profile.cluster_id, selected_id]
+        else:
+            path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
+            edges = pipeline.graph.path_edges(path) if path else []
+
+        if not edges:
+            return None
+
+        return cls(
+            credentials      = [c for e in edges for c in e.credentials],
+            destination      = destination,
+            destination_wage = labor.wage(destination.soc_title),
+            path             = path,
+            scored_tasks     = pipeline.matcher.score_destination(destination),
+            source           = profile,
+            source_wage      = labor.wage(profile.soc_title),
+            weight           = min((e.weight for e in edges), default=0)
+        )
 
 
 class SectionContent(BaseModel, extra="forbid"):
@@ -447,29 +569,6 @@ class SectionContent(BaseModel, extra="forbid"):
     title: str
 
     description: str = ""
-
-
-class SectorMetrics(BaseModel, extra="forbid"):
-    """
-    Sector affinity scores from cluster distance averaging.
-    """
-
-    scores: dict[str, float]
-
-    @classmethod
-    def from_result(cls, result: MatchResult) -> SectorMetrics:
-        """
-        Average cluster distances by sector into affinity scores.
-
-        Args:
-            result: Match result with per-cluster distances.
-        """
-        return cls(
-            scores = {
-                s: round((1 - fmean(d) / result.max_distance) * 100, 1)
-                for s, d in result.distances_by_sector.items()
-            }
-        )
 
 
 class SectorRanking(BaseModel, extra="forbid"):
@@ -483,6 +582,13 @@ class SectorRanking(BaseModel, extra="forbid"):
     labels  : list[str]
     sectors : list[str]
     values  : list[float]
+
+    @property
+    def value_map(self) -> dict[str, float]:
+        """
+        Label-to-value mapping for chart factories that take `data=`.
+        """
+        return dict(zip(self.labels, self.values))
 
     @classmethod
     def from_ranking(
@@ -506,167 +612,52 @@ class SectorRanking(BaseModel, extra="forbid"):
         )
 
     @classmethod
-    def from_tuples(
-        cls,
-        data: list[tuple[str, str, float]]
-    ) -> SectorRanking:
+    def from_tuples(cls, data: list[tuple[str, str, float]]) -> SectorRanking:
         """
         Unzip a list of (label, sector, value) tuples into parallel lists.
 
         Args:
             data: Pre-sorted (label, sector, value) triples.
         """
+        labels, sectors, values = zip(*data) if data else ([], [], [])
         return cls(
-            labels  = [label  for label, _, _  in data],
-            sectors = [sector for _, sector, _ in data],
-            values  = [value  for _, _, value  in data]
+            labels  = list(labels),
+            sectors = list(sectors),
+            values  = list(values)
         )
-
-
-class SkillMetrics(BaseModel, extra="forbid"):
-    """
-    Grouped skill analysis for the Resume Feedback tab.
-
-    All properties derive from `skill_groups`, which is
-    `MatchResult.tasks_by_type` passed straight through. Similarity
-    histogram data comes from `MatchResult` directly in the render.
-    """
-
-    skill_groups : dict[str, list[ScoredTask]]
-
-    @property
-    def gap_scatter_points(self) -> list[GapScatterPoint]:
-        """
-        Bubble scatter data for gap skills, sized by type frequency.
-        """
-        gaps_by_type = {
-            stype: [s for s in skills if not s.demonstrated]
-            for stype, skills in self.skill_groups.items()
-        }
-        return [
-            GapScatterPoint(
-                frequency = len(gaps),
-                magnitude = max(0.0, round(100 - s.pct, 1)),
-                text      = s.name
-            )
-            for gaps in gaps_by_type.values()
-            for s in gaps
-        ]
-
-    @property
-    def demonstration_rates(self) -> dict[str, float]:
-        """
-        Percentage of demonstrated skills per O*NET type.
-        """
-        return {
-            stype: round(
-                100 * sum(s.demonstrated for s in skills) / len(skills), 1
-            )
-            for stype, skills in self.skill_groups.items()
-            if skills
-        }
-
-    @property
-    def overall_averages(self) -> list[float]:
-        """
-        Mean score across all skills per type.
-        """
-        return [
-            round(fmean(s.pct for s in skills), 1)
-            for skills in self.skill_groups.values()
-        ]
-
-    @property
-    def stat_values(self) -> list[str]:
-        """
-        Formatted stat strings in `stat_labels` display order.
-        """
-        demo  = sum(s.demonstrated for v in self.skill_groups.values() for s in v)
-        total = sum(len(v) for v in self.skill_groups.values())
-        return [
-            str(demo),
-            str(total - demo),
-            str(len(self.skill_groups)),
-            f"{round(100 * demo / total)}%" if total else "0%",
-            str(total)
-        ]
-
-    @property
-    def top_gaps(self) -> list[ScoredTask]:
-        """
-        Top 5 gap skills by deficit (lowest similarity).
-        """
-        return sorted(
-            [s for v in self.skill_groups.values() for s in v if not s.demonstrated],
-            key=lambda s: s.similarity
-        )[:5]
-
-    @property
-    def top_strengths(self) -> list[ScoredTask]:
-        """
-        Top 5 demonstrated skills by similarity score.
-        """
-        return sorted(
-            [s for v in self.skill_groups.values() for s in v if s.demonstrated],
-            key=lambda s: s.similarity,
-            reverse=True
-        )[:5]
-
-    @property
-    def strength_averages(self) -> list[float]:
-        """
-        Mean score across demonstrated skills per type.
-        """
-        return [
-            round(fmean(s.pct for s in skills if s.demonstrated), 1)
-            if any(s.demonstrated for s in skills) else 0.0
-            for skills in self.skill_groups.values()
-        ]
-
-    @classmethod
-    def from_result(cls, result: MatchResult) -> SkillMetrics:
-        """
-        Group scored tasks by O*NET type for display.
-
-        Args:
-            result: Match result with scored tasks.
-        """
-        return cls(skill_groups=result.tasks_by_type)
 
 
 class SplashMetrics(BaseModel, extra="forbid"):
     """
-    Pre-computed statistics for the splash page.
+    Pre-upload corpus statistics rendered on the splash page.
+
+    Mirrors the schema-factory pattern used by `JobPostingMetrics` and
+    `MlMetrics` so the splash render stays a thin formatter rather than
+    inlining eight ad-hoc casts.
     """
 
-    stat_values : list[str]
+    stat_values: list[str]
 
     @classmethod
-    def from_pipeline(
-        cls,
-        labor    : LaborLoader,
-        pipeline : Chalkline
-    ) -> SplashMetrics:
+    def from_corpus(cls, labor: LaborLoader, pipeline: Chalkline) -> Self:
         """
-        Compute splash page statistics from the fitted pipeline and typed
-        labor records.
+        Format the eight splash stats from pipeline and labor state.
 
         Args:
             labor    : BLS labor market data.
             pipeline : Fitted Chalkline pipeline instance.
         """
-        return cls(
-            stat_values = [
-                f"{pipeline.corpus_size:,}",
-                str(pipeline.clusters.company_count),
-                str(pipeline.clusters.location_count),
-                str(len(pipeline.clusters)),
-                f"{labor.total_employment:,}",
-                f"${labor.median_annual_wage:,.0f}",
-                str(labor.total_bright_outlook),
-                str(pipeline.graph.edge_count)
-            ]
-        )
+        clusters = pipeline.clusters
+        return cls(stat_values=[
+            f"{pipeline.corpus_size:,}",
+            f"{clusters.company_count}",
+            f"{clusters.location_count}",
+            f"{len(clusters)}",
+            f"{labor.total_employment:,}",
+            f"${labor.median_annual_wage:,.0f}",
+            f"{labor.total_bright_outlook}",
+            f"{pipeline.graph.edge_count}"
+        ])
 
 
 class TabContent(BaseModel, extra="ignore"):
@@ -674,35 +665,16 @@ class TabContent(BaseModel, extra="ignore"):
     Validated content loaded from a tab's `content.toml`.
 
     Sections are keyed by name and accessed via `content.sections["key"]`.
-    Hero is optional because not every tab has one.
     """
 
-    chart_labels    : dict[str, str]            = {}
-    chart_lists     : dict[str, list[str]]      = {}
-    columns         : dict[str, dict[str, str]] = {}
-    directions      : dict[str, str]            = {}
-    empty_message   : str                       = ""
-    fallbacks       : dict[str, str]            = {}
-    hero            : HeroContent               = HeroContent(text="")
-    info            : str                       = ""
-    labor_stats     : dict[str, str]            = {}
-    labor_templates : LaborTemplates | None     = None
-    process_steps   : list[ProcessStep]         = []
-    sections        : dict[str, SectionContent] = {}
-    stat_labels     : list[str]                 = []
-    tagline         : str                       = ""
-    title           : str                       = ""
-
-    @model_validator(mode="after")
-    def _normalize_stat_labels(self) -> Self:
-        if not self.stat_labels and "stat_labels" in self.chart_lists:
-            self.stat_labels = self.chart_lists.pop("stat_labels")
-        return self
-
-    @field_validator("info", mode="before")
-    @classmethod
-    def _unwrap_info(cls, v) -> str | None:
-        return v["text"] if isinstance(v, dict) else v
+    chart_labels  : dict[str, str]            = {}
+    fallbacks     : dict[str, str]            = {}
+    info          : str                       = ""
+    process_steps : list[ProcessStep]         = []
+    sections      : dict[str, SectionContent] = {}
+    stat_labels   : list[str]                 = []
+    tagline       : str                       = ""
+    title         : str                       = ""
 
     def section(self, key: str, **kwargs) -> tuple[str, str]:
         """
@@ -715,18 +687,6 @@ class TabContent(BaseModel, extra="ignore"):
         return s.description.format(**kwargs), s.title.format(**kwargs)
 
 
-class Trace(NamedTuple):
-    """
-    Named x/y series for bar, combo, and grouped charts.
-    """
-
-    x          : list
-    y          : list
-
-    color_role : str = ""
-    name       : str = ""
-
-
 class VarianceBreakdown(BaseModel, extra="forbid"):
     """
     SVD explained variance packaged for the variance bar chart and
@@ -737,19 +697,33 @@ class VarianceBreakdown(BaseModel, extra="forbid"):
     total      : float
 
     @property
+    def components_dict(self) -> dict[str, float]:
+        """
+        Per-component variance percentages keyed by axis label.
+        """
+        return dict(zip(self.labels, self.components))
+
+    @property
+    def cumulative(self) -> list[float]:
+        """
+        Running sum of component variances, rounded to two decimals.
+        """
+        from itertools import accumulate
+        return [round(v, 2) for v in accumulate(self.components)]
+
+    @property
+    def cumulative_dict(self) -> dict[str, float]:
+        """
+        Running cumulative variance percentages keyed by axis label.
+        """
+        return dict(zip(self.labels, self.cumulative))
+
+    @property
     def labels(self) -> list[str]:
         """
         Component axis labels (PC1, PC2, ...).
         """
         return [f"PC{i+1}" for i in range(len(self.components))]
-
-    @property
-    def trace(self) -> Trace:
-        """
-        Cumulative variance overlay line for the bar chart.
-        """
-        cumulative = [round(v, 2) for v in accumulate(self.components)]
-        return Trace(self.labels, cumulative)
 
     @classmethod
     def from_svd(cls, ratios: Iterable[float]) -> VarianceBreakdown:

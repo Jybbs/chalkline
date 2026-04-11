@@ -1,13 +1,18 @@
-[info]
-text = '''
+info = '''
 The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `{model_name}` into **{embed_dim}-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
 
 **Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options. The **dendrogram** shows the full merge hierarchy that Ward's method considered before cutting at $k = {n_clusters}$ families, revealing which career families are most similar to each other at progressively coarser granularity.'''
+
+stat_labels = [
+    "Corpus Size", "Clusters (k)", "SVD Components",
+    "Pathway Edges", "Variance Retained", "Median Silhouette", "Companies"
+]
 
 [chart_labels]
 brokerage_title    = 'Brokerage'
 career_families    = 'Career Families'
 career_family      = 'Career Family'
+clusters_title     = 'Career Families'
 count_title        = 'Count'
 dendrogram         = 'Hierarchical Clustering Dendrogram'
 edge_weight_title  = 'Edge Weight (<i>cosine similarity</i>)'
@@ -21,12 +26,6 @@ variance_title     = 'Variance Explained (%)'
 ward_distance      = 'Ward Distance'
 you                = 'You'
 your_resume        = 'Your Resume'
-
-[chart_lists]
-stat_labels = [
-    "Corpus Size", "Clusters (k)", "SVD Components",
-    "Pathway Edges", "Variance Retained", "Median Silhouette", "Companies"
-]
 
 [[process_steps]]
 number = '1'
@@ -58,17 +57,9 @@ number = '6'
 label  = 'Match'
 detail = 'Resume projection + gap analysis'
 
-[sections.cluster_parcoords]
-title       = 'Cluster Dimensions'
-description = 'Each career family as a polyline across four axes, revealing correlated structure that individual charts cannot show. Drag axis ranges to filter.'
-
 [sections.cluster_sizes]
 title       = 'Cluster Size Distribution'
 description = 'How posting counts distribute across career families. Peaked near zero means many small clusters with a few dominant ones.'
-
-[sections.sector_flow]
-title       = 'Sector to Job Zone Flow'
-description = 'How sectors distribute across experience levels, colored by cluster separation quality.'
 
 [sections.cluster_profiles]
 title       = 'Cluster Profiles'
@@ -106,6 +97,14 @@ description = 'Pairwise distances between cluster centroids, grouped by sector. 
 title       = 'Gateway Careers'
 description = 'Career families that bridge the most pathways, sorted by brokerage score. High brokerage means the role is a common stepping stone.'
 
+[sections.job_zone_distribution]
+title       = 'Career Families by Experience Level'
+description = 'How the {n_clusters} career families distribute across O*NET Job Zones, showing whether the corpus is balanced across entry-level, mid-career, and advanced roles.'
+
+[sections.sector_job_zone]
+title       = 'Sector by Experience Level'
+description = 'Joint distribution of career families across sectors and Job Zones. Bright cells indicate concentrations, empty cells reveal gaps in the corpus.'
+
 [sections.landscape]
 title       = 'Career Landscape'
 description = 'All {n_clusters} career family centroids projected onto the first two SVD components. Your resume is the gold star.'
@@ -129,10 +128,6 @@ description = 'How the corpus breaks down across construction sectors.'
 [sections.soc_heatmap]
 title       = 'O*NET Occupation Similarity'
 description = 'Cosine similarity between each career family centroid and all {n_occupations} O*NET occupation embeddings. Brighter cells indicate stronger alignment, revealing which families map cleanly to a single occupation and which straddle multiple.'
-
-[sections.treemap]
-title       = 'Career Landscape Treemap'
-description = 'All career families grouped by sector, sized by posting count. Larger tiles represent more postings.'
 
 [sections.variance]
 title       = 'Variance Explained'

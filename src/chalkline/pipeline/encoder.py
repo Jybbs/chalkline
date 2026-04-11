@@ -60,28 +60,27 @@ class SentenceEncoder:
 
     def _infer_batch(
         self,
+        batch       : list[str],
         batch_index : int,
-        texts       : list[str],
         total       : int
     ) -> np.ndarray:
         """
         Tokenize, run ONNX inference, and extract CLS embeddings for one
-        batch. Calls `on_batch` after inference completes.
+        pre-sliced batch. Calls `on_batch` after inference completes.
         """
-        encoded = self.tokenizer.encode_batch(texts[
-            (start := batch_index * self.batch_size)
-            : start + self.batch_size
-        ])
+        encoded  = self.tokenizer.encode_batch(batch)
+        to_int64 = lambda key: np.array(
+            [getattr(e, key) for e in encoded], dtype=np.int64
+        )
 
-        ids, masks = zip(*((e.ids, e.attention_mask) for e in encoded))
-        hidden     = np.asarray(self.session.run(None, {
-            "input_ids"      : np.array(ids, dtype=np.int64),
-            "attention_mask" : np.array(masks, dtype=np.int64)
+        hidden = np.asarray(self.session.run(None, {
+            "input_ids"      : to_int64("ids"),
+            "attention_mask" : to_int64("attention_mask")
         })[0])
 
         if self.on_batch is not None:
             self.on_batch(batch_index, total)
-            
+
         return hidden[:, 0, :]
 
     def encode(self, texts: list[str], unit: bool = True) -> np.ndarray:
@@ -95,10 +94,11 @@ class SentenceEncoder:
             texts : Strings to encode.
             unit  : L2-normalize output (default True).
         """
-        total  = -(-len(texts) // self.batch_size)
+        starts = range(0, len(texts), self.batch_size)
+        total  = len(starts)
         result = np.vstack([
-            self._infer_batch(batch_index=i, texts=texts, total=total)
-            for i in range(total)
+            self._infer_batch(texts[s:s + self.batch_size], i, total)
+            for i, s in enumerate(starts)
         ])
 
         if unit:

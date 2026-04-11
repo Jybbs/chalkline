@@ -20,7 +20,6 @@ import numpy    as np
 from collections              import Counter
 from json                     import loads
 from pathlib                  import Path
-from sentence_transformers    import SentenceTransformer
 from sklearn.cluster          import AgglomerativeClustering
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics          import adjusted_rand_score, silhouette_score
@@ -28,7 +27,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing    import normalize
 
 from chalkline.collection.storage import CorpusStorage
-from chalkline.extraction.loaders import LexiconLoader
+from chalkline.pathways.loaders   import LexiconLoader
+from chalkline.pipeline.encoder   import SentenceEncoder
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
@@ -37,8 +37,9 @@ class EmbeddingExploration:
     Reproduce CL-13 embedding evaluation decision points.
 
     Loads the AGC Maine corpus and credential catalog, encodes everything
-    with all-mpnet-base-v2, then walks through each architectural choice
-    from the evaluation, printing the metrics that informed each decision.
+    with the pipeline's configured sentence model, then walks through
+    each architectural choice from the evaluation, printing the metrics
+    that informed each decision.
     """
 
     def __init__(self, config: PipelineConfig):
@@ -56,15 +57,14 @@ class EmbeddingExploration:
         loader           = LexiconLoader(config.lexicon_dir)
         self.occupations = loader.occupations
 
-        lex = config.lexicon_dir
-        self.apprenticeships = loads((lex / "apprenticeships.json").read_text())
-        self.certifications  = loads((lex / "certifications.json").read_text())
-        self.programs        = loads((lex / "programs.json").read_text())
+        self.credentials = loads(
+            (config.lexicon_dir / "credentials.json").read_text()
+        )
 
-        self.model = SentenceTransformer("all-mpnet-base-v2")
+        self.model = SentenceEncoder(name=config.embedding_model)
         self.texts = [self.descriptions[d] for d in self.doc_ids]
         print(f"Encoding {len(self.texts)} postings...")
-        self.raw_emb = self.model.encode(self.texts, show_progress_bar=False)
+        self.raw_emb = self.model.encode(self.texts, unit=False)
         self.normed  = normalize(self.raw_emb)
 
         self._encode_occupations()
@@ -95,33 +95,16 @@ class EmbeddingExploration:
 
     def _encode_credentials(self):
         """
-        Encode the credential catalog with raw field text.
+        Encode the unified credential catalog via its pre-computed
+        `embedding_text` field.
         """
-        self.cred_labels = []
-        self.cred_types  = []
-        cred_texts       = []
-
-        for a in self.apprenticeships:
-            self.cred_labels.append(a["title"])
-            self.cred_types.append("apprenticeship")
-            cred_texts.append(a["title"])
-
-        for p in self.programs:
-            self.cred_labels.append(f"{p['program']} ({p['institution']})")
-            self.cred_types.append("program")
-            cred_texts.append(
-                f"{p['credential']} {p['program']} {p['institution']}")
-
-        for c in self.certifications:
-            acro = c.get("acronym") or ""
-            self.cred_labels.append(f"{acro} {c['name']}".strip())
-            self.cred_types.append("certification")
-            cred_texts.append(
-                f"{acro} {c['name']} {c['organization']}".strip())
+        self.cred_labels = [c["label"]          for c in self.credentials]
+        self.cred_types  = [c["kind"]           for c in self.credentials]
+        cred_texts       = [c["embedding_text"] for c in self.credentials]
 
         print(f"Encoding {len(cred_texts)} credentials...")
         self.cred_embs = normalize(
-            self.model.encode(cred_texts, show_progress_bar=False)
+            self.model.encode(cred_texts, unit=False)
         )
 
     def _encode_occupations(self):
@@ -137,7 +120,7 @@ class EmbeddingExploration:
 
         print(f"Encoding {len(occ_texts)} occupations...")
         self.occ_embs = normalize(
-            self.model.encode(occ_texts, show_progress_bar=False)
+            self.model.encode(occ_texts, unit=False)
         )
 
     def _hub_fraction(self, labels):
@@ -146,7 +129,7 @@ class EmbeddingExploration:
         """
         return Counter(labels).most_common(1)[0][1] / len(labels)
 
-    def _jz_map(self, cluster_embs, k):
+    def _job_zone_map(self, cluster_embs, k):
         """
         Assign Job Zones to clusters via top-3 median cosine against O*NET
         Task+DWA embeddings.
@@ -174,11 +157,11 @@ class EmbeddingExploration:
         ])
         self.cluster_sim = cosine_similarity(self.centroids)
         np.fill_diagonal(self.cluster_sim, 0)
-        self.jz_map     = self._jz_map(self.cl_embs, 20)
-        self.cred_to_cl = cosine_similarity(self.cred_embs, self.cl_embs)
+        self.job_zone_map = self._job_zone_map(self.cl_embs, 20)
+        self.cred_to_cl   = cosine_similarity(self.cred_embs, self.cl_embs)
 
-        jz_levels    = sorted(set(self.jz_map.values()))
-        self.next_jz = dict(zip(jz_levels, jz_levels[1:]))
+        job_zone_levels    = sorted(set(self.job_zone_map.values()))
+        self.next_job_zone = dict(zip(job_zone_levels, job_zone_levels[1:]))
 
     def _reduce(self, d):
         """
@@ -232,9 +215,9 @@ class EmbeddingExploration:
             f"{cred_all.min():.3f} – {cred_all.max():.3f}")
 
         edges = [
-            (c, j) for c in range(20) if self.jz_map[c] in self.next_jz
+            (c, j) for c in range(20) if self.job_zone_map[c] in self.next_job_zone
             for j in range(20)
-            if self.jz_map[j] == self.next_jz[self.jz_map[c]]
+            if self.job_zone_map[j] == self.next_job_zone[self.job_zone_map[c]]
             and self.cluster_sim[c, j] > 0.5
         ]
         src_idxs = np.array([s for s, _ in edges])
@@ -350,10 +333,10 @@ class EmbeddingExploration:
         G.add_nodes_from(range(20))
 
         for c in range(20):
-            my_jz = self.jz_map[c]
-            same  = [
+            my_job_zone = self.job_zone_map[c]
+            same        = [
                 j for j in range(20)
-                if self.jz_map[j] == my_jz and j > c
+                if self.job_zone_map[j] == my_job_zone and j > c
             ]
             same.sort(
                 key=lambda j: self.cluster_sim[c, j], reverse=True)
@@ -361,22 +344,22 @@ class EmbeddingExploration:
                 G.add_edge(c, j)
                 G.add_edge(j, c)
 
-            if my_jz in self.next_jz:
+            if my_job_zone in self.next_job_zone:
                 up = [
                     j for j in range(20)
-                    if self.jz_map[j] == self.next_jz[my_jz]
+                    if self.job_zone_map[j] == self.next_job_zone[my_job_zone]
                 ]
                 up.sort(
                     key=lambda j: self.cluster_sim[c, j], reverse=True)
                 for j in up[:2]:
                     G.add_edge(c, j)
 
-        comps   = nx.number_weakly_connected_components(G)
-        jz_dist = dict(sorted(Counter(self.jz_map.values()).items()))
+        comps         = nx.number_weakly_connected_components(G)
+        job_zone_dist = dict(sorted(Counter(self.job_zone_map.values()).items()))
         print(
             f"  Stepwise k-NN: {G.number_of_edges()} edges, "
             f"{comps} component(s)")
-        print(f"  JZ distribution: {jz_dist}")
+        print(f"  Job Zone distribution: {job_zone_dist}")
         print()
 
     def resume_validation(self):
@@ -407,7 +390,7 @@ class EmbeddingExploration:
             print("  (empty PDF text, skipping)\n")
             return
 
-        resume_emb    = self.model.encode([text], show_progress_bar=False)
+        resume_emb    = self.model.encode([text], unit=False)
         resume_normed = normalize(resume_emb)
         resume_coords = self.svd_10.transform(resume_normed)[0]
 
@@ -444,7 +427,7 @@ class EmbeddingExploration:
 
         if tasks:
             task_embs = normalize(self.model.encode(
-                [t.name for t in tasks], show_progress_bar=False))
+                [t.name for t in tasks], unit=False))
             task_sims  = cosine_similarity(resume_normed, task_embs)[0]
             median_sim = float(np.median(task_sims))
             demonstrated = [tasks[i].name
@@ -491,7 +474,7 @@ class EmbeddingExploration:
             f"{occ.title}: "
             f"{', '.join(s.name for s in occ.skills[:20])}"
             for occ in self.occupations
-        ], show_progress_bar=False))
+        ], unit=False))
 
         print(f"\n  ARI by encoding variant:")
         for label, embs in [
@@ -505,24 +488,24 @@ class EmbeddingExploration:
                 f"    {label:>12}  ARI(k=5)={ari_5:.3f}  "
                 f"ARI(k=20)={ari_20:.3f}")
 
-        print(f"\n  JZ distribution by encoding and method:")
+        print(f"\n  Job Zone distribution by encoding and method:")
         for label, occ_embs in [
             ("Task+DWA", self.occ_embs),
             ("skills[:20]", occ_embs_20)
         ]:
             csims = cosine_similarity(self.cl_embs, occ_embs)
-            jz_single = {
+            job_zone_single = {
                 c: self.occupations[np.argmax(csims[c])].job_zone
                 for c in range(20)
             }
-            jz_top3 = {
+            job_zone_top3 = {
                 c: int(np.median([
                     self.occupations[i].job_zone
                     for i in np.argsort(csims[c])[-3:]
                 ])) for c in range(20)
             }
-            sd = dict(sorted(Counter(jz_single.values()).items()))
-            td = dict(sorted(Counter(jz_top3.values()).items()))
+            sd = dict(sorted(Counter(job_zone_single.values()).items()))
+            td = dict(sorted(Counter(job_zone_top3.values()).items()))
             print(f"    {label:>12}  single={sd}  top3={td}")
         print()
 
@@ -532,7 +515,6 @@ if __name__ == "__main__":
     EmbeddingExploration(
         config=PipelineConfig(
             lexicon_dir  = Path("data/lexicons"),
-            output_dir   = Path("output"),
             postings_dir = Path("data/postings")
         )
     ).run_all()

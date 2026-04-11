@@ -2,34 +2,26 @@
 Plotly theme for the Chalkline Marimo dashboard.
 
 Provides a `Theme` class that owns the unified color palette, sector color
-mapping, skill type labels, Job Zone labels, and the registered Plotly
-template. Each instance registers its template with Plotly on construction,
-making `template="chalkline_dark"` resolve globally.
+mapping, and the registered Plotly template. Each instance registers its
+template with Plotly on construction, making `template="chalkline_dark"`
+resolve globally.
 """
 
 import plotly.graph_objects as go
 import plotly.io            as pio
 
-from bisect     import bisect
-from types      import MappingProxyType
+from bisect          import bisect
+from collections.abc import Iterable
+from types           import MappingProxyType
 
 
 class Theme:
     """
-    Single source of truth for color and label state across the Chalkline
-    dashboard.
+    Single source of truth for color and palette state across the
+    Chalkline dashboard.
     """
 
-    def __init__(
-        self,
-        jz_labels   : dict[str, str],
-        type_labels : dict[str, str]
-    ):
-        """
-        Args:
-            jz_labels   : Job Zone integer key to display label.
-            type_labels : O*NET skill type key to display label.
-        """
+    def __init__(self):
         self.colors = MappingProxyType({
             "accent"     : "#7db3e0",
             "building"   : "#5a9fd4",
@@ -44,16 +36,14 @@ class Theme:
             "primary"    : "#E8C840",
             "specialty"  : "#5cb878",
             "success"    : "#8cc5a3",
-            "teal"       : "#7ecfc0",
+            "teal"       : "#7ecfc0"
         })
         self.sectors = MappingProxyType({
             "Building Construction"      : self.colors["building"],
             "Heavy Highway Construction" : self.colors["heavy"],
-            "Specialty Trade"            : self.colors["specialty"],
+            "Specialty Trade"            : self.colors["specialty"]
         })
-        self.jz_labels   = jz_labels
-        self.type_labels = type_labels
-        self.template    = "chalkline_dark"
+        self.template = "chalkline_dark"
         self._register_template()
 
     def _register_template(self) -> None:
@@ -71,24 +61,29 @@ class Theme:
             griddash      = "dot",
             gridcolor     = self.colors["grid"],
             title         = dict(standoff=12),
-            zerolinecolor = self.colors["grid"],
+            zerolinecolor = self.colors["grid"]
         )
 
         polar_axis = dict(
             griddash  = "dot",
             gridcolor = self.colors["grid"],
-            linecolor = self.colors["grid"],
+            linecolor = self.colors["grid"]
         )
 
         overlay = {
-            "layout": {
-                "colorway": [self.colors[k] for k in (
+            "data"   : {
+                "bar"       : [go.Bar(marker=dict(cornerradius=4))],
+                "histogram" : [go.Histogram(marker=dict(cornerradius=4))],
+                "pie"       : [go.Pie(textposition="outside")]
+            },
+            "layout" : {
+                "colorway"      : [self.colors[k] for k in (
                     "accent", "heavy", "success", "primary", "error",
-                    "building", "specialty", "lavender", "cream", "teal",
+                    "building", "specialty", "lavender", "cream", "teal"
                 )],
                 "font"          : dict(
                     color  = self.colors["foreground"],
-                    family = "DM Sans, system-ui, sans-serif",
+                    family = "DM Sans, system-ui, sans-serif"
                 ),
                 "margin"        : dict(b=50, l=30, r=30, t=20),
                 "paper_bgcolor" : "rgba(0,0,0,0)",
@@ -96,33 +91,43 @@ class Theme:
                 "polar"         : dict(
                     angularaxis = polar_axis,
                     bgcolor     = "rgba(0,0,0,0)",
-                    radialaxis  = polar_axis,
+                    radialaxis  = polar_axis
                 ),
                 "xaxis"         : axis_shared,
-                "yaxis"         : dict(**axis_shared, ticklabelstandoff=8),
-            },
-            "data": {
-                "bar"       : [go.Bar(marker=dict(cornerradius=4))],
-                "histogram" : [go.Histogram(marker=dict(cornerradius=4))],
-                "pie"       : [go.Pie(textposition="outside")],
-            },
+                "yaxis"         : dict(**axis_shared, ticklabelstandoff=8)
+            }
         }
 
         merged = go.layout.Template(pio.templates["plotly_dark"])
         merged.update(overlay)
         pio.templates[self.template] = merged
 
-    def jz_label(self, job_zone: int) -> str:
+    def credential_color(self, kind: str) -> str:
         """
-        Human-readable label for an O*NET Job Zone level.
+        Accent color for a credential kind.
 
         Args:
-            job_zone: Integer 1 through 5.
+            kind: Credential kind such as `"apprenticeship"` or
+                  `"program"`.
 
         Returns:
-            Label such as `"Entry Level"` or `"Advanced"`.
+            Hex color from the palette.
         """
-        return self.jz_labels.get(str(job_zone), str(job_zone))
+        match kind:
+            case "apprenticeship" : return self.colors["cream"]
+            case "certification"  : return self.colors["lavender"]
+            case "program"        : return self.colors["accent"]
+            case _                : return self.colors["muted"]
+
+    def resolve_color(self, color: str) -> str:
+        """
+        Hex color from a palette key, falling back to the input string
+        when no palette entry matches.
+
+        Centralizes the `colors.get(key, key)` pattern used by chart
+        builders that accept either a theme key or a literal hex value.
+        """
+        return self.colors.get(color, color)
 
     def score_color(self, score: float) -> str:
         """
@@ -134,31 +139,22 @@ class Theme:
         Returns:
             Hex color string from the palette.
         """
-        return self.colors[("error", "primary", "success")[bisect([40, 70], score)]]
+        return self.colors[("error", "primary", "success")[bisect((40, 70), score)]]
 
-    def score_tier(self, score: float) -> str:
+    def sector_colors(self, sectors: Iterable[str]) -> list[str]:
         """
-        Map a 0-100 percentage score to a CSS tier class suffix.
+        Per-bar sector colors aligned with an iterable of sector names.
 
-        Uses the same 40/70 thresholds as `score_color` so the HTML skill
-        tree and Plotly gauge stay in sync.
-
-        Args:
-            score: Numeric score between 0 and 100.
-
-        Returns:
-            `"low"`, `"mid"`, or `"high"`.
+        Centralizes the `theme.sectors[s]` lookup so chart call sites
+        across the methods tab share one resolution path instead of
+        repeating the same comprehension.
         """
-        return ("low", "mid", "high")[bisect([40, 70], score)]
+        return [self.sectors[s] for s in sectors]
 
-    def type_label(self, skill_type: str) -> str:
+    def wage_color(self, delta: float) -> str:
         """
-        Human-readable display label for an O*NET skill type.
-
-        Args:
-            skill_type: Raw type key such as `"dwa"` or `"skill"`.
-
-        Returns:
-            Display label such as `"Detailed Work Activities"`.
+        Hex color for a signed wage delta: success for non-negative,
+        error for negative.
         """
-        return self.type_labels.get(skill_type, skill_type.title())
+        return self.colors["success" if delta >= 0 else "error"]
+
