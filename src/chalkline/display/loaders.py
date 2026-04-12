@@ -26,10 +26,12 @@ from typing               import Literal, NamedTuple
 
 from chalkline.collection.schemas    import Posting
 from chalkline.display.charts        import Charts
-from chalkline.display.schemas       import Labels, ProcessStep, TabContent
+from chalkline.display.schemas       import DistinctiveVocabulary, JobPostingMetrics
+from chalkline.display.schemas       import Labels, PostingProjection
+from chalkline.display.schemas       import ProcessStep, TabContent
 from chalkline.display.theme         import Theme
 from chalkline.matching.schemas      import MatchResult, ScoredTask
-from chalkline.pathways.clusters     import Cluster
+from chalkline.pathways.clusters     import Cluster, Clusters
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
 from chalkline.pathways.schemas      import Credential, Occupation
 from chalkline.pipeline.orchestrator import Chalkline
@@ -302,6 +304,72 @@ class Layout:
             data_kind = kind
         )
 
+    def cluster_identity(
+        self,
+        cluster     : Cluster,
+        clusters    : Clusters,
+        reference   : StakeholderReference,
+        *,
+        tier_labels : tuple[str, str, str] = ("unique", "rare", "notable")
+    ) -> list[Element]:
+        """
+        Reusable identity sections for a single cluster as a flat list
+        of htpy elements the caller spreads into a parent layout.
+
+        Surfaces the family's distinctive vocabulary, posting-embedding
+        sub-roles, and top hiring AGC employer. Each section is a small
+        labeled block under the `.cl-yah-section*` class family so the
+        caller (currently the Map tab sidebar) can stack them with the
+        existing `.cl-you-are-here` identity row above. The factories
+        used here (`DistinctiveVocabulary.from_cluster`,
+        `PostingProjection.from_cluster`) are class-cached on cluster
+        identity, so calling the helper from multiple sites in the
+        same render pass costs nothing after the first.
+
+        Args:
+            cluster     : Career family to describe.
+            clusters    : Fitted cluster collection (TF-IDF corpus).
+            reference   : Stakeholder reference for AGC employer matching.
+            tier_labels : Identifiers for the three TF-IDF distinctiveness
+                          tiers (unique, rare, notable). Default values
+                          are internal-only and not displayed.
+        """
+        sections: list[Element] = []
+
+        vocab = DistinctiveVocabulary.from_cluster(
+            cluster     = cluster,
+            clusters    = clusters,
+            tier_labels = list(tier_labels)
+        )
+        words = next(
+            (tier_words for tier_words in vocab.tiers.values() if tier_words),
+            {}
+        )
+        if words:
+            sections.append(div(".cl-yah-section")[
+                div(".cl-yah-section-label")["What this family is"],
+                div(".cl-yah-section-body")[" \u00b7 ".join(list(words)[:5])]
+            ])
+
+        sub_roles = list(PostingProjection.from_cluster(cluster).series)[:3]
+        if sub_roles:
+            sections.append(div(".cl-yah-section")[
+                div(".cl-yah-section-label")["Sub-roles within"],
+                div(".cl-yah-section-body")[" \u00b7 ".join(sub_roles)]
+            ])
+
+        if employers := reference.match_employers(cluster.postings):
+            top = employers[0]
+            sections.append(div(".cl-yah-section")[
+                div(".cl-yah-section-label")["Top hiring employer"],
+                div(".cl-yah-section-body")[
+                    strong[top["name"]],
+                    span(".secondary")[f" \u00b7 {top['member_type']}"]
+                ]
+            ])
+
+        return sections
+
     def credential_card(self, credential: Credential, theme: Theme) -> Html:
         """
         Credential card with kind-aware accent color and metadata.
@@ -487,10 +555,14 @@ class Layout:
 
     def process_flow(self, steps: Iterable[ProcessStep]) -> Html:
         """
-        Pipeline process flow diagram as a CSS flexbox strip.
+        Horizontal process flow diagram as a CSS flexbox strip.
 
         Each step renders as a numbered card with a label and detail
-        line, connected by arrow separators.
+        line, connected by arrow separators. Optional `accent` and
+        `arrow_label` fields on `ProcessStep` enable sector-color left
+        borders and natural-language labels above the incoming arrow,
+        used by the Map tab career path flow to convey sector identity
+        and per-hop transition difficulty.
 
         Args:
             steps: Process steps with pre-formatted detail lines.
@@ -498,12 +570,21 @@ class Layout:
         Returns:
             Horizontal flow diagram element.
         """
-        arrow = div(".cl-flow-arrow")["\u2192"]
         cards = []
         for step in steps:
             if cards:
-                cards.append(arrow)
-            cards.append(div(".cl-flow-step")[
+                if step.arrow_label:
+                    cards.append(div(".cl-flow-arrow-wrap")[
+                        div(".cl-flow-arrow-label")[step.arrow_label],
+                        div(".cl-flow-arrow")["\u2192"]
+                    ])
+                else:
+                    cards.append(div(".cl-flow-arrow")["\u2192"])
+            attrs = (
+                {"style": f"border-inline-start-color:{step.accent}"}
+                if step.accent else {}
+            )
+            cards.append(div(".cl-flow-step", **attrs)[
                 div(".cl-flow-num")[step.number],
                 div(".cl-flow-label")[step.label],
                 div(".cl-flow-detail")[step.detail]
@@ -703,28 +784,42 @@ class Layout:
 
     def you_are_here(
         self,
-        confidence : int,
-        profile    : Cluster,
-        theme      : Theme,
-        wage       : float | None = None
+        charts               : Charts,
+        clusters             : Clusters,
+        confidence           : int,
+        matched_scored_tasks : list[ScoredTask],
+        metrics              : JobPostingMetrics,
+        profile              : Cluster,
+        reference            : StakeholderReference,
+        theme                : Theme,
+        wage                 : float | None = None
     ) -> Html:
         """
-        Persistent sidebar identity card for the matched career
-        family.
+        Persistent sidebar identity card for the matched career family.
 
-        Red left-accent card showing the user's matched position in
-        the career landscape. Confidence renders as a verdict label
-        rather than a gauge, with the underlying percentage in small
-        text.
+        Red left-accent card stacking the matched cluster's identity row,
+        the shared `cluster_identity` sections (vocab, sub-roles, top
+        employer), and matched-cluster-only insights (strongest skill
+        match, biggest growth area). A small `Charts.timeline` posting
+        pulse renders below the card so the user sees the family's
+        hiring activity over time.
+
+        The matcher scoring is precomputed once at the call site and
+        passed in via `matched_scored_tasks` so the reactive Map cell
+        does not re-encode the resume on every render.
 
         Args:
-            confidence : Match confidence 0-100.
-            profile    : Matched career cluster.
-            theme      : For confidence color and Job Zone label.
-            wage       : Annual median wage (optional).
-
-        Returns:
-            Styled sidebar identity card.
+            charts               : Chart factory for the timeline mini.
+            clusters             : Fitted cluster collection (TF-IDF corpus).
+            confidence           : Match confidence 0-100.
+            matched_scored_tasks : Resume tasks scored against the matched
+                                   cluster, computed via
+                                   `pipeline.matcher.score_destination(profile)`.
+            metrics              : Job posting metrics for the matched cluster.
+            profile              : Matched career cluster.
+            reference            : Stakeholder reference for AGC employer matching.
+            theme                : For confidence color and Job Zone label.
+            wage                 : Annual median wage (optional).
         """
         verdict = ("Exploratory", "Multiple good fits", "Strong match")[
             bisect((40, 70), confidence)
@@ -732,7 +827,35 @@ class Layout:
         sector_bg     = theme.sectors.get(profile.sector, theme.colors["muted"])
         verdict_style = f"color:{theme.score_color(confidence)};font-weight:bold"
 
-        return self.to_html(
+        strongest = next(
+            (t for t in matched_scored_tasks if t.demonstrated),
+            None
+        )
+        biggest = min(
+            (t for t in matched_scored_tasks if not t.demonstrated),
+            default = None,
+            key     = lambda t: t.similarity
+        )
+
+        insight_sections = []
+        if strongest is not None:
+            insight_sections.append(div(".cl-yah-section")[
+                div(".cl-yah-section-label")["Strongest match"],
+                div(".cl-yah-section-body")[
+                    strong[strongest.name],
+                    span(".secondary")[f" \u00b7 {strongest.pct:.0f}%"]
+                ]
+            ])
+        if biggest is not None:
+            insight_sections.append(div(".cl-yah-section")[
+                div(".cl-yah-section-label")["Biggest growth area"],
+                div(".cl-yah-section-body")[
+                    strong[biggest.name],
+                    span(".secondary")[f" \u00b7 {biggest.pct:.0f}%"]
+                ]
+            ])
+
+        identity_card = self.to_html(
             div(".cl-yah-title")[profile.soc_title],
             div(".cl-yah-meta")[
                 span(".cl-badge", style=f"background:{sector_bg}")[profile.sector],
@@ -746,8 +869,22 @@ class Layout:
                 span[f"{profile.size} postings"],
                 f" \u00b7 ${wage:,.0f} median" if wage else ""
             ],
+            *self.cluster_identity(profile, clusters, reference),
+            *insight_sections,
             cls = "cl-you-are-here"
         )
+
+        if metrics.dated:
+            return self.stack(
+                identity_card,
+                ui.plotly(charts.timeline(
+                    dates  = [d.date  for d in metrics.dated],
+                    height = 160,
+                    hover  = [d.label for d in metrics.dated]
+                )),
+                gap = 0.5
+            )
+        return identity_card
 
 
 class TabContext(NamedTuple):

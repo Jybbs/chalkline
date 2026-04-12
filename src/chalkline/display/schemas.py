@@ -256,7 +256,6 @@ class MapGeometry(BaseModel, extra="forbid"):
     node_spacing         : int               = 25
     node_w               : int               = 140
     pad                  : int               = 40
-    sector_gap           : int               = 60
     title_char_limit     : int               = 22
     top_pad              : int               = 50
 
@@ -307,11 +306,15 @@ class MapLayout(NamedTuple):
     def from_clusters(cls, clusters: Clusters, geometry: MapGeometry) -> Self:
         """
         Deterministic grid layout placing clusters in Job Zone columns
-        with vertical sector banding.
+        with per-column independent top-aligned packing.
 
-        Sectors stack top-to-bottom in `clusters.sectors` order, each
-        sized by the busiest column it contains so columns inside a band
-        share a baseline.
+        Within each column, nodes are grouped by sector in
+        `clusters.sectors` order and packed top-down from `top_pad` with
+        no inter-sector gap. Sectors no longer line up horizontally as
+        bands across columns; sector identity is preserved via node
+        color. This eliminates the floating-cluster effect that the
+        previous per-sector banding produced when a column was missing
+        one or more sectors.
 
         Args:
             clusters : Fitted cluster container with metadata.
@@ -320,32 +323,32 @@ class MapLayout(NamedTuple):
         def col_center(level: int) -> int:
             return (level - 1) * geometry.col_pitch + geometry.node_w // 2
 
-        groups = defaultdict(list)
+        groups: dict[tuple[int, str], list[int]] = defaultdict(list)
         for cluster in clusters.values():
             groups[cluster.job_zone, cluster.sector].append(cluster.cluster_id)
 
-        max_per_sector: dict[str, int] = defaultdict(int)
-        for (_, sector), node_ids in groups.items():
-            max_per_sector[sector] = max(max_per_sector[sector], len(node_ids))
-
-        active_sectors = [s for s in clusters.sectors if s in max_per_sector]
-        *band_starts, y_cursor = accumulate(
-            (max_per_sector[s] * geometry.row_height + geometry.sector_gap
-             for s in active_sectors),
-            initial = geometry.top_pad
-        )
-        band_y = defaultdict(lambda: geometry.top_pad, zip(active_sectors, band_starts))
-
-        positions = {
-            node_id: {
-                "x" : col_center(level),
-                "y" : band_y[sector] + i * geometry.row_height + geometry.node_h // 2
-            }
-            for (level, sector), node_ids in groups.items()
-            for i, node_id in enumerate(node_ids)
-        }
-
         job_zone_levels = sorted({level for level, _ in groups})
+        positions       = {}
+        column_heights  = []
+        for level in job_zone_levels:
+            column_nodes = [
+                node_id
+                for sector in clusters.sectors
+                for node_id in groups.get((level, sector), [])
+            ]
+            for i, node_id in enumerate(column_nodes):
+                positions[node_id] = {
+                    "x" : col_center(level),
+                    "y" : (
+                        geometry.top_pad
+                        + i * geometry.row_height
+                        + geometry.node_h // 2
+                    )
+                }
+            column_heights.append(
+                geometry.top_pad + len(column_nodes) * geometry.row_height
+            )
+
         columns = [
             {
                 "job_zone" : level,
@@ -361,7 +364,7 @@ class MapLayout(NamedTuple):
         return cls(
             columns      = columns,
             positions    = positions,
-            total_height = y_cursor,
+            total_height = max(column_heights, default=geometry.top_pad),
             total_width  = total_width
         )
 
@@ -627,12 +630,21 @@ class PostingProjection(BaseModel, extra="forbid"):
 
 class ProcessStep(BaseModel, extra="forbid"):
     """
-    One step in the pipeline process flow diagram.
+    One step in a horizontal process flow diagram.
+
+    Used by `Layout.process_flow` to render numbered cards with optional
+    sector-color accents and natural-language hop labels above incoming
+    arrows. The Methods tab pipeline diagram uses only the required
+    fields; the Map tab career path flow uses the accent and arrow_label
+    extensions to convey sector identity and transition difficulty.
     """
 
     detail : str
     label  : str
     number : str
+
+    accent      : str = ""
+    arrow_label : str = ""
 
     def render(self, **kwargs) -> Self:
         """
@@ -640,7 +652,9 @@ class ProcessStep(BaseModel, extra="forbid"):
 
         Used by `Layout.process_flow` to substitute corpus-level values
         like `{corpus_size}` and `{cluster_count}` into each step's
-        detail line at render time.
+        detail line at render time. The accent and arrow_label fields
+        pass through unchanged because they carry colors and fixed
+        phrases that need no substitution.
         """
         return self.model_copy(update={"detail": self.detail.format(**kwargs)})
 
@@ -767,8 +781,11 @@ class RouteDetail(NamedTuple):
 
     Holds the source and destination `Cluster` objects for dot-notation
     access to SOC titles, sectors, Job Zones, and postings. Constructed
-    via `from_selection`, which resolves the matched cluster's adjacent
-    reach first and falls back to the widest-path tree query.
+    via `from_selection`, which surfaces the smoothest available path
+    (widest-path bottleneck relaxation) as the primary and stores any
+    differing direct-edge route as `alternative_path` so the route card
+    can offer the user both the gentle multi-hop journey and the harder
+    direct jump as a single-line callout.
     """
 
     credentials      : list[Credential]
@@ -779,6 +796,21 @@ class RouteDetail(NamedTuple):
     source           : Cluster
     source_wage      : float | None
     weight           : float
+
+    alternative_path: list[int] | None = None
+
+    @property
+    def fit_percentage(self) -> int:
+        """
+        Route weight as a 0-100 percentage for hero display.
+
+        Maps the path's bottleneck cosine similarity (the minimum edge
+        weight along the route) to an integer percentage. The verdict
+        sentence reads "X% match" using this same number, the route
+        card hero fit meter animates up to it, and the stat strip
+        echoes it as a hard number.
+        """
+        return round(self.weight * 100)
 
     @property
     def is_multi_hop(self) -> bool:
@@ -850,27 +882,43 @@ class RouteDetail(NamedTuple):
         invalid (no selection, the matched cluster itself, or no path
         connects the source and destination).
 
-        Tries the matched cluster's adjacent reach first for a single-hop
-        edge; falls back to the widest-path multi-hop tree query.
+        Surfaces the widest-path bottleneck route as the primary because
+        the smoothest available transition is what the user actually
+        wants to see, even when it traverses intermediate clusters.
+        When a one-hop direct edge also exists and differs from the
+        widest path, that direct route is stored as `alternative_path`
+        so the route card can offer it as a "harder direct jump"
+        callout.
         """
         if selected_id < 0 or selected_id == result.cluster_id:
             return None
 
-        destination = pipeline.clusters[selected_id]
-        adjacent = next(
+        widest_path = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
+        direct_edge = next(
             (e for e in chain(result.reach.advancement, result.reach.lateral)
              if e.cluster_id == selected_id),
             None
         )
-        if adjacent is not None:
-            edges = [adjacent]
+        if widest_path:
+            edges = pipeline.graph.path_edges(widest_path)
+            path  = widest_path
+        elif direct_edge is not None:
+            edges = [direct_edge]
             path  = [profile.cluster_id, selected_id]
         else:
-            path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
-            edges = pipeline.graph.path_edges(path) if path else []
+            return None
 
         if not edges:
             return None
+
+        direct_path      = [profile.cluster_id, selected_id] if direct_edge else None
+        alternative_path = (
+            direct_path
+            if direct_path is not None and direct_path != path
+            else None
+        )
+
+        destination = pipeline.clusters[selected_id]
 
         return cls(
             credentials      = [c for e in edges for c in e.credentials],
@@ -880,7 +928,9 @@ class RouteDetail(NamedTuple):
             scored_tasks     = pipeline.matcher.score_destination(destination),
             source           = profile,
             source_wage      = labor.wage(profile.soc_title),
-            weight           = min((e.weight for e in edges), default=0)
+            weight           = min((e.weight for e in edges), default=0),
+
+            alternative_path = alternative_path
         )
 
 

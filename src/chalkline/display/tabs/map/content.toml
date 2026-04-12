@@ -1,13 +1,35 @@
 title   = 'Career Map'
 tagline = 'Click any career family to see how to get there.'
 
-[hero]
-kind = 'info'
-text = 'Explore career pathways from **{soc_title}** in **{sector}**. Highlighted connections show your strongest transitions, with credentials and wage data for each move.'
-
 [chart_labels]
-gaps_heading      = 'Top Growth Areas'
-strengths_heading = 'Top Strengths'
+action_intro            = "Here's how to get there in three concrete moves:"
+alternative_template    = 'Or take the {step_count}-step scenic route via {via} (gentler transitions).'
+bridge_credentials      = 'Bridging credentials'
+bridge_gaps             = "What you'll learn"
+bridge_strengths        = 'Skills you have'
+bright_outlook          = 'Bright Outlook'
+encouragement_majority  = 'Developing these would close most of the gap.'
+encouragement_minority  = 'A few targeted credentials open the door.'
+explore_actions         = 'Your three concrete next moves are right below ↓'
+fit_meter_label         = 'match'
+gaps_heading            = 'Top Growth Areas'
+hop_jump                = 'Big jump'
+hop_natural             = 'Natural move'
+hop_stretch             = 'Real stretch'
+recent_posting          = 'Recent posting from this role'
+stat_fit                = 'Fit'
+stat_postings           = 'Postings'
+stat_time               = 'Training'
+stat_wage               = 'Wage Delta'
+strengths_heading       = 'Top Strengths'
+time_apprenticeship     = '{hours:,}-hour apprenticeship'
+time_certification      = '{hours:,}-hour certification'
+time_program            = '{hours:,}-hour program'
+verdict_fallback        = '{soc_title} is {fit_pct}% within reach from where you are today.'
+verdict_strengths_only  = "You're {strengths_count} transferable skills away from {soc_title} in Maine."
+verdict_with_credential = "You're {strengths_count} transferable skills and {time_label} away from {soc_title} in Maine."
+wage_dest               = 'There'
+wage_source             = 'You'
 
 [sections.evidence]
 title       = 'Skills & Evidence'
@@ -17,7 +39,23 @@ description = 'Skill profile and gap analysis for the selected career move.'
 title       = 'Action Plan'
 description = 'Credentials, programs, employers, and job boards that bridge the selected transition.'
 
+[sections.action_credentials]
+title       = 'Step 1: Earn the credentials that bridge this move'
+description = 'Apprenticeships, programs, and certifications ranked by their fit with this specific career transition.'
+
+[sections.action_employers]
+title       = 'Step 2: Reach out to employers hiring for this role'
+description = 'AGC member companies currently posting for this role in Maine.'
+
+[sections.action_boards]
+title       = 'Step 3: Find live postings on these boards'
+description = 'Maine and national job boards ranked by semantic similarity to this career family.'
+
 [fallbacks]
-no_gaps       = 'No significant skill gaps identified for this transition.'
-no_resources  = 'No resources found for this transition.'
-no_selection  = 'Click a career family on the map to see the route details.'
+no_boards      = 'No job boards strongly match this career family.'
+no_credentials = 'No credentials directly bridge this transition. The boards below show where these roles are posted live.'
+no_employers   = 'No AGC member companies are currently posting for this role.'
+no_gaps        = 'No significant skill gaps identified for this transition.'
+no_resources   = 'No resources found for this transition.'
+no_selection   = 'Click a career family on the map to see the route details.'
+no_strengths   = 'No demonstrated transferable skills for this transition yet.'
