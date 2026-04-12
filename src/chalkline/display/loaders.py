@@ -784,42 +784,30 @@ class Layout:
 
     def you_are_here(
         self,
-        charts               : Charts,
-        clusters             : Clusters,
-        confidence           : int,
-        matched_scored_tasks : list[ScoredTask],
-        metrics              : JobPostingMetrics,
-        profile              : Cluster,
-        reference            : StakeholderReference,
-        theme                : Theme,
-        wage                 : float | None = None
+        confidence       : int,
+        n_advancement    : int,
+        n_lateral        : int,
+        profile          : Cluster,
+        theme            : Theme,
+        wage             : float | None = None
     ) -> Html:
         """
         Persistent sidebar identity card for the matched career family.
 
-        Red left-accent card stacking the matched cluster's identity row,
-        the shared `cluster_identity` sections (vocab, sub-roles, top
-        employer), and matched-cluster-only insights (strongest skill
-        match, biggest growth area). A small `Charts.timeline` posting
-        pulse renders below the card so the user sees the family's
-        hiring activity over time.
-
-        The matcher scoring is precomputed once at the call site and
-        passed in via `matched_scored_tasks` so the reactive Map cell
-        does not re-encode the resume on every render.
+        Scannable vertical card showing the matched cluster's identity
+        (SOC title, sector, Job Zone), match confidence as a verdict
+        label, posting count and median wage, and the number of
+        advancement and lateral options available from this position.
+        Designed to be the anchor the user's eye returns to while
+        exploring the neighborhood exploration cards below.
 
         Args:
-            charts               : Chart factory for the timeline mini.
-            clusters             : Fitted cluster collection (TF-IDF corpus).
-            confidence           : Match confidence 0-100.
-            matched_scored_tasks : Resume tasks scored against the matched
-                                   cluster, computed via
-                                   `pipeline.matcher.score_destination(profile)`.
-            metrics              : Job posting metrics for the matched cluster.
-            profile              : Matched career cluster.
-            reference            : Stakeholder reference for AGC employer matching.
-            theme                : For confidence color and Job Zone label.
-            wage                 : Annual median wage (optional).
+            confidence    : Match confidence 0-100.
+            n_advancement : Count of advancement edges from this cluster.
+            n_lateral     : Count of lateral edges from this cluster.
+            profile       : Matched career cluster.
+            theme         : For confidence color and Job Zone label.
+            wage          : Annual median wage (optional).
         """
         verdict = ("Exploratory", "Multiple good fits", "Strong match")[
             bisect((40, 70), confidence)
@@ -827,35 +815,7 @@ class Layout:
         sector_bg     = theme.sectors.get(profile.sector, theme.colors["muted"])
         verdict_style = f"color:{theme.score_color(confidence)};font-weight:bold"
 
-        strongest = next(
-            (t for t in matched_scored_tasks if t.demonstrated),
-            None
-        )
-        biggest = min(
-            (t for t in matched_scored_tasks if not t.demonstrated),
-            default = None,
-            key     = lambda t: t.similarity
-        )
-
-        insight_sections = []
-        if strongest is not None:
-            insight_sections.append(div(".cl-yah-section")[
-                div(".cl-yah-section-label")["Strongest match"],
-                div(".cl-yah-section-body")[
-                    strong[strongest.name],
-                    span(".secondary")[f" \u00b7 {strongest.pct:.0f}%"]
-                ]
-            ])
-        if biggest is not None:
-            insight_sections.append(div(".cl-yah-section")[
-                div(".cl-yah-section-label")["Biggest growth area"],
-                div(".cl-yah-section-body")[
-                    strong[biggest.name],
-                    span(".secondary")[f" \u00b7 {biggest.pct:.0f}%"]
-                ]
-            ])
-
-        identity_card = self.to_html(
+        return self.to_html(
             div(".cl-yah-title")[profile.soc_title],
             div(".cl-yah-meta")[
                 span(".cl-badge", style=f"background:{sector_bg}")[profile.sector],
@@ -869,22 +829,20 @@ class Layout:
                 span[f"{profile.size} postings"],
                 f" \u00b7 ${wage:,.0f} median" if wage else ""
             ],
-            *self.cluster_identity(profile, clusters, reference),
-            *insight_sections,
+            div(".cl-yah-section")[
+                div(".cl-yah-section-body")[
+                    f"Advance to: {n_advancement} options \u2191"
+                    if n_advancement else "No advancement edges"
+                ]
+            ],
+            div(".cl-yah-section")[
+                div(".cl-yah-section-body")[
+                    f"Pivot to: {n_lateral} options \u2194"
+                    if n_lateral else "No lateral pivots"
+                ]
+            ],
             cls = "cl-you-are-here"
         )
-
-        if metrics.dated:
-            return self.stack(
-                identity_card,
-                ui.plotly(charts.timeline(
-                    dates  = [d.date  for d in metrics.dated],
-                    height = 160,
-                    hover  = [d.label for d in metrics.dated]
-                )),
-                gap = 0.5
-            )
-        return identity_card
 
 
 class TabContext(NamedTuple):

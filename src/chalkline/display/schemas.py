@@ -777,15 +777,14 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
 
 class RouteDetail(NamedTuple):
     """
-    Joined route data for the Map tab's route card.
+    Joined route data for the Map tab's recipe card.
 
     Holds the source and destination `Cluster` objects for dot-notation
     access to SOC titles, sectors, Job Zones, and postings. Constructed
-    via `from_selection`, which surfaces the smoothest available path
-    (widest-path bottleneck relaxation) as the primary and stores any
-    differing direct-edge route as `alternative_path` so the route card
-    can offer the user both the gentle multi-hop journey and the harder
-    direct jump as a single-line callout.
+    via `from_selection`, which prefers the direct adjacent edge when
+    one exists (the one-hop move the user likely intended by clicking
+    a neighbor) and falls back to the widest-path bottleneck tree for
+    destinations that aren't direct neighbors.
     """
 
     credentials      : list[Credential]
@@ -797,49 +796,41 @@ class RouteDetail(NamedTuple):
     source_wage      : float | None
     weight           : float
 
-    alternative_path: list[int] | None = None
+    @property
+    def demonstrated_count(self) -> int:
+        """
+        Number of destination tasks the resume demonstrates.
+        """
+        return sum(1 for t in self.scored_tasks if t.demonstrated)
 
     @property
     def fit_percentage(self) -> int:
         """
         Route weight as a 0-100 percentage for hero display.
-
-        Maps the path's bottleneck cosine similarity (the minimum edge
-        weight along the route) to an integer percentage. The verdict
-        sentence reads "X% match" using this same number, the route
-        card hero fit meter animates up to it, and the stat strip
-        echoes it as a hard number.
         """
         return round(self.weight * 100)
 
     @property
-    def is_multi_hop(self) -> bool:
+    def gap_count(self) -> int:
         """
-        Whether the route traverses intermediate clusters.
+        Number of destination tasks the resume does not demonstrate.
         """
-        return len(self.path) > 2
-
-    @property
-    def step_count(self) -> int:
-        """
-        Number of hops the route traverses (edges, not nodes).
-        """
-        return len(self.path) - 1
+        return sum(1 for t in self.scored_tasks if not t.demonstrated)
 
     @property
     def top_credential(self) -> Credential | None:
         """
-        Fastest-path credential (first in the ranked list), or `None`.
+        Highest-ranked bridging credential, or `None`.
         """
         return self.credentials[0] if self.credentials else None
 
     @property
     def top_gaps(self) -> list[ScoredTask]:
         """
-        Five largest skill gaps by deficit (lowest similarity).
+        Ten largest skill gaps by deficit (lowest similarity).
         """
         return nsmallest(
-            5,
+            10,
             (t for t in self.scored_tasks if not t.demonstrated),
             key = attrgetter("similarity")
         )
@@ -847,17 +838,17 @@ class RouteDetail(NamedTuple):
     @property
     def top_strengths(self) -> list[ScoredTask]:
         """
-        Five strongest demonstrated skills. `scored_tasks` is already sorted
-        by descending similarity, so taking the first five matches.
+        Ten strongest demonstrated skills, sorted by descending
+        similarity.
         """
-        return [t for t in self.scored_tasks if t.demonstrated][:5]
+        return [t for t in self.scored_tasks if t.demonstrated][:10]
 
     @property
-    def transition_summary(self) -> str:
+    def total_tasks(self) -> int:
         """
-        Source-to-destination SOC titles joined by a right arrow.
+        Total destination tasks scored against the resume.
         """
-        return f"{self.source.soc_title} \u2192 {self.destination.soc_title}"
+        return len(self.scored_tasks)
 
     @property
     def wage_delta(self) -> float | None:
@@ -878,48 +869,35 @@ class RouteDetail(NamedTuple):
         selected_id : int
     ) -> Self | None:
         """
-        Build a route from a clicked map node, or `None` if the click is
-        invalid (no selection, the matched cluster itself, or no path
-        connects the source and destination).
+        Build a route from a clicked map node, or `None` if the click
+        is invalid (no selection, the matched cluster itself, or no
+        path connects the source and destination).
 
-        Surfaces the widest-path bottleneck route as the primary because
-        the smoothest available transition is what the user actually
-        wants to see, even when it traverses intermediate clusters.
-        When a one-hop direct edge also exists and differs from the
-        widest path, that direct route is stored as `alternative_path`
-        so the route card can offer it as a "harder direct jump"
-        callout.
+        Prefers the direct adjacent edge (single-hop) when the
+        destination is a direct neighbor of the matched cluster,
+        because the user clicked a specific node and the one-hop
+        move carries the most relevant credentials. Falls back to the
+        widest-path tree for non-adjacent destinations.
         """
         if selected_id < 0 or selected_id == result.cluster_id:
             return None
 
-        widest_path = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
-        direct_edge = next(
+        adjacent = next(
             (e for e in chain(result.reach.advancement, result.reach.lateral)
              if e.cluster_id == selected_id),
             None
         )
-        if widest_path:
-            edges = pipeline.graph.path_edges(widest_path)
-            path  = widest_path
-        elif direct_edge is not None:
-            edges = [direct_edge]
+        if adjacent is not None:
+            edges = [adjacent]
             path  = [profile.cluster_id, selected_id]
         else:
-            return None
+            path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
+            edges = pipeline.graph.path_edges(path) if path else []
 
         if not edges:
             return None
 
-        direct_path      = [profile.cluster_id, selected_id] if direct_edge else None
-        alternative_path = (
-            direct_path
-            if direct_path is not None and direct_path != path
-            else None
-        )
-
         destination = pipeline.clusters[selected_id]
-
         return cls(
             credentials      = [c for e in edges for c in e.credentials],
             destination      = destination,
@@ -928,9 +906,7 @@ class RouteDetail(NamedTuple):
             scored_tasks     = pipeline.matcher.score_destination(destination),
             source           = profile,
             source_wage      = labor.wage(profile.soc_title),
-            weight           = min((e.weight for e in edges), default=0),
-
-            alternative_path = alternative_path
+            weight           = min((e.weight for e in edges), default=0)
         )
 
 

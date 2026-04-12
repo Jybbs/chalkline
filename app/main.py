@@ -150,24 +150,14 @@ def _(content, labor, mo, pipeline, result, theme):
 # ── Sidebar card ───────────────────────────────────────────────────
 
 @app.cell
-def _(charts, labor, layout, pipeline, profile, reference, result, theme):
-    from chalkline.display.schemas import JobPostingMetrics
-
-    matched_scored_tasks = pipeline.matcher.score_destination(profile)
-    metrics              = JobPostingMetrics.from_postings(
-        postings  = profile.postings,
-        reference = reference
-    )
+def _(labor, layout, profile, result, theme):
     sidebar = layout.you_are_here(
-        charts               = charts,
-        clusters             = pipeline.clusters,
-        confidence           = result.confidence,
-        matched_scored_tasks = matched_scored_tasks,
-        metrics              = metrics,
-        profile              = profile,
-        reference            = reference,
-        theme                = theme,
-        wage                 = labor.wage(profile.soc_title)
+        confidence    = result.confidence,
+        n_advancement = len(result.reach.advancement),
+        n_lateral     = len(result.reach.lateral),
+        profile       = profile,
+        theme         = theme,
+        wage          = labor.wage(profile.soc_title)
     )
     return (sidebar,)
 
