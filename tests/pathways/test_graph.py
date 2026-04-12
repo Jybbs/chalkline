@@ -32,6 +32,33 @@ class TestCareerPathwayGraph:
             assert "credentials" in data
             assert isinstance(data["credentials"], list)
 
+    def test_hops_from_self_distance(
+        self,
+        cluster_ids   : list[int],
+        pathway_graph : CareerPathwayGraph
+    ):
+        """
+        Hops from a node to itself is zero, and all reachable nodes
+        carry non-negative integer distances.
+        """
+        distances = pathway_graph.hops_from(cluster_ids[0])
+        assert distances[cluster_ids[0]] == 0
+        assert all(d >= 0 for d in distances.values())
+
+    def test_path_edges_round_trip(
+        self,
+        cluster_ids   : list[int],
+        pathway_graph : CareerPathwayGraph
+    ):
+        """
+        Reconstructed CareerEdges along a widest path return one edge
+        per hop with target cluster IDs matching the path tail.
+        """
+        path  = pathway_graph.try_widest_path(cluster_ids[0], cluster_ids[-1])
+        edges = pathway_graph.path_edges(path)
+        assert len(edges)                    == len(path) - 1
+        assert [e.cluster_id for e in edges] == path[1:]
+
     def test_reach_types(
         self,
         job_zone_map  : dict[int, int],

@@ -2,9 +2,9 @@
 Tests for display-layer schemas and lazy-loading containers.
 """
 
-from chalkline.display.schemas   import VarianceBreakdown
-from chalkline.display.theme     import Theme
-from chalkline.pathways.loaders  import StakeholderReference
+from chalkline.display.schemas  import SectionContent, TabContent, VarianceBreakdown
+from chalkline.display.theme    import Theme
+from chalkline.pathways.loaders import StakeholderReference
 
 
 class TestScoreColor:
@@ -47,10 +47,42 @@ class TestStakeholderReference:
         assert ref.nonexistent == []
 
 
+class TestTabContent:
+    """
+    Validate section formatting and tuple ordering.
+    """
+
+    def test_section(self):
+        """
+        `section()` returns (description, title) to match `header()`'s
+        alphabetized parameter order, with `{n}` substitution applied
+        to both fields.
+        """
+        content = TabContent(sections={
+            "overview": SectionContent(
+                description = "Found {n} clusters",
+                title       = "Overview of {n}"
+            )
+        })
+        description, title = content.section("overview", n=21)
+        assert description == "Found 21 clusters"
+        assert title       == "Overview of 21"
+
+
 class TestVarianceBreakdown:
     """
     Validate SVD variance percentage conversion.
     """
+
+    def test_cumulative(self):
+        """
+        Cumulative percentages are a running sum of the per-component
+        percentages, rounded to two decimals at each step.
+        """
+        vb = VarianceBreakdown.from_svd([0.35, 0.25, 0.15])
+        assert vb.cumulative      == [35.0, 60.0, 75.0]
+        assert vb.cumulative_dict == {"PC1": 35.0, "PC2": 60.0, "PC3": 75.0}
+        assert vb.components_dict == {"PC1": 35.0, "PC2": 25.0, "PC3": 15.0}
 
     def test_from_svd(self):
         """

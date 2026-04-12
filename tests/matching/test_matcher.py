@@ -68,6 +68,7 @@ class TestResumeMatcher:
         """
         empty = Cluster(
             cluster_id  = 999,
+            embeddings  = np.empty((0, 4)),
             job_zone    = 1,
             modal_title = "Empty",
             postings    = [],

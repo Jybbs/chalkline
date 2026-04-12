@@ -10,22 +10,22 @@ configured `go.Figure`. All color resolution happens internally via theme.
 import numpy                as np
 import plotly.graph_objects as go
 
-from collections.abc       import Iterable, Mapping, Sequence
-from itertools             import chain
-from plotly.basedatatypes  import BaseTraceType
-from sklearn.preprocessing import normalize
+from collections.abc      import Iterable, Mapping, Sequence
+from datetime             import date
+from plotly.basedatatypes import BaseTraceType
+from typing               import Any
 
-from chalkline.display.schemas   import SectorRanking
-from chalkline.display.theme     import Theme
-from chalkline.pathways.graph    import CareerPathwayGraph
+from chalkline.display.schemas import SectorRanking
+from chalkline.display.theme   import Theme
+from chalkline.pathways.graph  import CareerPathwayGraph
 
 
 class Charts:
     """
     Plotly figure factory backed by a reactive `Theme`.
 
-    Holds a fitted `CareerPathwayGraph` and `matched_id` for graph-aware
-    methods (dendrogram, landscape). All other methods are pure: they accept
+    Holds a fitted `CareerPathwayGraph` and `matched_id` for `landscape`,
+    the only graph-aware method. All other methods are pure: they accept
     pre-extracted data and return configured figures.
     """
 
@@ -64,8 +64,8 @@ class Charts:
         Args:
             height       : Figure height in pixels.
             trace_or_fig : A trace, list of traces, or pre-built figure. Pre-built
-                           figures are used as-is to preserve mutations like
-                           `add_annotation` or `add_vline`.
+                           figures (e.g. from `make_subplots`) pass through
+                           unchanged so subplot domains survive layout application.
             **overrides  : Layout keys forwarded to `update_layout`. Supports `x_title`
                            / `y_title` as aliases for Plotly's axis title keys.
 
@@ -152,45 +152,39 @@ class Charts:
             Configured bar figure.
         """
         if data is not None:
-            labels = list(data)
-            values = list(data.values())
-            x      = values if horizontal else labels
-            y      = labels if horizontal else values
+            labels, values = list(data), list(data.values())
+            x, y           = (values, labels) if horizontal else (labels, values)
 
-        layout = (
+        layout: dict[str, Any] = (
             dict(x_title=title, yaxis=dict(autorange="reversed"))
             if horizontal
             else dict(y_title=title)
         )
 
-        color     = (
+        color = (
             self.theme.resolve_color(color) if isinstance(color, str)
             else [self.theme.resolve_color(c) for c in color]
         )
-        bar_trace = go.Bar(
+
+        traces: list[BaseTraceType] = [go.Bar(
             marker      = dict(color=color),
             name        = "Individual" if line else None,
             orientation = "h" if horizontal else None,
             x           = x,
             y           = y
-        )
-
+        )]
         if line:
-            return self._apply_layout(
-                go.Figure(data=[bar_trace, go.Scatter(
-                    line   = dict(color=self.theme.colors["primary"], width=2),
-                    marker = dict(size=6),
-                    mode   = "lines+markers",
-                    name   = "Cumulative",
-                    x      = list(line),
-                    y      = list(line.values())
-                )]),
-                height,
-                legend = dict(orientation="h", y=-0.2),
-                **layout
-            )
+            traces.append(go.Scatter(
+                line   = dict(color=self.theme.colors["primary"], width=2),
+                marker = dict(size=6),
+                mode   = "lines+markers",
+                name   = "Cumulative",
+                x      = list(line),
+                y      = list(line.values())
+            ))
+            layout["legend"] = dict(orientation="h", y=-0.2)
 
-        return self._apply_layout(go.Figure(bar_trace), height, **layout)
+        return self._apply_layout(traces, height, **layout)
 
     def bubble_scatter(
         self,
@@ -234,61 +228,120 @@ class Charts:
             y_title = y_title
         )
 
-    def dendrogram(
+    def category_scatter(
         self,
-        annotation_text : str,
-        title           : str,
-        x_title         : str,
-        y_title         : str
+        data    : Mapping[str, Mapping[str, Sequence]],
+        height  : int,
+        x_title : str,
+        y_title : str
     ) -> go.Figure:
         """
-        Ward-linkage dendrogram with the matched cluster annotated.
+        Scatter of `(x, y)` points grouped into one Plotly trace per
+        category, so each category draws its own legend entry and
+        distinct color from the theme colorway.
 
-        Normalizes cluster centroids, computes Ward linkage via scipy,
-        renders U-links as a Plotly line trace, and annotates the matched
-        cluster with a crimson arrow.
+        Mirrors `bar.data` in shape, with a single mapping the call
+        site builds directly instead of four parallel sequences the
+        chart has to bucket internally. Each value is a
+        `{"hover", "x", "y"}` dict of parallel lists for one trace.
+
+        Args:
+            data    : Category name to a `{"hover", "x", "y"}` mapping
+                      of parallel sequences, one entry per point in that
+                      category.
+            height  : Figure height in pixels.
+            x_title : X-axis title.
+            y_title : Y-axis title.
 
         Returns:
-            Configured dendrogram figure.
+            Configured multi-trace scatter figure.
         """
-        from scipy.cluster.hierarchy import dendrogram, linkage
-
-        result = dendrogram(
-            linkage(normalize(self.pathway.clusters.centroids), method="ward"),
-            labels  = [f"C{cid}" for cid in self.cluster_ids],
-            no_plot = True
-        )
-
-        fig = go.Figure(go.Scatter(
-            line = dict(color=self.theme.colors["accent"], width=1.5),
-            mode = "lines",
-            x    = list(chain.from_iterable([*ic, None] for ic in result["icoord"])),
-            y    = list(chain.from_iterable([*dc, None] for dc in result["dcoord"]))
-        ))
-
-        ivl = result["ivl"]
-        fig.add_annotation(
-            arrowcolor = self.theme.colors["highlight"],
-            arrowhead  = 2,
-            arrowwidth = 2,
-            font       = dict(color=self.theme.colors["highlight"], size=12),
-            showarrow  = True,
-            text       = annotation_text,
-            x          = 5 + ivl.index(f"C{self.matched_id}") * 10,
-            y          = 0,
-            yshift     = -20
-        )
-
-        return self._apply_layout(
-            fig, 500,
-            title   = title,
-            x_title = x_title,
-            y_title = y_title,
-            xaxis   = dict(
-                ticktext = ivl,
-                tickvals = [5 + i * 10 for i in range(len(ivl))]
+        traces = [
+            go.Scatter(
+                hoverinfo = "text",
+                hovertext = points["hover"],
+                marker    = dict(opacity=0.85, size=12),
+                mode      = "markers",
+                name      = name,
+                x         = points["x"],
+                y         = points["y"]
             )
+            for name, points in data.items()
+        ]
+        return self._apply_layout(
+            traces, height,
+            legend  = dict(orientation="h", y=-0.2),
+            x_title = x_title,
+            y_title = y_title
         )
+
+    def faceted_treemap(
+        self,
+        facets       : Mapping[str, Mapping[str, int | float]],
+        height       : int,
+        descriptions : Mapping[str, str] | None = None
+    ) -> go.Figure:
+        """
+        One Plotly figure containing N independently-scaled treemaps in a
+        horizontal row, one per facet.
+
+        Each facet gets its own subplot domain, so tile area is meaningful
+        within a facet but never compared across facets. This sidesteps
+        the crowding problem of a single hierarchical treemap when one
+        branch's totals dwarf another. Subplot titles label each facet
+        directly under the chart's main title, and optional `descriptions`
+        render a smaller muted second line beneath each facet title to
+        clarify how the facets differ from one another.
+
+        Args:
+            facets       : Facet title to label-value mapping per facet,
+                           in left-to-right display order.
+            height       : Figure height in pixels.
+            descriptions : Optional facet title to short-description map
+                           rendered as a second muted line beneath each
+                           facet title.
+
+        Returns:
+            Configured multi-domain treemap figure.
+        """
+        from plotly.subplots import make_subplots
+
+        titles = list(facets)
+        muted  = self.theme.colors["muted"]
+        if descriptions:
+            subplot_titles = [
+                (
+                    f"<b>{title}</b><br>"
+                    f"<span style='font-size:11px;color:{muted}'>"
+                    f"{descriptions.get(title, '')}"
+                    f"</span>"
+                )
+                for title in titles
+            ]
+        else:
+            subplot_titles = titles
+
+        fig = make_subplots(
+            cols           = len(titles),
+            rows           = 1,
+            specs          = [[{"type": "domain"} for _ in titles]],
+            subplot_titles = subplot_titles
+        )
+        fig.add_traces(
+            [
+                go.Treemap(
+                    labels   = list(items),
+                    marker   = {"cornerradius": 4},
+                    parents  = [""] * len(items),
+                    textinfo = "label+value",
+                    values   = list(items.values())
+                )
+                for items in facets.values()
+            ],
+            cols = list(range(1, len(facets) + 1)),
+            rows = [1] * len(facets)
+        )
+        return self._apply_layout(fig, height)
 
     def funnel(
         self,
@@ -305,13 +358,15 @@ class Charts:
             height : Figure height in pixels.
             stages : Stage name to value mapping in display order.
         """
-        fig = go.Figure(go.Funnel(
-            marker    = dict(color=self.theme.colors["accent"]),
-            textinfo  = "value+percent initial",
-            x         = list(stages.values()),
-            y         = [f"{name} ({count:,})" for name, count in stages.items()]
-        ))
-        return self._apply_layout(fig, height)
+        return self._apply_layout(
+            go.Funnel(
+                marker   = dict(color=self.theme.colors["accent"]),
+                textinfo = "value+percent initial",
+                x        = list(stages.values()),
+                y        = [f"{name} ({count:,})" for name, count in stages.items()]
+            ),
+            height
+        )
 
     def heatmap(
         self,
@@ -372,13 +427,13 @@ class Charts:
         Returns:
             Configured histogram figure.
         """
-        fig = go.Figure(go.Histogram(
-            marker = dict(color=self.theme.colors["accent"]),
-            nbinsx = nbins,
-            x      = x
-        ))
         return self._apply_layout(
-            fig, height,
+            go.Histogram(
+                marker = dict(color=self.theme.colors["accent"]),
+                nbinsx = nbins,
+                x      = x
+            ),
+            height,
             x_title = x_title,
             y_title = y_title
         )
@@ -388,7 +443,6 @@ class Charts:
         coordinates     : Sequence[float],
         legend_families : str,
         legend_resume   : str,
-        title           : str,
         x_title         : str,
         y_title         : str
     ) -> go.Figure:
@@ -439,7 +493,6 @@ class Charts:
             traces, 550,
             hovermode  = "closest",
             showlegend = True,
-            title      = title,
             x_title    = x_title,
             y_title    = y_title
         )
@@ -457,24 +510,44 @@ class Charts:
             title      = title
         )
 
-    def treemap(self, data: Mapping[str, int | float], height: int) -> go.Figure:
+    def timeline(
+        self,
+        dates  : Sequence[date],
+        height : int,
+        hover  : Sequence[str]
+    ) -> go.Figure:
         """
-        Treemap of label/value tiles.
+        Strip scatter plotting one dot per posting along a date axis.
+
+        The y-axis is hidden so the chart reads as a one-dimensional
+        timeline, with date clustering visible by horizontal density and
+        the company or title revealed on hover. Marker size and alpha are
+        kept low so dense regions remain legible.
 
         Args:
-            data   : Label-to-value mapping rendered as tiles.
+            dates  : Posting dates, one per dot.
             height : Figure height in pixels.
+            hover  : Hover label per dot, parallel to `dates`.
 
         Returns:
-            Configured treemap figure.
+            Configured timeline scatter figure.
         """
-        fig = go.Figure(go.Treemap(
-            labels   = list(data),
-            marker   = {"cornerradius": 4},
-            textinfo = "label+value",
-            values   = list(data.values())
-        ))
-        return self._apply_layout(fig, height)
+        return self._apply_layout(
+            go.Scatter(
+                hoverinfo = "text+x",
+                hovertext = hover,
+                marker    = dict(
+                    color   = self.theme.colors["accent"],
+                    opacity = 0.65,
+                    size    = 9
+                ),
+                mode      = "markers",
+                x         = dates,
+                y         = [1] * len(dates)
+            ),
+            height,
+            yaxis = dict(visible=False)
+        )
 
     def violin(
         self,
@@ -494,18 +567,18 @@ class Charts:
         Returns:
             Configured violin figure.
         """
-        fig = go.Figure(data=[
-            go.Violin(
-                box      = dict(visible=True),
-                meanline = dict(visible=True),
-                name     = key,
-                y        = values
-            )
-            for key, values in sorted(groups.items())
-            if values
-        ])
         return self._apply_layout(
-            fig, height,
+            [
+                go.Violin(
+                    box      = dict(visible=True),
+                    meanline = dict(visible=True),
+                    name     = key,
+                    y        = values
+                )
+                for key, values in sorted(groups.items())
+                if values
+            ],
+            height,
             showlegend = False,
             y_title    = y_title
         )

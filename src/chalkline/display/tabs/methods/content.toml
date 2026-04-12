@@ -1,7 +1,7 @@
 info = '''
 The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `{model_name}` into **{embed_dim}-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
 
-**Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options. The **dendrogram** shows the full merge hierarchy that Ward's method considered before cutting at $k = {n_clusters}$ families, revealing which career families are most similar to each other at progressively coarser granularity.'''
+**Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options.'''
 
 stat_labels = [
     "Corpus Size", "Clusters (k)", "SVD Components",
@@ -9,23 +9,18 @@ stat_labels = [
 ]
 
 [chart_labels]
-brokerage_title    = 'Brokerage'
-career_families    = 'Career Families'
-career_family      = 'Career Family'
-clusters_title     = 'Career Families'
-count_title        = 'Count'
-dendrogram         = 'Hierarchical Clustering Dendrogram'
-edge_weight_title  = 'Edge Weight (<i>cosine similarity</i>)'
-landscape          = 'Career Landscape (<i>SVD Components 1-2</i>)'
-pairwise_title     = 'Pairwise Centroid Distance'
-postings_title     = 'Postings'
-silhouette_title   = 'Silhouette Coefficient'
-svd_component_1    = 'SVD Component 1'
-svd_component_2    = 'SVD Component 2'
-variance_title     = 'Variance Explained (%)'
-ward_distance      = 'Ward Distance'
-you                = 'You'
-your_resume        = 'Your Resume'
+brokerage_title   = 'Brokerage'
+career_families   = 'Career Families'
+clusters_title    = 'Career Families'
+count_title       = 'Count'
+edge_weight_title = 'Edge Weight (<i>cosine similarity</i>)'
+pairwise_title    = 'Pairwise Centroid Distance'
+postings_title    = 'Postings'
+silhouette_title  = 'Silhouette Coefficient'
+svd_component_1   = 'SVD Component 1'
+svd_component_2   = 'SVD Component 2'
+variance_title    = 'Variance Explained (%)'
+your_resume       = 'Your Resume'
 
 [[process_steps]]
 number = '1'
@@ -84,10 +79,6 @@ description = 'Each career family plotted by its silhouette coefficient (*separa
 [sections.cluster_separation]
 title       = 'Cluster Separation'
 description = 'Silhouette coefficients measure how well each career family is separated from its neighbors. Higher is better. Colored by sector.'
-
-[sections.dendrogram]
-title       = 'Hierarchical Clustering Dendrogram'
-description = 'Ward-linkage agglomerative clustering builds a tree of every possible merge, then cuts at k={n_clusters}.'
 
 [sections.distances]
 title       = 'Inter-Cluster Distance Distribution'

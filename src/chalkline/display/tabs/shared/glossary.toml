@@ -43,6 +43,14 @@ url        = 'https://www.bls.gov/'
 url_label  = 'Bureau of Labor Statistics'
 
 [[terms]]
+term       = 'bright outlook'
+definition = '''An O*NET designation for occupations expected to grow rapidly, have many openings, or represent new and emerging roles.
+
+Criteria include projected growth **above average**, large numbers of annual openings, or recent emergence in the economy.'''
+url        = 'https://www.onetonline.org/help/bright/'
+url_label  = 'Bright Outlook criteria on O*NET'
+
+[[terms]]
 term       = 'brokerage'
 aliases    = ['brokerage centrality']
 definition = '''How central a career family is to the network of possible career transitions.
@@ -50,14 +58,6 @@ definition = '''How central a career family is to the network of possible career
 High-brokerage families connect many other roles, meaning workers who pass through them have the **most options** for where to go next.'''
 url        = 'https://en.wikipedia.org/wiki/Brokerage_in_social_networks'
 url_label  = 'Network brokerage on Wikipedia'
-
-[[terms]]
-term       = 'bright outlook'
-definition = '''An O*NET designation for occupations expected to grow rapidly, have many openings, or represent new and emerging roles.
-
-Criteria include projected growth **above average**, large numbers of annual openings, or recent emergence in the economy.'''
-url        = 'https://www.onetonline.org/help/bright/'
-url_label  = 'Bright Outlook criteria on O*NET'
 
 [[terms]]
 term       = 'career family'
@@ -117,15 +117,6 @@ url        = 'https://www.careeronestop.org/Credentials/Toolkit/find-certificati
 url_label  = 'Find certifications on CareerOneStop'
 
 [[terms]]
-term       = 'dendrogram'
-aliases    = ['merge hierarchy']
-definition = '''A tree diagram showing how career families were **progressively merged** during clustering.
-
-Reveals which families are most similar to each other. Reading from bottom to top shows the merge sequence the algorithm considered before cutting at {n_clusters} families.'''
-url        = 'https://en.wikipedia.org/wiki/Dendrogram'
-url_label  = 'Dendrogram on Wikipedia'
-
-[[terms]]
 term       = 'detailed work activities'
 aliases    = ['DWA', 'DWAs']
 definition = '''**DWAs** — O*NET's mid-level descriptions of job activities, sitting between highly specific tasks and broader generalized categories.
@@ -183,7 +174,7 @@ term       = 'hierarchical clustering'
 aliases    = ['hierarchical agglomerative clustering', 'agglomerative clustering', 'HAC']
 definition = '''The algorithm that groups job postings into career families by **repeatedly merging** the most similar pairs.
 
-The *agglomerative* variant Chalkline uses starts with each posting as its own cluster, then merges the two closest at each step until the desired number of clusters is reached. This bottom-up approach produces the full merge hierarchy shown in the dendrogram.'''
+The *agglomerative* variant Chalkline uses starts with each posting as its own cluster, then merges the two closest at each step until the desired number of clusters is reached. Cutting the resulting merge hierarchy at $k = {n_clusters}$ produces the final career families.'''
 url        = 'https://en.wikipedia.org/wiki/Hierarchical_clustering'
 url_label  = 'Hierarchical clustering on Wikipedia'
 
@@ -198,6 +189,15 @@ definition = '''An O*NET **experience level** ranging from 1 to 5.
 → 5: Advanced, graduate-level'''
 url        = 'https://www.onetonline.org/help/online/zones'
 url_label  = 'Job Zone definitions on O*NET'
+
+[[terms]]
+term       = 'k-means'
+aliases    = ['k-means clustering', 'kmeans', 'K-means']
+definition = '''A **partitioning clustering** algorithm that groups vectors into `k` clusters by iteratively assigning each point to its nearest centroid and recomputing centroids as the mean of their assigned points.
+
+Unlike hierarchical clustering, k-means requires you to choose the number of clusters in advance. Chalkline uses k-means on posting embeddings within a single career family to discover semantic sub-roles, then colors the t-SNE projection by these assignments so the visual sub-structure can be read at a glance.'''
+url        = 'https://en.wikipedia.org/wiki/K-means_clustering'
+url_label  = 'k-means clustering on Wikipedia'
 
 [[terms]]
 term       = 'lateral move'
@@ -305,6 +305,19 @@ url        = 'https://www.sbert.net/'
 url_label  = 'Sentence-Transformers documentation'
 
 [[terms]]
+term       = 'silhouette'
+aliases    = ['silhouette coefficient', 'silhouette coefficients', 'silhouette score', 'silhouette scores', 'cluster separation']
+definition = '''A measure of how **well-separated** a career family is from its neighbors in the embedding space.
+
+→ Near 1.0: *tight, distinct cluster*
+→ Near 0.0: *overlapping with neighbors*
+→ Negative: *potentially misassigned postings*
+
+Computed per cluster by comparing the average distance to points in the same cluster against the average distance to the nearest other cluster.'''
+url        = 'https://en.wikipedia.org/wiki/Silhouette_(clustering)'
+url_label  = 'Silhouette coefficient on Wikipedia'
+
+[[terms]]
 term       = 'skill'
 aliases    = ['skills']
 definition = '''In Chalkline, a skill is any **O*NET occupational competency** encoded as a sentence embedding and compared against your resume via cosine similarity.
@@ -317,19 +330,6 @@ O*NET organizes competencies into 7 element types across three categories:
 Each element is individually scored, and the results are grouped by type in the skill profile radar and gap analysis.'''
 url        = 'https://www.onetonline.org/find/descriptor/browse/Skills/'
 url_label  = 'Browse O*NET skill categories'
-
-[[terms]]
-term       = 'silhouette'
-aliases    = ['silhouette coefficient', 'silhouette coefficients', 'silhouette score', 'silhouette scores', 'cluster separation']
-definition = '''A measure of how **well-separated** a career family is from its neighbors in the embedding space.
-
-→ Near 1.0: *tight, distinct cluster*
-→ Near 0.0: *overlapping with neighbors*
-→ Negative: *potentially misassigned postings*
-
-Computed per cluster by comparing the average distance to points in the same cluster against the average distance to the nearest other cluster.'''
-url        = 'https://en.wikipedia.org/wiki/Silhouette_(clustering)'
-url_label  = 'Silhouette coefficient on Wikipedia'
 
 [[terms]]
 term       = 'similarity'
@@ -378,6 +378,24 @@ definition = '''In O*NET's Content Model, an **occupation-specific activity stat
 Each occupation has 15-40 tasks, and they are the most detailed level of O*NET's work-activity hierarchy. Tasks are the primary text used to measure similarity between your resume and each career family.'''
 url        = 'https://www.onetonline.org/help/online/task'
 url_label  = 'Tasks on O*NET OnLine'
+
+[[terms]]
+term       = 't-distributed Stochastic Neighbor Embedding (t-SNE)'
+aliases    = ['t-SNE', 'tSNE', 'TSNE']
+definition = '''A nonlinear **dimensionality reduction** technique that projects high-dimensional vectors into two or three dimensions for visualization, preserving local structure so points that were close together in the original space stay close in the projection.
+
+t-SNE is the standard tool for *seeing* the shape of a cluster of embeddings. Tight blobs in the projection represent genuinely cohesive groups; distinct sub-blobs reveal hidden sub-structure; and isolated points correspond to outliers. Chalkline uses t-SNE with PCA initialization to project posting embeddings inside a single career family.'''
+url        = 'https://lvdmaaten.github.io/tsne/'
+url_label  = 'Original t-SNE paper and implementations'
+
+[[terms]]
+term       = 'Term Frequency-Inverse Document Frequency (TF-IDF)'
+aliases    = ['TF-IDF', 'TF-IDF score', 'tf-idf', 'Term Frequency-Inverse Document Frequency']
+definition = '''A standard text-mining score that highlights words **distinctive to one document** rather than just frequent overall.
+
+A word's score climbs when it appears often inside the document of interest (term frequency) and falls when it appears across many other documents (inverse document frequency). Chalkline treats each career family as one document and ranks vocabulary that characterizes the matched family far more than the rest of the corpus, so generic words like *experience* or *required* drop out and family-specific words rise to the top.'''
+url        = 'https://en.wikipedia.org/wiki/Tf%E2%80%93idf'
+url_label  = 'TF-IDF on Wikipedia'
 
 [[terms]]
 term       = 'top-k'

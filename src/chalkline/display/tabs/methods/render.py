@@ -47,16 +47,17 @@ def methods_tab(ctx: TabContext) -> Html:
             ))
         ),
 
-        ctx.layout.panel(tab, "data_funnel",
-            ctx.charts.funnel(height=280, stages=ml.funnel_stages)),
-
-        ctx.layout.panel(tab, "cluster_sizes", ctx.charts.histogram(
-            height  = 320,
-            nbins   = 10,
-            x       = ctx.pipeline.clusters.sizes,
-            x_title = "Postings per Cluster",
-            y_title = "Count"
-        )),
+        ctx.layout.two_col(
+            ctx.layout.panel(tab, "data_funnel",
+                ctx.charts.funnel(height=320, stages=ml.funnel_stages)),
+            ctx.layout.panel(tab, "cluster_sizes", ctx.charts.histogram(
+                height  = 320,
+                nbins   = 10,
+                x       = ctx.pipeline.clusters.sizes,
+                x_title = "Postings per Cluster",
+                y_title = "Count"
+            ))
+        ),
 
         ctx.layout.two_col(
             ctx.layout.panel(tab, "job_zone_distribution", ctx.charts.bar(
@@ -75,15 +76,13 @@ def methods_tab(ctx: TabContext) -> Html:
 
         ctx.layout.two_col(
             ctx.layout.panel(tab, "gateways", ctx.charts.ranking_bar(
-                ranking = ml.brokerage, 
+                ranking = ml.brokerage,
                 title   = tab.chart_labels["brokerage_title"]
-            )
-            ),
+            )),
             ctx.layout.panel(tab, "cluster_separation", ctx.charts.ranking_bar(
-                ranking = ml.silhouette, 
+                ranking = ml.silhouette,
                 title   = tab.chart_labels["silhouette_title"]
-            )
-            )
+            ))
         ),
 
         *ctx.layout.section_if(
@@ -113,18 +112,10 @@ def methods_tab(ctx: TabContext) -> Html:
             ))
         ),
 
-        ctx.layout.panel(tab, "dendrogram", ctx.charts.dendrogram(
-            annotation_text = tab.chart_labels["you"],
-            title           = tab.chart_labels["dendrogram"],
-            x_title         = tab.chart_labels["career_family"],
-            y_title         = tab.chart_labels["ward_distance"]
-        )),
-
         ctx.layout.panel(tab, "landscape", ctx.charts.landscape(
             coordinates     = ctx.result.coordinates,
             legend_families = tab.chart_labels["career_families"],
             legend_resume   = tab.chart_labels["your_resume"],
-            title           = tab.chart_labels["landscape"],
             x_title         = tab.chart_labels["svd_component_1"],
             y_title         = tab.chart_labels["svd_component_2"]
         )),

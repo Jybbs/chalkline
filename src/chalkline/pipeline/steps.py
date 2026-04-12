@@ -69,25 +69,30 @@ def clusters(
     corpus              : Corpus,
     job_zone_map        : dict[int, int],
     nearest_occupations : dict[int, Occupation],
+    raw_vectors         : np.ndarray,
     soc_similarity      : np.ndarray,
     soc_tasks           : dict[int, list[Task]]
 ) -> Clusters:
     """
     Build unified cluster objects from assignments, corpus, and O*NET SOC
     matching. Returns a `Clusters` container with pre-stacked centroid and
-    embedding vector matrices.
+    embedding vector matrices, and per-cluster posting embeddings sliced
+    out of `raw_vectors` so display-layer projections never have to
+    re-encode the corpus.
     """
     items: dict[int, Cluster] = {}
     for cid in sorted(np.unique(assignments).tolist()):
-        ps         = corpus.at(np.where(assignments == cid)[0])
+        member_idx = np.where(assignments == cid)[0]
+        postings   = corpus.at(member_idx)
         nearest    = nearest_occupations[cid]
         items[cid] = Cluster(
             cluster_id  = cid,
+            embeddings  = raw_vectors[member_idx],
             job_zone    = job_zone_map[cid],
-            modal_title = Counter(p.title for p in ps).most_common(1)[0][0],
-            postings    = ps,
+            modal_title = Counter(p.title for p in postings).most_common(1)[0][0],
+            postings    = postings,
             sector      = nearest.sector,
-            size        = len(ps),
+            size        = len(postings),
             soc_title   = nearest.title,
             tasks       = soc_tasks.get(cid, [])
         )

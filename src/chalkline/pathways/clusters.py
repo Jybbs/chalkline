@@ -20,11 +20,18 @@ from chalkline.collection.schemas import Posting
 class Cluster:
     """
     Unified per-cluster representation combining profile metadata,
-    resolved postings, and optional O*NET task embeddings for gap
-    analysis.
+    resolved postings, per-posting embeddings, and optional O*NET task
+    embeddings for gap analysis.
+
+    `embeddings` is the slice of `raw_vectors` that belongs to this
+    cluster, retained at fit time so display-layer projections (t-SNE,
+    sub-clustering, distance-from-centroid views) operate on the
+    pipeline's already-computed encodings rather than re-running the
+    encoder per render.
     """
 
     cluster_id  : int
+    embeddings  : np.ndarray
     job_zone    : int
     modal_title : str
     postings    : list[Posting]
@@ -40,6 +47,30 @@ class Cluster:
         Human-readable cluster identifier for dropdown labels.
         """
         return f"Cluster {self.cluster_id}: {self.soc_title} (JZ {self.job_zone})"
+
+    @cached_property
+    def distinctive_tokens(self) -> list[list[str]]:
+        """
+        Per-posting bags of lowercased tokens longer than three
+        characters whose Zipf frequency falls below the common-word
+        floor, lazily computed once per session and cached on the
+        instance.
+
+        Display-layer factories that build TF-IDF rankings over
+        postings iterate this list to assemble word counters without
+        re-running the tokenizer per render. Caching here keeps the
+        matched cluster's tokenization shared between cross-corpus
+        distinctiveness ranking and intra-cluster sub-role labeling.
+        """
+        from wordfreq import zipf_frequency
+        return [
+            [
+                w for word in f"{p.title} {p.description}".split()
+                if  len(w := word.strip(".,;:!?()[]\"'").lower()) > 3
+                and zipf_frequency(w, "en") < 5.0
+            ]
+            for p in self.postings
+        ]
 
 
 @dataclass
@@ -84,6 +115,32 @@ class Clusters:
         """
         self.cluster_ids = sorted(self.items)
 
+    @cached_property
+    def centroid_cosine(self) -> np.ndarray:
+        """
+        Pairwise cosine similarity matrix between cluster centroids.
+
+        Single source of truth for centroid similarity, consumed by both
+        the graph backbone construction (which reads the raw ndarray to
+        build stepwise k-NN edges) and `cosine_similarity_matrix` (which
+        rounds and converts for heatmap rendering). Caching here means
+        `cosine_similarity(self.centroids)` runs once per session
+        instead of once for the methods tab and once for the graph.
+        """
+        from sklearn.metrics.pairwise import cosine_similarity
+        return cosine_similarity(self.centroids)
+
+    @cached_property
+    def cluster_index(self) -> dict[int, int]:
+        """
+        Cluster ID to its row index in the stacked `vectors` and
+        `centroids` matrices, mirroring `vector_map` but exposing the
+        position rather than the vector itself. Enables display-layer
+        factories to slice precomputed similarity matrices by
+        cluster_id without iterating `cluster_ids`.
+        """
+        return {cid: i for i, cid in enumerate(self.cluster_ids)}
+
     @property
     def company_count(self) -> int:
         """
@@ -97,13 +154,14 @@ class Clusters:
     @cached_property
     def cosine_similarity_matrix(self) -> list[list[float]]:
         """
-        Cosine similarity between all cluster centroids as a 2D list for
-        heatmap rendering.
+        Cosine similarity between all cluster centroids as a 2D list of
+        rounded floats for heatmap rendering. Derived from
+        `centroid_cosine` to share the underlying matrix computation
+        with the graph backbone.
         """
-        from sklearn.metrics.pairwise import cosine_similarity
         return [
             [round(float(v), 3) for v in row]
-            for row in cosine_similarity(self.centroids)
+            for row in self.centroid_cosine
         ]
 
     @property
@@ -203,6 +261,18 @@ class Clusters:
         Posting count per cluster in sorted cluster-ID order.
         """
         return [c.size for c in self.values()]
+
+    @cached_property
+    def vector_map(self) -> dict[int, np.ndarray]:
+        """
+        Cluster ID to its row in the stacked `vectors` matrix, mirroring
+        the `job_zone_map` lookup pattern so display-layer factories can
+        fetch a single cluster's vector without indexing into the row
+        order via `cluster_ids.index(...)`. Cached because both
+        `RelevantCredentials` and `RelevantJobBoards` look it up per
+        render and the underlying matrix never changes after fit.
+        """
+        return dict(zip(self.cluster_ids, self.vectors))
 
     def values(self) -> Iterator[Cluster]:
         """

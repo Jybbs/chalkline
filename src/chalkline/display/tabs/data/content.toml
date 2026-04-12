@@ -6,22 +6,44 @@ Company names are matched against the **AGC Maine member directory** using fuzzy
 stat_labels = ["Postings", "Companies", "Locations", "AGC Members", "Newest Posting", "With Dates"]
 
 [chart_labels]
-postings_title = 'Number of Postings'
+days_since_posted = 'Days Since Posted'
+postings          = 'Postings'
+postings_title    = 'Number of Postings'
+tsne_x            = 't-SNE Component 1'
+tsne_y            = 't-SNE Component 2'
 
 [fallbacks]
+no_boards       = 'No Maine job boards match this family’s vocabulary.'
 no_company_data = 'No company data.'
 
-[sections.common_titles]
-title       = 'Common Job Title Words'
-description = 'Most frequent words appearing in posting titles for this career family, sized by count.'
+[tier_descriptions]
+'Unique to This Family'  = 'Found nowhere else in the corpus'
+'Rare Across the Corpus' = 'Shared with only two to four families'
+'Notable Vocabulary'     = 'Common across many families but ranks high here'
 
-[sections.freshness]
-title       = 'When These Postings Were Collected'
-description = 'Postings grouped by month, showing how recent and active the corpus is for this career family.'
+[sections.distinctive_words]
+title       = 'Words That Distinguish This Career'
+description = 'Vocabulary that appears in this career family far more than across the rest of the corpus, scored by TF-IDF with each cluster treated as a document. The three panels split words by how rare they are across the corpus, from words that show up only in this family on the left to words that recur across many families but still rank high here on the right. Each panel is sized independently so a sparser tier never gets crowded out by a denser one.'
 
-[sections.common_descriptions]
-title       = 'What Employers Ask For'
-description = 'Most distinctive words from posting descriptions, revealing the skills and requirements employers emphasize.'
+[sections.posting_projection]
+title       = 'The Shape of This Career Family'
+description = 'Each dot is one job posting from this career family, projected from its high-dimensional sentence embedding down to two dimensions via t-SNE with PCA initialization. Postings whose descriptions read alike land near each other, so a tight ball means a cohesive role, distinct sub-blobs reveal genuine sub-roles within the family, and lonely outliers are postings that almost belong somewhere else. Dots are colored by k-means sub-cluster on the same embeddings, surfacing semantically distinct sub-roles rather than employer boilerplate. Hover any dot for the posting title and hiring company.'
+
+[sections.credential_pathways]
+title       = 'Credential Pathways for This Career'
+description = 'Concrete training pathways from the AGC catalog ranked by how closely each one aligns with this career family in the embedding space, then bucketed into apprenticeships on the left, educational programs in the middle, and industry certifications on the right. Apprenticeship cards carry hour requirements drawn from their RAPIDS registration, program cards carry the Maine institution that offers them with an outbound link, and certification cards show the recognizable industry name.'
+
+[sections.relevant_boards]
+title       = 'Where to Look for These Jobs'
+description = 'Maine job boards whose stated focus or best-for description mentions any of this career family’s distinctive vocabulary, surfacing the platforms most likely to list these roles.'
+
+[sections.freshness_histogram]
+title       = 'How Stale is This Data?'
+description = 'Distribution of days since each posting first appeared. Bars clustered near zero indicate a fresh corpus.'
+
+[sections.timeline]
+title       = 'Posting Activity Over Time'
+description = 'Each dot is one posting on the day it was first collected. Dense vertical bands reveal hiring bursts, whereas gaps indicate quiet stretches.'
 
 [sections.locations]
 title       = 'Where the Jobs Are'

@@ -70,13 +70,12 @@ def _(content, mo):
 # ── Splash page ─────────────────────────────────────────────────────
 
 @app.cell
-def _(Path, content, labor, mo, pipeline, upload):
-    from chalkline.display.loaders import Layout
-    from chalkline.display.tabs    import splash
+def _(Path, content, labor, layout, mo, pipeline, upload):
+    from chalkline.display.tabs import splash
 
     mo.stop(bool(upload.value), mo.md(""))
-    Layout.stack(
-        splash(content, labor, Path(__file__).parent / "assets", pipeline),
+    layout.stack(
+        splash(content, labor, layout, Path(__file__).parent / "assets", pipeline),
         upload
     )
     return

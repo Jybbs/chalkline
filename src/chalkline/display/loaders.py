@@ -16,7 +16,7 @@ from bisect               import bisect
 from collections.abc      import Iterable
 from functools            import cache, cached_property
 from htpy                 import a, br, div, Element, h1, hr, p, span, strong
-from marimo               import Html, hstack, icon, md, ui, vstack
+from marimo               import hstack, Html, icon, md, ui, vstack
 from markdown_it          import MarkdownIt
 from markupsafe           import Markup
 from pathlib              import Path
@@ -156,7 +156,7 @@ class Layout:
         """
         return MarkdownIt("zero").enable(["emphasis"])
 
-    def _link(self, url: str):
+    def _link(self, url: str) -> Element:
         """
         External link icon anchored to the bottom-right of a card.
         """
@@ -176,7 +176,7 @@ class Layout:
         description, title = tab.section(key, **self.substitutions, **fmt)
         return title, Markup(self.annotate(md(description).text))
 
-    def _stat(self, label: str, value: str):
+    def _stat(self, label: str, value: str) -> Element:
         """
         Single branded stat with a gold value and muted label.
         """
@@ -185,20 +185,19 @@ class Layout:
             div(".cl-stat-label")[label]
         ]
 
-    def to_html(self, *children, cls: str, **attrs) -> Html:
+    def _stat_row(self, pairs: Iterable[tuple[str, str]], rows: int) -> Element:
         """
-        Wrap children in a classed div and convert to `Html`.
-
-        Single boundary between htpy's typed element tree and Marimo's
-        `Html` wrapper. Every public method that returns `Html` from htpy
-        elements goes through this.
-
-        Args:
-            *children : htpy elements, strings, or `Markup` values.
-            cls       : CSS class for the wrapper div.
-            **attrs   : Additional HTML attributes on the wrapper.
+        Stat tile grid as a raw htpy `div`, used by both `stats` (which
+        wraps the result in a Marimo `Html`) and `splash` (which nests
+        the row inside a larger htpy tree). Returning htpy here keeps
+        the marimo-`Html` boundary at exactly one place per call site.
         """
-        return Html(str(div(f".{cls}", **attrs)[children].__html__()))
+        tiles = [self._stat(label, value) for label, value in pairs]
+        cols  = -(-len(tiles) // rows)
+        return div(
+            ".cl-stat-row",
+            style = f"grid-template-columns:repeat({cols},1fr)"
+        )[tiles]
 
     def annotate(self, text: str) -> str:
         """
@@ -268,6 +267,24 @@ class Layout:
             cls = "cl-card"
         )
 
+    def board_chip(self, **kwargs) -> Html:
+        """
+        Compact job board ribbon tile with a semantic-similarity headline.
+
+        Mirrors the splash stat tile aesthetic by leading with a large
+        primary-color percentage (`match_score`) above the board name,
+        category badge, and focus blurb. The percentage is the cosine
+        similarity between the board's encoded focus text and the
+        matched cluster's vector, rounded to the nearest integer.
+        """
+        return self.to_html(
+            div(".cl-stat-value")[f"{kwargs['match_score']}%"],
+            strong[kwargs["name"]], br,
+            span(".badge")[kwargs["category"]], br,
+            span(".meta")[kwargs["focus"]],
+            cls = "cl-card"
+        )
+
     def callout(self, text: str, kind: str = "info") -> Html:
         """
         Branded callout with left-border accent.
@@ -289,6 +306,15 @@ class Layout:
         """
         Credential card with kind-aware accent color and metadata.
 
+        The card's left border matches the kind's accent color (cream
+        for apprenticeship, lavender for certification, accent for
+        program), the kind badge sits alone on its own line at the top,
+        and the title wraps onto a new line below the badge.
+
+        The `.cl-credential` modifier class enforces a minimum height so
+        cards in a grid stay visually uniform regardless of how much
+        their individual content varies.
+
         Args:
             credential : Pathways credential with kind and metadata.
             theme      : For accent color lookup via `credential_color`.
@@ -296,21 +322,20 @@ class Layout:
         Returns:
             Styled card element with kind badge and detail line.
         """
+        color  = theme.credential_color(credential.kind)
         detail = " \u00b7 ".join(filter(None, (
             f"{credential.hours:,} hours" if credential.hours else "",
             credential.metadata.get("institution", "")
         )))
-
         return self.to_html(
-            span(
-                ".cl-badge",
-                style=f"background:{theme.credential_color(credential.kind)}"
-            )[credential.type_label],
-            " ",
+            span(".cl-badge", style=f"background:{color}")[credential.type_label],
             strong[credential.label],
-            *([br, span(".secondary")[detail]] if detail else ()),
-            *([self._link(url)] if (url := credential.metadata.get("url")) else ()),
-            cls="cl-card"
+            *self.stack_if(detail, span(".secondary")[detail]),
+            *self.stack_if(
+                url := credential.metadata.get("url", ""), self._link(url)
+            ),
+            cls   = "cl-card.cl-credential",
+            style = f"border-inline-start-color:{color}"
         )
 
     def employer_card(self, **kwargs) -> Html:
@@ -388,6 +413,53 @@ class Layout:
             f" \u00b7 {self.content.labels.job_zones[profile.job_zone]}"
             f" \u00b7 {profile.size} postings",
             cls = "cl-match-bar"
+        )
+
+    def overview(
+        self,
+        tab : TabContent,
+        key : str,
+        **fmt
+    ) -> Html:
+        """
+        Tab overview rendered as a branded banner.
+
+        Uses a dedicated `.cl-overview` style with a gold top accent and
+        serif title to visually distinguish explanatory tab openers from
+        both chart headers and standard callouts.
+
+        Args:
+            tab  : Tab content holding section definitions.
+            key  : Section key to look up.
+            **fmt : Format kwargs forwarded to `tab.section()`.
+
+        Returns:
+            Styled overview banner with serif title and body description.
+        """
+        title, body = self._section_html(tab, key, **fmt)
+        return self.to_html(
+            div(".cl-overview-title")[title],
+            div(".cl-overview-body")[body],
+            cls = "cl-overview"
+        )
+
+    def panel(
+        self,
+        tab   : TabContent,
+        key   : str,
+        chart : Figure,
+        **fmt
+    ) -> Html:
+        """
+        Stack a section header above a Plotly chart as one logical unit.
+
+        The core tab-renderer primitive: every chart panel is a header
+        followed by a Plotly figure, grouped so rows inside `two_col`
+        stay aligned and top-level charts share the same grouping.
+        """
+        return self.stack(
+            self.header(tab, key, **fmt),
+            ui.plotly(chart)
         )
 
     def posting_card(self, posting: Posting) -> Html:
@@ -491,15 +563,16 @@ class Layout:
             chart     : Plotly figure to render below the header.
             **fmt     : Format kwargs for `tab.section()`.
         """
-        if not condition:
-            return []
-        return [self.header(tab, key, **fmt), ui.plotly(chart)]
+        return self.stack_if(
+            condition, self.header(tab, key, **fmt), ui.plotly(chart)
+        )
 
     def splash(
         self,
         logo_src    : str,
         stat_values : list[str],
-        tab         : TabContent
+        tab         : TabContent,
+        stat_rows   : int = 1
     ) -> Html:
         """
         Pre-upload splash page with branding and corpus statistics.
@@ -513,6 +586,8 @@ class Layout:
             logo_src    : Base64 data URI for the logo image.
             stat_values : Pre-formatted stat strings aligned with `tab.stat_labels`.
             tab         : Splash tab content with stat labels, tagline, and title.
+            stat_rows   : Number of rows to lay the stat tiles out in. The
+                          splash overrides this to 2.
 
         Returns:
             Full-width splash element with logo, tagline, and stats.
@@ -524,57 +599,8 @@ class Layout:
                 h1[tab.title]
             ],
             p(".cl-tagline")[tab.tagline],
-            div(".cl-stat-row")[[
-                self._stat(*p) for p in zip(tab.stat_labels, stat_values)
-            ]],
+            self._stat_row(zip(tab.stat_labels, stat_values), rows=stat_rows),
             cls = "cl-splash"
-        )
-
-    def overview(
-        self,
-        tab : TabContent,
-        key : str,
-        **fmt
-    ) -> Html:
-        """
-        Tab overview rendered as a branded banner.
-
-        Uses a dedicated `.cl-overview` style with a gold top accent and
-        serif title to visually distinguish explanatory tab openers from
-        both chart headers and standard callouts.
-
-        Args:
-            tab  : Tab content holding section definitions.
-            key  : Section key to look up.
-            **fmt : Format kwargs forwarded to `tab.section()`.
-
-        Returns:
-            Styled overview banner with serif title and body description.
-        """
-        title, body = self._section_html(tab, key, **fmt)
-        return self.to_html(
-            div(".cl-overview-title")[title],
-            div(".cl-overview-body")[body],
-            cls = "cl-overview"
-        )
-
-    def panel(
-        self,
-        tab   : TabContent,
-        key   : str,
-        chart : Figure,
-        **fmt
-    ) -> Html:
-        """
-        Stack a section header above a Plotly chart as one logical unit.
-
-        The core tab-renderer primitive: every chart panel is a header
-        followed by a Plotly figure, grouped so rows inside `two_col`
-        stay aligned and top-level charts share the same grouping.
-        """
-        return self.stack(
-            self.header(tab, key, **fmt),
-            ui.plotly(chart)
         )
 
     @staticmethod
@@ -603,6 +629,58 @@ class Layout:
         return fn(items=list(items), gap=gap, align=align, **kw)
 
     @staticmethod
+    def stack_if(condition: object, *items: object) -> list:
+        """
+        Return `items` as a list when `condition` is truthy, else `[]`.
+
+        Pairs with `*` spread inside `stack` calls so a tab renderer can
+        drop a whole section based on data presence without wrapping a
+        conditional expression and an empty-list fallback at the call
+        site. `section_if` is a thin wrapper that pre-builds a header
+        and chart pair on top of this primitive.
+        """
+        return list(items) if condition else []
+
+    def stats(
+        self,
+        pairs : Iterable[tuple[str, str]],
+        rows  : int = 1
+    ) -> Html:
+        """
+        Branded stat tile grid laid out in exactly `rows` rows.
+
+        Each pair renders as a gold value over a muted label, using the same
+        `.cl-stat-value` / `.cl-stat-label` classes as the splash. The grid
+        column count is computed as `ceil(len(pairs) / rows)` so tiles
+        always distribute evenly across the full width, defaulting to a
+        single row that stretches the strip end-to-end.
+
+        Args:
+            pairs : (label, value) tuples in display order.
+            rows  : Number of rows to lay the tiles out in. The splash
+                    overrides this to 2.
+
+        Returns:
+            Stat row element.
+        """
+        return Html(str(self._stat_row(pairs, rows).__html__()))
+
+    def to_html(self, *children, cls: str, **attrs) -> Html:
+        """
+        Wrap children in a classed div and convert to `Html`.
+
+        Single boundary between htpy's typed element tree and Marimo's
+        `Html` wrapper. Every public method that returns `Html` from htpy
+        elements goes through this.
+
+        Args:
+            *children : htpy elements, strings, or `Markup` values.
+            cls       : CSS class for the wrapper div.
+            **attrs   : Additional HTML attributes on the wrapper.
+        """
+        return Html(str(div(f".{cls}", **attrs)[children].__html__()))
+
+    @staticmethod
     def two_col(left: object, right: object) -> Html:
         """
         Two-column horizontal stack with equal widths.
@@ -611,24 +689,6 @@ class Layout:
         and data tabs.
         """
         return Layout.stack(left, right, direction="h", widths=[1, 1])
-
-    def stats(self, pairs: Iterable[tuple[str, str]]) -> Html:
-        """
-        Responsive grid of branded stat tiles.
-
-        Each pair renders as a gold value over a muted label, using the same
-        `.cl-stat-value` / `.cl-stat-label` classes as the splash.
-
-        Args:
-            pairs: (label, value) tuples in display order.
-
-        Returns:
-            Responsive grid element.
-        """
-        return self.to_html(
-            *[self._stat(label, value) for label, value in pairs],
-            cls = "cl-stat-row"
-        )
 
     def wage_display(self, delta: float | None, theme: Theme) -> Element:
         """

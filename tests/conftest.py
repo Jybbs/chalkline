@@ -170,7 +170,8 @@ def clusters(
     assignments     : np.ndarray,
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
-    job_zone_map    : dict[int, int]
+    job_zone_map    : dict[int, int],
+    unit_vectors    : np.ndarray
 ) -> Clusters:
     """
     Unified cluster container with synthetic metadata and task
@@ -181,6 +182,7 @@ def clusters(
     items = {
         cid: Cluster(
             cluster_id   = cid,
+            embeddings   = unit_vectors[assignments == cid],
             job_zone     = job_zone_map[cid],
             modal_title  = f"Title {cid}",
             postings     = [],
