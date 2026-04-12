@@ -246,7 +246,7 @@ def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
     """
     Deterministic Job Zone assignment for synthetic clusters.
 
-    Spreads clusters across JZ 2-4 to exercise stepwise k-NN lateral and
+    Spreads clusters across Job Zones 2-4 to exercise stepwise k-NN lateral and
     upward edge logic. Production uses top-3 median cosine against O*NET,
     but tests use fixed values to avoid coupling to fixture occupation
     count.

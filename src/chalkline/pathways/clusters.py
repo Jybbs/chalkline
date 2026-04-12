@@ -46,7 +46,10 @@ class Cluster:
         """
         Human-readable cluster identifier for dropdown labels.
         """
-        return f"Cluster {self.cluster_id}: {self.soc_title} (JZ {self.job_zone})"
+        return (
+            f"Cluster {self.cluster_id}: {self.soc_title} "
+            f"(Job Zone {self.job_zone})"
+        )
 
     @cached_property
     def distinctive_tokens(self) -> list[list[str]]:

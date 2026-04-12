@@ -3,7 +3,7 @@ Validate career pathway graph construction and credential enrichment from
 synthetic embedding fixtures.
 
 Tests focus on invariants that would silently corrupt downstream
-reach exploration if broken, including edge directionality, JZ
+reach exploration if broken, including edge directionality, Job Zone
 ordering, backbone connectivity, and credential metadata attachment.
 """
 
@@ -65,8 +65,8 @@ class TestCareerPathwayGraph:
         pathway_graph : CareerPathwayGraph
     ):
         """
-        Reach advancement edges point to higher JZ clusters and lateral
-        edges point to same JZ clusters.
+        Reach advancement edges point to higher Job Zone clusters and
+        lateral edges point to same Job Zone clusters.
         """
         for cluster_id in pathway_graph.clusters:
             reach       = pathway_graph.reach(cluster_id)
@@ -82,8 +82,8 @@ class TestCareerPathwayGraph:
         pathway_graph : CareerPathwayGraph
     ):
         """
-        Upward edges connect only to the next JZ level, never skipping
-        tiers.
+        Upward edges connect only to the next Job Zone level, never
+        skipping tiers.
         """
         levels    = sorted(set(job_zone_map.values()))
         next_zone = dict(zip(levels, levels[1:]))

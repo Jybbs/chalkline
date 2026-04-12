@@ -298,7 +298,7 @@ class OnetCurator:
             summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
             print(
                 f"    {occ["soc_code"]}  {occ["title"]:45s}"
-                f"  JZ={occ["job_zone"]}  [{summary}]"
+                f"  Job Zone={occ["job_zone"]}  [{summary}]"
             )
 
 

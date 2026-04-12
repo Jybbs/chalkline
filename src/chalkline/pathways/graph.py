@@ -37,9 +37,9 @@ class CareerPathwayGraph:
         clusters               : Cluster map with centroids and vectors.
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
-        lateral_neighbors      : k for same-JZ bidirectional edges.
+        lateral_neighbors      : k for same Job Zone bidirectional edges.
         source_percentile      : Floor percentile for source relevance.
-        upward_neighbors       : k for next-JZ unidirectional edges.
+        upward_neighbors       : k for next Job Zone unidirectional edges.
     """
 
     clusters               : Clusters
@@ -167,9 +167,10 @@ class CareerPathwayGraph:
         Add stepwise k-NN backbone edges to `g`.
 
         Each cluster gets `lateral_neighbors` bidirectional edges to its
-        most similar same-JZ clusters and `upward_neighbors` unidirectional
-        edges to its most similar clusters at the next JZ level. The
-        stepwise constraint prevents tier-skipping shortcuts.
+        most similar clusters at the same Job Zone and `upward_neighbors`
+        unidirectional edges to its most similar clusters at the next
+        Job Zone level. The stepwise constraint prevents tier-skipping
+        shortcuts.
         """
         job_zones   = self.clusters.job_zone_map
         zones       = np.array([job_zones[c] for c in self.node_ids])
@@ -285,9 +286,9 @@ class CareerPathwayGraph:
         """
         Local reach exploration from a given cluster.
 
-        Returns advancement paths (edges to higher JZ clusters) and lateral
-        pivots (edges to same JZ clusters) with their per-edge credential
-        metadata sorted by edge weight.
+        Returns advancement paths (edges to higher Job Zone clusters) and
+        lateral pivots (edges to same Job Zone clusters) with their per-edge
+        credential metadata sorted by edge weight.
         """
         job_zones = self.clusters.job_zone_map
         zone      = job_zones[cluster_id]

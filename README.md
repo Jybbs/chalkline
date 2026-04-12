@@ -109,7 +109,7 @@ Each cluster needs an occupational identity. The pipeline computes the mean post
 
 $`
 \hspace{0.5cm} \displaystyle
-\text{JZ}(c) = \text{median}\bigl(\{z_i : i \in \text{top-}k\; \text{neighbors of } c\}\bigr), \quad k = 3
+\text{Job Zone}(c) = \text{median}\bigl(\{z_i : i \in \text{top-}k\; \text{neighbors of } c\}\bigr), \quad k = 3
 `$  
 <br>
 
@@ -149,7 +149,7 @@ where $`\tilde{S}`$ is the median similarity across all tasks for the matched cl
 
 ### Career Graph
 
-The career graph connects the 20 career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint here ensures edges only link clusters at the same [Job Zone](https://www.onetonline.org/help/online/zones) (*lateral pivots*) or one level apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_{\text{lateral}} = 2`$ bidirectional same-JZ edges and $`k_{\text{upward}} = 2`$ unidirectional next-JZ edges, yielding **96** edges total.
+The career graph connects the 20 career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint here ensures edges only link clusters at the same [Job Zone](https://www.onetonline.org/help/online/zones) (*lateral pivots*) or one level apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_{\text{lateral}} = 2`$ bidirectional edges to clusters at the same Job Zone and $`k_{\text{upward}} = 2`$ unidirectional edges to clusters at the next Job Zone level, yielding **96** edges total.
 
 Each edge is then annotated with relevant credentials (*19 [apprenticeships](https://www.apprenticeship.gov/), 276 certifications, 30 educational programs*) using a dual-threshold filter. For an edge from a worker's current cluster $`\mathbf{s}`$ to a target cluster $`\mathbf{d}`$, a credential $`\mathbf{c}`$ is attached when it meets both conditions:
 

@@ -465,7 +465,7 @@ class EmbeddingExploration:
     def soc_assignment(self):
         """
         Compare skills[:20] vs Task+DWA encoding for occupation matching and
-        single vs top-3 median JZ assignment.
+        single vs top-3 median Job Zone assignment.
         """
         print("SOC ASSIGNMENT (d=10)")
         print("=" * 60)

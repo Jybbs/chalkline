@@ -720,7 +720,7 @@ class Layout:
         Args:
             confidence : Match confidence 0-100.
             profile    : Matched career cluster.
-            theme      : For confidence color and JZ label.
+            theme      : For confidence color and Job Zone label.
             wage       : Annual median wage (optional).
 
         Returns:
