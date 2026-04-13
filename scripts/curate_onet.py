@@ -1,8 +1,8 @@
 """
-Curate the O*NET occupation-skill mapping for Chalkline's 21 SOC codes.
+Curate the O*NET occupation-skill mapping for Chalkline's SOC codes.
 
 Downloads element-type files from the O*NET 30.0 database, filters to the
-stakeholder-curated SOC codes, merges Skills, Knowledge, Abilities, Tasks,
+project's SOC codes, merges Skills, Knowledge, Abilities, Tasks,
 Emerging Tasks, Technology Skills, Detailed Work Activities, and Tools Used
 into a structured `skills` array, decomposes Task and DWA entries into
 matchable sub-phrases via POS-based chunking, filters ambiguous single-word
@@ -31,15 +31,15 @@ class OnetCurator:
     occupation-skill lexicon for Aho-Corasick extraction.
 
     Downloads tab-delimited files from the O*NET 30.0 database, filters
-    to stakeholder SOC codes, merges element types with POS-based phrase
+    to the project's SOC codes, merges element types with POS-based phrase
     decomposition for Tasks and DWAs, and excludes ambiguous single-word
     tools and technologies via wordfreq Zipf frequency.
     """
 
     def __init__(self, root: Path):
         """
-        Download NLTK data, compile the chunk parser, and load stakeholder
-        SOC codes.
+        Download NLTK data, compile the chunk parser, and load SOC codes
+        from stakeholder reference and additions.
 
         Args:
             root: Worktree root containing `data/` directories.
@@ -47,10 +47,11 @@ class OnetCurator:
         for corpus in ("averaged_perceptron_tagger_eng", "punkt_tab"):
             download(corpus, quiet=True)
 
+        stakeholder = root / "data/stakeholder"
         self.codes = {
-            c["soc_code"]: c for c in loads(
-                (root / "data/stakeholder/reference/onet_codes.json").read_text()
-            )
+            c["soc_code"]: c for c in
+            loads((stakeholder / "reference/onet_codes.json").read_text())
+            + loads((stakeholder / "additions/onet_codes.json").read_text())
         }
         self.output = root / "data/lexicons/onet.json"
         self.parser = RegexpParser(r"""

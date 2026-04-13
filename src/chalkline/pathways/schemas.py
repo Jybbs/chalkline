@@ -144,8 +144,8 @@ class Occupation(BaseModel, extra="forbid"):
     """
     An O*NET occupation with its full skill profile.
 
-    Each of the 21 stakeholder SOC codes maps to one occupation containing
-    skills across all 8 element types.
+    Each SOC code in the curated reference set maps to one occupation
+    containing skills across all 8 element types.
     """
 
     job_zone : int = Field(ge=1, le=5)
@@ -226,7 +226,7 @@ class Skill(BaseModel, extra="forbid"):
 
 class SkillType(StrEnum):
     """
-    O*NET element types across the 21 stakeholder SOC codes.
+    O*NET element types across the curated SOC reference set.
 
     Concrete types (`DWA`, `TASK`, `TECHNOLOGY`, `TOOL`) feed the
     normalization index. Abstract KSA types (`ABILITY`, `KNOWLEDGE`,
