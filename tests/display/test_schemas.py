@@ -7,9 +7,9 @@ import numpy as np
 from datetime import date
 from pytest   import fixture, mark
 
-from chalkline.display.schemas  import JobPostingMetrics, ProcessStep, RouteDetail
-from chalkline.display.schemas  import SectionContent, SectorRanking, TabContent
-from chalkline.display.schemas  import VarianceBreakdown, WageComparison
+from chalkline.display.schemas  import JobPostingMetrics, MapGeometry, ProcessStep
+from chalkline.display.schemas  import RouteDetail, SectionContent, SectorRanking
+from chalkline.display.schemas  import TabContent, VarianceBreakdown, WageComparison
 from chalkline.display.theme    import Theme
 from chalkline.matching.schemas import ScoredTask
 from chalkline.pathways.loaders import StakeholderReference
@@ -73,6 +73,39 @@ class TestJobPostingMetrics:
         assert metrics.stat_values[4] == "N/A"
 
 
+class TestMapGeometry:
+    """
+    Validate layout geometry payload and Python-only field exclusion.
+    """
+
+    def test_dimensions_excludes_python_only(self):
+        """
+        The `dimensions` payload sent to JS must not contain fields
+        that are only used on the Python side.
+        """
+        dims = MapGeometry().dimensions
+        assert "default_wage_range" not in dims
+        assert "title_char_limit" not in dims
+
+    def test_dimensions_includes_layout(self):
+        """
+        All pixel-level layout constants must be present in the JS
+        payload.
+        """
+        dims = MapGeometry().dimensions
+        for key in (
+            "card_h", "card_w", "circle_r", "height",
+            "hero_h", "hero_w", "pad", "width"
+        ):
+            assert key in dims
+
+    def test_default_wage_range(self):
+        """
+        Fallback wage range used when no cluster has wage data.
+        """
+        assert MapGeometry().default_wage_range == [30000, 90000]
+
+
 class TestProcessStep:
     """
     Validate template rendering in process flow steps.
@@ -110,8 +143,8 @@ class TestRouteDetail:
             credentials      = [],
             destination      = dst,
             destination_wage = 65000,
+            display_title    = dst.soc_title,
             gap_vectors      = np.empty((0, 0)),
-            path             = [src.cluster_id, dst.cluster_id],
             scored_tasks     = [
                 ScoredTask(demonstrated=True,  name="A", similarity=0.9),
                 ScoredTask(demonstrated=True,  name="B", similarity=0.7),
@@ -119,36 +152,8 @@ class TestRouteDetail:
                 ScoredTask(demonstrated=False, name="D", similarity=0.1)
             ],
             source      = src,
-            source_wage = 50000,
-            weight      = 0.72
+            source_wage = 50000
         )
-
-    def test_calibrate_midpoint(self, route: RouteDetail):
-        """
-        A task at exactly the median similarity calibrates to 0.5
-        by the sigmoid's definition.
-        """
-        tasks = [ScoredTask(demonstrated=True, name="mid", similarity=0.5)]
-        calibrated = route.calibrate(tasks)
-        assert calibrated[0].similarity == 0.5
-
-    def test_calibrate_ordering(self, route: RouteDetail):
-        """
-        Calibration preserves the relative ordering of similarities
-        while mapping them through the sigmoid.
-        """
-        calibrated = route.calibrate(route.scored_tasks)
-        sims = [t.similarity for t in calibrated]
-        assert sims == sorted(sims, reverse=True)
-
-    def test_calibration_params(self, route: RouteDetail):
-        """
-        Midpoint is the median similarity and steepness is
-        ln(4) / std.
-        """
-        mid, steep = route.calibration
-        assert 0.3 < mid < 0.7
-        assert steep > 0
 
     def test_credentials_by_kind(self, clusters):
         """
@@ -179,12 +184,11 @@ class TestRouteDetail:
             ],
             destination      = dst,
             destination_wage = 65000,
+            display_title    = dst.soc_title,
             gap_vectors      = np.empty((0, 0)),
-            path             = [src.cluster_id, dst.cluster_id],
             scored_tasks     = [],
             source           = src,
-            source_wage      = 50000,
-            weight           = 0.72
+            source_wage      = 50000
         )
         by_kind = route.credentials_by_kind
         assert set(by_kind) == {"apprenticeship", "certification"}
@@ -199,15 +203,39 @@ class TestRouteDetail:
 
     def test_fit_percentage(self, route: RouteDetail):
         """
-        Fit percentage rounds the weight to 0-100.
+        Fit percentage is demonstrated tasks over total (2/4 = 50%).
         """
-        assert route.fit_percentage == 72
+        assert route.fit_percentage == 50
 
     def test_gap_tasks(self, route: RouteDetail):
         """
         Gap tasks are those where `demonstrated` is False.
         """
         assert [t.name for t in route.gap_tasks] == ["C", "D"]
+
+    def test_is_not_self(self, route: RouteDetail):
+        """
+        Route between different clusters is not a self-route.
+        """
+        assert not route.is_self
+
+    def test_is_self(self, clusters):
+        """
+        Route from a cluster to itself is detected as a self-route.
+        """
+        cluster = list(clusters.values())[0]
+        route = RouteDetail(
+            coverage         = {},
+            credentials      = [],
+            destination      = cluster,
+            destination_wage = 50000,
+            display_title    = cluster.soc_title,
+            gap_vectors      = np.empty((0, 0)),
+            scored_tasks     = [],
+            source           = cluster,
+            source_wage      = 50000
+        )
+        assert route.is_self
 
     def test_top_gaps_by_deficit(self, route: RouteDetail):
         """

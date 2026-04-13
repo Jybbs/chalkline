@@ -80,7 +80,7 @@ class Collector:
             logger.debug(f"Skipped row: {error}")
             return None
 
-    def _scrape(self) -> "DataFrame":
+    def _scrape(self) -> DataFrame:
         """
         Run `scrape_jobs` once per search term and concatenate all results
         into a single DataFrame.
@@ -91,8 +91,8 @@ class Collector:
         Returns:
             Concatenated DataFrame of all search term results.
         """
-        from jobspy  import scrape_jobs
-        from pandas  import concat, DataFrame
+        from jobspy import scrape_jobs
+        from pandas import concat
 
         frames = []
         for term in self.search_terms:

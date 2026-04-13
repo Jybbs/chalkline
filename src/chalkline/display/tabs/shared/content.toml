@@ -1,5 +1,4 @@
 fallback_location = 'Maine'
-map_you_are_here  = '▼ You are here'
 spinner_text      = 'Analyzing your resume...'
 upload_label      = 'Drop a resume PDF here'
 

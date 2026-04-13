@@ -10,10 +10,7 @@ import numpy as np
 
 from pytest import mark
 
-from chalkline.pathways.clusters import Cluster, Clusters
-
-
-CLUSTER_COUNT = 4
+from chalkline.pathways.clusters import Clusters
 
 
 class TestCluster:
@@ -51,6 +48,29 @@ class TestClusters:
     Validate container protocol and derived indices on `Clusters`.
     """
 
+    @mark.parametrize("prop", [
+        "centroid_cosine",
+        "cluster_heatmap",
+        "pairwise_distances",
+        "soc_heatmap",
+        "vector_map"
+    ])
+    def test_cached_property_stable(self, clusters: Clusters, prop: str):
+        """
+        Cached properties return the same object on repeated access,
+        confirming the cache is not recomputed per call.
+        """
+        assert getattr(clusters, prop) is getattr(clusters, prop)
+
+    def test_cluster_index_maps_id_to_position(self, clusters: Clusters):
+        """
+        `cluster_index` maps each cluster ID to its row position in
+        the centroids and vectors matrices, consistent with the sorted
+        `cluster_ids` ordering.
+        """
+        for position, cluster_id in enumerate(clusters.cluster_ids):
+            assert clusters.cluster_index[cluster_id] == position
+
     def test_contains(self, clusters: Clusters):
         """
         Membership check delegates to the cluster ID set.
@@ -70,15 +90,6 @@ class TestClusters:
             assert len(matrix[i]) == n
             for j in range(n):
                 assert matrix[i][j] == matrix[j][i]
-
-    def test_cluster_index_maps_id_to_position(self, clusters: Clusters):
-        """
-        `cluster_index` maps each cluster ID to its row position in
-        the centroids and vectors matrices, consistent with the sorted
-        `cluster_ids` ordering.
-        """
-        for position, cluster_id in enumerate(clusters.cluster_ids):
-            assert clusters.cluster_index[cluster_id] == position
 
     def test_getitem(self, clusters: Clusters):
         """
@@ -106,21 +117,7 @@ class TestClusters:
         """
         Length reflects the number of clusters.
         """
-        assert len(clusters) == CLUSTER_COUNT
-
-    @mark.parametrize("prop", [
-        "centroid_cosine",
-        "cluster_heatmap",
-        "pairwise_distances",
-        "soc_heatmap",
-        "vector_map"
-    ])
-    def test_cached_property_stable(self, clusters: Clusters, prop: str):
-        """
-        Cached properties return the same object on repeated access,
-        confirming the cache is not recomputed per call.
-        """
-        assert getattr(clusters, prop) is getattr(clusters, prop)
+        assert len(clusters) == 4
 
     def test_sector_sizes_sum(self, clusters: Clusters):
         """

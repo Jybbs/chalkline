@@ -10,13 +10,15 @@ embeddings, and assembles a reach view with per-edge credential metadata.
 import numpy as np
 
 from dataclasses              import dataclass, field
+from heapq                    import nlargest
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
-from chalkline.matching.schemas  import MatchResult, ScoredTask
-from chalkline.pathways.clusters import Cluster, Clusters, Task
-from chalkline.pathways.graph    import CareerPathwayGraph
-from chalkline.pipeline.encoder  import SentenceEncoder
+from chalkline.collection.schemas import Posting
+from chalkline.matching.schemas   import MatchResult, ScoredTask
+from chalkline.pathways.clusters  import Cluster, Clusters
+from chalkline.pathways.graph     import CareerPathwayGraph
+from chalkline.pipeline.encoder   import SentenceEncoder
 
 
 @dataclass(kw_only=True)
@@ -42,41 +44,46 @@ class ResumeMatcher:
     graph    : CareerPathwayGraph
     svd      : TruncatedSVD
 
-    resume_embedding : np.ndarray = field(init=False, repr=False)
+    global_threshold : float      = field(default=0.0, init=False)
+    resume_embedding : np.ndarray = field(init=False)
 
-    def _score_tasks(self, tasks: list[Task]) -> list[ScoredTask]:
+    def _similarities(self, matrix: np.ndarray) -> np.ndarray:
         """
-        Score O*NET tasks by cosine similarity to the resume and flag each
-        as demonstrated (>= median) or gap (< median).
-
-        Results are sorted by descending similarity so strengths appear
-        first and the largest gaps appear last.
+        Cosine similarity between the stored resume embedding and each
+        row of `matrix`, returned as a 1D array.
 
         Args:
-            tasks: Task+DWA elements with embedding vectors.
+            matrix: (n_items, embedding_dim) against `resume_embedding`.
         """
-        if not tasks:
-            return []
+        return cosine_similarity(self.resume_embedding, matrix)[0]
 
-        task_matrix  = np.stack([t.vector for t in tasks])
-        similarities = np.clip(
-            cosine_similarity(self.resume_embedding, task_matrix)[0],
-            -1.0,
-            1.0
+    def calibrate(self) -> dict[int, float]:
+        """
+        Compute per-cluster mean task similarity against the stored
+        resume embedding and set the global threshold for downstream
+        scoring.
+
+        Builds a similarity dict for all task-bearing clusters, stores
+        the median across all individual task scores as
+        `global_threshold`, and returns the per-cluster means used
+        by the map widget for match percentage rendering.
+
+        Returns:
+            Cluster ID to mean cosine similarity (0.0 for taskless
+            clusters).
+        """
+        sims = {
+            c.cluster_id: self._similarities(c.task_matrix)
+            for c in self.clusters.values() if c.tasks
+        }
+        self.global_threshold = (
+            float(np.median(np.concatenate(list(sims.values()))))
+            if sims else 0.0
         )
-        threshold    = float(np.median(similarities))
-        return sorted(
-            [
-                ScoredTask(
-                    demonstrated = s >= threshold,
-                    name         = t.name,
-                    similarity   = s
-                )
-                for t, s in zip(tasks, similarities)
-            ],
-            key     = lambda t: t.similarity,
-            reverse = True
-        )
+        return {
+            cid: float(s.mean()) if (s := sims.get(cid)) is not None else 0.0
+            for cid in self.clusters
+        }
 
     def match(self, resume_text: str) -> MatchResult:
         """
@@ -98,10 +105,10 @@ class ResumeMatcher:
             `MatchResult` with cluster, gaps, and reach.
         """
         self.resume_embedding = self.encoder.encode([resume_text])
-        
+
         resume_svd = self.svd.transform(self.resume_embedding)[0]
         distances  = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
-        cluster_id = self.clusters.cluster_ids[int(np.argmin(distances))]
+        cluster_id = self.clusters.cluster_ids[np.argmin(distances)]
         return MatchResult(
             cluster_distances = distances.tolist(),
             cluster_id        = cluster_id,
@@ -114,10 +121,59 @@ class ResumeMatcher:
         Score a destination cluster's O*NET tasks against the user's
         resume embedding stored from the most recent `match` call.
 
+        When `global_threshold` has been set (by `calibrate` batch
+        scoring), uses that fixed value so the demonstrated/gap
+        split varies meaningfully across clusters. Falls back to
+        the per-cluster median when no global threshold is available.
+
         Args:
             cluster: Destination career family with task embeddings.
 
         Returns:
             Scored tasks sorted by descending similarity.
         """
-        return self._score_tasks(cluster.tasks)
+        if not cluster.tasks:
+            return []
+
+        similarities = self._similarities(cluster.task_matrix)
+        threshold    = self.global_threshold or float(np.median(similarities))
+        return [
+            ScoredTask(
+                demonstrated = (s := float(similarities[i])) >= threshold,
+                name         = cluster.tasks[i].name,
+                similarity   = s
+            )
+            for i in np.argsort(-similarities)
+        ]
+
+    def score_postings(
+        self,
+        cluster : Cluster,
+        limit   : int = 30
+    ) -> list[tuple[Posting, float]]:
+        """
+        Score a cluster's postings by cosine similarity to the resume,
+        returned in reverse chronological order.
+
+        Uses the pre-computed per-posting embeddings stored on the
+        cluster from pipeline fit, avoiding re-encoding.
+
+        Args:
+            cluster : Career family with per-posting embeddings.
+            limit   : Maximum postings to return.
+
+        Returns:
+            (posting, similarity) pairs sorted most recent first.
+        """
+        return nlargest(
+            limit,
+            (
+                (p, float(s))
+                for p, s in zip(
+                    cluster.postings,
+                    self._similarities(cluster.embeddings)
+                )
+                if p.date_posted
+            ),
+            key = lambda pair: pair[0].date_posted or pair[0].date_collected
+        )

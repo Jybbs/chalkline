@@ -21,7 +21,7 @@ class Theme:
     """
 
     def __init__(self):
-        self.colors = MappingProxyType({
+        self.colors: MappingProxyType[str, str] = MappingProxyType({
             "accent"     : "#7db3e0",
             "building"   : "#5a9fd4",
             "cream"      : "#d4a574",
@@ -37,7 +37,7 @@ class Theme:
             "success"    : "#8cc5a3",
             "teal"       : "#7ecfc0"
         })
-        self.sectors = MappingProxyType({
+        self.sectors: MappingProxyType[str, str] = MappingProxyType({
             "Building Construction"      : self.colors["building"],
             "Heavy Highway Construction" : self.colors["heavy"],
             "Specialty Trade"            : self.colors["specialty"]

@@ -17,8 +17,7 @@ from itertools       import accumulate, chain, islice
 from math            import log
 from operator        import attrgetter
 from pydantic        import BaseModel
-from scipy.special   import expit
-from statistics      import median, stdev
+from statistics      import median
 from typing          import ClassVar, NamedTuple, Self, TypedDict
 
 from chalkline.collection.schemas    import Posting
@@ -57,6 +56,31 @@ class CoverageBuilder:
     active         : dict[str, set[int]]
     credential_map : dict[str, Credential]
     n_gaps         : int
+
+    @property
+    def best_item(self) -> PathItem | None:
+        """
+        Single credential covering the most gap tasks, or `None`.
+        """
+        return max(
+            (
+                PathItem.from_credential(len(gaps), c, label)
+                for label, gaps in self.active.items()
+                if (c := self.credential_map.get(label))
+            ),
+            key     = lambda p: p.coverage,
+            default = None
+        )
+
+    @property
+    def programs(self) -> dict[str, set[int]]:
+        """
+        Subset of `active` filtered to program-kind credentials.
+        """
+        return {
+            l: s for l, s in self.active.items()
+            if (c := self.credential_map.get(l)) and c.kind == "program"
+        }
 
     def path(
         self,
@@ -100,37 +124,12 @@ class CoverageBuilder:
             unique_coverage = self.n_gaps - len(remaining)
         )
 
-    @property
-    def best_item(self) -> PathItem | None:
-        """
-        Single credential covering the most gap tasks, or `None`.
-        """
-        return max(
-            (
-                PathItem.from_credential(len(gaps), c, label)
-                for label, gaps in self.active.items()
-                if (c := self.credential_map.get(label))
-            ),
-            key     = lambda p: p.coverage,
-            default = None
-        )
-
-    @property
-    def programs(self) -> dict[str, set[int]]:
-        """
-        Subset of `active` filtered to program-kind credentials.
-        """
-        return {
-            l: s for l, s in self.active.items()
-            if (c := self.credential_map.get(l)) and c.kind == "program"
-        }
-
     def stepping_path(
         self,
         best_item    : PathItem | None,
         graph        : CareerPathwayGraph,
         reach        : Reach,
-        route        : "RouteDetail"
+        route        : RouteDetail
     ) -> CredentialPath | None:
         """
         Stepping-stone strategy: find the best intermediate cluster
@@ -356,9 +355,9 @@ class GapCoverage(NamedTuple):
                 paths.append(education)
 
         if (stepping := builder.stepping_path(
-            best_item = best_item, 
-            graph     = pipeline.graph, 
-            reach     = result.reach, 
+            best_item = best_item,
+            graph     = pipeline.graph,
+            reach     = result.reach,
             route     = route
         )):
             paths.append(stepping)
@@ -375,7 +374,6 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
     dated       : list[DatedPoint]
     freshness   : list[int]
     locations   : dict[str, int]
-    recent      : list[Posting]
     stat_values : list[str]
 
     @property
@@ -421,7 +419,6 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
             ],
             freshness   = freshness,
             locations   = dict(locations.most_common(15)),
-            recent      = dated[:12],
             stat_values = [
                 str(len(postings)),
                 str(len(companies)),
@@ -462,7 +459,6 @@ class Labels(BaseModel, extra="forbid"):
 
     fallback_location : str
     job_zones         : dict[int, str]
-    map_you_are_here  : str
     spinner_text      : str
     tab_names         : dict[str, str]
     upload_label      : str
@@ -470,146 +466,31 @@ class Labels(BaseModel, extra="forbid"):
 
 class MapGeometry(BaseModel, extra="forbid"):
     """
-    Static layout geometry for the pathway map widget.
+    Static layout geometry for the force-directed pathway map widget.
 
-    Owns every pixel-level constant, opacity tier, and text-fit
-    threshold the layout factory consumes, so the JS renderer receives
-    a consistent dimensions payload and the Python side has a single
-    source of truth instead of scattered literals.
+    Owns pixel-level constants for node dimensions, force simulation
+    tuning, and text-fit thresholds. The JS renderer receives a
+    `dimensions` payload with the values it needs, while the Python
+    side uses `title_char_limit` for pre-truncation.
     """
 
-    col_gap              : int               = 90
-    default_total_width  : int               = 600
-    edge_midpoint_offset : int               = 30
-    hop_opacities        : tuple[float, ...] = (1, 1, 0.5, 0.2)
-    node_h               : int               = 52
-    node_spacing         : int               = 25
-    node_w               : int               = 140
-    pad                  : int               = 40
-    title_char_limit     : int               = 22
-    top_pad              : int               = 50
-
-    @property
-    def col_pitch(self) -> int:
-        """
-        Horizontal pixels between adjacent Job Zone column centers.
-        """
-        return self.node_w + self.col_gap
+    card_h              : int        = 56
+    card_w              : int        = 200
+    circle_r            : int        = 24
+    default_wage_range  : list[int]  = [30000, 90000]
+    height              : int        = 660
+    hero_h              : int        = 80
+    hero_w              : int        = 280
+    pad                 : int        = 50
+    title_char_limit    : int        = 28
+    width               : int        = 1800
 
     @property
     def dimensions(self) -> dict[str, int]:
         """
-        Card height, card width, and outer padding for the JS payload.
+        Layout constants for the JS force simulation and renderer.
         """
-        return self.model_dump(include={"node_h", "node_w", "pad"})
-
-    @property
-    def max_hop_index(self) -> int:
-        """
-        Largest valid index into `hop_opacities` for clamping BFS hops.
-        """
-        return len(self.hop_opacities) - 1
-
-    @property
-    def row_height(self) -> int:
-        """
-        Vertical pixels per node row including inter-node spacing.
-        """
-        return self.node_h + self.node_spacing
-
-
-class MapLayout(NamedTuple):
-    """
-    Precomputed spatial layout for the career pathway map widget.
-
-    Groups deterministic node positions, Job Zone column metadata, and
-    SVG dimensions so they travel together from `from_clusters` through
-    serialization into the D3 renderer.
-    """
-
-    columns      : list[dict]
-    positions    : dict[int, dict[str, int]]
-    total_height : int
-    total_width  : int
-
-    @classmethod
-    def from_clusters(cls, clusters: Clusters, geometry: MapGeometry) -> Self:
-        """
-        Deterministic grid layout placing clusters in Job Zone columns
-        with per-column independent top-aligned packing.
-
-        Within each column, nodes are grouped by sector in
-        `clusters.sectors` order and packed top-down from `top_pad` with
-        no inter-sector gap. Sectors no longer line up horizontally as
-        bands across columns; sector identity is preserved via node
-        color. This eliminates the floating-cluster effect that the
-        previous per-sector banding produced when a column was missing
-        one or more sectors.
-
-        Args:
-            clusters : Fitted cluster container with metadata.
-            geometry : Pixel constants for nodes, gaps, and padding.
-        """
-        def col_center(level: int) -> int:
-            return (level - 1) * geometry.col_pitch + geometry.node_w // 2
-
-        groups: dict[tuple[int, str], list[int]] = defaultdict(list)
-        for cluster in clusters.values():
-            groups[cluster.job_zone, cluster.sector].append(cluster.cluster_id)
-
-        job_zone_levels = sorted({level for level, _ in groups})
-        positions       = {}
-        column_heights  = []
-        for level in job_zone_levels:
-            column_nodes = [
-                node_id
-                for sector in clusters.sectors
-                for node_id in groups.get((level, sector), [])
-            ]
-            for i, node_id in enumerate(column_nodes):
-                positions[node_id] = {
-                    "x" : col_center(level),
-                    "y" : (
-                        geometry.top_pad
-                        + i * geometry.row_height
-                        + geometry.node_h // 2
-                    )
-                }
-            column_heights.append(
-                geometry.top_pad + len(column_nodes) * geometry.row_height
-            )
-
-        return cls(
-            columns = [
-                {
-                    "job_zone" : level,
-                    "x"        : col_center(level)
-                }
-                for level in job_zone_levels
-            ],
-            positions    = positions,
-            total_height = max(column_heights, default=geometry.top_pad),
-            total_width  = (
-                col_center(max(job_zone_levels)) + geometry.node_w // 2
-                if job_zone_levels else geometry.default_total_width
-            )
-        )
-
-    def labeled_columns(self, names: dict[int, str]) -> list[dict]:
-        """
-        Pair each column's x position with its label from `names`.
-
-        Resolves Job Zone level integers to display strings so the map
-        widget can drop the result straight into its JSON payload
-        without re-iterating `columns` at the call site.
-        """
-        return [
-            {
-                "label" : names[c["job_zone"]],
-                "x"     : c["x"]
-            }
-            for c in self.columns
-        ]
+        return self.model_dump(exclude={"default_wage_range", "title_char_limit"})
 
 
 class MlMetrics(BaseModel, extra="forbid"):
@@ -1001,7 +882,7 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
         if cls.board_cache is None:
             all_boards      = list(chain.from_iterable(reference.job_boards.values()))
             cls.board_cache = (
-                all_boards, 
+                all_boards,
                 encoder.encode([
                     f"{b.get('focus', '')}"
                     f" {b.get('best_for', '')}"
@@ -1037,31 +918,13 @@ class RouteDetail(NamedTuple):
     credentials      : list[Credential]
     destination      : Cluster
     destination_wage : float | None
+    display_title    : str
     gap_vectors      : np.ndarray
-    path             : list[int]
     scored_tasks     : list[ScoredTask]
     source           : Cluster
     source_wage      : float | None
-    weight           : float
 
     bright_outlook   : bool = False
-
-    @property
-    def calibration(self) -> tuple[float, float]:
-        """
-        Sigmoid parameters (midpoint, steepness) derived from this
-        route's scored task similarities.
-
-        Midpoint is the median similarity. Steepness is ln(4) / std,
-        which maps ±1 standard deviation from the median to 20%-80%
-        on the output scale. Used by `calibrate` so the sigmoid
-        adapts to the actual embedding distribution without
-        hardcoded constants.
-        """
-        sims = [t.similarity for t in self.scored_tasks]
-        mid  = median(sims) if sims else 0.4
-        sd   = stdev(sims)  if len(sims) > 1 else 0.1
-        return (mid, log(4) / max(sd, 0.01))
 
     @property
     def credential_map(self) -> dict[str, Credential]:
@@ -1094,9 +957,15 @@ class RouteDetail(NamedTuple):
     @property
     def fit_percentage(self) -> int:
         """
-        Route weight as a 0-100 percentage for hero display.
+        Mean raw cosine similarity as a 0-100 percentage for hero
+        display, matching the map donut formula.
         """
-        return round(self.weight * 100)
+        if not self.scored_tasks:
+            return 0
+        return round(
+            100 * sum(t.similarity for t in self.scored_tasks)
+            / len(self.scored_tasks)
+        )
 
     @property
     def gap_count(self) -> int:
@@ -1122,13 +991,6 @@ class RouteDetail(NamedTuple):
         return self.source.cluster_id == self.destination.cluster_id
 
     @property
-    def top_credential(self) -> Credential | None:
-        """
-        Highest-ranked bridging credential, or `None`.
-        """
-        return self.credentials[0] if self.credentials else None
-
-    @property
     def top_gaps(self) -> list[ScoredTask]:
         """
         Eight largest skill gaps by deficit (lowest similarity).
@@ -1145,7 +1007,11 @@ class RouteDetail(NamedTuple):
         Eight strongest demonstrated skills, sorted by descending
         similarity.
         """
-        return [t for t in self.scored_tasks if t.demonstrated][:8]
+        return nlargest(
+            8,
+            (t for t in self.scored_tasks if t.demonstrated),
+            key = attrgetter("similarity")
+        )
 
     @property
     def total_tasks(self) -> int:
@@ -1176,34 +1042,15 @@ class RouteDetail(NamedTuple):
         gaps = [t.name for t in scored_tasks if not t.demonstrated]
         if not gaps or not credentials:
             return np.empty((0, 0)), {}
-        
+
         vectors = pipeline.matcher.encoder.encode(gaps)
         return (
-            vectors, 
+            vectors,
             pipeline.graph.credential_coverage(
                 route_labels = [c.label for c in credentials],
                 task_vectors = vectors
             )
         )
-
-    def calibrate(self, tasks: list[ScoredTask]) -> list[ScoredTask]:
-        """
-        Map raw cosine similarities to a 0-100 scale via a sigmoid
-        parameterized by this route's task distribution.
-
-        The midpoint is the median similarity and the steepness is
-        ln(4) / std, mapping ±1 standard deviation to 20%-80%.
-
-        Args:
-            tasks: Scored tasks with raw cosine similarities.
-        """
-        midpoint, steepness = self.calibration
-        return [
-            t.model_copy(update={
-                "similarity": float(expit(steepness * (t.similarity - midpoint)))
-            })
-            for t in tasks
-        ]
 
     @classmethod
     def from_selection(
@@ -1233,8 +1080,6 @@ class RouteDetail(NamedTuple):
         if selected_id < 0 or selected_id == result.cluster_id:
             destination = profile
             edges       = result.reach.edges
-            path        = [profile.cluster_id]
-            weight      = result.confidence / 100
 
         elif (adjacent := next(
             (e for e in result.reach.edges if e.cluster_id == selected_id),
@@ -1242,8 +1087,6 @@ class RouteDetail(NamedTuple):
         )):
             destination = pipeline.clusters[selected_id]
             edges       = [adjacent]
-            path        = [profile.cluster_id, selected_id]
-            weight      = adjacent.weight
 
         else:
             path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
@@ -1251,23 +1094,26 @@ class RouteDetail(NamedTuple):
             if not edges:
                 return None
             destination = pipeline.clusters[selected_id]
-            weight      = min(e.weight for e in edges)
 
         credentials = [c for e in edges for c in e.credentials]
         scored      = pipeline.matcher.score_destination(destination)
         encoded     = cls._encode_gaps(credentials, pipeline, scored)
+
         return cls(
             bright_outlook   = labor[destination.soc_title].bright_outlook,
             coverage         = encoded[1],
             credentials      = credentials,
             destination      = destination,
             destination_wage = labor[destination.soc_title].annual_median,
+            display_title    = (
+                destination.modal_title
+                if pipeline.clusters.soc_counts[destination.soc_title] > 1
+                else destination.soc_title
+            ),
             gap_vectors      = encoded[0],
-            path             = path,
             scored_tasks     = scored,
             source           = profile,
-            source_wage      = labor[profile.soc_title].annual_median,
-            weight           = weight
+            source_wage      = labor[profile.soc_title].annual_median
         )
 
 

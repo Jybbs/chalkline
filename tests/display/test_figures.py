@@ -5,7 +5,8 @@ Validates that `Charts` produces figures with expected trace
 counts, annotations, and structural invariants.
 """
 
-from pytest import mark
+from datetime import date
+from pytest   import mark
 
 from chalkline.display.charts import Charts
 
@@ -104,4 +105,39 @@ class TestCharts:
         )
         names = [trace["name"] for trace in fig.to_dict()["data"]]
         assert names == ["full"]
+
+    def test_heatmap_auto_height(self, charts: Charts):
+        """
+        Heatmap auto-scales height by row count when height is
+        omitted.
+        """
+        fig = charts.heatmap(data={"A": [1.0, 0.5], "B": [0.5, 1.0]})
+        assert fig.to_dict()["layout"]["height"] >= 400
+
+    def test_histogram_bins(self, charts: Charts):
+        """
+        Histogram passes the bin count through to the trace.
+        """
+        fig = charts.histogram(
+            height  = 300,
+            nbins   = 10,
+            x       = [1.0, 2.0, 3.0],
+            x_title = "X",
+            y_title = "Y"
+        )
+        assert fig.to_dict()["data"][0]["nbinsx"] == 10
+
+    def test_timeline_hidden_y(self, charts: Charts):
+        """
+        Timeline renders dots at constant y=1 and hides the y-axis.
+        """
+        fig = charts.timeline(
+            dates  = [date(2026, 1, 1)],
+            height = 200,
+            hover  = ["A"]
+        )
+        data   = fig.to_dict()["data"][0]
+        layout = fig.to_dict()["layout"]
+        assert data["y"] == [1]
+        assert layout["yaxis"]["visible"] is False
 

@@ -50,7 +50,7 @@ class Charts:
     def _apply_layout(
         self,
         height       : int,
-        trace_or_fig : go.Figure | BaseTraceType | list,
+        trace_or_fig : go.Figure | BaseTraceType | list[BaseTraceType],
         **overrides
     ) -> go.Figure:
         """

@@ -16,7 +16,6 @@
     --cl-card-foreground  : #e0e0e0;
     --cl-error            : #e8876f;
     --cl-foreground       : #ebebeb;
-    --cl-highlight        : #dc143c;
     --cl-muted            : #2a2a2a;
     --cl-muted-foreground : #999;
     --cl-on-color         : #1a1a1a;
@@ -28,8 +27,7 @@
 /* ── Cards & containers ──────────────────────────────────────── */
 
 .cl-card,
-.cl-route-card,
-.cl-you-are-here {
+.cl-route-card {
     background          : var(--cl-card);
     border-inline-start : 4px solid var(--cl-primary);
     border-radius       : var(--cl-radius);
@@ -124,12 +122,13 @@
     width       : 4.5rem;
 }
 
-.cl-tagline { color: var(--cl-muted-foreground); font-size: 1.3rem; margin: 0; }
-
-.cl-stat-value {
-    color : var(--cl-primary);
-    font  : 700 1.8rem var(--marimo-heading-font);
+.cl-tagline {
+    color     : var(--cl-muted-foreground);
+    font-size : 1.3rem;
+    margin    : 0;
 }
+
+.cl-stat-value { color: var(--cl-primary); font: 700 1.8rem var(--marimo-heading-font); }
 
 .cl-stat-label {
     color              : var(--cl-muted-foreground);
@@ -137,19 +136,12 @@
     margin-block-start : 0.2rem;
 }
 
-.cl-match-bar {
-    color              : var(--cl-muted-foreground);
-    font-size          : 0.95rem;
-    margin-block-end   : -1.25rem;
-    padding            : 0.5rem 0;
-}
-
 /* Force Marimo file upload to fill container width */
 marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 .cl-stat-row {
     display               : grid;
-    gap                   : 2rem 2rem;
+    gap                   : 2rem;
     grid-template-columns : repeat(auto-fill, minmax(10rem, 1fr));
     margin-block-start    : 1rem;
     padding               : 0.75rem 0;
@@ -197,12 +189,14 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 /* ── Skills, flow & rankings ─────────────────────────────────── */
 
-.cl-flow {
+.cl-flow,
+.cl-route-hero-row {
     align-items : center;
     display     : flex;
     flex-wrap   : wrap;
-    gap         : 0.5rem;
 }
+
+.cl-flow { gap: 0.5rem; }
 
 .cl-flow-arrow  { color: var(--cl-muted-foreground); font-size: 1.2rem; }
 .cl-flow-detail { color: var(--cl-muted-foreground); font-size: 0.75rem; }
@@ -229,40 +223,27 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     &:empty { display: none; }
 }
 
-.cl-flow-step,
-.cl-route-wage {
-    background    : var(--cl-muted);
-    border-radius : var(--cl-radius);
-    text-align    : center;
-}
-
 .cl-flow-step {
+    background          : var(--cl-muted);
     border-inline-start : 4px solid transparent;
+    border-radius       : var(--cl-radius);
     flex                : 1;
     min-width           : 8rem;
     padding             : 0.6rem 1rem;
-}
-
-.cl-route-card,
-.cl-you-are-here {
-    box-shadow : 0 4px 12px var(--cl-base-shadow);
-    display    : grid;
+    text-align          : center;
 }
 
 .cl-route-card {
     border-inline-start-color : var(--cl-accent);
+    box-shadow                : 0 4px 12px var(--cl-base-shadow);
+    display                   : grid;
     gap                       : 1.5rem;
     padding                   : 1.5rem 1.75rem;
 }
 
 .cl-route-hero { display: grid; gap: 1rem; }
 
-.cl-route-hero-row {
-    align-items : center;
-    display     : flex;
-    flex-wrap   : wrap;
-    gap         : 1.5rem;
-}
+.cl-route-hero-row { gap: 1.5rem; }
 
 .cl-route-hero-extras { color: var(--cl-muted-foreground); font-size: 0.9rem; }
 
@@ -356,7 +337,8 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 .cl-path-details { display: grid; gap: 0.5rem; }
 
-.cl-path-header {
+.cl-path-header,
+.cl-posting-drawer > summary {
     color          : var(--cl-primary);
     cursor         : pointer;
     font           : 600 0.85rem var(--marimo-heading-font);
@@ -365,15 +347,18 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     text-transform : uppercase;
 }
 
-.cl-path-header::-webkit-details-marker { display: none; }
+.cl-path-header::-webkit-details-marker,
+.cl-posting-drawer > summary::-webkit-details-marker { display: none; }
 
-.cl-path-header::before {
-    content      : "＋";
-    font-size    : 0.75rem;
-    margin-right : 0.5rem;
+.cl-path-header::before,
+.cl-posting-drawer > summary::before {
+    content           : "＋";
+    font-size         : 0.75rem;
+    margin-inline-end : 0.5rem;
 }
 
-.cl-path-details[open] > .cl-path-header::before { content: "－"; }
+.cl-path-details[open] > .cl-path-header::before,
+.cl-posting-drawer[open] > summary::before { content: "－"; }
 
 .cl-path-row {
     align-items         : center;
@@ -405,17 +390,21 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     padding-block-start : 0.5rem;
 }
 
+.cl-badge,
 .cl-bright-outlook {
-    background     : color-mix(in srgb, var(--cl-primary) 15%, transparent);
-    border         : 1px solid var(--cl-primary);
     border-radius  : 999px;
-    box-shadow     : 0 0 10px color-mix(in srgb, var(--cl-primary) 40%, transparent);
-    color          : var(--cl-primary);
     display        : inline-block;
     font           : 600 0.7rem var(--marimo-text-font);
     letter-spacing : 0.03em;
-    padding        : 0.2rem 0.65rem;
     text-transform : uppercase;
+}
+
+.cl-bright-outlook {
+    background : color-mix(in srgb, var(--cl-primary) 15%, transparent);
+    border     : 1px solid var(--cl-primary);
+    box-shadow : 0 0 10px color-mix(in srgb, var(--cl-primary) 40%, transparent);
+    color      : var(--cl-primary);
+    padding    : 0.2rem 0.65rem;
 }
 
 .cl-route-label {
@@ -426,60 +415,9 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     text-transform   : uppercase;
 }
 
-.cl-you-are-here {
-    border-inline-start-color : var(--cl-error);
-    gap                       : 0.6rem;
-    padding                   : 1.25rem 1.5rem;
-}
-
-.cl-yah-title {
-    color : var(--cl-foreground);
-    font  : 700 1.1rem var(--marimo-heading-font);
-}
-
-.cl-yah-meta {
-    align-items : center;
-    color       : var(--cl-muted-foreground);
-    display     : flex;
-    flex-wrap   : wrap;
-    font-size   : 0.85rem;
-    gap         : 0.4rem;
-}
-
-.cl-yah-stats {
-    color       : var(--cl-foreground);
-    font-size   : 0.85rem;
-    line-height : 1.6;
-}
-
-.cl-yah-section {
-    border-block-start  : 1px solid var(--cl-border);
-    display             : grid;
-    gap                 : 0.25rem;
-    padding-block-start : 0.6rem;
-}
-
-.cl-yah-section-label {
-    color          : var(--cl-primary);
-    font           : 600 0.7rem var(--marimo-text-font);
-    letter-spacing : 0.05em;
-    text-transform : uppercase;
-}
-
-.cl-yah-section-body {
-    color       : var(--cl-card-foreground);
-    font-size   : 0.85rem;
-    line-height : 1.5;
-}
-
 .cl-badge {
-    border-radius  : 999px;
-    color          : var(--cl-on-color);
-    display        : inline-block;
-    font           : 600 0.7rem var(--marimo-text-font);
-    letter-spacing : 0.03em;
-    padding        : 0.15rem 0.6rem;
-    text-transform : uppercase;
+    color   : var(--cl-on-color);
+    padding : 0.15rem 0.6rem;
 }
 
 .cl-skill-card-list { display: grid; gap: 0.5rem; }
@@ -512,6 +450,56 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     height     : 100%;
     transition : width 0.3s;
 }
+
+/* ── Posting ribbons ───────────────────────────────────────── */
+
+.cl-posting-drawer {
+    background    : var(--cl-muted);
+    border-radius : var(--cl-radius);
+    display       : grid;
+    padding       : 1rem 1.25rem;
+}
+
+.cl-posting-drawer[open] > summary { margin-block-end: 0.5rem; }
+
+.cl-posting-ribbon {
+    align-items      : center;
+    border-block-end : 1px solid var(--cl-border);
+    display          : flex;
+    gap              : 0.75rem;
+    padding          : 0.4rem 0;
+}
+
+.cl-posting-ribbon:last-child { border-block-end: none; }
+
+.cl-posting-ribbon-line {
+    align-items : baseline;
+    display     : flex;
+    flex        : 1;
+    gap         : 0.5rem;
+    min-width   : 0;
+    overflow    : hidden;
+}
+
+.cl-posting-ribbon-link,
+.cl-posting-ribbon-pct,
+.cl-posting-ribbon-title { flex-shrink: 0; }
+
+.cl-posting-ribbon-pct,
+.cl-posting-ribbon-title { font: 600 0.82rem var(--marimo-heading-font); }
+
+.cl-posting-ribbon-title { color: var(--cl-foreground); }
+.cl-posting-ribbon-link  { color: var(--cl-accent); }
+
+.cl-posting-ribbon-meta {
+    color         : var(--cl-muted-foreground);
+    font-size     : 0.78rem;
+    overflow      : hidden;
+    text-overflow : ellipsis;
+    white-space   : nowrap;
+}
+
+.cl-posting-ribbon-pct { min-width: 2.5rem; text-align: end; }
 
 /* ── Glossary tooltips ──────────────────────────────────────── */
 
@@ -591,42 +579,90 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 /* ── Pathway map widget ──────────────────────────────────────── */
 
 .cl-pathway-map {
-    & :is(.arrow-marker, .col-label, .node-subtitle) { fill: var(--cl-muted-foreground); }
-
-    & :is(.cred-badge-text, .node-title) { fill: var(--cl-foreground); }
+    & .node-subtitle                     { fill: var(--cl-muted-foreground); font-size: 10px; }
     & :is(.edge, .matched-glow)          { fill: none; }
-    & .node                              { cursor: pointer; }
+    & :is(.node, .node-circle)           { cursor: pointer; }
     & .node-rect                         { fill: var(--cl-border); }
 
-    & .col-label { font-family: var(--marimo-heading-font); font-size: 12px; }
-
-    & .cred-badge-circle {
-        fill         : var(--cl-card);
-        stroke       : var(--cl-muted-foreground);
-        stroke-width : 0.8;
-    }
-
-    & .cred-badge-text { font-size: 9px; }
-
-    & .matched-glow {
-        opacity      : 0.3;
-        stroke       : var(--cl-highlight);
-        stroke-width : 1;
-    }
-
-    & .node-subtitle { font-size: 10px; }
-
-    & .node-title { font-family: var(--marimo-text-font); font-size: 11px; }
-
-    & .you-are-here {
-        fill        : var(--cl-highlight);
-        font-size   : 10px;
+    & :is(.circle-pct, .donut-label, .hero-donut-label,
+          .hero-title, .node-title, .tooltip-title) {
+        fill        : var(--cl-foreground);
         font-weight : 700;
     }
 
-    & .node:is(.matched, .selected) > .node-rect { stroke-width: 2.5; }
-    & .node.matched  > .node-rect { stroke: var(--cl-highlight); }
-    & .node.selected > .node-rect { stroke: var(--cl-primary); }
+    & :is(.hero-title, .node-title, .tooltip-title) { font-family: var(--marimo-heading-font); }
+    & :is(.hero-donut-label, .node-title, .tooltip-title) { font-size: 11px; }
+
+    /* ── Salary axis ─────────────────────────────────────── */
+
+    & .salary-shaft     { stroke: var(--cl-border); stroke-width: 1.5; }
+    & .salary-tick-mark { stroke: var(--cl-border); stroke-width: 1; }
+    & .salary-label     { fill: var(--cl-muted-foreground); font-size: 10px; }
+
+    /* ── Tier 2 circles with progress ring ───────────────── */
+
+    & .circle-bg {
+        fill         : var(--cl-card);
+        stroke       : var(--cl-border);
+        stroke-width : 1;
+    }
+
+    & :is(.circle-pct, .donut-label) { font-size: 9px; }
+    & .circle-label  { fill: var(--cl-muted-foreground); font-size: 7px; }
+    & .progress-ring { fill: var(--cl-primary); opacity: 0.7; }
+
+    & .node-circle.selected > .circle-bg {
+        stroke       : var(--cl-primary);
+        stroke-width : 2;
+    }
+
+    /* ── Tier 1 cards with donut ──────────────────────────── */
+
+    & .donut-bg {
+        fill         : var(--cl-muted);
+        stroke       : var(--cl-border);
+        stroke-width : 0.5;
+    }
+
+    & .donut-arc { fill: var(--cl-primary); }
+
+    & .node.selected > .node-rect {
+        stroke       : var(--cl-primary);
+        stroke-width : 2.5;
+    }
+
+    /* ── Hero card ──────────────────────────────────────── */
+
+    & .matched-glow {
+        opacity      : 0.35;
+        stroke       : var(--cl-secondary);
+        stroke-width : 2;
+    }
+
+    & .hero-bg {
+        fill         : var(--cl-card);
+        stroke       : var(--cl-secondary);
+        stroke-width : 2.5;
+    }
+
+    & .hero-title { font-size: 14px; }
+
+    & .hero-nav { fill: var(--cl-secondary); font-size: 11px; }
+
+    /* ── Hover tooltip ───────────────────────────────────── */
+
+    & .tooltip-bg {
+        fill    : var(--cl-card);
+        opacity : 0.95;
+        stroke  : var(--cl-border);
+    }
+
+    & .tooltip-dim      { fill: var(--cl-muted-foreground); font-size: 10px; }
+    & .tooltip-bar-you  { fill: var(--cl-accent); opacity: 0.8; }
+    & .tooltip-bar-dest { fill: var(--cl-primary); opacity: 0.8; }
+    & :is(.tooltip-positive, .tooltip-negative) { font-size: 10px; font-weight: 600; }
+    & .tooltip-positive { fill: var(--cl-secondary); }
+    & .tooltip-negative { fill: var(--cl-error); }
 }
 
 /* ── Marimo overrides ────────────────────────────────────────── */
@@ -637,7 +673,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     font-weight : 700;
 }
 
-:is(.cl-match-bar, .cl-overview-body, .cl-tip-body) strong,
+:is(.cl-overview-body, .cl-tip-body) strong,
 :is(.markdown, .prose, .cl-callout) code { color: var(--cl-foreground); }
 
 :is(.markdown, .prose) a { color: var(--cl-accent); }
@@ -652,24 +688,26 @@ code, pre, kbd { font-family: var(--marimo-monospace-font); }
     background    : var(--cl-card) !important;
     border        : 1px solid var(--cl-border);
     border-radius : var(--cl-radius) !important;
+    display       : flex !important;
     gap           : 0.25rem;
     max-height    : none !important;
     padding       : 0.25rem !important;
 }
 
 [role="tab"] {
-    border-radius : calc(var(--cl-radius) - 2px) !important;
-    color         : var(--cl-muted-foreground) !important;
-    font          : 600 0.85rem var(--marimo-heading-font) !important;
-    letter-spacing: 0.04em;
-    padding       : 0.35rem 1.25rem !important;
-    text-transform: uppercase;
-    transition    : color 0.2s, background 0.2s !important;
+    border-radius  : calc(var(--cl-radius) - 2px) !important;
+    color          : var(--cl-muted-foreground) !important;
+    flex           : 1 !important;
+    font           : 600 0.85rem var(--marimo-heading-font) !important;
+    letter-spacing : 0.04em;
+    padding        : 0.35rem 1.25rem !important;
+    text-transform : uppercase;
+    transition     : color 0.2s, background 0.2s !important;
 }
 
 [role="tab"]:hover { color: var(--cl-foreground) !important; }
 
-[role="tabpanel"] { margin-top: 0.75rem !important; }
+[role="tabpanel"] { margin-block-start: 0.75rem !important; }
 
 [role="tab"][data-state="active"] {
     background : var(--cl-muted) !important;

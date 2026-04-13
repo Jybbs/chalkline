@@ -52,6 +52,14 @@ class Cluster:
         )
 
     @cached_property
+    def task_matrix(self) -> np.ndarray:
+        """
+        Stacked task embedding vectors as a 2D array for cosine
+        similarity computation.
+        """
+        return np.stack([t.vector for t in self.tasks])
+
+    @cached_property
     def distinctive_tokens(self) -> list[list[str]]:
         """
         Per-posting bags of lowercased tokens longer than three
@@ -316,6 +324,15 @@ class Clusters:
         Posting count per cluster in sorted cluster-ID order.
         """
         return [c.size for c in self.values()]
+
+    @cached_property
+    def soc_counts(self) -> dict[str, int]:
+        """
+        Number of clusters sharing each SOC title, for display-layer
+        title disambiguation.
+        """
+        from collections import Counter
+        return Counter(c.soc_title for c in self.values())
 
     @cached_property
     def soc_heatmap(self) -> dict[str, list[float]]:

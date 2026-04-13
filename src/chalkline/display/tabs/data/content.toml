@@ -12,10 +12,6 @@ postings_title    = 'Number of Postings'
 tsne_x            = 't-SNE Component 1'
 tsne_y            = 't-SNE Component 2'
 
-[fallbacks]
-no_boards       = 'No Maine job boards match this family’s vocabulary.'
-no_company_data = 'No company data.'
-
 [tier_descriptions]
 'Unique to This Family'  = 'Found nowhere else in the corpus'
 'Rare Across the Corpus' = 'Shared with only two to four families'
@@ -32,10 +28,6 @@ description = 'Each dot is one job posting from this career family, projected fr
 [sections.credential_pathways]
 title       = 'Credential Pathways for This Career'
 description = 'Concrete training pathways from the AGC catalog ranked by how closely each one aligns with this career family in the embedding space, then bucketed into apprenticeships on the left, educational programs in the middle, and industry certifications on the right. Apprenticeship cards carry hour requirements drawn from their RAPIDS registration, program cards carry the Maine institution that offers them with an outbound link, and certification cards show the recognizable industry name.'
-
-[sections.relevant_boards]
-title       = 'Where to Look for These Jobs'
-description = 'Maine job boards whose stated focus or best-for description mentions any of this career family’s distinctive vocabulary, surfacing the platforms most likely to list these roles.'
 
 [sections.freshness_histogram]
 title       = 'How Stale is This Data?'

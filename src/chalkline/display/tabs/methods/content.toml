@@ -68,10 +68,6 @@ description = 'Cosine similarity between every pair of career family centroids. 
 title       = 'Data Reduction Pipeline'
 description = 'How data volume compresses at each stage from raw postings through embedding, SVD reduction, clustering, and graph construction.'
 
-[sections.landscape_3d]
-title       = '3D Career Landscape'
-description = 'Rotatable view of career family centroids in the first three SVD dimensions. Drag to explore separation that the 2D projection may collapse.'
-
 [sections.quality_scatter]
 title       = 'Cluster Quality vs. Centrality'
 description = 'Each career family plotted by its silhouette coefficient (*separation quality*) against brokerage centrality (*gateway connectivity*). Families in the upper right are both well-defined and well-connected.'

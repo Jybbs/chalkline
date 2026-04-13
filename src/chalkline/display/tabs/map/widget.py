@@ -1,10 +1,12 @@
 """
 Interactive career pathway map rendered with D3 via AnyWidget.
 
-Produces a columnar node-link diagram where columns represent Job Zone
-levels, rows group by sector, and edges show career transitions weighted
-by cosine similarity. Click events on nodes sync back to Python through
-traitlets for reactive panel updates in the Marimo notebook.
+Produces a force-directed node-link diagram where horizontal position
+encodes salary (higher wages drift right), node rendering tiers
+distinguish immediate career paths from distant options, and the matched
+career renders as an enriched hero card integrated into the SVG. Click
+and hover events sync back to Python through traitlets for reactive
+panel updates in the Marimo notebook.
 """
 
 from anywidget           import AnyWidget
@@ -13,8 +15,10 @@ from pathlib             import Path
 from traitlets.traitlets import Int, Unicode
 from typing              import Self
 
-from chalkline.display.schemas   import Labels, MapGeometry, MapLayout
+from chalkline.display.schemas   import MapGeometry
 from chalkline.display.theme     import Theme
+from chalkline.matching.matcher  import ResumeMatcher
+from chalkline.matching.schemas  import MatchResult
 from chalkline.pathways.clusters import Clusters
 from chalkline.pathways.graph    import CareerPathwayGraph
 from chalkline.pathways.loaders  import LaborLoader
@@ -41,101 +45,113 @@ class PathwayMap(AnyWidget):
         cls,
         clusters   : Clusters,
         graph      : CareerPathwayGraph,
-        labels     : Labels,
         labor      : LaborLoader,
         matched_id : int,
+        matcher    : ResumeMatcher,
+        result     : MatchResult,
         theme      : Theme
     ) -> Self:
         """
-        Build the widget with serialized graph data and theme colors.
+        Build the widget with serialized graph data for the force-directed
+        D3 renderer.
 
-        Pre-computes deterministic node positions, BFS hop distances from
-        the matched cluster, per-node sector colors and opacity tiers
-        from hop distance, truncated display titles, per-edge endpoints,
-        midpoints, and colors, and the static theme palette so the JS
-        renderer is a thin SVG mapper with no duplicated palette or
-        label state.
+        Calls the matcher's calibration to obtain per-cluster match
+        percentages, then assembles per-node metadata (wage, sector,
+        tier, display title with collision handling), per-edge
+        metadata, and enriched hero card data for the matched node.
+        The JS renderer runs a force simulation to compute positions
+        and handles all visual rendering.
 
         Args:
             clusters   : Fitted cluster container with metadata.
             graph      : Career pathway graph with edges and credentials.
-            labels     : Shared display labels for Job Zone columns.
             labor      : Wage data lookup per SOC title.
             matched_id : Cluster ID of the user's matched career.
+            matcher    : Fitted matcher for per-cluster similarity calibration.
+            result     : Resume match result with confidence and reach.
             theme      : Palette for sector colors and static UI hues.
 
         Returns:
             Configured `PathwayMap` ready for Marimo wrapping.
         """
-        geometry   = MapGeometry()
-        layout     = MapLayout.from_clusters(clusters, geometry)
-        hops       = graph.hops_from(matched_id)
-        char_limit = geometry.title_char_limit
-        columns    = layout.labeled_columns(labels.job_zones)
+        cluster_mean = matcher.calibrate()
+        geometry     = MapGeometry()
+        hops         = graph.hops_from(matched_id)
+
+        def select_wage(cluster) -> float | None:
+            record = labor[cluster.soc_title]
+            if clusters.soc_counts[cluster.soc_title] < 2:
+                return record.annual_median
+            jz_peers = sorted(
+                c.job_zone for c in clusters.values()
+                if c.soc_title == cluster.soc_title
+            )
+            rank = jz_peers.index(cluster.job_zone)
+            if rank == 0 and record.annual_25:
+                return record.annual_25
+            if rank == len(jz_peers) - 1 and record.annual_75:
+                return record.annual_75
+            return record.annual_median
 
         nodes = []
         for cluster in clusters.values():
-            soc_title = cluster.soc_title
-            wage      = labor[soc_title].annual_median
-            position  = layout.positions[cluster.cluster_id]
-            hop       = hops.get(cluster.cluster_id)
+            cid   = cluster.cluster_id
+            hop   = hops.get(cid)
+            title = (
+                cluster.modal_title
+                if clusters.soc_counts[cluster.soc_title] > 1
+                else cluster.soc_title
+            )
+            wage  = select_wage(cluster)
+
             nodes.append({
-                "color"    : theme.sector_background(cluster.sector),
-                "id"       : cluster.cluster_id,
-                "opacity"  : (
-                    geometry.hop_opacities[-1] if hop is None
-                    else geometry.hop_opacities[min(hop, geometry.max_hop_index)]
-                ),
-                "subtitle" : (
+                "color"     : theme.sector_background(cluster.sector),
+                "full_title": title,
+                "hop"       : hop,
+                "id"        : cid,
+                "match_pct" : round(100 * cluster_mean.get(cid, 0.0)),
+                "sector"    : cluster.sector,
+                "subtitle"  : (
                     f"{cluster.size} postings \u00b7 ${round(wage / 1000)}k"
                     if wage else f"{cluster.size} postings"
                 ),
-                "title"    : (
-                    soc_title if len(soc_title) <= char_limit
-                    else soc_title[:char_limit - 1] + "\u2026"
-                ),
-                "x"        : position["x"],
-                "y"        : position["y"]
+                "tier"      : 1 if hop is not None and hop <= 1 else 2,
+                "title"     : title,
+                "wage"      : wage
             })
 
-        edges = []
-        for source_id, target_id, data in graph.graph.edges(data=True):
-            if matched_id not in (source_id, target_id):
-                continue
-            source_cluster = clusters[source_id]
-            target_cluster = clusters[target_id]
-            source_pos     = layout.positions[source_id]
-            target_pos     = layout.positions[target_id]
-            edges.append({
-                "color"            : theme.sector_background(source_cluster.sector),
-                "credential_count" : len(data.get("credentials", [])),
-                "is_advancement"   : target_cluster.job_zone > source_cluster.job_zone,
-                "is_cross_sector"  : source_cluster.sector != target_cluster.sector,
-                "mx"               : (source_pos["x"] + target_pos["x"]) / 2,
-                "my"               : (
-                    (source_pos["y"] + target_pos["y"]) / 2
-                    - geometry.edge_midpoint_offset
-                ),
-                "source"           : source_id,
-                "sx"               : source_pos["x"],
-                "sy"               : source_pos["y"],
-                "target"           : target_id,
-                "tx"               : target_pos["x"],
-                "ty"               : target_pos["y"],
-                "weight"           : round(float(data["weight"]), 3)
-            })
+        wages = [n["wage"] for n in nodes if n["wage"]]
+
+        edges = [
+            {
+                "color"  : theme.sector_background(clusters[source_id].sector),
+                "source" : source_id,
+                "target" : target_id,
+                "weight" : round(float(data["weight"]), 3)
+            }
+            for source_id, target_id, data in graph.graph.edges(data=True)
+        ]
+
+        profile = clusters[matched_id]
+
+        hero = {
+            "n_matches"    : len(result.reach.edges),
+            "sector_color" : theme.sector_background(profile.sector),
+            "size"         : profile.size,
+            "title"        : profile.soc_title,
+            "wage"         : select_wage(profile)
+        }
 
         return cls(
             graph_data = dumps({
-                "columns"           : columns,
-                "dimensions"        : geometry.dimensions,
-                "edges"             : edges,
-                "matched_x"         : layout.positions[matched_id]["x"],
-                "matched_y"         : layout.positions[matched_id]["y"],
-                "nodes"             : nodes,
-                "total_height"      : layout.total_height,
-                "total_width"       : layout.total_width,
-                "you_are_here_text" : labels.map_you_are_here
+                "dimensions" : geometry.dimensions,
+                "edges"      : edges,
+                "hero"       : hero,
+                "nodes"      : nodes,
+                "wage_range" : (
+                    [min(wages), max(wages)]
+                    if wages else geometry.default_wage_range
+                )
             }),
             matched_id = matched_id
         )

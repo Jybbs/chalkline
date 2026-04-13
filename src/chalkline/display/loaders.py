@@ -12,7 +12,6 @@ notebook.
 
 import re
 
-from bisect               import bisect
 from collections.abc      import Iterable
 from functools            import cache, cached_property
 from htpy                 import a, br, div, Element, h1, hr, p, span, strong
@@ -246,19 +245,6 @@ class Layout:
 
         return pattern.sub(replace, text)
 
-    def board_card(self, **kwargs) -> Html:
-        """
-        Job board card with name, focus area, best-for description, and
-        category tag.
-        """
-        return self.to_html(
-            strong[kwargs["name"]],
-            span(".badge")[kwargs["category"]], br,
-            span(".secondary")[kwargs["focus"]], br,
-            span(".meta")[kwargs["best_for"]],
-            cls="cl-card"
-        )
-
     def board_chip(self, **kwargs) -> Html:
         """
         Compact job board ribbon tile with a semantic-similarity headline.
@@ -417,27 +403,6 @@ class Layout:
             gap=0.25
         )
 
-    def match_bar(self, profile: Cluster) -> Html:
-        """
-        Compact breadcrumb bar summarizing the matched career family.
-
-        Displayed between the upload gate and the tabbed report so the
-        user always sees which family they matched to.
-
-        Args:
-            profile: Matched career cluster.
-
-        Returns:
-            Single-line bar element with `.cl-match-bar` styling.
-        """
-        return self.to_html(
-            strong[profile.soc_title],
-            f" \u00b7 {profile.sector}"
-            f" \u00b7 {self.content.labels.job_zones[profile.job_zone]}"
-            f" \u00b7 {profile.size} postings",
-            cls="cl-match-bar"
-        )
-
     def overview(
         self,
         key : str,
@@ -508,6 +473,50 @@ class Layout:
             cls="cl-card"
         )
 
+    def posting_ribbon(
+        self,
+        color      : str,
+        posting    : Posting,
+        similarity : float
+    ) -> Html:
+        """
+        Single-line posting row with cosine similarity score, title
+        in serif, company, location, days since posted, and an
+        external link on the right.
+
+        Args:
+            color      : CSS color string for the similarity score.
+            posting    : Corpus posting record.
+            similarity : Raw cosine similarity to the resume (0-1).
+        """
+        from datetime import date
+
+        meta_parts = [posting.company]
+        if posting.location:
+            meta_parts.append(posting.location)
+        if posting.date_posted:
+            days = (date.today() - posting.date_posted).days
+            meta_parts.append(f"{days}d ago")
+
+        return self.to_html(
+            span(
+                ".cl-posting-ribbon-pct",
+                style=f"color:{color}"
+            )[f"{round(similarity * 100)}%"],
+            div(".cl-posting-ribbon-line")[
+                span(".cl-posting-ribbon-title")[posting.title],
+                span(".cl-posting-ribbon-meta")[
+                    " \u00b7 ".join(meta_parts)
+                ]
+            ],
+            a(
+                ".cl-posting-ribbon-link",
+                href   = posting.source_url,
+                target = "_blank"
+            )[self.external_icon],
+            cls = "cl-posting-ribbon"
+        )
+
     def process_flow(self, steps: Iterable[ProcessStep]) -> Html:
         """
         Horizontal process flow diagram as a CSS flexbox strip.
@@ -528,13 +537,12 @@ class Layout:
         cards = []
         for step in steps:
             if cards:
-                if step.arrow_label:
-                    cards.append(div(".cl-flow-arrow-wrap")[
-                        div(".cl-flow-arrow-label")[step.arrow_label],
-                        div(".cl-flow-arrow")["\u2192"]
-                    ])
-                else:
-                    cards.append(div(".cl-flow-arrow")["\u2192"])
+                arrow = div(".cl-flow-arrow")["\u2192"]
+                cards.append(
+                    div(".cl-flow-arrow-wrap")[
+                        div(".cl-flow-arrow-label")[step.arrow_label], arrow
+                    ] if step.arrow_label else arrow
+                )
             cards.append(div(
                 ".cl-flow-step",
                 **(
@@ -702,70 +710,6 @@ class Layout:
         and data tabs.
         """
         return Layout.stack(left, right, direction="h", widths=[1, 1])
-
-    def you_are_here(
-        self,
-        confidence       : int,
-        n_advancement    : int,
-        n_lateral        : int,
-        profile          : Cluster,
-        theme            : Theme,
-        wage             : float | None = None
-    ) -> Html:
-        """
-        Persistent sidebar identity card for the matched career family.
-
-        Scannable vertical card showing the matched cluster's identity
-        (SOC title, sector, Job Zone), match confidence as a verdict
-        label, posting count and median wage, and the number of
-        advancement and lateral options available from this position.
-        Designed to be the anchor the user's eye returns to while
-        exploring the neighborhood exploration cards below.
-
-        Args:
-            confidence    : Match confidence 0-100.
-            n_advancement : Count of advancement edges from this cluster.
-            n_lateral     : Count of lateral edges from this cluster.
-            profile       : Matched career cluster.
-            theme         : For confidence color and Job Zone label.
-            wage          : Annual median wage (optional).
-        """
-        verdict = ("Exploratory", "Multiple good fits", "Strong match")[
-            bisect((40, 70), confidence)
-        ]
-        return self.to_html(
-            div(".cl-yah-title")[profile.soc_title],
-            div(".cl-yah-meta")[
-                span(
-                    ".cl-badge",
-                    style=f"background:{theme.sector_background(profile.sector)}"
-                )[profile.sector],
-                " \u00b7 ",
-                span[self.content.labels.job_zones[profile.job_zone]]
-            ],
-            div(".cl-yah-stats")[
-                span(
-                    style=f"color:{theme.score_color(confidence)};font-weight:bold"
-                )[verdict],
-                span(".secondary")[f" ({confidence}%)"],
-                " \u00b7 ",
-                span[f"{profile.size} postings"],
-                f" \u00b7 ${wage:,.0f} median" if wage else ""
-            ],
-            div(".cl-yah-section")[
-                div(".cl-yah-section-body")[
-                    f"Advance to: {n_advancement} options \u2191"
-                    if n_advancement else "No advancement edges"
-                ]
-            ],
-            div(".cl-yah-section")[
-                div(".cl-yah-section-body")[
-                    f"Pivot to: {n_lateral} options \u2194"
-                    if n_lateral else "No lateral pivots"
-                ]
-            ],
-            cls="cl-you-are-here"
-        )
 
 
 class TabContext(NamedTuple):

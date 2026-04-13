@@ -2,20 +2,24 @@
 Tests for HTML card builders and layout utilities.
 """
 
-from typing import Callable
-
 from pytest import mark
+from typing import Callable
 
 from chalkline.collection.schemas import Posting
 from chalkline.display.loaders    import Layout
-from chalkline.display.theme      import Theme
-from chalkline.pathways.clusters  import Clusters
 
 
 class TestAnnotate:
     """
     Validate glossary annotation, dedup, and tooltip structure.
     """
+
+    def test_first_occurrence_wrapped(self, layout: Layout):
+        """
+        A known glossary term's first occurrence is wrapped in a
+        tooltip span.
+        """
+        assert "cl-term" in layout.annotate("<p>apprenticeship program</p>")
 
     @mark.parametrize("html", [
         "<p>BLS and Bureau of Labor Statistics</p>",
@@ -27,13 +31,6 @@ class TestAnnotate:
         exactly one tooltip, preventing cluttered annotations.
         """
         assert layout.annotate(html).count("cl-term") == 1
-
-    def test_first_occurrence_wrapped(self, layout: Layout):
-        """
-        A known glossary term's first occurrence is wrapped in a
-        tooltip span.
-        """
-        assert "cl-term" in layout.annotate("<p>apprenticeship program</p>")
 
 
 class TestPostingCard:
@@ -97,38 +94,3 @@ class TestStatRowColumns:
         assert f"repeat({expected_cols},1fr)" in html
 
 
-class TestVerdictThresholds:
-    """
-    Validate confidence-to-verdict mapping in the sidebar identity
-    card via `Layout.you_are_here`.
-    """
-
-    @mark.parametrize(("confidence", "expected"), [
-        (0,   "Exploratory"),
-        (39,  "Exploratory"),
-        (40,  "Multiple good fits"),
-        (69,  "Multiple good fits"),
-        (70,  "Strong match"),
-        (100, "Strong match")
-    ])
-    def test_verdict_label(
-        self,
-        clusters   : Clusters,
-        confidence : int,
-        expected   : str,
-        layout     : Layout,
-        theme      : Theme
-    ):
-        """
-        Bisect thresholds (40, 70) partition confidence into three
-        verdict buckets rendered in the sidebar card.
-        """
-        profile = next(iter(clusters.values()))
-        html    = layout.you_are_here(
-            confidence    = confidence,
-            n_advancement = 1,
-            n_lateral     = 1,
-            profile       = profile,
-            theme         = theme
-        ).text
-        assert expected in html

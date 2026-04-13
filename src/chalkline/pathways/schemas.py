@@ -119,6 +119,8 @@ class LaborRecord(BaseModel, extra="ignore"):
     needs without failing validation.
     """
 
+    annual_25      : float | None = Field(default=None, ge=0)
+    annual_75      : float | None = Field(default=None, ge=0)
     annual_median  : float | None = Field(default=None, ge=0)
     bright_outlook : bool         = False
     employment     : int          = Field(default=0, ge=0)

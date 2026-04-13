@@ -11,8 +11,8 @@ from marimo     import Html
 from markupsafe import Markup
 from typing     import Literal, TYPE_CHECKING
 
-from chalkline.display.schemas       import GapCoverage, RelevantJobBoards
-from chalkline.display.schemas       import RouteDetail, TabContent
+from chalkline.display.schemas       import GapCoverage, RelevantJobBoards, RouteDetail
+from chalkline.display.schemas       import TabContent
 from chalkline.display.theme         import Theme
 from chalkline.matching.schemas      import MatchResult, ScoredTask
 from chalkline.pathways.loaders      import StakeholderReference
@@ -34,7 +34,7 @@ class Routes:
 
     def __init__(
         self,
-        layout : "Layout",
+        layout : Layout,
         theme  : Theme
     ):
         self.layout = layout
@@ -105,7 +105,7 @@ class Routes:
                 div(".cl-route-label")[
                     tab.chart_labels[key].format(count=count)
                 ],
-                *self._skill_cards(route.calibrate(skills)),
+                *self._skill_cards(skills),
                 cls = "cl-skill-card-list"
             )
             for key, skills, count in (
@@ -247,7 +247,7 @@ class Routes:
             )[:8])
             else self.layout.callout(tab.fallbacks["no_employers"]),
             self.layout.header("boards", tab),
-            self.layout.grid(self.layout.board_chip(**b) for b in boards)
+            self.layout.grid((self.layout.board_chip(**b) for b in boards), 5)
             if (boards := RelevantJobBoards.from_cluster(
                 cluster   = route.destination,
                 clusters  = pipeline.clusters,
@@ -285,7 +285,7 @@ class Routes:
             *(
                 [self._wage_bar(
                     wages.destination_label,
-                    100 if route.is_self else wages.destination_percentage,
+                    wages.destination_percentage,
                     "dest"
                 )]
                 if wages.destination_wage else []
@@ -321,7 +321,7 @@ class Routes:
             p(".cl-verdict")[Markup(labels["verdict_match"].format(
                 demonstrated = route.demonstrated_count,
                 fit_pct      = route.fit_percentage,
-                soc_title    = dst.soc_title,
+                soc_title    = route.display_title,
                 total        = route.total_tasks
             ))],
             div(".cl-route-hero-extras")[extras],

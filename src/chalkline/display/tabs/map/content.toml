@@ -1,9 +1,5 @@
-title   = 'Career Map'
-tagline = 'Click any career family to see how to get there.'
-
 [chart_labels]
 bright_outlook      = 'Bright Outlook'
-career_detail       = 'intermediate role'
 career_label        = 'Career move'
 coverage_footer     = 'Combined unique coverage: {unique_cov} of {total} gaps'
 fit_meter_label     = 'match'
@@ -17,8 +13,8 @@ strategy_education  = 'Education-Led'
 strategy_fewest     = 'Fewest Steps to Coverage'
 strategy_stepping   = 'Try This Role First'
 strengths_heading   = 'Strengths ({count} demonstrated)'
-verdict_intro       = "You have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills. For the <strong>{gaps}</strong> you don't have yet:"
-verdict_match       = "You're a <strong>{fit_pct}%</strong> match. You already have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills common to <strong>{soc_title}</strong> roles."
+verdict_intro       = 'You have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills. For the <strong>{gaps}</strong> you don’t have yet:'
+verdict_match       = 'You’re a <strong>{fit_pct}%</strong> match. You already have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills common to <strong>{soc_title}</strong> roles.'
 
 [sections.evidence]
 title       = 'Skills & Evidence'
@@ -46,4 +42,3 @@ no_credentials = 'No credentials directly bridge this transition.'
 no_employers   = 'No AGC member companies are currently posting for this role.'
 no_gaps        = 'No significant skill gaps identified for this transition.'
 no_postings    = 'No postings available for this career family.'
-no_selection   = 'Click a career family on the map to see the route details.'

@@ -137,45 +137,22 @@ def _(layout, theme):
     return (routes,)
 
 
-# ── Match bar ──────────────────────────────────────────────────────
-
-@app.cell
-def _(layout, mo, profile, upload):
-    mo.stop(not upload.value, mo.md(""))
-    layout.match_bar(profile)
-    return
-
-
 # ── Map widget ─────────────────────────────────────────────────────
 
 @app.cell
-def _(content, labor, mo, pipeline, result, theme):
+def _(labor, mo, pipeline, result, theme):
     from chalkline.display.tabs.map.widget import PathwayMap
 
     map_widget = mo.ui.anywidget(PathwayMap.from_graph(
         clusters   = pipeline.clusters,
         graph      = pipeline.graph,
-        labels     = content.labels,
         labor      = labor,
         matched_id = result.cluster_id,
+        matcher    = pipeline.matcher,
+        result     = result,
         theme      = theme
     ))
     return (map_widget,)
-
-
-# ── Sidebar card ───────────────────────────────────────────────────
-
-@app.cell
-def _(labor, layout, profile, result, theme):
-    sidebar = layout.you_are_here(
-        confidence    = result.confidence,
-        n_advancement = len(result.reach.advancement),
-        n_lateral     = len(result.reach.lateral),
-        profile       = profile,
-        theme         = theme,
-        wage          = labor[profile.soc_title].annual_median
-    )
-    return (sidebar,)
 
 
 # ── Route computation ──────────────────────────────────────────────
@@ -222,7 +199,7 @@ def _(
 # ── Three-tab layout ───────────────────────────────────────────────
 
 @app.cell
-def _(ctx, map_widget, mo, route, sidebar):
+def _(ctx, map_widget, mo, route):
     from chalkline.display.tabs.data.render    import data_tab
     from chalkline.display.tabs.map.render     import map_tab
     from chalkline.display.tabs.methods.render import methods_tab
@@ -231,10 +208,9 @@ def _(ctx, map_widget, mo, route, sidebar):
     mo.ui.tabs(
         {
             tn["map"]     : lambda: map_tab(
-                ctx     = ctx,
-                route   = route,
-                sidebar = sidebar,
-                widget  = map_widget
+                ctx    = ctx,
+                route  = route,
+                widget = map_widget
             ),
             tn["data"]    : lambda: data_tab(ctx),
             tn["methods"] : lambda: methods_tab(ctx)

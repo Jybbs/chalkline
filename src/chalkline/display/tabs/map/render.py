@@ -1,14 +1,12 @@
 """
-Map tab renderer composing the career pathway map, sidebar identity
-card, route verdict with skill evidence, and collapsible resource
-drawers.
+Map tab renderer composing the force-directed career pathway map,
+route verdict with skill evidence, and collapsible resource drawers.
 
-The "You are here" sidebar card occupies the left 30% with the map
-widget on the right 70%. Below the header, the default
-state surfaces the matched career's skill profile, credentials, and
-postings. When the user clicks a destination node, the view switches
-to a transition route answering: is this worth it, what credentials
-bridge the gap, and who's hiring.
+The force-directed map widget spans the full width with the matched
+career rendered as an enriched hero card within the SVG itself. Below
+the map, the default state surfaces the matched career's skill
+profile, credentials, and postings. When the user clicks a destination
+node, the view switches to a transition route.
 """
 
 from marimo import Html, accordion
@@ -18,10 +16,9 @@ from chalkline.display.schemas import RouteDetail
 
 
 def map_tab(
-    ctx     : TabContext,
-    route   : RouteDetail,
-    sidebar : Html,
-    widget  : Html
+    ctx    : TabContext,
+    route  : RouteDetail,
+    widget : Html
 ) -> Html:
     """
     Compose the full Map tab.
@@ -34,12 +31,7 @@ def map_tab(
     tab = ctx.content.tab("map")
 
     return ctx.layout.stack(
-        ctx.layout.stack(
-            sidebar, widget,
-            align     = "start",
-            direction = "h",
-            widths    = [0.3, 0.7]
-        ),
+        widget,
 
         ctx.routes.card(
             ctx.routes.verdict(route, tab),
