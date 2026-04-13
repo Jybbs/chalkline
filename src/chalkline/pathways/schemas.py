@@ -7,7 +7,8 @@ properties. Behavioral containers (`Cluster`, `Clusters`, `Task`) live in
 """
 
 from enum     import StrEnum
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
+from typing   import Self
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -42,32 +43,35 @@ class Credential(BaseModel, extra="forbid"):
     kind           : str
     label          : str
 
-    metadata : dict = Field(default_factory=dict)
+    metadata : dict               = Field(default_factory=dict)
     vector   : list[float] | None = Field(default=None, exclude=True)
 
-    @field_validator("metadata")
-    @classmethod
-    def _validate_metadata(cls, v: dict, info) -> dict:
+    @property
+    def card_detail(self) -> str:
         """
-        Enforce required metadata keys per credential kind.
+        Dot-joined detail line for credential cards, combining hours
+        and institution when both are present.
+
+        Unlike `detail_label` (which picks one or the other), this
+        joins all available metadata with a centered dot so the card
+        shows the fullest possible detail line.
         """
-        match info.data.get("kind"):
-            case "apprenticeship" : required = {"min_hours", "rapids_code"}
-            case "program"        : required = {"credential", "institution", "url"}
-            case _                : required = set()
-        if missing := required - v.keys():
-            raise ValueError(f"Missing keys for {info.data['kind']}: {missing}")
-        return v
+        return " \u00b7 ".join(filter(None, (
+            f"{self.hours:,} hours" if self.hours else None,
+            self.metadata.get("institution")
+        )))
 
     @property
-    def description(self) -> str:
+    def detail_label(self) -> str:
         """
-        Parenthesized display string combining type label and optional
-        term hours.
+        Concise detail line for card and recipe displays.
+
+        Shows hours when available (e.g. "4,000 hours"), falls back
+        to institution name, then to the titlecased kind.
         """
         if self.hours:
-            return f"({self.type_label}, {self.hours:,} hours)"
-        return f"({self.type_label})"
+            return f"{self.hours:,} hours"
+        return self.metadata.get("institution", self.kind.title())
 
     @property
     def hours(self) -> int | None:
@@ -84,6 +88,26 @@ class Credential(BaseModel, extra="forbid"):
         """
         return self.metadata.get("credential", self.kind.title())
 
+    @property
+    def url(self) -> str:
+        """
+        External URL for program credentials, empty for other kinds.
+        """
+        return self.metadata.get("url", "")
+
+    @model_validator(mode="after")
+    def _validate_metadata(self) -> Self:
+        """
+        Enforce required metadata keys per credential kind.
+        """
+        match self.kind:
+            case "apprenticeship" : required = {"min_hours", "rapids_code"}
+            case "program"        : required = {"credential", "institution", "url"}
+            case _                : return self
+        if missing := required - self.metadata.keys():
+            raise ValueError(f"Missing keys for {self.kind}: {missing}")
+        return self
+
 
 class LaborRecord(BaseModel, extra="ignore"):
     """
@@ -95,11 +119,10 @@ class LaborRecord(BaseModel, extra="ignore"):
     needs without failing validation.
     """
 
-    soc_title: str
-
     annual_median  : float | None = Field(default=None, ge=0)
     bright_outlook : bool         = False
     employment     : int          = Field(default=0, ge=0)
+    soc_title      : str          = ""
 
     @model_validator(mode="before")
     @classmethod
@@ -172,6 +195,13 @@ class Reach(BaseModel, extra="forbid"):
 
     advancement : list[CareerEdge] = Field(default_factory=list)
     lateral     : list[CareerEdge] = Field(default_factory=list)
+
+    @property
+    def edges(self) -> list[CareerEdge]:
+        """
+        All reach edges, advancement followed by lateral.
+        """
+        return self.advancement + self.lateral
 
 
 class Skill(BaseModel, extra="forbid"):

@@ -25,17 +25,7 @@ def data_tab(ctx: TabContext) -> Html:
     tab        = ctx.content.tab("data")
     clusters   = ctx.pipeline.clusters
     postings   = JobPostingMetrics.from_postings(ctx.profile.postings, ctx.reference)
-    tiers      = DistinctiveVocabulary.from_cluster(
-        cluster     = ctx.profile,
-        clusters    = clusters,
-        tier_labels = list(tab.tier_descriptions)
-    ).tiers
-    series     = PostingProjection.from_cluster(ctx.profile).series
-    by_kind    = RelevantCredentials.from_cluster(
-        cluster  = ctx.profile,
-        clusters = clusters,
-        graph    = ctx.pipeline.graph
-    ).by_kind
+    projection = PostingProjection.from_cluster(ctx.profile)
     boards     = RelevantJobBoards.from_cluster(
         cluster   = ctx.profile,
         clusters  = clusters,
@@ -46,74 +36,75 @@ def data_tab(ctx: TabContext) -> Html:
     section_kw = {"soc_title": ctx.profile.soc_title}
 
     return ctx.layout.stack(
-        ctx.layout.overview(tab, "overview", **section_kw),
+        ctx.layout.overview("overview", tab, **section_kw),
         ctx.layout.stats(zip(tab.stat_labels, postings.stat_values)),
 
-        ctx.layout.header(tab, "recent", **section_kw),
+        ctx.layout.header("recent", tab, **section_kw),
         ctx.layout.grid(ctx.layout.posting_card(p) for p in postings.recent),
 
         ctx.layout.two_col(*(
-            ctx.layout.panel(tab, key, ctx.charts.bar(
+            ctx.layout.panel(ctx.charts.bar(
                 color      = color,
                 data       = data,
                 height     = max(300, len(data) * 28),
                 horizontal = True,
                 title      = tab.chart_labels["postings_title"]
-            ), **section_kw)
+            ), key, tab, **section_kw)
             for key, color, data in [
                 ("whos_hiring", "accent",  postings.companies),
                 ("locations",   "success", postings.locations)
             ]
         )),
 
-        ctx.layout.panel(tab, "distinctive_words",
-            ctx.charts.faceted_treemap(
-                descriptions = tab.tier_descriptions,
-                facets       = tiers,
-                height       = 480
-            ), **section_kw),
+        ctx.layout.panel(ctx.charts.faceted_treemap(
+            descriptions = tab.tier_descriptions,
+            facets       = DistinctiveVocabulary.from_cluster(
+                cluster           = ctx.profile,
+                clusters          = clusters,
+                tier_descriptions = tab.tier_descriptions
+            ).tiers,
+            height       = 480
+        ), "distinctive_words", tab, **section_kw),
 
         *ctx.layout.section_if(
-            series, tab, "posting_projection",
             ctx.charts.category_scatter(
-                data    = series,
+                data    = projection.series,
                 height  = 480,
                 x_title = tab.chart_labels["tsne_x"],
                 y_title = tab.chart_labels["tsne_y"]
             ),
+            projection, "posting_projection", tab,
             **section_kw
         ),
 
-        ctx.layout.header(tab, "credential_pathways"),
-        ctx.layout.stack(
-            *(
-                ctx.layout.grid(
-                    ctx.layout.credential_card(c, ctx.theme) for c in cards
-                )
-                for cards in by_kind.values()
-            ),
-            direction = "h",
-            widths    = [1, 1, 1]
+        ctx.layout.header("credential_pathways", tab),
+        ctx.layout.credential_columns(
+            RelevantCredentials.from_cluster(
+                cluster  = ctx.profile,
+                clusters = clusters,
+                graph    = ctx.pipeline.graph
+            ).by_kind,
+            ctx.theme
         ),
 
-        ctx.layout.header(tab, "relevant_boards"),
+        ctx.layout.header("relevant_boards", tab),
         ctx.layout.grid(
             ctx.layout.board_chip(**b) for b in boards
         ) if boards else ctx.layout.callout(tab.fallbacks["no_boards"]),
 
         *ctx.layout.stack_if(postings.dated, ctx.layout.two_col(
-            ctx.layout.panel(tab, "timeline", ctx.charts.timeline(
-                dates  = [d.date  for d in postings.dated],
+            ctx.layout.panel(ctx.charts.timeline(
+                dates  = postings.dates,
                 height = 280,
-                hover  = [d.label for d in postings.dated]
-            )),
-            ctx.layout.panel(tab, "freshness_histogram", ctx.charts.histogram(
+                hover  = postings.hover
+            ), "timeline", tab),
+            ctx.layout.panel(ctx.charts.histogram(
                 height  = 280,
                 nbins   = 15,
                 x       = postings.freshness,
                 x_title = tab.chart_labels["days_since_posted"],
                 y_title = tab.chart_labels["postings"]
-            ))
+            ), "freshness_histogram", tab)
         )),
 
         ctx.layout.callout(tab.info)

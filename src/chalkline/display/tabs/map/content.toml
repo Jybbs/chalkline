@@ -2,25 +2,23 @@ title   = 'Career Map'
 tagline = 'Click any career family to see how to get there.'
 
 [chart_labels]
-action_intro            = "Here's how to bridge this move:"
-bridge_label            = 'Bridges:'
-bright_outlook          = 'Bright Outlook'
-credential_match        = '{pct}% match'
-fit_meter_label         = 'match'
-gaps_heading            = 'Growth Areas ({count} to develop)'
-neighborhood_advance    = 'Advancement (higher experience level)'
-neighborhood_lateral    = 'Lateral Pivots (same experience level)'
-neighborhood_title      = "From {soc_title}, here's where you can go:"
-postings_heading        = 'Who’s hiring for this role ({count} positions)'
-recipe_heading          = 'Your next moves'
-stat_fit                = 'Fit'
-stat_postings           = 'Postings'
-stat_time               = 'Training'
-stat_wage               = 'Wage Delta'
-strengths_heading       = 'Strengths ({count} demonstrated)'
-verdict_template        = "You're a {fit_pct}% match. You already have {demonstrated} of {total} skills common to {soc_title} roles."
-wage_dest               = 'There'
-wage_source             = 'You'
+bright_outlook      = 'Bright Outlook'
+career_detail       = 'intermediate role'
+career_label        = 'Career move'
+coverage_footer     = 'Combined unique coverage: {unique_cov} of {total} gaps'
+fit_meter_label     = 'match'
+gap_badge           = '{cov} gap{s}'
+gaps_heading        = 'Growth Areas ({count} to develop)'
+open_positions      = 'open positions'
+path_header         = '{strategy} ({n_items} step{s} → covers {unique_cov} of {total})'
+postings_heading    = 'Open Positions for This Role ({count} available)'
+strategy_biggest    = 'Biggest Single Investment'
+strategy_education  = 'Education-Led'
+strategy_fewest     = 'Fewest Steps to Coverage'
+strategy_stepping   = 'Try This Role First'
+strengths_heading   = 'Strengths ({count} demonstrated)'
+verdict_intro       = "You have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills. For the <strong>{gaps}</strong> you don't have yet:"
+verdict_match       = "You're a <strong>{fit_pct}%</strong> match. You already have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills common to <strong>{soc_title}</strong> roles."
 
 [sections.evidence]
 title       = 'Skills & Evidence'
@@ -28,18 +26,18 @@ description = 'Full skill profile and gap analysis for the selected career move.
 
 [sections.resources]
 title       = 'Resources'
-description = 'Credentials, employers, and job boards that bridge the selected transition.'
+description = 'Full credential catalog, employers, and job boards for deeper exploration.'
 
 [sections.credentials]
-title       = 'Credentials that bridge this move'
+title       = 'Credentials That Bridge This Move'
 description = 'Apprenticeships, programs, and certifications ranked by their fit with this specific career transition.'
 
 [sections.employers]
-title       = 'Employers hiring for this role'
+title       = 'Employers Hiring for This Role'
 description = 'AGC member companies currently posting for this role in Maine.'
 
 [sections.boards]
-title       = 'Job boards for this career'
+title       = 'Job Boards for This Career'
 description = 'Maine and national job boards ranked by semantic similarity to this career family.'
 
 [fallbacks]
@@ -48,6 +46,4 @@ no_credentials = 'No credentials directly bridge this transition.'
 no_employers   = 'No AGC member companies are currently posting for this role.'
 no_gaps        = 'No significant skill gaps identified for this transition.'
 no_postings    = 'No postings available for this career family.'
-no_resources   = 'No resources found for this transition.'
 no_selection   = 'Click a career family on the map to see the route details.'
-no_strengths   = 'No demonstrated transferable skills for this transition yet.'

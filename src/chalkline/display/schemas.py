@@ -10,24 +10,167 @@ import numpy as np
 
 from collections     import Counter, defaultdict
 from collections.abc import Iterable
+from dataclasses     import dataclass
 from datetime        import date
-from difflib         import get_close_matches
 from heapq           import nlargest, nsmallest
 from itertools       import accumulate, chain, islice
 from math            import log
 from operator        import attrgetter
 from pydantic        import BaseModel
-from statistics      import median
-from typing          import ClassVar, NamedTuple, Self
+from scipy.special   import expit
+from statistics      import median, stdev
+from typing          import ClassVar, NamedTuple, Self, TypedDict
 
 from chalkline.collection.schemas    import Posting
 from chalkline.matching.schemas      import MatchResult, ScoredTask
 from chalkline.pathways.clusters     import Cluster, Clusters
 from chalkline.pathways.graph        import CareerPathwayGraph
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
-from chalkline.pathways.schemas      import Credential
+from chalkline.pathways.schemas      import Credential, Reach
 from chalkline.pipeline.encoder      import SentenceEncoder
 from chalkline.pipeline.orchestrator import Chalkline
+
+
+class BoardMatch(TypedDict):
+    """
+    Job board dict enriched with a cosine-similarity match score.
+    """
+
+    best_for    : str
+    category    : str
+    focus       : str
+    match_score : int
+    name        : str
+
+
+@dataclass
+class CoverageBuilder:
+    """
+    Shared context for greedy set-cover across multiple gap-closure
+    strategies within a single route.
+
+    Holds the credential-to-gap-index mapping, credential lookup, and
+    total gap count so each strategy call only specifies what varies:
+    the strategy name, the uncovered set, and an optional seed.
+    """
+
+    active         : dict[str, set[int]]
+    credential_map : dict[str, Credential]
+    n_gaps         : int
+
+    def path(
+        self,
+        strategy  : str,
+        uncovered : set[int],
+        seed      : list[str] | None = None
+    ) -> CredentialPath | None:
+        """
+        Greedy set-cover: pick the credential covering the most
+        uncovered gaps each step, up to four items.
+
+        Returns `None` when no credential covers any uncovered gap
+        and no seed labels were provided.
+
+        Args:
+            strategy  : Display label for this path.
+            uncovered : Gap indices not yet covered.
+            seed      : Labels to prepend before greedy fill.
+        """
+        selected  = list(seed or [])
+        remaining = set(uncovered)
+        for _ in range(4):
+            best = max(
+                self.active,
+                key     = lambda l: len(self.active[l] & remaining),
+                default = None
+            )
+            if not best or not (overlap := self.active.get(best, set()) & remaining):
+                break
+            selected.append(best)
+            remaining -= overlap
+        if not selected:
+            return None
+        return CredentialPath(
+            items = [
+                PathItem.from_credential(len(self.active[l]), c, l)
+                for l in selected
+                if (c := self.credential_map.get(l))
+            ],
+            strategy        = strategy,
+            unique_coverage = self.n_gaps - len(remaining)
+        )
+
+    @property
+    def best_item(self) -> PathItem | None:
+        """
+        Single credential covering the most gap tasks, or `None`.
+        """
+        return max(
+            (
+                PathItem.from_credential(len(gaps), c, label)
+                for label, gaps in self.active.items()
+                if (c := self.credential_map.get(label))
+            ),
+            key     = lambda p: p.coverage,
+            default = None
+        )
+
+    @property
+    def programs(self) -> dict[str, set[int]]:
+        """
+        Subset of `active` filtered to program-kind credentials.
+        """
+        return {
+            l: s for l, s in self.active.items()
+            if (c := self.credential_map.get(l)) and c.kind == "program"
+        }
+
+    def stepping_path(
+        self,
+        best_item    : PathItem | None,
+        graph        : CareerPathwayGraph,
+        reach        : Reach,
+        route        : "RouteDetail"
+    ) -> CredentialPath | None:
+        """
+        Stepping-stone strategy: find the best intermediate cluster
+        that covers gap tasks, optionally paired with `best_item`.
+
+        Returns `None` when no viable intermediate exists.
+        """
+        stepping = graph.stepping_stone(
+            destination  = route.destination,
+            reach        = reach,
+            task_vectors = route.gap_vectors
+        )
+        if not stepping:
+            return None
+        title, cov = stepping
+        step_item = PathItem(
+            coverage = cov,
+            detail   = "stepping",
+            kind     = "career",
+            label    = title
+        )
+        items = [step_item, best_item] if best_item else [step_item]
+        return CredentialPath(
+            items           = items,
+            strategy        = "stepping",
+            unique_coverage = min(
+                cov + (best_item.coverage if best_item else 0),
+                self.n_gaps
+            )
+        )
+
+
+class CredentialPath(NamedTuple):
+    """
+    One gap-closure strategy with its credentials and total coverage.
+    """
+
+    items           : list[PathItem]
+    strategy        : str
+    unique_coverage : int
 
 
 class DatedPoint(NamedTuple):
@@ -66,16 +209,16 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
 
     tiers: dict[str, dict[str, int]]
 
-    _corpus_cache: ClassVar[dict[int, tuple[dict[int, Counter], Counter]]] = {}
+    corpus_cache: ClassVar[dict[int, tuple[dict[int, Counter], Counter]]] = {}
 
     @classmethod
     def from_cluster(
         cls,
-        cluster     : Cluster,
-        clusters    : Clusters,
-        tier_labels : list[str],
-        min_count   : int = 3,
-        per_tier    : int = 12
+        cluster           : Cluster,
+        clusters          : Clusters,
+        tier_descriptions : dict[str, str],
+        min_count         : int = 3,
+        per_tier          : int = 12
     ) -> Self:
         """
         Rank vocabulary by TF-IDF over clusters-as-documents and bucket
@@ -90,26 +233,26 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
         identity.
 
         Args:
-            cluster     : Matched career family.
-            clusters    : Fitted cluster container with all postings.
-            tier_labels : Display labels for the unique, rare, and
-                          notable distinctiveness tiers in that order,
-                          sourced from the consuming tab's TOML.
-            min_count   : Minimum in-cluster occurrences for a word to
-                          be eligible, suppressing single-occurrence
-                          noise that would otherwise top the ranking.
-            per_tier    : Maximum words to keep per distinctiveness tier.
+            cluster           : Matched career family.
+            clusters          : Fitted cluster container with all postings.
+            tier_descriptions : Tier label-to-description mapping from
+                                tab TOML, iterated for tier names.
+            min_count         : Minimum in-cluster occurrences for a
+                                word to be eligible, suppressing
+                                single-occurrence noise that would
+                                otherwise top the ranking.
+            per_tier          : Maximum words to keep per
+                                distinctiveness tier.
         """
-        cache_key = id(clusters)
-        if cache_key not in cls._corpus_cache:
+        if (cache_key := id(clusters)) not in cls.corpus_cache:
             per_cluster = {
                 c.cluster_id: Counter(chain.from_iterable(c.distinctive_tokens))
                 for c in clusters.values()
             }
             doc_freq = Counter(chain.from_iterable(per_cluster.values()))
-            cls._corpus_cache[cache_key] = (per_cluster, doc_freq)
+            cls.corpus_cache[cache_key] = (per_cluster, doc_freq)
 
-        per_cluster, doc_freq = cls._corpus_cache[cache_key]
+        per_cluster, doc_freq = cls.corpus_cache[cache_key]
         target                = per_cluster[cluster.cluster_id]
 
         cluster_count = len(per_cluster)
@@ -123,7 +266,7 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
             for word, count in eligible.items()
         }
 
-        unique, rare, notable = tier_labels
+        unique, rare, notable = tier_descriptions
         tier_predicates = [
             (unique,  lambda df: df == 1),
             (rare,    lambda df: 2 <= df <= 4),
@@ -143,6 +286,86 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
         })
 
 
+class GapCoverage(NamedTuple):
+    """
+    Gap-closure analysis for a career transition.
+
+    Encodes the destination cluster's gap task names, computes
+    cosine similarity between each credential's embedding and every
+    gap task, thresholds at the per-credential 75th percentile, then
+    runs greedy set-cover to propose 2-4 alternative credential
+    combinations with different time/coverage tradeoffs.
+
+    The factory mirrors the `RelevantCredentials.from_cluster` and
+    `RelevantJobBoards.from_cluster` patterns: it takes individual
+    pipeline components rather than `TabContext` so the schema stays
+    independent of the display wiring.
+    """
+
+    paths: list[CredentialPath]
+
+    @classmethod
+    def from_route(
+        cls,
+        pipeline : Chalkline,
+        result   : MatchResult,
+        route    : "RouteDetail"
+    ) -> Self:
+        """
+        Assemble gap-closure strategies from the route's pre-computed
+        coverage mapping.
+
+        The route carries `coverage` and `gap_vectors` computed during
+        `RouteDetail.from_selection`, so this method focuses purely on
+        strategy assembly via `CoverageBuilder`.
+
+        Args:
+            pipeline : Fitted pipeline for stepping-stone lookup.
+            result   : Match result with reach edges for the
+                       stepping-stone strategy.
+            route    : Route with pre-computed coverage and gap vectors.
+        """
+        if not route.coverage:
+            return cls(paths=[])
+
+        builder  = CoverageBuilder(
+            active         = {l: g for l, g in route.coverage.items() if g},
+            credential_map = route.credential_map,
+            n_gaps         = route.gap_count
+        )
+        all_gaps   = set(range(builder.n_gaps))
+        best_item  = builder.best_item
+        paths: list[CredentialPath] = []
+
+        if (fewest := builder.path("fewest", all_gaps)):
+            paths.append(fewest)
+
+        if best_item and (not fewest or best_item.label != fewest.items[0].label):
+            paths.append(CredentialPath(
+                items           = [best_item],
+                strategy        = "biggest",
+                unique_coverage = best_item.coverage
+            ))
+
+        if (programs := builder.programs):
+            seed = max(programs, key=lambda l: len(programs[l]))
+            education = builder.path(
+                "education", all_gaps - programs[seed], [seed]
+            )
+            if education and (not fewest or education.items != fewest.items):
+                paths.append(education)
+
+        if (stepping := builder.stepping_path(
+            best_item = best_item, 
+            graph     = pipeline.graph, 
+            reach     = result.reach, 
+            route     = route
+        )):
+            paths.append(stepping)
+
+        return cls(paths=paths)
+
+
 class JobPostingMetrics(BaseModel, extra="forbid"):
     """
     Aggregated posting statistics for the matched career family.
@@ -154,6 +377,20 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
     locations   : dict[str, int]
     recent      : list[Posting]
     stat_values : list[str]
+
+    @property
+    def dates(self) -> list[date]:
+        """
+        Posting dates from `dated`, shaped for `Charts.timeline`.
+        """
+        return [d.date for d in self.dated]
+
+    @property
+    def hover(self) -> list[str]:
+        """
+        Hover labels from `dated`, shaped for `Charts.timeline`.
+        """
+        return [d.label for d in self.dated]
 
     @classmethod
     def from_postings(
@@ -174,21 +411,14 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
         companies = Counter(p.company for p in postings if p.company)
         locations = Counter(p.location for p in postings if p.location)
 
-        agc_names   = [m["name"] for m in reference.agc_members]
-        agc_matched = {
-            c for c in companies
-            if get_close_matches(c, agc_names, n=1, cutoff=0.7)
-        }
-
-        dated_points = [
-            DatedPoint(date=p.date_posted, label=p.company or p.title)
-            for p in dated
-        ]
         freshness = [(today - p.date_posted).days for p in dated]
 
         return cls(
             companies   = dict(companies.most_common(15)),
-            dated       = dated_points,
+            dated       = [
+                DatedPoint(p.date_posted, p.company or p.title)
+                for p in dated
+            ],
             freshness   = freshness,
             locations   = dict(locations.most_common(15)),
             recent      = dated[:12],
@@ -196,7 +426,7 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
                 str(len(postings)),
                 str(len(companies)),
                 str(len(locations)),
-                str(len(agc_matched)),
+                str(len(reference.match_employers(postings))),
                 f"{freshness[0]}d" if freshness else "N/A",
                 str(len(dated))
             ]
@@ -349,23 +579,20 @@ class MapLayout(NamedTuple):
                 geometry.top_pad + len(column_nodes) * geometry.row_height
             )
 
-        columns = [
-            {
-                "job_zone" : level,
-                "x"        : col_center(level)
-            }
-            for level in job_zone_levels
-        ]
-        total_width = (
-            col_center(max(job_zone_levels)) + geometry.node_w // 2
-            if job_zone_levels else geometry.default_total_width
-        )
-
         return cls(
-            columns      = columns,
+            columns = [
+                {
+                    "job_zone" : level,
+                    "x"        : col_center(level)
+                }
+                for level in job_zone_levels
+            ],
             positions    = positions,
             total_height = max(column_heights, default=geometry.top_pad),
-            total_width  = total_width
+            total_width  = (
+                col_center(max(job_zone_levels)) + geometry.node_w // 2
+                if job_zone_levels else geometry.default_total_width
+            )
         )
 
     def labeled_columns(self, names: dict[int, str]) -> list[dict]:
@@ -483,19 +710,10 @@ class MlMetrics(BaseModel, extra="forbid"):
             }
         )
 
-        soc_heatmap     = {
-            c.display_label: [round(float(v), 3) for v in row]
-            for c, row in zip(clusters.values(), clusters.soc_similarity)
-        }
-        cluster_heatmap = {
-            c.soc_title: row
-            for c, row in zip(clusters.values(), clusters.cosine_similarity_matrix)
-        }
-
         return cls(
             brokerage          = brokerage,
             cluster_count      = len(clusters),
-            cluster_heatmap    = cluster_heatmap,
+            cluster_heatmap    = clusters.cluster_heatmap,
             cluster_profiles   = clusters.profile_map,
             company_count      = clusters.company_count,
             component_count    = pipeline.config.component_count,
@@ -508,8 +726,37 @@ class MlMetrics(BaseModel, extra="forbid"):
             pairwise_distances = clusters.pairwise_distances,
             sector_sizes       = clusters.sector_sizes,
             silhouette         = SectorRanking.from_tuples(clusters.silhouette_scores),
-            soc_heatmap        = soc_heatmap,
+            soc_heatmap        = clusters.soc_heatmap,
             variance           = VarianceBreakdown.from_svd(ratio)
+        )
+
+
+class PathItem(NamedTuple):
+    """
+    One credential or career node in a gap-closure path.
+    """
+
+    coverage : int
+    detail   : str
+    kind     : str
+    label    : str
+
+    @classmethod
+    def from_credential(
+        cls,
+        coverage   : int,
+        credential : Credential,
+        label      : str
+    ) -> Self:
+        """
+        Build from a `Credential` lookup, pulling `detail_label` and
+        `kind` from the credential instance.
+        """
+        return cls(
+            coverage = coverage,
+            detail   = credential.detail_label,
+            kind     = credential.kind,
+            label    = label
         )
 
 
@@ -531,9 +778,16 @@ class PostingProjection(BaseModel, extra="forbid"):
     `projection.series` directly without unpacking parallel arrays.
     """
 
-    series: dict[str, dict[str, list]]
+    series: dict[str, ScatterSeries]
 
-    _series_cache: ClassVar[dict[int, dict[str, dict[str, list]]]] = {}
+    series_cache: ClassVar[dict[int, dict[str, ScatterSeries]]] = {}
+
+    def __bool__(self) -> bool:
+        """
+        True when the projection contains at least one sub-role
+        series, gating the conditional scatter panel in the render.
+        """
+        return bool(self.series)
 
     @classmethod
     def from_cluster(
@@ -565,67 +819,54 @@ class PostingProjection(BaseModel, extra="forbid"):
                            posting count to keep groups non-trivial.
             random_state : Seed for reproducible projections.
         """
-        if (cached := cls._series_cache.get(id(cluster))) is not None:
+        key = id(cluster)
+        if (cached := cls.series_cache.get(key)) is not None:
             return cls(series=cached)
+
+        if cluster.size < min_postings:
+            cls.series_cache[key] = (result := {})
+            return cls(series=result)
 
         from sklearn.cluster  import KMeans
         from sklearn.manifold import TSNE
 
         embeddings = cluster.embeddings
-        postings   = cluster.postings
-        if len(postings) < min_postings:
-            cls._series_cache[id(cluster)] = {}
-            return cls(series={})
-
-        perplexity = max(2.0, min(15.0, (len(postings) - 1) / 3))
-        coords     = TSNE(
+        coords = TSNE(
             init         = "pca",
             n_components = 2,
-            perplexity   = perplexity,
+            perplexity   = max(2.0, min(15.0, (cluster.size - 1) / 3)),
             random_state = random_state
         ).fit_transform(embeddings)
 
-        k = max(1, min(n_subgroups, len(postings) // 3))
-        if k >= 2:
-            assignments = KMeans(
+        k = max(1, min(n_subgroups, cluster.size // 3))
+        assignments = (
+            KMeans(
                 n_clusters   = k,
                 n_init       = 10,
                 random_state = random_state
             ).fit_predict(embeddings)
-        else:
-            assignments = np.zeros(len(postings), dtype=int)
+            if k >= 2 else np.zeros(cluster.size, dtype=int)
+        )
 
-        sub_counts: list[Counter] = [Counter() for _ in range(k)]
-        for label, bag in zip(assignments, cluster.distinctive_tokens):
-            sub_counts[label].update(bag)
+        sub_labels = cluster.sub_role_labels(assignments, k)
+        grouped: dict[str, list[tuple]] = defaultdict(list)
+        for assignment, xy, p in zip(assignments, coords, cluster.postings):
+            grouped[sub_labels[int(assignment)]].append((
+                f"{p.title} · {p.company}" if p.company else p.title,
+                float(xy[0]),
+                float(xy[1])
+            ))
 
-        sub_doc_freq = Counter(chain.from_iterable(sub_counts))
-
-        sub_labels: list[str] = []
-        for index, counter in enumerate(sub_counts):
-            total = counter.total() or 1
-            top   = nlargest(
-                2,
-                ((w, c) for w, c in counter.items() if c >= 2 and sub_doc_freq[w] < k),
-                key = lambda wc: (wc[1] / total) * log(k / sub_doc_freq[wc[0]])
+        hover, x, y = range(3)
+        cls.series_cache[key] = (result := {
+            label: ScatterSeries(
+                hover = [p[hover] for p in pts],
+                x     = [p[x]     for p in pts],
+                y     = [p[y]     for p in pts]
             )
-            sub_labels.append(
-                " · ".join(w.title() for w, _ in top) if top else f"Sub-role {index + 1}"
-            )
-
-        series: dict[str, dict[str, list]] = defaultdict(lambda: {
-            "hover" : [],
-            "x"     : [],
-            "y"     : []
+            for label, pts in grouped.items()
         })
-        for assignment, (x, y), p in zip(assignments, coords, postings):
-            bucket = series[sub_labels[int(assignment)]]
-            bucket["hover"].append(f"{p.title} · {p.company}" if p.company else p.title)
-            bucket["x"].append(float(x))
-            bucket["y"].append(float(y))
-
-        cls._series_cache[id(cluster)] = dict(series)
-        return cls(series=cls._series_cache[id(cluster)])
+        return cls(series=result)
 
 
 class ProcessStep(BaseModel, extra="forbid"):
@@ -729,9 +970,8 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
     Match) without modification.
     """
 
-    boards: list[dict[str, object]]
-
-    _board_cache: ClassVar[tuple[list, np.ndarray] | None] = None
+    boards      : list[BoardMatch]
+    board_cache : ClassVar[tuple[list, np.ndarray] | None] = None
 
     @classmethod
     def from_cluster(
@@ -740,7 +980,7 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
         clusters  : Clusters,
         encoder   : SentenceEncoder,
         reference : StakeholderReference,
-        limit     : int = 6
+        limit     : int = 5
     ) -> Self:
         """
         Rank job boards by cosine similarity to the matched cluster.
@@ -758,20 +998,26 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
         """
         from sklearn.metrics.pairwise import cosine_similarity
 
-        if cls._board_cache is None:
-            all_boards = list(chain.from_iterable(reference.job_boards.values()))
-            cls._board_cache = (all_boards, encoder.encode([
-                f"{b.get('focus', '')} {b.get('best_for', '')} {b.get('category', '')}"
-                for b in all_boards
-            ]))
+        if cls.board_cache is None:
+            all_boards      = list(chain.from_iterable(reference.job_boards.values()))
+            cls.board_cache = (
+                all_boards, 
+                encoder.encode([
+                    f"{b.get('focus', '')}"
+                    f" {b.get('best_for', '')}"
+                    f" {b.get('category', '')}"
+                    for b in all_boards
+                ]))
 
-        all_boards, matrix = cls._board_cache
+        all_boards, matrix = cls.board_cache
         cluster_vector     = clusters.vector_map[cluster.cluster_id]
         similarities       = cosine_similarity(cluster_vector[None, :], matrix)[0]
-        ranked             = np.argsort(-similarities)[:limit]
         return cls(boards=[
-            {**all_boards[i], "match_score": round(float(similarities[i]) * 100)}
-            for i in ranked
+            BoardMatch(
+                **all_boards[i],
+                match_score = round(float(similarities[i]) * 100)
+            )
+            for i in np.argsort(-similarities)[:limit]
         ])
 
 
@@ -787,21 +1033,63 @@ class RouteDetail(NamedTuple):
     destinations that aren't direct neighbors.
     """
 
+    coverage         : dict[str, set[int]]
     credentials      : list[Credential]
     destination      : Cluster
     destination_wage : float | None
+    gap_vectors      : np.ndarray
     path             : list[int]
     scored_tasks     : list[ScoredTask]
     source           : Cluster
     source_wage      : float | None
     weight           : float
 
+    bright_outlook   : bool = False
+
+    @property
+    def calibration(self) -> tuple[float, float]:
+        """
+        Sigmoid parameters (midpoint, steepness) derived from this
+        route's scored task similarities.
+
+        Midpoint is the median similarity. Steepness is ln(4) / std,
+        which maps ±1 standard deviation from the median to 20%-80%
+        on the output scale. Used by `calibrate` so the sigmoid
+        adapts to the actual embedding distribution without
+        hardcoded constants.
+        """
+        sims = [t.similarity for t in self.scored_tasks]
+        mid  = median(sims) if sims else 0.4
+        sd   = stdev(sims)  if len(sims) > 1 else 0.1
+        return (mid, log(4) / max(sd, 0.01))
+
+    @property
+    def credential_map(self) -> dict[str, Credential]:
+        """
+        Credential label to `Credential` object for O(1) lookup.
+        """
+        return {c.label: c for c in self.credentials}
+
+    @property
+    def credentials_by_kind(self) -> dict[str, list[Credential]]:
+        """
+        Route credentials grouped by kind, with empty kinds omitted.
+
+        Reusable for both the recipe section (top picks per kind) and
+        the resources drawer (full catalog per kind) so neither has
+        to rebuild the grouping.
+        """
+        by_kind: dict[str, list[Credential]] = {}
+        for credential in self.credentials:
+            by_kind.setdefault(credential.kind, []).append(credential)
+        return by_kind
+
     @property
     def demonstrated_count(self) -> int:
         """
         Number of destination tasks the resume demonstrates.
         """
-        return sum(1 for t in self.scored_tasks if t.demonstrated)
+        return sum(t.demonstrated for t in self.scored_tasks)
 
     @property
     def fit_percentage(self) -> int:
@@ -815,7 +1103,23 @@ class RouteDetail(NamedTuple):
         """
         Number of destination tasks the resume does not demonstrate.
         """
-        return sum(1 for t in self.scored_tasks if not t.demonstrated)
+        return len(self.gap_tasks)
+
+    @property
+    def gap_tasks(self) -> list[ScoredTask]:
+        """
+        Destination tasks the resume does not demonstrate.
+        """
+        return [t for t in self.scored_tasks if not t.demonstrated]
+
+    @property
+    def is_self(self) -> bool:
+        """
+        True when source and destination are the same cluster,
+        meaning the user is viewing their matched career rather
+        than a transition route.
+        """
+        return self.source.cluster_id == self.destination.cluster_id
 
     @property
     def top_credential(self) -> Credential | None:
@@ -827,21 +1131,21 @@ class RouteDetail(NamedTuple):
     @property
     def top_gaps(self) -> list[ScoredTask]:
         """
-        Ten largest skill gaps by deficit (lowest similarity).
+        Eight largest skill gaps by deficit (lowest similarity).
         """
         return nsmallest(
-            10,
-            (t for t in self.scored_tasks if not t.demonstrated),
+            8,
+            self.gap_tasks,
             key = attrgetter("similarity")
         )
 
     @property
     def top_strengths(self) -> list[ScoredTask]:
         """
-        Ten strongest demonstrated skills, sorted by descending
+        Eight strongest demonstrated skills, sorted by descending
         similarity.
         """
-        return [t for t in self.scored_tasks if t.demonstrated][:10]
+        return [t for t in self.scored_tasks if t.demonstrated][:8]
 
     @property
     def total_tasks(self) -> int:
@@ -851,13 +1155,55 @@ class RouteDetail(NamedTuple):
         return len(self.scored_tasks)
 
     @property
-    def wage_delta(self) -> float | None:
+    def wage_comparison(self) -> WageComparison:
         """
-        Annual wage difference from source to destination.
+        Wage bar data for the verdict hero section, with display
+        labels and percentages derived from the raw amounts.
         """
-        if self.source_wage is None or self.destination_wage is None:
-            return None
-        return self.destination_wage - self.source_wage
+        return WageComparison(self.destination_wage, self.source_wage)
+
+    @staticmethod
+    def _encode_gaps(
+        credentials  : list[Credential],
+        pipeline     : Chalkline,
+        scored_tasks : list[ScoredTask]
+    ) -> tuple[np.ndarray, dict[str, set[int]]]:
+        """
+        Encode gap task names and compute credential coverage,
+        returning empty defaults when there are no gaps or
+        credentials to evaluate.
+        """
+        gaps = [t.name for t in scored_tasks if not t.demonstrated]
+        if not gaps or not credentials:
+            return np.empty((0, 0)), {}
+        
+        vectors = pipeline.matcher.encoder.encode(gaps)
+        return (
+            vectors, 
+            pipeline.graph.credential_coverage(
+                route_labels = [c.label for c in credentials],
+                task_vectors = vectors
+            )
+        )
+
+    def calibrate(self, tasks: list[ScoredTask]) -> list[ScoredTask]:
+        """
+        Map raw cosine similarities to a 0-100 scale via a sigmoid
+        parameterized by this route's task distribution.
+
+        The midpoint is the median similarity and the steepness is
+        ln(4) / std, mapping ±1 standard deviation to 20%-80%.
+
+        Args:
+            tasks: Scored tasks with raw cosine similarities.
+        """
+        midpoint, steepness = self.calibration
+        return [
+            t.model_copy(update={
+                "similarity": float(expit(steepness * (t.similarity - midpoint)))
+            })
+            for t in tasks
+        ]
 
     @classmethod
     def from_selection(
@@ -878,36 +1224,61 @@ class RouteDetail(NamedTuple):
         because the user clicked a specific node and the one-hop
         move carries the most relevant credentials. Falls back to the
         widest-path tree for non-adjacent destinations.
+
+        When `selected_id` is negative (no click yet) or equals the
+        matched cluster, builds a self-route so the user sees their
+        skill profile, credentials, and postings for the matched
+        career immediately rather than an empty callout.
         """
         if selected_id < 0 or selected_id == result.cluster_id:
-            return None
+            destination = profile
+            edges       = result.reach.edges
+            path        = [profile.cluster_id]
+            weight      = result.confidence / 100
 
-        adjacent = next(
-            (e for e in chain(result.reach.advancement, result.reach.lateral)
-             if e.cluster_id == selected_id),
+        elif (adjacent := next(
+            (e for e in result.reach.edges if e.cluster_id == selected_id),
             None
-        )
-        if adjacent is not None:
-            edges = [adjacent]
-            path  = [profile.cluster_id, selected_id]
+        )):
+            destination = pipeline.clusters[selected_id]
+            edges       = [adjacent]
+            path        = [profile.cluster_id, selected_id]
+            weight      = adjacent.weight
+
         else:
             path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
-            edges = pipeline.graph.path_edges(path) if path else []
+            edges = pipeline.graph.path_edges(path)
+            if not edges:
+                return None
+            destination = pipeline.clusters[selected_id]
+            weight      = min(e.weight for e in edges)
 
-        if not edges:
-            return None
-
-        destination = pipeline.clusters[selected_id]
+        credentials = [c for e in edges for c in e.credentials]
+        scored      = pipeline.matcher.score_destination(destination)
+        encoded     = cls._encode_gaps(credentials, pipeline, scored)
         return cls(
-            credentials      = [c for e in edges for c in e.credentials],
+            bright_outlook   = labor[destination.soc_title].bright_outlook,
+            coverage         = encoded[1],
+            credentials      = credentials,
             destination      = destination,
-            destination_wage = labor.wage(destination.soc_title),
+            destination_wage = labor[destination.soc_title].annual_median,
+            gap_vectors      = encoded[0],
             path             = path,
-            scored_tasks     = pipeline.matcher.score_destination(destination),
+            scored_tasks     = scored,
             source           = profile,
-            source_wage      = labor.wage(profile.soc_title),
-            weight           = min((e.weight for e in edges), default=0)
+            source_wage      = labor[profile.soc_title].annual_median,
+            weight           = weight
         )
+
+
+class ScatterSeries(TypedDict):
+    """
+    Parallel arrays for one trace in a category scatter chart.
+    """
+
+    hover : list[str]
+    x     : list[float]
+    y     : list[float]
 
 
 class SectionContent(BaseModel, extra="forbid"):
@@ -1086,3 +1457,72 @@ class VarianceBreakdown(BaseModel, extra="forbid"):
             components = components,
             total      = round(sum(components), 2)
         )
+
+
+class WageComparison(NamedTuple):
+    """
+    Wage bar data for the route card verdict section.
+
+    Accepts nullable wages directly from `RouteDetail` and resolves
+    them to zero internally so callers never need `or 0`. Display
+    percentages are relative to the higher wage so the longer bar
+    is always 100%.
+    """
+
+    destination_wage : float | None = None
+    source_wage      : float | None = None
+
+    @property
+    def delta(self) -> float | None:
+        """
+        Annual wage difference, or `None` when either wage is
+        unavailable.
+        """
+        if not self.source_wage or not self.destination_wage:
+            return None
+        return self.destination_wage - self.source_wage
+
+    @property
+    def delta_display(self) -> str:
+        """
+        Signed dollar-per-year string, or empty when unavailable.
+        """
+        if (d := self.delta) is None:
+            return ""
+        return f"{'+'  if d >= 0 else ''}${d:,.0f}/yr"
+
+    @property
+    def destination_label(self) -> str:
+        """
+        Formatted destination wage or em dash when unavailable.
+        """
+        if not self.destination_wage:
+            return "\u2014"
+        return f"${self.destination_wage / 1000:.0f}k"
+
+    @property
+    def destination_percentage(self) -> int:
+        """
+        Destination wage as a percentage of the higher wage.
+        """
+        d = self.destination_wage or 0
+        s = self.source_wage or 0
+        return round(d / max(d, s, 1) * 100)
+
+    @property
+    def source_label(self) -> str:
+        """
+        Formatted source wage or em dash when unavailable.
+        """
+        if not self.source_wage:
+            return "\u2014"
+        return f"${self.source_wage / 1000:.0f}k"
+
+    @property
+    def source_percentage(self) -> int:
+        """
+        Source wage as a percentage of the higher wage.
+        """
+        d = self.destination_wage or 0
+        s = self.source_wage or 0
+        return round(s / max(d, s, 1) * 100)

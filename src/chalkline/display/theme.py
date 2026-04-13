@@ -7,12 +7,11 @@ template with Plotly on construction, making `template="chalkline_dark"`
 resolve globally.
 """
 
+import plotly.colors        as pc
 import plotly.graph_objects as go
 import plotly.io            as pio
 
-from bisect          import bisect
-from collections.abc import Iterable
-from types           import MappingProxyType
+from types import MappingProxyType
 
 
 class Theme:
@@ -46,34 +45,34 @@ class Theme:
         self.template = "chalkline_dark"
         self._register_template()
 
-    def _register_template(self) -> None:
+    def _register_template(self):
         """
         Build and register the Chalkline dark Plotly template.
 
         Overlays `plotly_dark` with the palette colorway, transparent
-        backgrounds, dotted palette gridlines, and the Chalkline font. Text
-        colors propagate to every axis tick, title, legend, indicator, and
-        pie slice via Plotly's `layout.font` inheritance, which
-        `plotly_dark` itself relies on and sets no descendant-level font
-        overrides against.
+        backgrounds, dotted palette gridlines, and the Chalkline font.
+        Text colors propagate to every axis tick, title, legend,
+        indicator, and pie slice via Plotly's `layout.font`
+        inheritance, which `plotly_dark` itself relies on and sets no
+        descendant-level font overrides against.
         """
-        axis_shared = dict(
-            griddash      = "dot",
-            gridcolor     = self.colors["grid"],
-            title         = dict(standoff=12),
-            zerolinecolor = self.colors["grid"]
-        )
+        grid        = self.colors["grid"]
+        transparent = "rgba(0,0,0,0)"
+        grid_base   = {"griddash": "dot", "gridcolor": grid}
+        axis        = {
+            **grid_base,
+            "title"         : {"standoff": 12},
+            "zerolinecolor" : grid
+        }
+        polar   = {**grid_base, "linecolor": grid}
+        rounded = {"cornerradius": 4}
 
-        polar_axis = dict(
-            griddash  = "dot",
-            gridcolor = self.colors["grid"],
-            linecolor = self.colors["grid"]
-        )
-
-        overlay = {
+        pio.templates[self.template] = go.layout.Template(
+            pio.templates["plotly_dark"]
+        ).update({
             "data"   : {
-                "bar"       : [go.Bar(marker=dict(cornerradius=4))],
-                "histogram" : [go.Histogram(marker=dict(cornerradius=4))],
+                "bar"       : [go.Bar(marker=rounded)],
+                "histogram" : [go.Histogram(marker=rounded)],
                 "pie"       : [go.Pie(textposition="outside")]
             },
             "layout" : {
@@ -81,26 +80,22 @@ class Theme:
                     "accent", "heavy", "success", "primary", "error",
                     "building", "specialty", "lavender", "cream", "teal"
                 )],
-                "font"          : dict(
-                    color  = self.colors["foreground"],
-                    family = "DM Sans, system-ui, sans-serif"
-                ),
-                "margin"        : dict(b=50, l=30, r=30, t=20),
-                "paper_bgcolor" : "rgba(0,0,0,0)",
-                "plot_bgcolor"  : "rgba(0,0,0,0)",
-                "polar"         : dict(
-                    angularaxis = polar_axis,
-                    bgcolor     = "rgba(0,0,0,0)",
-                    radialaxis  = polar_axis
-                ),
-                "xaxis"         : axis_shared,
-                "yaxis"         : dict(**axis_shared, ticklabelstandoff=8)
+                "font"          : {
+                    "color"  : self.colors["foreground"],
+                    "family" : "DM Sans, system-ui, sans-serif"
+                },
+                "margin"        : {"b": 50, "l": 30, "r": 30, "t": 20},
+                "paper_bgcolor" : transparent,
+                "plot_bgcolor"  : transparent,
+                "polar"         : {
+                    "angularaxis" : polar,
+                    "bgcolor"     : transparent,
+                    "radialaxis"  : polar
+                },
+                "xaxis"         : axis,
+                "yaxis"         : {**axis, "ticklabelstandoff": 8}
             }
-        }
-
-        merged = go.layout.Template(pio.templates["plotly_dark"])
-        merged.update(overlay)
-        pio.templates[self.template] = merged
+        })
 
     def credential_color(self, kind: str) -> str:
         """
@@ -115,6 +110,7 @@ class Theme:
         """
         match kind:
             case "apprenticeship" : return self.colors["cream"]
+            case "career"         : return self.colors["highlight"]
             case "certification"  : return self.colors["lavender"]
             case "program"        : return self.colors["accent"]
             case _                : return self.colors["muted"]
@@ -131,17 +127,40 @@ class Theme:
 
     def score_color(self, score: float) -> str:
         """
-        Map a 0-100 percentage score to a semantic hex color.
+        Map a 0-100 percentage to a smooth red→gold→green gradient
+        via Plotly's colorscale sampling.
+
+        Interpolates between three anchor colors derived from the
+        theme palette so every percentage gets a unique shade:
+
+            0% → #e8876f  salmon (error)
+           50% → #E8C840  gold   (primary)
+          100% → #8cc5a3  green  (success)
 
         Args:
             score: Numeric score between 0 and 100.
 
         Returns:
-            Hex color string from the palette.
+            RGB color string.
         """
-        return self.colors[("error", "primary", "success")[bisect((40, 70), score)]]
+        t = max(0.0, min(score, 100.0)) / 100.0
+        return str(pc.sample_colorscale(
+            [
+                [0,   self.colors["error"]],
+                [0.5, self.colors["primary"]],
+                [1,   self.colors["success"]]
+            ],
+            t
+        )[0])
 
-    def sector_colors(self, sectors: Iterable[str]) -> list[str]:
+    def sector_background(self, sector: str) -> str:
+        """
+        Hex color for a sector name, falling back to muted when the
+        sector is not in the three-sector palette.
+        """
+        return self.sectors.get(sector, self.colors["muted"])
+
+    def sector_colors(self, sectors: list[str]) -> list[str]:
         """
         Per-bar sector colors aligned with an iterable of sector names.
 

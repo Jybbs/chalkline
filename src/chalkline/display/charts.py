@@ -15,7 +15,7 @@ from datetime             import date
 from plotly.basedatatypes import BaseTraceType
 from typing               import Any
 
-from chalkline.display.schemas import SectorRanking
+from chalkline.display.schemas import ScatterSeries, SectorRanking
 from chalkline.display.theme   import Theme
 from chalkline.pathways.graph  import CareerPathwayGraph
 
@@ -49,8 +49,8 @@ class Charts:
 
     def _apply_layout(
         self,
-        trace_or_fig : go.Figure | BaseTraceType | list,
         height       : int,
+        trace_or_fig : go.Figure | BaseTraceType | list,
         **overrides
     ) -> go.Figure:
         """
@@ -123,12 +123,12 @@ class Charts:
         self,
         height     : int,
         title      : str,
-        color      : str | Sequence = "accent",
-        data       : Mapping | None = None,
-        horizontal : bool           = False,
-        line       : Mapping | None = None,
-        x          : Sequence       = (),
-        y          : Sequence       = ()
+        color      : str | Sequence[str]              = "accent",
+        data       : Mapping[str, int | float] | None = None,
+        horizontal : bool                             = False,
+        line       : Mapping[str, int | float] | None = None,
+        x          : Sequence[str | int | float]      = (),
+        y          : Sequence[str | int | float]      = ()
     ) -> go.Figure:
         """
         Bar chart with optional horizontal orientation and line overlay.
@@ -184,7 +184,7 @@ class Charts:
             ))
             layout["legend"] = dict(orientation="h", y=-0.2)
 
-        return self._apply_layout(traces, height, **layout)
+        return self._apply_layout(height, traces, **layout)
 
     def bubble_scatter(
         self,
@@ -212,6 +212,7 @@ class Charts:
         """
         magnitudes = [round(s * 100, 1) for s in silhouette.values]
         return self._apply_layout(
+            height,
             go.Scatter(
                 hovertext = brokerage.labels,
                 marker    = dict(
@@ -223,14 +224,13 @@ class Charts:
                 x         = [max(1, round(b * 100)) for b in brokerage.values],
                 y         = magnitudes
             ),
-            height  = height,
             x_title = x_title,
             y_title = y_title
         )
 
     def category_scatter(
         self,
-        data    : Mapping[str, Mapping[str, Sequence]],
+        data    : Mapping[str, ScatterSeries],
         height  : int,
         x_title : str,
         y_title : str
@@ -269,7 +269,7 @@ class Charts:
             for name, points in data.items()
         ]
         return self._apply_layout(
-            traces, height,
+            height, traces,
             legend  = dict(orientation="h", y=-0.2),
             x_title = x_title,
             y_title = y_title
@@ -341,7 +341,7 @@ class Charts:
             cols = list(range(1, len(facets) + 1)),
             rows = [1] * len(facets)
         )
-        return self._apply_layout(fig, height)
+        return self._apply_layout(height, fig)
 
     def funnel(
         self,
@@ -359,13 +359,13 @@ class Charts:
             stages : Stage name to value mapping in display order.
         """
         return self._apply_layout(
+            height,
             go.Funnel(
                 marker   = dict(color=self.theme.colors["accent"]),
                 textinfo = "value+percent initial",
                 x        = list(stages.values()),
                 y        = [f"{name} ({count:,})" for name, count in stages.items()]
-            ),
-            height
+            )
         )
 
     def heatmap(
@@ -392,6 +392,7 @@ class Charts:
         """
         labels = list(data)
         return self._apply_layout(
+            height or max(400, len(labels) * 28),
             go.Heatmap(
                 colorscale   = "Teal",
                 texttemplate = "%{z:.2f}",
@@ -399,7 +400,6 @@ class Charts:
                 y            = labels,
                 z            = list(data.values())
             ),
-            height          = height or max(400, len(labels) * 28),
             x_title         = x_title,
             xaxis_side      = "top",
             y_title         = y_title,
@@ -428,12 +428,12 @@ class Charts:
             Configured histogram figure.
         """
         return self._apply_layout(
+            height,
             go.Histogram(
                 marker = dict(color=self.theme.colors["accent"]),
                 nbinsx = nbins,
                 x      = x
             ),
-            height,
             x_title = x_title,
             y_title = y_title
         )
@@ -490,7 +490,7 @@ class Charts:
             ))
 
         return self._apply_layout(
-            traces, 550,
+            550, traces,
             hovermode  = "closest",
             showlegend = True,
             x_title    = x_title,
@@ -533,6 +533,7 @@ class Charts:
             Configured timeline scatter figure.
         """
         return self._apply_layout(
+            height,
             go.Scatter(
                 hoverinfo = "text+x",
                 hovertext = hover,
@@ -545,7 +546,6 @@ class Charts:
                 x         = dates,
                 y         = [1] * len(dates)
             ),
-            height,
             yaxis = dict(visible=False)
         )
 
@@ -568,6 +568,7 @@ class Charts:
             Configured violin figure.
         """
         return self._apply_layout(
+            height,
             [
                 go.Violin(
                     box      = dict(visible=True),
@@ -578,7 +579,6 @@ class Charts:
                 for key, values in sorted(groups.items())
                 if values
             ],
-            height,
             showlegend = False,
             y_title    = y_title
         )

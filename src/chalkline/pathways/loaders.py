@@ -64,11 +64,12 @@ class LaborLoader:
         """
         return sum(r.employment for r in self.items.values())
 
-    def wage(self, soc_title: str) -> float | None:
+    def __getitem__(self, soc_title: str) -> LaborRecord:
         """
-        Annual median wage for a SOC title, or None if unavailable.
+        Look up a labor record by SOC title, returning a
+        default-valued record when unavailable.
         """
-        return record.annual_median if (record := self.items.get(soc_title)) else None
+        return self.items.get(soc_title, LaborRecord(soc_title=soc_title))
 
 
 class LexiconLoader:

@@ -70,18 +70,17 @@ class PathwayMap(AnyWidget):
         geometry   = MapGeometry()
         layout     = MapLayout.from_clusters(clusters, geometry)
         hops       = graph.hops_from(matched_id)
-        muted      = theme.colors["muted"]
         char_limit = geometry.title_char_limit
         columns    = layout.labeled_columns(labels.job_zones)
 
         nodes = []
         for cluster in clusters.values():
             soc_title = cluster.soc_title
-            wage      = labor.wage(soc_title)
+            wage      = labor[soc_title].annual_median
             position  = layout.positions[cluster.cluster_id]
             hop       = hops.get(cluster.cluster_id)
             nodes.append({
-                "color"    : theme.sectors.get(cluster.sector, muted),
+                "color"    : theme.sector_background(cluster.sector),
                 "id"       : cluster.cluster_id,
                 "opacity"  : (
                     geometry.hop_opacities[-1] if hop is None
@@ -108,7 +107,7 @@ class PathwayMap(AnyWidget):
             source_pos     = layout.positions[source_id]
             target_pos     = layout.positions[target_id]
             edges.append({
-                "color"            : theme.sectors.get(source_cluster.sector, muted),
+                "color"            : theme.sector_background(source_cluster.sector),
                 "credential_count" : len(data.get("credentials", [])),
                 "is_advancement"   : target_cluster.job_zone > source_cluster.job_zone,
                 "is_cross_sector"  : source_cluster.sector != target_cluster.sector,

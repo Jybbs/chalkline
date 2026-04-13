@@ -75,6 +75,47 @@ class Cluster:
             for p in self.postings
         ]
 
+    def sub_role_labels(
+        self,
+        assignments : np.ndarray,
+        k           : int
+    ) -> list[str]:
+        """
+        TF-IDF top-2 word labels for each k-means sub-cluster,
+        derived from `distinctive_tokens`.
+
+        Each sub-cluster's word counter is ranked by TF-IDF where
+        documents are sub-clusters. Words appearing in all k groups
+        or fewer than twice are suppressed. Falls back to a numbered
+        label when no distinctive words survive filtering.
+
+        Args:
+            assignments : Per-posting k-means cluster assignment array.
+            k           : Number of sub-clusters.
+        """
+        from collections import Counter
+        from heapq       import nlargest
+        from math        import log
+
+        counts: list[Counter] = [Counter() for _ in range(k)]
+        for label, bag in zip(assignments, self.distinctive_tokens):
+            counts[label].update(bag)
+
+        doc_freq = Counter(w for c in counts for w in c)
+        return [
+            " · ".join(w.title() for w, _ in top) if top else f"Sub-role {i + 1}"
+            for i, counter in enumerate(counts)
+            for total in [counter.total() or 1]
+            for top in [nlargest(
+                2,
+                (
+                    (w, c) for w, c in counter.items()
+                    if c >= 2 and doc_freq[w] < k
+                ),
+                key = lambda wc: (wc[1] / total) * log(k / doc_freq[wc[0]])
+            )]
+        ]
+
 
 @dataclass
 class Clusters:
@@ -134,6 +175,17 @@ class Clusters:
         return cosine_similarity(self.centroids)
 
     @cached_property
+    def cluster_heatmap(self) -> dict[str, list[float]]:
+        """
+        Centroid cosine similarity keyed by SOC title for the
+        inter-cluster heatmap.
+        """
+        return {
+            c.soc_title: row
+            for c, row in zip(self.values(), self.cosine_similarity_matrix)
+        }
+
+    @cached_property
     def cluster_index(self) -> dict[int, int]:
         """
         Cluster ID to its row index in the stacked `vectors` and
@@ -167,7 +219,7 @@ class Clusters:
             for row in self.centroid_cosine
         ]
 
-    @property
+    @cached_property
     def job_zone_map(self) -> dict[int, int]:
         """
         Cluster ID to Job Zone for stepwise graph constraints.
@@ -264,6 +316,17 @@ class Clusters:
         Posting count per cluster in sorted cluster-ID order.
         """
         return [c.size for c in self.values()]
+
+    @cached_property
+    def soc_heatmap(self) -> dict[str, list[float]]:
+        """
+        SOC similarity keyed by display label, rounded to three
+        decimals for the SOC assignment heatmap.
+        """
+        return {
+            c.display_label: [round(float(v), 3) for v in row]
+            for c, row in zip(self.values(), self.soc_similarity)
+        }
 
     @cached_property
     def vector_map(self) -> dict[int, np.ndarray]:

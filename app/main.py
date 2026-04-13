@@ -121,6 +121,16 @@ def _(pipeline, result, theme):
     return (charts,)
 
 
+# ── Routes ─────────────────────────────────────────────────────────
+
+@app.cell
+def _(layout, theme):
+    from chalkline.display.routes import Routes
+
+    routes = Routes(layout=layout, theme=theme)
+    return (routes,)
+
+
 # ── Match bar ──────────────────────────────────────────────────────
 
 @app.cell
@@ -181,7 +191,10 @@ def _(labor, map_widget, pipeline, profile, result):
 # ── Tab context ─────────────────────────────────────────────────────
 
 @app.cell
-def _(charts, content, labor, layout, occupations, pipeline, profile, reference, result, theme):
+def _(
+    charts, content, labor, layout, occupations, pipeline,
+    profile, reference, result, routes, theme
+):
     from chalkline.display.loaders import TabContext
 
     ctx = TabContext(
@@ -194,6 +207,7 @@ def _(charts, content, labor, layout, occupations, pipeline, profile, reference,
         profile     = profile,
         reference   = reference,
         result      = result,
+        routes      = routes,
         theme       = theme
     )
     return (ctx,)

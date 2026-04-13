@@ -26,12 +26,11 @@ from typing               import Literal, NamedTuple
 
 from chalkline.collection.schemas    import Posting
 from chalkline.display.charts        import Charts
-from chalkline.display.schemas       import DistinctiveVocabulary, JobPostingMetrics
-from chalkline.display.schemas       import Labels, PostingProjection
-from chalkline.display.schemas       import ProcessStep, TabContent
+from chalkline.display.routes        import Routes
+from chalkline.display.schemas       import Labels, ProcessStep, TabContent
 from chalkline.display.theme         import Theme
-from chalkline.matching.schemas      import MatchResult, ScoredTask
-from chalkline.pathways.clusters     import Cluster, Clusters
+from chalkline.matching.schemas      import MatchResult
+from chalkline.pathways.clusters     import Cluster
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
 from chalkline.pathways.schemas      import Credential, Occupation
 from chalkline.pipeline.orchestrator import Chalkline
@@ -56,7 +55,7 @@ class ContentLoader:
         self.display_dir = display_dir or Path(__file__).resolve().parent
 
     @cached_property
-    def glossary(self) -> tuple[re.Pattern, dict[str, tuple]]:
+    def glossary(self) -> tuple[re.Pattern[str], dict[str, tuple[str, str, str, str]]]:
         """
         Single alternation regex and definition lookup for all glossary
         terms, sorted longest-first so multi-word terms match before their
@@ -79,11 +78,13 @@ class ContentLoader:
                 for entry in entries
                 for key in (entry["term"], *entry.get("aliases", ()))
             ),
-            key = lambda p: -len(p[0])
+            key=lambda p: -len(p[0])
         )
-        alts = "|".join(re.escape(key) for key, _ in pairs)
         return (
-            re.compile(rf"\b({alts})\b", re.IGNORECASE),
+            re.compile(
+                rf"\b({'|'.join(re.escape(key) for key, _ in pairs)})\b",
+                re.IGNORECASE
+            ),
             {
                 key.lower(): (
                     entry["term"],
@@ -166,8 +167,8 @@ class Layout:
 
     def _section_html(
         self,
-        tab : TabContent,
         key : str,
+        tab : TabContent,
         **fmt
     ) -> tuple[str, Markup]:
         """
@@ -195,10 +196,9 @@ class Layout:
         the marimo-`Html` boundary at exactly one place per call site.
         """
         tiles = [self._stat(label, value) for label, value in pairs]
-        cols  = -(-len(tiles) // rows)
         return div(
             ".cl-stat-row",
-            style = f"grid-template-columns:repeat({cols},1fr)"
+            style=f"grid-template-columns:repeat({-(-len(tiles) // rows)},1fr)"
         )[tiles]
 
     def annotate(self, text: str) -> str:
@@ -217,15 +217,6 @@ class Layout:
         pattern, lookup = self.content.glossary
         seen: set[str]  = set()
 
-        def render(raw: str) -> Markup:
-            """
-            Apply template substitution and inline emphasis to a glossary
-            definition, returning safe HTML.
-            """
-            return Markup(
-                self.markdown_it.renderInline(raw.format_map(self.substitutions))
-            )
-
         def replace(m: re.Match) -> str:
             """
             Build a tooltip popover for a matched glossary term, skipping
@@ -239,19 +230,18 @@ class Layout:
             if (canonical := title.lower()) in seen:
                 return m.group()
             seen.add(canonical)
-            children: list = [
+            children = [
                 strong(".cl-tip-title")[title],
                 hr(".cl-tip-rule"),
-                span(".cl-tip-body")[render(definition)]
+                span(".cl-tip-body")[Markup(
+                    self.markdown_it.renderInline(
+                        definition.format_map(self.substitutions)
+                    )
+                )],
+                hr(".cl-tip-rule") if url else None,
+                a(".cl-tip-link", href=url, target="_blank")[url_label]
+                if url else None
             ]
-            if url:
-                children.append(hr(".cl-tip-rule"))
-                children.append(a(
-                    ".cl-tip-link",
-                    href   = url,
-                    target = "_blank"
-                )[url_label])
-
             return str(span(".cl-term")[m.group(), span(".cl-tip")[children]])
 
         return pattern.sub(replace, text)
@@ -266,7 +256,7 @@ class Layout:
             span(".badge")[kwargs["category"]], br,
             span(".secondary")[kwargs["focus"]], br,
             span(".meta")[kwargs["best_for"]],
-            cls = "cl-card"
+            cls="cl-card"
         )
 
     def board_chip(self, **kwargs) -> Html:
@@ -284,7 +274,7 @@ class Layout:
             strong[kwargs["name"]], br,
             span(".badge")[kwargs["category"]], br,
             span(".meta")[kwargs["focus"]],
-            cls = "cl-card"
+            cls="cl-card"
         )
 
     def callout(self, text: str, kind: str = "info") -> Html:
@@ -303,72 +293,6 @@ class Layout:
             cls       = "cl-callout",
             data_kind = kind
         )
-
-    def cluster_identity(
-        self,
-        cluster     : Cluster,
-        clusters    : Clusters,
-        reference   : StakeholderReference,
-        *,
-        tier_labels : tuple[str, str, str] = ("unique", "rare", "notable")
-    ) -> list[Element]:
-        """
-        Reusable identity sections for a single cluster as a flat list
-        of htpy elements the caller spreads into a parent layout.
-
-        Surfaces the family's distinctive vocabulary, posting-embedding
-        sub-roles, and top hiring AGC employer. Each section is a small
-        labeled block under the `.cl-yah-section*` class family so the
-        caller (currently the Map tab sidebar) can stack them with the
-        existing `.cl-you-are-here` identity row above. The factories
-        used here (`DistinctiveVocabulary.from_cluster`,
-        `PostingProjection.from_cluster`) are class-cached on cluster
-        identity, so calling the helper from multiple sites in the
-        same render pass costs nothing after the first.
-
-        Args:
-            cluster     : Career family to describe.
-            clusters    : Fitted cluster collection (TF-IDF corpus).
-            reference   : Stakeholder reference for AGC employer matching.
-            tier_labels : Identifiers for the three TF-IDF distinctiveness
-                          tiers (unique, rare, notable). Default values
-                          are internal-only and not displayed.
-        """
-        sections: list[Element] = []
-
-        vocab = DistinctiveVocabulary.from_cluster(
-            cluster     = cluster,
-            clusters    = clusters,
-            tier_labels = list(tier_labels)
-        )
-        words = next(
-            (tier_words for tier_words in vocab.tiers.values() if tier_words),
-            {}
-        )
-        if words:
-            sections.append(div(".cl-yah-section")[
-                div(".cl-yah-section-label")["What this family is"],
-                div(".cl-yah-section-body")[" \u00b7 ".join(list(words)[:5])]
-            ])
-
-        sub_roles = list(PostingProjection.from_cluster(cluster).series)[:3]
-        if sub_roles:
-            sections.append(div(".cl-yah-section")[
-                div(".cl-yah-section-label")["Sub-roles within"],
-                div(".cl-yah-section-body")[" \u00b7 ".join(sub_roles)]
-            ])
-
-        if employers := reference.match_employers(cluster.postings):
-            top = employers[0]
-            sections.append(div(".cl-yah-section")[
-                div(".cl-yah-section-label")["Top hiring employer"],
-                div(".cl-yah-section-body")[
-                    strong[top["name"]],
-                    span(".secondary")[f" \u00b7 {top['member_type']}"]
-                ]
-            ])
-
-        return sections
 
     def credential_card(self, credential: Credential, theme: Theme) -> Html:
         """
@@ -390,20 +314,49 @@ class Layout:
         Returns:
             Styled card element with kind badge and detail line.
         """
-        color  = theme.credential_color(credential.kind)
-        detail = " \u00b7 ".join(filter(None, (
-            f"{credential.hours:,} hours" if credential.hours else "",
-            credential.metadata.get("institution", "")
-        )))
+        color = theme.credential_color(credential.kind)
         return self.to_html(
             span(".cl-badge", style=f"background:{color}")[credential.type_label],
             strong[credential.label],
-            *self.stack_if(detail, span(".secondary")[detail]),
-            *self.stack_if(
-                url := credential.metadata.get("url", ""), self._link(url)
-            ),
+            span(".secondary")[detail] if (detail := credential.card_detail) else None,
+            self._link(url) if (url := credential.url) else None,
             cls   = "cl-card.cl-credential",
             style = f"border-inline-start-color:{color}"
+        )
+
+    def credential_columns(
+        self,
+        by_kind  : dict[str, list[Credential]],
+        theme    : Theme,
+        per_kind : int = 4
+    ) -> Html:
+        """
+        Render credentials grouped by kind in a horizontal multi-column
+        grid, one column per kind.
+
+        Shared by the Data tab's credential pathways section, the Map
+        tab's resources drawer, and any future tab that needs the same
+        layout. Each column renders up to `per_kind` cards via
+        `credential_card`, and the columns stack horizontally with
+        equal widths.
+
+        Args:
+            by_kind  : Credential label to list mapping, keyed by kind.
+            theme    : For credential color lookup.
+            per_kind : Max cards per kind column.
+        """
+        nonempty = {k: v for k, v in by_kind.items() if v}
+        if not nonempty:
+            return self.callout("No credentials available.")
+        return self.stack(
+            *(
+                self.grid(
+                    self.credential_card(c, theme) for c in cards[:per_kind]
+                )
+                for cards in nonempty.values()
+            ),
+            direction = "h",
+            widths    = [1] * len(nonempty)
         )
 
     def employer_card(self, **kwargs) -> Html:
@@ -417,28 +370,30 @@ class Layout:
             strong[kwargs["name"]],
             span(".badge")[kwargs["member_type"]], br,
             self._link(kwargs["posting_url"]),
-            cls = "cl-card"
+            cls="cl-card"
         )
 
-    def grid(self, cards: Iterable[Html]) -> Html:
+    def grid(self, cards: Iterable[Html], columns: int = 2) -> Html:
         """
-        Arrange cards in a responsive two-column CSS grid.
+        Arrange cards in a responsive CSS grid.
 
         Args:
-            cards: Card elements to arrange.
+            cards   : Card elements to arrange.
+            columns : Number of grid columns.
 
         Returns:
             Grid container wrapping all cards.
         """
+        cls = f"cl-card-grid.cl-card-grid-{columns}" if columns != 2 else "cl-card-grid"
         return self.to_html(
             [Markup(c.text) for c in cards],
-            cls = "cl-card-grid"
+            cls = cls
         )
 
     def header(
         self,
-        tab : TabContent,
         key : str,
+        tab : TabContent,
         **fmt
     ) -> Html:
         """
@@ -448,18 +403,18 @@ class Layout:
         key directly instead of a pre-resolved tuple.
 
         Args:
-            tab  : Tab content holding section definitions.
             key  : Section key to look up.
+            tab  : Tab content holding section definitions.
             **fmt : Format kwargs forwarded to `tab.section()`.
 
         Returns:
             Vertically stacked title and description.
         """
-        title, body = self._section_html(tab, key, **fmt)
+        title, body = self._section_html(key, tab, **fmt)
         return self.stack(
             md(f"#### {title}"),
             self.to_html(body, cls="cl-section-desc"),
-            gap = 0.25
+            gap=0.25
         )
 
     def match_bar(self, profile: Cluster) -> Html:
@@ -480,13 +435,13 @@ class Layout:
             f" \u00b7 {profile.sector}"
             f" \u00b7 {self.content.labels.job_zones[profile.job_zone]}"
             f" \u00b7 {profile.size} postings",
-            cls = "cl-match-bar"
+            cls="cl-match-bar"
         )
 
     def overview(
         self,
-        tab : TabContent,
         key : str,
+        tab : TabContent,
         **fmt
     ) -> Html:
         """
@@ -497,25 +452,25 @@ class Layout:
         both chart headers and standard callouts.
 
         Args:
-            tab  : Tab content holding section definitions.
             key  : Section key to look up.
+            tab  : Tab content holding section definitions.
             **fmt : Format kwargs forwarded to `tab.section()`.
 
         Returns:
             Styled overview banner with serif title and body description.
         """
-        title, body = self._section_html(tab, key, **fmt)
+        title, body = self._section_html(key, tab, **fmt)
         return self.to_html(
             div(".cl-overview-title")[title],
             div(".cl-overview-body")[body],
-            cls = "cl-overview"
+            cls="cl-overview"
         )
 
     def panel(
         self,
-        tab   : TabContent,
-        key   : str,
         chart : Figure,
+        key   : str,
+        tab   : TabContent,
         **fmt
     ) -> Html:
         """
@@ -526,7 +481,7 @@ class Layout:
         stay aligned and top-level charts share the same grouping.
         """
         return self.stack(
-            self.header(tab, key, **fmt),
+            self.header(key, tab, **fmt),
             ui.plotly(chart)
         )
 
@@ -546,11 +501,11 @@ class Layout:
             span(".secondary")[posting.company], br,
             span(".meta")[
                 posting.location or self.content.labels.fallback_location,
-                f" \u00b7 {posting.date_posted:%b %d, %Y}" 
-                if posting.date_posted else ""
+                f" \u00b7 {posting.date_posted:%b %d, %Y}"
+                if posting.date_posted else None
             ],
             self._link(posting.source_url),
-            cls = "cl-card"
+            cls="cl-card"
         )
 
     def process_flow(self, steps: Iterable[ProcessStep]) -> Html:
@@ -580,53 +535,25 @@ class Layout:
                     ])
                 else:
                     cards.append(div(".cl-flow-arrow")["\u2192"])
-            attrs = (
-                {"style": f"border-inline-start-color:{step.accent}"}
-                if step.accent else {}
-            )
-            cards.append(div(".cl-flow-step", **attrs)[
+            cards.append(div(
+                ".cl-flow-step",
+                **(
+                    {"style": f"border-inline-start-color:{step.accent}"}
+                    if step.accent else {}
+                )
+            )[
                 div(".cl-flow-num")[step.number],
                 div(".cl-flow-label")[step.label],
                 div(".cl-flow-detail")[step.detail]
             ])
         return self.to_html(*cards, cls="cl-flow")
 
-    def ranked_list(
-        self,
-        heading : str,
-        skills  : list[ScoredTask],
-        theme   : Theme
-    ) -> Html:
-        """
-        Compact heading + percentage-bar list for scored skills.
-
-        Each row sets a `--row-color` CSS custom property from the score
-        color, and the stylesheet applies it to both the fill bar's
-        background and the percentage text's color. The Python layer
-        only emits the value once per row.
-        """
-        return self.to_html(
-            div(".cl-ranked-heading")[heading],
-            *(
-                div(".cl-skill-row", 
-                    style=f"--row-color:{theme.score_color(task.pct)}")[
-                        span(".cl-skill-name")[task.name],
-                        div(".cl-skill-bar")[
-                            div(".cl-skill-fill", style=f"width:{task.pct}%")
-                        ],
-                        span(".cl-skill-pct")[f"{task.pct:.0f}%"]
-                    ]
-                for task in skills
-            ),
-            cls = "cl-ranked-list"
-        )
-
     def section_if(
         self,
-        condition : object,
-        tab       : TabContent,
-        key       : str,
         chart     : Figure,
+        condition : object,
+        key       : str,
+        tab       : TabContent,
         **fmt
     ) -> list:
         """
@@ -638,14 +565,14 @@ class Layout:
         `panel`'s signature.
 
         Args:
-            condition : Truthy value gating the section.
-            tab       : Tab content with section definitions.
-            key       : Section key to look up.
             chart     : Plotly figure to render below the header.
+            condition : Truthy value gating the section.
+            key       : Section key to look up.
+            tab       : Tab content with section definitions.
             **fmt     : Format kwargs for `tab.section()`.
         """
         return self.stack_if(
-            condition, self.header(tab, key, **fmt), ui.plotly(chart)
+            condition, self.header(key, tab, **fmt), ui.plotly(chart)
         )
 
     def splash(
@@ -673,15 +600,20 @@ class Layout:
         Returns:
             Full-width splash element with logo, tagline, and stats.
         """
-        mask = f"mask-image:url({logo_src});-webkit-mask-image:url({logo_src})"
         return self.to_html(
             div(".cl-brand")[
-                span(".cl-logo", style=mask),
+                span(
+                    ".cl-logo",
+                    style=(
+                        f"mask-image:url({logo_src});"
+                        f"-webkit-mask-image:url({logo_src})"
+                    )
+                ),
                 h1[tab.title]
             ],
             p(".cl-tagline")[tab.tagline],
             self._stat_row(zip(tab.stat_labels, stat_values), rows=stat_rows),
-            cls = "cl-splash"
+            cls="cl-splash"
         )
 
     @staticmethod
@@ -771,17 +703,6 @@ class Layout:
         """
         return Layout.stack(left, right, direction="h", widths=[1, 1])
 
-    def wage_display(self, delta: float | None, theme: Theme) -> Element:
-        """
-        Wage delta element: bold signed dollar amount in success/error
-        color, or a muted "unavailable" message when `delta` is `None`.
-        """
-        if delta is None:
-            return span(".secondary")["Wage data unavailable"]
-        return span(
-            style=f"color:{theme.wage_color(delta)};font-size:1.2em;font-weight:bold"
-        )[f"{'+' if delta >= 0 else ''}${delta:,.0f}/yr"]
-
     def you_are_here(
         self,
         confidence       : int,
@@ -812,18 +733,20 @@ class Layout:
         verdict = ("Exploratory", "Multiple good fits", "Strong match")[
             bisect((40, 70), confidence)
         ]
-        sector_bg     = theme.sectors.get(profile.sector, theme.colors["muted"])
-        verdict_style = f"color:{theme.score_color(confidence)};font-weight:bold"
-
         return self.to_html(
             div(".cl-yah-title")[profile.soc_title],
             div(".cl-yah-meta")[
-                span(".cl-badge", style=f"background:{sector_bg}")[profile.sector],
+                span(
+                    ".cl-badge",
+                    style=f"background:{theme.sector_background(profile.sector)}"
+                )[profile.sector],
                 " \u00b7 ",
                 span[self.content.labels.job_zones[profile.job_zone]]
             ],
             div(".cl-yah-stats")[
-                span(style=verdict_style)[verdict],
+                span(
+                    style=f"color:{theme.score_color(confidence)};font-weight:bold"
+                )[verdict],
                 span(".secondary")[f" ({confidence}%)"],
                 " \u00b7 ",
                 span[f"{profile.size} postings"],
@@ -841,7 +764,7 @@ class Layout:
                     if n_lateral else "No lateral pivots"
                 ]
             ],
-            cls = "cl-you-are-here"
+            cls="cl-you-are-here"
         )
 
 
@@ -863,4 +786,5 @@ class TabContext(NamedTuple):
     profile     : Cluster
     reference   : StakeholderReference
     result      : MatchResult
+    routes      : Routes
     theme       : Theme
