@@ -127,9 +127,19 @@ if __name__ == "__main__":
         search_terms = [
             "carpenter",
             "construction",
+            "crane operator",
             "electrician",
             "equipment operator",
+            "foreman",
+            "HVAC",
+            "ironworker",
+            "laborer",
+            "mason",
             "paving",
-            "superintendent"
+            "pipefitter",
+            "plumber",
+            "sheet metal worker",
+            "superintendent",
+            "welder"
         ]
     ).run()
