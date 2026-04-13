@@ -11,14 +11,11 @@ context, delegates to `mo.status.progress_bar`.
 from collections.abc        import Callable
 from hamilton.lifecycle.api import GraphExecutionHook, NodeExecutionHook
 from loguru                 import logger
+from rich.progress          import Progress, TaskID
 from sys                    import modules
 from time                   import perf_counter
-from typing                 import TYPE_CHECKING
 
 from chalkline.pipeline.encoder import SentenceEncoder
-
-if TYPE_CHECKING:
-    from rich.progress import Progress
 
 
 class DownloadBar:
@@ -141,6 +138,9 @@ class PipelineProgress(GraphExecutionHook, NodeExecutionHook):
 class MarimoDisplay(PipelineProgress):
     """
     Progress display backed by `mo.status.progress_bar`.
+
+    Skips the progress bar entirely when the Hamilton cache is warm (zero
+    nodes to execute), avoiding an empty bar flash.
     """
 
     def advance(self, node_name: str):
@@ -151,8 +151,12 @@ class MarimoDisplay(PipelineProgress):
 
     def begin_pipeline(self, total: int):
         """
-        Create the Marimo progress bar once the node count is known.
+        Create the Marimo progress bar once the node count is known. Returns
+        immediately on a warm cache so no bar is shown.
         """
+        self.manager = None
+        if total == 0:
+            return
         import marimo as mo
         self.manager = mo.status.progress_bar(
             completion_title = "Pipeline fitted",
@@ -172,9 +176,10 @@ class MarimoDisplay(PipelineProgress):
 
     def stop(self):
         """
-        Exit the progress bar context manager.
+        Exit the progress bar context manager if one was created.
         """
-        self.manager.__exit__(None, None, None)
+        if self.manager:
+            self.manager.__exit__(None, None, None)
 
 
 class RichDisplay(PipelineProgress):
@@ -237,8 +242,8 @@ class RichDisplay(PipelineProgress):
 
     def begin_pipeline(self, total: int):
         """
-        Add the pipeline-level progress bar once the DAG starts and the
-        node count is known.
+        Add the pipeline-level progress bar once the DAG starts and the node
+        count is known.
         """
         self.pipeline_task = self.progress.add_task(
             "[bold]pipeline[/bold]",
@@ -251,15 +256,15 @@ class RichDisplay(PipelineProgress):
         batches.
         """
         progress = self.progress
+        task_id  = TaskID(-1)
 
         def on_batch(current: int, total: int):
+            nonlocal task_id
             if current == 0:
-                on_batch.task_id = progress.add_task(
-                    f"{label} ·", total = total
-                )
-            progress.update(on_batch.task_id, completed = current + 1)
+                task_id = progress.add_task(f"{label} ·", total=total)
+            progress.update(task_id, completed=current + 1)
             if current + 1 == total:
-                progress.remove_task(on_batch.task_id)
+                progress.remove_task(task_id)
 
         return on_batch
 

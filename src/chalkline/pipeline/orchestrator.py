@@ -12,12 +12,12 @@ config.
 from dataclasses import dataclass, fields
 from pathlib     import Path
 
-from chalkline.matching.matcher import ResumeMatcher
-from chalkline.matching.schemas import MatchResult
-from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import Clusters
-from chalkline.pipeline.encoder import SentenceEncoder
-from chalkline.pipeline.schemas import PipelineConfig
+from chalkline.matching.matcher  import ResumeMatcher
+from chalkline.matching.schemas  import MatchResult
+from chalkline.pathways.clusters import Clusters
+from chalkline.pathways.graph    import CareerPathwayGraph
+from chalkline.pipeline.encoder  import SentenceEncoder
+from chalkline.pipeline.schemas  import PipelineConfig
 
 
 @dataclass(kw_only=True)
@@ -53,11 +53,26 @@ class Chalkline:
         return sum(c.size for c in self.clusters.values())
 
     @property
-    def sector_count(self) -> int:
+    def embed_dim(self) -> int:
         """
-        Number of distinct sectors across clusters.
+        Dimensionality of the sentence embeddings from the encoder.
         """
-        return len({c.sector for c in self.clusters.values()})
+        return self.matcher.encoder.dimension
+
+    @property
+    def substitutions(self) -> dict[str, str]:
+        """
+        Template variables for display-layer content rendering.
+        """
+        return {
+            "embed_dim"     : str(self.embed_dim),
+            "model_name"    : self.matcher.encoder.name.split("/")[-1],
+            "n_clusters"    : str(len(self.clusters)),
+            "n_occupations" : str(len({c.soc_title for c in self.clusters.values()})),
+            "n_postings"    : f"{self.corpus_size:,}",
+            "n_sectors"     : str(len(self.clusters.sectors)),
+            "svd_components": str(self.config.component_count),
+        }
 
     @staticmethod
     def fit(config: PipelineConfig, log_level: str = "INFO") -> Chalkline:
@@ -112,8 +127,8 @@ class Chalkline:
 
     def match(self, pdf_bytes: bytes, label: str = "resume") -> MatchResult:
         """
-        Extract text from a PDF, clean it, and match against the
-        fitted career landscape.
+        Extract text from a PDF, clean it, and match against the fitted
+        career landscape.
 
         Handles the full chain from raw upload bytes to match result,
         writing to a temporary file for `pdfplumber` extraction.

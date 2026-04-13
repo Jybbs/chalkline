@@ -1,0 +1,54 @@
+info = '''
+Every job posting in the corpus was encoded as a **{embed_dim}-dimensional sentence embedding** using `{model_name}`, then grouped via **Ward-linkage hierarchical agglomerative clustering** into {n_clusters} career families. The postings shown here are the actual listings whose embeddings fell into your matched family's cluster, meaning they use similar language to describe similar work.
+
+Company names are matched against the **AGC Maine member directory** using fuzzy string matching (*SequenceMatcher with a 0.7 similarity threshold*), so minor spelling variations and abbreviations between the job board listing and the membership roll still produce correct matches. The title word cloud filters out common English words using **Zipf frequency** scores, keeping only terms distinctive enough to characterize the career family.'''
+
+stat_labels = ["Postings", "Companies", "Locations", "AGC Members", "Newest Posting", "With Dates"]
+
+[chart_labels]
+days_since_posted = 'Days Since Posted'
+postings          = 'Postings'
+postings_title    = 'Number of Postings'
+tsne_x            = 't-SNE Component 1'
+tsne_y            = 't-SNE Component 2'
+
+[tier_descriptions]
+'Unique to This Family'  = 'Found nowhere else in the corpus'
+'Rare Across the Corpus' = 'Shared with only two to four families'
+'Notable Vocabulary'     = 'Common across many families but ranks high here'
+
+[sections.distinctive_words]
+title       = 'Words That Distinguish This Career'
+description = 'Vocabulary that appears in this career family far more than across the rest of the corpus, scored by TF-IDF with each cluster treated as a document. The three panels split words by how rare they are across the corpus, from words that show up only in this family on the left to words that recur across many families but still rank high here on the right. Each panel is sized independently so a sparser tier never gets crowded out by a denser one.'
+
+[sections.posting_projection]
+title       = 'The Shape of This Career Family'
+description = 'Each dot is one job posting from this career family, projected from its high-dimensional sentence embedding down to two dimensions via t-SNE with PCA initialization. Postings whose descriptions read alike land near each other, so a tight ball means a cohesive role, distinct sub-blobs reveal genuine sub-roles within the family, and lonely outliers are postings that almost belong somewhere else. Dots are colored by k-means sub-cluster on the same embeddings, surfacing semantically distinct sub-roles rather than employer boilerplate. Hover any dot for the posting title and hiring company.'
+
+[sections.credential_pathways]
+title       = 'Credential Pathways for This Career'
+description = 'Concrete training pathways from the AGC catalog ranked by how closely each one aligns with this career family in the embedding space, then bucketed into apprenticeships on the left, educational programs in the middle, and industry certifications on the right. Apprenticeship cards carry hour requirements drawn from their RAPIDS registration, program cards carry the Maine institution that offers them with an outbound link, and certification cards show the recognizable industry name.'
+
+[sections.freshness_histogram]
+title       = 'How Stale is This Data?'
+description = 'Distribution of days since each posting first appeared. Bars clustered near zero indicate a fresh corpus.'
+
+[sections.timeline]
+title       = 'Posting Activity Over Time'
+description = 'Each dot is one posting on the day it was first collected. Dense vertical bands reveal hiring bursts, whereas gaps indicate quiet stretches.'
+
+[sections.locations]
+title       = 'Where the Jobs Are'
+description = 'Posting locations across Maine for this career family.'
+
+[sections.overview]
+title       = 'Real Postings From Your Career Family'
+description = 'These are actual job postings from Maine construction companies that fall into the {soc_title} career family. Browse to see what employers are looking for.'
+
+[sections.recent]
+title       = 'Recent Postings'
+description = 'The most recent job listings, newest first.'
+
+[sections.whos_hiring]
+title       = 'Who’s Hiring'
+description = 'Companies with the most postings in this career family.'

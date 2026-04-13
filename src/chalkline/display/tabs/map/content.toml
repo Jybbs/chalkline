@@ -1,0 +1,44 @@
+[chart_labels]
+bright_outlook      = 'Bright Outlook'
+career_label        = 'Career move'
+coverage_footer     = 'Combined unique coverage: {unique_cov} of {total} gaps'
+fit_meter_label     = 'match'
+gap_badge           = '{cov} gap{s}'
+gaps_heading        = 'Growth Areas ({count} to develop)'
+open_positions      = 'open positions'
+path_header         = '{strategy} ({n_items} step{s} → covers {unique_cov} of {total})'
+postings_heading    = 'Open Positions for This Role ({count} available)'
+strategy_biggest    = 'Biggest Single Investment'
+strategy_education  = 'Education-Led'
+strategy_fewest     = 'Fewest Steps to Coverage'
+strategy_stepping   = 'Try This Role First'
+strengths_heading   = 'Strengths ({count} demonstrated)'
+verdict_intro       = 'You have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills. For the <strong>{gaps}</strong> you don’t have yet:'
+verdict_match       = 'You’re a <strong>{fit_pct}%</strong> match. You already have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills common to <strong>{soc_title}</strong> roles.'
+
+[sections.evidence]
+title       = 'Skills & Evidence'
+description = 'Full skill profile and gap analysis for the selected career move.'
+
+[sections.resources]
+title       = 'Resources'
+description = 'Full credential catalog, employers, and job boards for deeper exploration.'
+
+[sections.credentials]
+title       = 'Credentials That Bridge This Move'
+description = 'Apprenticeships, programs, and certifications ranked by their fit with this specific career transition.'
+
+[sections.employers]
+title       = 'Employers Hiring for This Role'
+description = 'AGC member companies currently posting for this role in Maine.'
+
+[sections.boards]
+title       = 'Job Boards for This Career'
+description = 'Maine and national job boards ranked by semantic similarity to this career family.'
+
+[fallbacks]
+no_boards      = 'No job boards strongly match this career family.'
+no_credentials = 'No credentials directly bridge this transition.'
+no_employers   = 'No AGC member companies are currently posting for this role.'
+no_gaps        = 'No significant skill gaps identified for this transition.'
+no_postings    = 'No postings available for this career family.'

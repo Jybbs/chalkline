@@ -23,9 +23,10 @@ from sklearn.preprocessing       import normalize
 from chalkline.collection.schemas import Corpus
 from chalkline.collection.storage import CorpusStorage
 from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import Cluster, Clusters, Credential, Task
+from chalkline.pathways.schemas   import Credential, Occupation
 from chalkline.pipeline.encoder   import SentenceEncoder
 from chalkline.pipeline.schemas   import PipelineConfig
 
@@ -55,56 +56,52 @@ def cluster_vectors(assignments: np.ndarray, raw_vectors: np.ndarray) -> np.ndar
     Mean posting embedding per cluster in the full embedding space,
     L2-normalized for cosine similarity against occupations and credentials.
     """
-    return normalize(np.stack([
+    return np.asarray(normalize(np.stack([
         raw_vectors[assignments == cid].mean(axis=0)
         for cid in sorted(np.unique(assignments))
-    ]))
+    ])))
 
 
 def clusters(
-    assignments     : np.ndarray,
-    centroids       : np.ndarray,
-    cluster_vectors : np.ndarray,
-    corpus          : Corpus,
-    job_zone_map    : dict[int, int],
-    lexicons        : LexiconLoader,
-    soc_similarity  : np.ndarray,
-    soc_tasks       : dict[int, list[Task]]
+    assignments         : np.ndarray,
+    centroids           : np.ndarray,
+    cluster_vectors     : np.ndarray,
+    corpus              : Corpus,
+    job_zone_map        : dict[int, int],
+    nearest_occupations : dict[int, Occupation],
+    raw_vectors         : np.ndarray,
+    soc_similarity      : np.ndarray,
+    soc_tasks           : dict[int, list[Task]]
 ) -> Clusters:
     """
     Build unified cluster objects from assignments, corpus, and O*NET SOC
     matching. Returns a `Clusters` container with pre-stacked centroid and
-    embedding vector matrices.
+    embedding vector matrices, and per-cluster posting embeddings sliced
+    out of `raw_vectors` so display-layer projections never have to
+    re-encode the corpus.
     """
-    cluster_ids = sorted(np.unique(assignments).tolist())
-    members     = {
-        cid: np.where(assignments == cid)[0]
-        for cid in cluster_ids
-    }
-
-    items = {
-        cid: Cluster(
-            cluster_id   = cid,
-            job_zone     = job_zone_map[cid],
-            members      = members[cid],
-            modal_title  = Counter(
-                corpus.postings[corpus.posting_ids[i]].title
-                for i in members[cid]
-            ).most_common(1)[0][0],
-            postings     = corpus.at(members[cid]),
-            sector       = nearest.sector,
-            size         = len(members[cid]),
-            soc_title    = nearest.title,
-            tasks        = soc_tasks.get(cid, [])
+    items: dict[int, Cluster] = {}
+    for cid in sorted(np.unique(assignments).tolist()):
+        member_idx = np.where(assignments == cid)[0]
+        postings   = corpus.at(member_idx)
+        nearest    = nearest_occupations[cid]
+        items[cid] = Cluster(
+            cluster_id  = cid,
+            embeddings  = raw_vectors[member_idx],
+            job_zone    = job_zone_map[cid],
+            modal_title = Counter(p.title for p in postings).most_common(1)[0][0],
+            postings    = postings,
+            sector      = nearest.sector,
+            size        = len(postings),
+            soc_title   = nearest.title,
+            tasks       = soc_tasks.get(cid, [])
         )
-        for cid     in cluster_ids
-        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
-    }
 
     return Clusters(
-        centroids = centroids,
-        items     = items,
-        vectors   = cluster_vectors
+        centroids      = centroids,
+        items          = items,
+        soc_similarity = soc_similarity,
+        vectors        = cluster_vectors
     )
 
 
@@ -214,6 +211,22 @@ def matcher(
     )
 
 
+def nearest_occupations(
+    assignments    : np.ndarray,
+    lexicons       : LexiconLoader,
+    soc_similarity : np.ndarray
+) -> dict[int, Occupation]:
+    """
+    Top-similarity O*NET occupation per cluster, computed once and reused
+    by `clusters` and `soc_tasks` so the argmax over the similarity matrix
+    runs only once per cluster.
+    """
+    return {
+        cid: lexicons.nearest_occupation(soc_similarity[cid])
+        for cid in sorted(np.unique(assignments).tolist())
+    }
+
+
 @tag(batch_label="postings")
 def raw_vectors(corpus: Corpus, encoder: SentenceEncoder) -> np.ndarray:
     """
@@ -254,29 +267,27 @@ def soc_similarity(
 
 @tag(batch_label="tasks")
 def soc_tasks(
-    assignments    : np.ndarray,
-    encoder        : SentenceEncoder,
-    lexicons       : LexiconLoader,
-    soc_similarity : np.ndarray
+    encoder             : SentenceEncoder,
+    nearest_occupations : dict[int, Occupation]
 ) -> dict[int, list[Task]]:
     """
     Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
 
-    For each cluster, identifies the nearest occupation via cosine
-    similarity, then encodes that occupation's Task+DWA elements as
-    individual embeddings for per-task gap scoring.
+    For each cluster, takes the pre-computed nearest occupation and
+    encodes that occupation's Task+DWA elements as individual embeddings
+    for per-task gap scoring.
     """
     return {
         cid: [
-            Task(name=name, vector=vec)
-            for name, vec in zip(
-                [t.name for t in nearest.task_elements],
-                encoder.encode([t.name for t in nearest.task_elements])
+            Task(name=t.name, vector=vec)
+            for t, vec in zip(
+                elems,
+                encoder.encode([t.name for t in elems])
             )
         ]
-        for cid in sorted(np.unique(assignments))
-        for nearest in [lexicons.nearest_occupation(soc_similarity[cid])]
-        if nearest.task_elements
+        for cid, nearest in nearest_occupations.items()
+        for elems in [nearest.task_elements]
+        if elems
     }
 
 

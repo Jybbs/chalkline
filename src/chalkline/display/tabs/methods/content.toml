@@ -1,0 +1,121 @@
+info = '''
+The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `{model_name}` into **{embed_dim}-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
+
+**Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options.'''
+
+stat_labels = [
+    "Corpus Size", "Clusters (k)", "SVD Components",
+    "Pathway Edges", "Variance Retained", "Median Silhouette", "Companies"
+]
+
+[chart_labels]
+brokerage_title   = 'Brokerage'
+career_families   = 'Career Families'
+clusters_title    = 'Career Families'
+count_title       = 'Count'
+edge_weight_title = 'Edge Weight (<i>cosine similarity</i>)'
+pairwise_title    = 'Pairwise Centroid Distance'
+postings_title    = 'Postings'
+silhouette_title  = 'Silhouette Coefficient'
+svd_component_1   = 'SVD Component 1'
+svd_component_2   = 'SVD Component 2'
+variance_title    = 'Variance Explained (%)'
+your_resume       = 'Your Resume'
+
+[[process_steps]]
+number = '1'
+label  = 'Collect'
+detail = '{corpus_size:,} postings from AGC Maine'
+
+[[process_steps]]
+number = '2'
+label  = 'Encode'
+detail = '{embedding_model}'
+
+[[process_steps]]
+number = '3'
+label  = 'Reduce'
+detail = 'SVD to {component_count}D ({total_variance:.0f}% variance)'
+
+[[process_steps]]
+number = '4'
+label  = 'Cluster'
+detail = 'Ward HAC, k={cluster_count}'
+
+[[process_steps]]
+number = '5'
+label  = 'Graph'
+detail = '{edge_count} pathway edges'
+
+[[process_steps]]
+number = '6'
+label  = 'Match'
+detail = 'Resume projection + gap analysis'
+
+[sections.cluster_sizes]
+title       = 'Cluster Size Distribution'
+description = 'How posting counts distribute across career families. Peaked near zero means many small clusters with a few dominant ones.'
+
+[sections.cluster_profiles]
+title       = 'Cluster Profiles'
+description = 'Metadata for each career family produced by the pipeline.'
+
+[sections.cluster_similarity]
+title       = 'Cluster-to-Cluster Similarity'
+description = 'Cosine similarity between every pair of career family centroids. Bright cells indicate families with similar job posting language that may be candidates for merging at lower k.'
+
+[sections.data_funnel]
+title       = 'Data Reduction Pipeline'
+description = 'How data volume compresses at each stage from raw postings through embedding, SVD reduction, clustering, and graph construction.'
+
+[sections.quality_scatter]
+title       = 'Cluster Quality vs. Centrality'
+description = 'Each career family plotted by its silhouette coefficient (*separation quality*) against brokerage centrality (*gateway connectivity*). Families in the upper right are both well-defined and well-connected.'
+
+[sections.cluster_separation]
+title       = 'Cluster Separation'
+description = 'Silhouette coefficients measure how well each career family is separated from its neighbors. Higher is better. Colored by sector.'
+
+[sections.distances]
+title       = 'Inter-Cluster Distance Distribution'
+description = 'Pairwise distances between cluster centroids, grouped by sector. Wider spread means more diversity within the sector.'
+
+[sections.gateways]
+title       = 'Gateway Careers'
+description = 'Career families that bridge the most pathways, sorted by brokerage score. High brokerage means the role is a common stepping stone.'
+
+[sections.job_zone_distribution]
+title       = 'Career Families by Experience Level'
+description = 'How the {n_clusters} career families distribute across O*NET Job Zones, showing whether the corpus is balanced across entry-level, mid-career, and advanced roles.'
+
+[sections.sector_job_zone]
+title       = 'Sector by Experience Level'
+description = 'Joint distribution of career families across sectors and Job Zones. Bright cells indicate concentrations, empty cells reveal gaps in the corpus.'
+
+[sections.landscape]
+title       = 'Career Landscape'
+description = 'All {n_clusters} career family centroids projected onto the first two SVD components. Your resume is the gold star.'
+
+[sections.overview]
+title       = 'Under the Hood'
+description = 'Technical details of how Chalkline analyzes the job market. This section is for evaluating the methodology.'
+
+[sections.pathway_strength]
+title       = 'Pathway Strength Distribution'
+description = 'How similar connected career families are. Higher weight means the transition is more natural.'
+
+[sections.pipeline]
+title       = 'Pipeline Process'
+description = 'The six-stage pipeline that transforms raw job postings into a navigable career landscape.'
+
+[sections.sector_dist]
+title       = 'Sector Distribution'
+description = 'How the corpus breaks down across construction sectors.'
+
+[sections.soc_heatmap]
+title       = 'O*NET Occupation Similarity'
+description = 'Cosine similarity between each career family centroid and all {n_occupations} O*NET occupation embeddings. Brighter cells indicate stronger alignment, revealing which families map cleanly to a single occupation and which straddle multiple.'
+
+[sections.variance]
+title       = 'Variance Explained'
+description = 'How much information each SVD component captures. The first {component_count} components retain {total_variance:.1f}% of the total variance.'

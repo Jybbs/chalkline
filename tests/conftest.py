@@ -10,13 +10,12 @@ independently tappable by any test module:
                                                                      ↓
                            credentials ────────────────────────→ matcher
                                                                      ↓
-                                    reference → table_builder, figure_builder
+                                    reference → charts
 """
 
 import numpy as np
 
 from datetime              import date
-from json                  import loads
 from pathlib               import Path
 from pydantic              import TypeAdapter
 from pytest                import fixture
@@ -26,17 +25,17 @@ from sklearn.preprocessing import normalize
 from types                 import SimpleNamespace
 from typing                import Any, Callable
 
-from chalkline.collection.schemas import Corpus, Posting
-from chalkline.display.figures    import FigureBuilder
-from chalkline.display.tables     import TableBuilder
+from chalkline.collection.schemas import Posting
+from chalkline.display.charts     import Charts
+from chalkline.display.loaders    import ContentLoader, Layout
+from chalkline.display.routes     import Routes
+from chalkline.display.theme      import Theme
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
+from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
-from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import CareerEdge, Cluster, Clusters
-from chalkline.pathways.schemas   import Credential, Reach
-from chalkline.pathways.schemas   import OnetOccupation, Task
-from chalkline.pipeline.schemas   import PipelineConfig
+from chalkline.pathways.loaders   import StakeholderReference
+from chalkline.pathways.schemas   import Credential
 
 
 CLUSTER_COUNT   = 4
@@ -56,7 +55,7 @@ def _embeddings(rows: int, seed: int, unit: bool = False) -> np.ndarray:
     Deterministic random embeddings for test fixtures.
     """
     vectors = np.random.RandomState(seed).randn(rows, EMBEDDING_DIM).astype(np.float32)
-    return normalize(vectors) if unit else vectors
+    return np.asarray(normalize(vectors)) if unit else vectors
 
 
 def _postings() -> list[Posting]:
@@ -67,14 +66,6 @@ def _postings() -> list[Posting]:
 
 
 # ── Collection fixtures ─────────────────────────────────────────────
-
-
-@fixture
-def corpus() -> Corpus:
-    """
-    Posting corpus built from fixture data.
-    """
-    return Corpus({p.id: p for p in _postings()})
 
 
 @fixture
@@ -127,22 +118,6 @@ def lexicon_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
-@fixture
-def lexicon_loader(lexicon_dir: Path) -> LexiconLoader:
-    """
-    Load all synthetic lexicon files via `LexiconLoader`.
-    """
-    return LexiconLoader(lexicon_dir)
-
-
-@fixture
-def occupations(lexicon_loader: LexiconLoader) -> list[OnetOccupation]:
-    """
-    Synthetic O*NET occupation records from the loader.
-    """
-    return lexicon_loader.occupations
-
-
 # ── Embedding pipeline fixtures ──────────────────────────────────────
 
 
@@ -185,10 +160,10 @@ def cluster_vectors(
     Mean posting embedding per cluster, L2-normalized (CLUSTER_COUNT,
     EMBEDDING_DIM).
     """
-    return normalize(np.stack([
+    return np.asarray(normalize(np.stack([
         raw_vectors[assignments == cid].mean(axis=0)
         for cid in sorted(np.unique(assignments))
-    ]))
+    ])))
 
 
 @fixture
@@ -196,7 +171,8 @@ def clusters(
     assignments     : np.ndarray,
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
-    job_zone_map    : dict[int, int]
+    job_zone_map    : dict[int, int],
+    unit_vectors    : np.ndarray
 ) -> Clusters:
     """
     Unified cluster container with synthetic metadata and task
@@ -207,8 +183,8 @@ def clusters(
     items = {
         cid: Cluster(
             cluster_id   = cid,
+            embeddings   = unit_vectors[assignments == cid],
             job_zone     = job_zone_map[cid],
-            members      = np.where(assignments == cid)[0],
             modal_title  = f"Title {cid}",
             postings     = [],
             sector       = f"Sector {cid % 2}",
@@ -222,23 +198,10 @@ def clusters(
         for cid in cluster_ids
     }
     return Clusters(
-        centroids = centroids,
-        items     = items,
-        vectors   = cluster_vectors
-    )
-
-
-@fixture
-def config(tmp_path: Path) -> PipelineConfig:
-    """
-    Minimal pipeline config for tests.
-    """
-    return PipelineConfig(
-        cluster_count   = CLUSTER_COUNT,
-        component_count = COMPONENT_COUNT,
-        lexicon_dir     = tmp_path,
-        output_dir      = tmp_path,
-        postings_dir    = tmp_path
+        centroids      = centroids,
+        items          = items,
+        soc_similarity = np.zeros((CLUSTER_COUNT, 1), dtype=np.float32),
+        vectors        = cluster_vectors
     )
 
 
@@ -284,7 +247,7 @@ def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
     """
     Deterministic Job Zone assignment for synthetic clusters.
 
-    Spreads clusters across JZ 2-4 to exercise stepwise k-NN lateral and
+    Spreads clusters across Job Zones 2-4 to exercise stepwise k-NN lateral and
     upward edge logic. Production uses top-3 median cosine against O*NET,
     but tests use fixed values to avoid coupling to fixture occupation
     count.
@@ -332,23 +295,14 @@ def resume_matcher(
     Resume matcher built from synthetic embeddings with mock encoder.
     """
     mock_encoder: Any = SimpleNamespace(
-        encode = lambda texts,
-        unit   = True: _embeddings(len(texts), seed=len(texts), unit=unit)
+        encode=lambda t, unit=True: _embeddings(len(t), seed=len(t), unit=unit)
     )
     return ResumeMatcher(
         clusters = clusters,
-        graph    = pathway_graph,
         encoder  = mock_encoder,
+        graph    = pathway_graph,
         svd      = svd
     )
-
-
-@fixture
-def soc_vectors() -> np.ndarray:
-    """
-    Synthetic occupation embeddings (5 occupations, EMBEDDING_DIM).
-    """
-    return _embeddings(5, 99, unit=True)
 
 
 @fixture
@@ -356,7 +310,10 @@ def svd(unit_vectors: np.ndarray) -> TruncatedSVD:
     """
     Fitted TruncatedSVD for resume projection tests.
     """
-    return TruncatedSVD(n_components=COMPONENT_COUNT, random_state=42).fit(unit_vectors)
+    return TruncatedSVD(
+        n_components = COMPONENT_COUNT, 
+        random_state = 42
+    ).fit(unit_vectors)
 
 
 @fixture
@@ -364,47 +321,38 @@ def unit_vectors(raw_vectors: np.ndarray) -> np.ndarray:
     """
     L2-normalized posting embeddings.
     """
-    return normalize(raw_vectors)
+    return np.asarray(normalize(raw_vectors))
 
 
 # ── Display fixtures ─────────────────────────────────────────────────
 
 
 @fixture
-def edge_factory(
-    clusters    : Clusters,
-    credentials : list[Credential]
-) -> Callable:
+def charts(pathway_graph: CareerPathwayGraph) -> Charts:
     """
-    Factory for `CareerEdge` instances with a default cluster ID and
-    optional credential filtering by kind.
+    Charts factory wired to the synthetic pathway graph.
     """
-    cluster_id = next(iter(clusters))
-
-    def _build(kind: str | None = None) -> CareerEdge:
-        creds = (
-            [next(c for c in credentials if c.kind == kind)]
-            if kind
-            else []
-        )
-        return CareerEdge(
-            cluster_id  = cluster_id,
-            credentials = creds,
-            weight      = 0.9
-        )
-    return _build
+    return Charts(
+        matched_id = pathway_graph.clusters.cluster_ids[0],
+        pathway    = pathway_graph,
+        theme      = Theme()
+    )
 
 
 @fixture
-def figure_builder(pathway_graph: CareerPathwayGraph) -> FigureBuilder:
+def content() -> ContentLoader:
     """
-    Figure builder wired to the synthetic pathway graph.
+    Centralized content loader for display-layer TOML.
     """
-    return FigureBuilder(
-        matched_id = pathway_graph.clusters.cluster_ids[0],
-        pathway    = pathway_graph,
-        theme      = lambda: "plotly_white"
-    )
+    return ContentLoader()
+
+
+@fixture
+def layout(content: ContentLoader) -> Layout:
+    """
+    Layout renderer backed by the shared content loader.
+    """
+    return Layout(content)
 
 
 @fixture
@@ -416,64 +364,40 @@ def match_result(resume_matcher: ResumeMatcher) -> MatchResult:
 
 
 @fixture
-def member_names(reference: dict) -> tuple[list[dict], list[str]]:
+def posting_factory() -> Callable:
     """
-    AGC member records with pre-lowercased names for matching tests.
+    Factory for minimal `Posting` instances with a given company name.
     """
-    members = reference["agc_members"]
-    return members, [m["name"].lower() for m in members]
-
-
-@fixture
-def pipeline_namespace(clusters: Clusters, config: PipelineConfig):
-    """
-    Lightweight namespace mimicking the `Chalkline` dataclass for
-    display tests without requiring the full Hamilton pipeline.
-    """
-    return SimpleNamespace(
-        clusters = clusters,
-        config   = config
-    )
-
-
-@fixture
-def reach(
-    clusters      : Clusters,
-    pathway_graph : CareerPathwayGraph
-) -> Reach:
-    """
-    Reach view from the first cluster in the graph.
-    """
-    return pathway_graph.reach(clusters.cluster_ids[0])
-
-
-@fixture
-def reference() -> dict:
-    """
-    Stakeholder reference data loaded from display fixture JSON.
-    """
-    return {
-        "agc_members" : loads(
-            (FIXTURES / "display" / "members.json").read_text()
-        ),
-        "career_urls" : [],
-        "job_boards"  : loads(
-            (FIXTURES / "display" / "boards.json").read_text()
+    def _build(company: str) -> Posting:
+        return Posting(
+            company     = company,
+            date_posted = None,
+            description = "x" * 50,
+            source_url  = "https://example.com",
+            title       = "Test"
         )
-    }
+    return _build
 
 
 @fixture
-def table_builder(
-    match_result : MatchResult,
-    pipeline_namespace,
-    reference    : dict
-) -> TableBuilder:
+def routes(layout: Layout, theme: Theme) -> Routes:
     """
-    Table builder wired to the synthetic pipeline and match result.
+    Route card builder wired to the shared layout and theme.
     """
-    return TableBuilder(
-        pipeline  = pipeline_namespace,
-        reference = reference,
-        result    = match_result
-    )
+    return Routes(layout, theme)
+
+
+@fixture
+def reference() -> StakeholderReference:
+    """
+    Stakeholder reference data from display fixture JSONs.
+    """
+    return StakeholderReference(FIXTURES / "display")
+
+
+@fixture
+def theme() -> Theme:
+    """
+    Dashboard theme with the unified color palette.
+    """
+    return Theme()

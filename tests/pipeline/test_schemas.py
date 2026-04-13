@@ -1,89 +1,99 @@
 """
-Tests for pipeline configuration, cluster structure, and corpus ordering.
+Tests for corpus ordering and pipeline configuration.
 
-Validates `PipelineConfig` defaults, centroid and cluster vector shapes,
-and `Corpus` description alignment with sorted posting keys.
+Validates `Corpus` description alignment with sorted posting keys and
+`PipelineConfig` constraint boundaries.
 """
 
-import numpy as np
-
 from pathlib import Path
-from pytest  import mark
+
+from pydantic import ValidationError
+from pytest   import mark, raises
 
 from chalkline.collection.schemas import Corpus, Posting
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
-class TestClusterStructure:
+def _posting(key: str) -> Posting:
     """
-    Validate centroid and cluster vector shapes and normalization.
+    Minimal posting with a given ID for corpus construction.
     """
-
-    def test_centroids_shape(self, centroids, cluster_ids, coordinates):
-        """
-        One centroid row per cluster in the SVD-reduced space.
-        """
-        assert centroids.shape == (len(cluster_ids), coordinates.shape[1])
-
-    def test_cluster_vectors_unit(self, cluster_vectors):
-        """
-        Cluster vectors are L2-normalized for cosine similarity.
-        """
-        np.testing.assert_allclose(
-            np.linalg.norm(cluster_vectors, axis=1),
-            1.0,
-            atol=1e-6
-        )
+    return Posting(
+        company     = "Co",
+        date_posted = None,
+        description = f"{'x' * 50} {key}",
+        id          = key,
+        source_url  = "https://example.com",
+        title       = "Worker"
+    )
 
 
 class TestCorpus:
     """
-    Validate corpus key ordering and description alignment.
+    Validate corpus key ordering, description alignment, and positional
+    access.
     """
+
+    def test_at_retrieves_by_position(self):
+        """
+        `at` returns postings at the given sorted-key positions,
+        preserving the order of the requested indices.
+        """
+        postings = {k: _posting(k) for k in ["c", "a", "b"]}
+        corpus   = Corpus(postings)
+        result   = corpus.at([2, 0])
+        assert result[0].id == "c"
+        assert result[1].id == "a"
 
     def test_descriptions_aligned(self):
         """
         Descriptions follow the same sorted-key order as `posting_ids`.
         """
-        postings = {
-            f"b_{i}": Posting(
-                company     = "Co",
-                date_posted = None,
-                description = f"{'x' * 50} {i}",
-                id          = f"b_{i}",
-                source_url  = "https://example.com",
-                title       = "Worker"
-            )
-            for i in range(3)
-        }
-        corpus = Corpus(postings)
+        postings = {f"b_{i}": _posting(f"b_{i}") for i in range(3)}
+        corpus   = Corpus(postings)
         assert len(corpus.descriptions) == 3
         assert corpus.descriptions[0] == postings[corpus.posting_ids[0]].description
+
+    def test_empty_corpus(self):
+        """
+        An empty posting dict produces empty IDs and descriptions
+        without raising.
+        """
+        corpus = Corpus({})
+        assert corpus.posting_ids  == []
+        assert corpus.descriptions == []
 
 
 class TestPipelineConfig:
     """
-    Validate default hyperparameters.
+    Validate hyperparameter constraints.
     """
 
-    @mark.parametrize("expected, field", [
-        (20,                  "cluster_count"),
-        (10,                  "component_count"),
-        (5,                   "destination_percentile"),
-        ("all-mpnet-base-v2", "embedding_model"),
-        (2,                   "lateral_neighbors"),
-        (42,                  "random_seed"),
-        (3,                   "soc_neighbors"),
-        (75,                  "source_percentile"),
-        (2,                   "upward_neighbors")
+    @mark.parametrize(("field", "value"), [
+        ("cluster_count",          1),
+        ("component_count",        0),
+        ("destination_percentile", -1),
+        ("destination_percentile", 101),
+        ("source_percentile",      -1),
+        ("source_percentile",      101),
+        ("lateral_neighbors",      0),
+        ("upward_neighbors",       0)
     ])
-    def test_defaults(self, expected, field: str, tmp_path: Path):
+    def test_out_of_range_rejected(self, field: str, value: int):
         """
-        Each hyperparameter has the expected default value.
+        Hyperparameters outside their valid ranges are rejected by
+        Pydantic field constraints.
         """
-        config = PipelineConfig(
-            lexicon_dir  = tmp_path,
-            output_dir   = tmp_path,
-            postings_dir = tmp_path
-        )
-        assert getattr(config, field) == expected
+        with raises(ValidationError):
+            PipelineConfig(
+                lexicon_dir  = Path("."),
+                postings_dir = Path("."),
+                **{field: value}
+            )
+
+    def test_hamilton_cache_dir(self):
+        """
+        The derived cache directory is under `.cache/hamilton`.
+        """
+        config = PipelineConfig(lexicon_dir=Path("."), postings_dir=Path("."))
+        assert config.hamilton_cache_dir == Path(".cache/hamilton")

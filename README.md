@@ -99,7 +99,7 @@ d_{\text{Ward}}(A, B) = \sqrt{\frac{2 \cdot |A| \cdot |B|}{|A| + |B|}} \; \|\bar
 `$  
 <br>
 
-This builds a full dendrogram (*a tree of every possible merge*), which is then cut at $`k = 20`$ to produce 20 career families. The dendrogram is preserved and rendered in the career report so users can see how clusters relate to each other. Silhouette analysis[^29] validates the quality of the resulting partition by measuring how well each posting fits its assigned family versus its nearest alternative.
+This builds a full merge hierarchy that is then cut at $`k = 20`$ to produce 20 career families. Silhouette analysis[^29] validates the quality of the resulting partition by measuring how well each posting fits its assigned family versus its nearest alternative.
 
 ### SOC Assignment and Job Zones
 
@@ -109,7 +109,7 @@ Each cluster needs an occupational identity. The pipeline computes the mean post
 
 $`
 \hspace{0.5cm} \displaystyle
-\text{JZ}(c) = \text{median}\bigl(\{z_i : i \in \text{top-}k\; \text{neighbors of } c\}\bigr), \quad k = 3
+\text{Job Zone}(c) = \text{median}\bigl(\{z_i : i \in \text{top-}k\; \text{neighbors of } c\}\bigr), \quad k = 3
 `$  
 <br>
 
@@ -149,7 +149,7 @@ where $`\tilde{S}`$ is the median similarity across all tasks for the matched cl
 
 ### Career Graph
 
-The career graph connects the 20 career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint here ensures edges only link clusters at the same [Job Zone](https://www.onetonline.org/help/online/zones) (*lateral pivots*) or one level apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_{\text{lateral}} = 2`$ bidirectional same-JZ edges and $`k_{\text{upward}} = 2`$ unidirectional next-JZ edges, yielding **96** edges total.
+The career graph connects the 20 career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint here ensures edges only link clusters at the same [Job Zone](https://www.onetonline.org/help/online/zones) (*lateral pivots*) or one level apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_{\text{lateral}} = 2`$ bidirectional edges to clusters at the same Job Zone and $`k_{\text{upward}} = 2`$ unidirectional edges to clusters at the next Job Zone level, yielding **96** edges total.
 
 Each edge is then annotated with relevant credentials (*19 [apprenticeships](https://www.apprenticeship.gov/), 276 certifications, 30 educational programs*) using a dual-threshold filter. For an edge from a worker's current cluster $`\mathbf{s}`$ to a target cluster $`\mathbf{d}`$, a credential $`\mathbf{c}`$ is attached when it meets both conditions:
 
@@ -167,12 +167,11 @@ The destination threshold $`\tau_{\text{dest}}`$ (*95th percentile of credential
 
 The Marimo notebook opens to a splash page showing the fitted landscape at a glance with a drag-and-drop upload zone. Drop a PDF resume, and the system encodes it with the same sentence transformer, projects through the fitted SVD, and matches to the nearest career family.
 
-The resulting report is an eight-panel accordion that expands lazily as you open each section:
+The resulting report is a seven-panel accordion that expands lazily as you open each section:
 
 - **Career Landscape:** Scatter plot of every career family in the SVD coordinate space, with node sizes scaled by betweenness centrality[^49] and the resume overlaid as a gold star showing where you sit relative to the full landscape
 - **Skill Analysis:** Demonstrated competencies and skill gaps ranked by cosine similarity against the cluster's [O\*NET](https://www.onetonline.org/) tasks, with gaps ordered by deficit magnitude
 - **Career Pathways:** Spring-layout network of advancement and lateral edges from a target cluster, with [apprenticeship](https://www.apprenticeship.gov/) programs and hour requirements annotated on each edge
-- **Dendrogram:** Ward-linkage hierarchical tree over all career families, with the matched cluster highlighted to show where it sits in the broader hierarchy
 - **Education & Training:** Registered apprenticeships with [RAPIDS](https://www.apprenticeship.gov/) codes and educational programs reachable through career graph edges from the target cluster
 - **Employer Connections:** Posting companies fuzzy-matched against the AGC Maine member directory with career page URLs
 - **Job Boards:** Maine and national boards filtered by sector relevance
@@ -266,7 +265,7 @@ chalkline/
 │   │   └── storage.py                 File-backed posting persistence
 │   │
 │   ├── display/                       Notebook presentation layer
-│   │   ├── figures.py                 Plotly figure builders (landscape, pathways, dendrogram)
+│   │   ├── figures.py                 Plotly figure builders (landscape, pathways)
 │   │   ├── layout.py                  Marimo layout helpers (stat rows, filtered accordions)
 │   │   └── tables.py                  Row builders for panel tables and text reports
 │   │

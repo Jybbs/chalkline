@@ -10,9 +10,13 @@ persist deduplicated postings through the storage layer.
 
 from loguru  import logger
 from pathlib import Path
+from typing  import TYPE_CHECKING
 
 from chalkline.collection.schemas import Posting
 from chalkline.collection.storage import CorpusStorage
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 
 class Collector:
@@ -76,7 +80,7 @@ class Collector:
             logger.debug(f"Skipped row: {error}")
             return None
 
-    def _scrape(self) -> "DataFrame":
+    def _scrape(self) -> DataFrame:
         """
         Run `scrape_jobs` once per search term and concatenate all results
         into a single DataFrame.
@@ -87,8 +91,8 @@ class Collector:
         Returns:
             Concatenated DataFrame of all search term results.
         """
-        from jobspy  import scrape_jobs
-        from pandas  import concat, DataFrame
+        from jobspy import scrape_jobs
+        from pandas import concat
 
         frames = []
         for term in self.search_terms:
@@ -123,9 +127,19 @@ if __name__ == "__main__":
         search_terms = [
             "carpenter",
             "construction",
+            "crane operator",
             "electrician",
             "equipment operator",
+            "foreman",
+            "HVAC",
+            "ironworker",
+            "laborer",
+            "mason",
             "paving",
-            "superintendent"
+            "pipefitter",
+            "plumber",
+            "sheet metal worker",
+            "superintendent",
+            "welder"
         ]
     ).run()

@@ -1,141 +1,58 @@
 """
-Tests for display table builders.
+Tests for display-layer data builders.
+
+Validates employer fuzzy matching via `StakeholderReference.match_employers`.
 """
 
 from typing import Callable
 
 from pytest import mark
 
-from chalkline.display.tables   import TableBuilder
-from chalkline.matching.schemas import MatchResult
-from chalkline.pathways.schemas import Reach
+from chalkline.pathways.loaders import StakeholderReference
 
 
-class TestBoardRows:
+class TestMatchEmployers:
     """
-    Validate sector keyword matching derived from cluster profile
-    titles.
+    Validate fuzzy company-to-member matching in
+    `StakeholderReference.match_employers`.
     """
 
-    def test_empty_boards(
+    def test_deduplicates_company(
         self,
-        match_result       : MatchResult,
-        pipeline_namespace
+        posting_factory : Callable,
+        reference       : StakeholderReference
     ):
         """
-        Empty board dict returns empty tuples without error.
+        Multiple postings from the same company produce one row.
         """
-        builder = TableBuilder(
-            pipeline  = pipeline_namespace,
-            reference = {
-                "agc_members" : [],
-                "career_urls" : [],
-                "job_boards"  : {}
-            },
-            result    = match_result
-        )
-        maine, national = builder.board_rows()
-        assert maine == []
-        assert national == []
+        postings = [posting_factory("Cianbro Corporation")] * 2
+        assert len(reference.match_employers(postings)) == 1
 
-    def test_returns_rows(self, table_builder: TableBuilder):
-        """
-        Board rows returns formatted tuples for the matched sector.
-        """
-        maine, national = table_builder.board_rows()
-        assert isinstance(maine, list)
-        assert isinstance(national, list)
-
-
-@mark.parametrize("kind, method, expected_key", [
-    ("apprenticeship", "apprenticeship_rows", "RAPIDS Code"),
-    ("program",        "program_rows",        "Institution")
-])
-class TestCredentialRows:
-    """
-    Validate deduplication and row formatting for credential types.
-
-    Parameterized across apprenticeship and program rows, which share
-    identical deduplication and empty-edge logic.
-    """
-
-    def test_deduplicates(
+    @mark.parametrize(("company", "expected_name"), [
+        ("Cianbro Corporation", "Cianbro Corporation"),
+        ("rj grondin & sons",   "R.J. Grondin and Sons")
+    ], ids=["exact", "fuzzy"])
+    def test_match(
         self,
-        edge_factory  : Callable,
-        expected_key  : str,
-        kind          : str,
-        method        : str,
-        table_builder : TableBuilder
+        company         : str,
+        expected_name   : str,
+        posting_factory : Callable,
+        reference       : StakeholderReference
     ):
         """
-        Duplicate credentials on two edges produce one row.
+        Company names matching a member exactly or above the 0.7
+        fuzzy threshold produce a matched row.
         """
-        edge  = edge_factory(kind)
-        reach = Reach(advancement=[edge, edge])
-        rows  = getattr(table_builder, method)(reach)
+        rows = reference.match_employers([posting_factory(company)])
         assert len(rows) == 1
-        assert expected_key in rows[0]
+        assert rows[0]["name"] == expected_name
 
-    def test_empty_edges(
+    def test_no_match(
         self,
-        edge_factory  : Callable,
-        expected_key  : str,
-        kind          : str,
-        method        : str,
-        table_builder : TableBuilder
+        posting_factory : Callable,
+        reference       : StakeholderReference
     ):
         """
-        No credentials of this type returns empty list.
+        Unrelated company names produce no rows.
         """
-        edge = edge_factory()
-        assert getattr(table_builder, method)(Reach(advancement=[edge])) == []
-
-
-class TestMatchMember:
-    """
-    Validate SequenceMatcher-based company name matching.
-    """
-
-    def test_below_threshold(
-        self,
-        member_names : tuple[list[dict], list[str]]
-    ):
-        """
-        Unrelated company names return None.
-        """
-        members, names = member_names
-        assert TableBuilder._match_member(
-            "acme corp", members, names
-        ) is None
-
-    def test_exact_match(
-        self,
-        member_names : tuple[list[dict], list[str]]
-    ):
-        """
-        Identical names produce a match.
-        """
-        members, names = member_names
-        m = TableBuilder._match_member(
-            "cianbro corporation", members, names
-        )
-        assert m is not None
-        assert m["name"] == "Cianbro Corporation"
-
-    def test_fuzzy_match(
-        self,
-        member_names : tuple[list[dict], list[str]]
-    ):
-        """
-        Abbreviation and punctuation differences still match
-        above the 0.7 threshold.
-        """
-        members, names = member_names
-        m = TableBuilder._match_member(
-            "rj grondin & sons", members, names
-        )
-        assert m is not None
-        assert m["name"] == "R.J. Grondin and Sons"
-
-
-
+        assert reference.match_employers([posting_factory("Acme Corp")]) == []

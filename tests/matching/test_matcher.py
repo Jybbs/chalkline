@@ -2,6 +2,16 @@
 Tests for embedding-based resume matching with per-task gap analysis.
 """
 
+import numpy as np
+
+from pytest import mark
+
+from chalkline.collection.schemas import Posting
+from chalkline.matching.matcher   import ResumeMatcher
+from chalkline.matching.schemas   import MatchResult, ScoredTask
+from chalkline.pathways.clusters  import Cluster, Clusters, Task
+from chalkline.pathways.schemas   import Reach
+
 
 class TestResumeMatcher:
     """
@@ -9,44 +19,244 @@ class TestResumeMatcher:
     reach retrieval.
     """
 
-    def test_cluster_assigned(self, clusters, resume_matcher):
+    def test_cluster_assigned(self, clusters: Clusters, match_result: MatchResult):
         """
         Match result assigns a valid cluster ID from the profile set.
         """
-        assert resume_matcher.match(
-            "Electrician with welding experience"
-        ).cluster_id in clusters
+        assert match_result.cluster_id in clusters
 
-    def test_cluster_distances(self, cluster_ids, resume_matcher):
+    def test_cluster_distances(
+        self,
+        cluster_ids  : list[int],
+        match_result : MatchResult
+    ):
         """
-        Cluster distances are sorted ascending and cover all clusters.
+        Cluster distances cover every cluster as non-negative floats.
         """
-        distances = [
-            d.distance
-            for d in resume_matcher.match("Construction worker").cluster_distances
-        ]
-        assert distances == sorted(distances)
+        distances = match_result.cluster_distances
         assert len(distances) == len(cluster_ids)
+        assert all(d >= 0 for d in distances)
 
-    def test_gap_split(self, resume_matcher):
+    def test_calibrate_cluster_means(
+        self,
+        clusters       : Clusters,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
         """
-        Demonstrated and gaps partition the task set at the median.
+        Calibration returns a mean similarity for every cluster,
+        including zero for taskless clusters.
         """
-        result = resume_matcher.match("Electrical wiring specialist")
-        assert len(result.demonstrated) + len(result.gaps) == 5
+        means = resume_matcher.calibrate()
+        assert set(means.keys()) == set(clusters)
+        assert all(-1.0 <= v <= 1.0 for v in means.values())
 
-    def test_coordinates_shape(self, resume_matcher):
+    def test_calibrate_threshold(
+        self,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
         """
-        SVD coordinates have one entry per component for landscape
-        plotting.
+        Calibration sets `global_threshold` to the median of all
+        per-task similarities.
         """
-        result = resume_matcher.match("Structural steel welder")
-        assert len(result.coordinates) == 4
+        resume_matcher.calibrate()
+        assert resume_matcher.global_threshold > 0
 
-    def test_sector_assigned(self, clusters, resume_matcher):
+    def test_confidence_range(self, match_result: MatchResult):
         """
-        Match result carries a sector string from the assigned cluster
-        profile.
+        Confidence is a 0-100 integer percentage.
         """
-        result = resume_matcher.match("Heavy equipment operator")
-        assert result.sector == clusters[result.cluster_id].sector
+        assert 0 <= match_result.confidence <= 100
+
+    def test_global_threshold(
+        self,
+        clusters       : Clusters,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        Setting `global_threshold` to 1.0 forces every task below the
+        bar, marking all as gaps rather than demonstrated.
+        """
+        resume_matcher.global_threshold = 1.0
+        target = next(c for c in clusters.values() if c.tasks)
+        scored = resume_matcher.score_destination(target)
+        assert all(not t.demonstrated for t in scored)
+
+    def test_score_destination(
+        self,
+        clusters       : Clusters,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        Scoring against an arbitrary destination cluster returns one
+        `ScoredTask` per task, sorted by descending similarity.
+        """
+        target = next(
+            c for c in clusters.values()
+            if c.cluster_id != match_result.cluster_id and c.tasks
+        )
+        scored = resume_matcher.score_destination(target)
+        assert len(scored) == len(target.tasks)
+        similarities = [t.similarity for t in scored]
+        assert similarities == sorted(similarities, reverse=True)
+
+    def test_score_destination_empty_tasks(
+        self,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        Scoring against a cluster with no tasks returns an empty list.
+        """
+        empty = Cluster(
+            cluster_id  = 999,
+            embeddings  = np.empty((0, 4)),
+            job_zone    = 1,
+            modal_title = "Empty",
+            postings    = [],
+            sector      = "Test",
+            size        = 0,
+            soc_title   = "Empty",
+            tasks       = []
+        )
+        assert resume_matcher.score_destination(empty) == []
+
+    def test_score_postings_date_order(
+        self,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        Dated postings are returned in reverse chronological order,
+        and undated postings are filtered out.
+        """
+        from datetime import date
+        postings = [
+            Posting(
+                company     = "A",
+                date_posted = date(2026, 1, 1),
+                description = "x" * 50,
+                source_url  = "https://example.com",
+                title       = "Old"
+            ),
+            Posting(
+                company     = "B",
+                date_posted = None,
+                description = "x" * 50,
+                source_url  = "https://example.com",
+                title       = "Undated"
+            ),
+            Posting(
+                company     = "C",
+                date_posted = date(2026, 6, 1),
+                description = "x" * 50,
+                source_url  = "https://example.com",
+                title       = "Recent"
+            )
+        ]
+        cluster = Cluster(
+            cluster_id  = 777,
+            embeddings  = np.random.RandomState(55).randn(3, 16).astype(np.float32),
+            job_zone    = 2,
+            modal_title = "Test",
+            postings    = postings,
+            sector      = "Test",
+            size        = 3,
+            soc_title   = "Test"
+        )
+        scored = resume_matcher.score_postings(cluster)
+        assert len(scored) == 2
+        assert scored[0][0].title == "Recent"
+        assert scored[1][0].title == "Old"
+        assert all(type(s) is float for _, s in scored)
+
+    def test_single_task_all_demonstrated(
+        self,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        A cluster with one task makes the median equal to the only
+        similarity, so the task is always >= median and flagged as
+        demonstrated.
+        """
+        vec = np.random.RandomState(99).randn(1, 16).astype(np.float32)
+        solo = Cluster(
+            cluster_id  = 888,
+            embeddings  = vec,
+            job_zone    = 2,
+            modal_title = "Solo",
+            postings    = [],
+            sector      = "Test",
+            size        = 1,
+            soc_title   = "Solo",
+            tasks       = [Task(name="Only task", vector=vec[0])]
+        )
+        scored = resume_matcher.score_destination(solo)
+        assert len(scored) == 1
+        assert scored[0].demonstrated is True
+
+
+class TestMatchResult:
+    """
+    Validate derived properties on match results.
+    """
+
+    def test_confidence_uniform_distances(self):
+        """
+        When all cluster distances are equal and nonzero, min/max
+        ratio is 1.0, producing 0% confidence because the resume
+        is equidistant to every cluster.
+        """
+        result = MatchResult(
+            cluster_distances = [0.5, 0.5, 0.5],
+            cluster_id        = 0,
+            reach             = Reach()
+        )
+        assert result.confidence == 0
+
+    def test_confidence_perfect_match(self):
+        """
+        When the nearest cluster is at distance 0, confidence is 100%
+        regardless of the farthest distance.
+        """
+        result = MatchResult(
+            cluster_distances = [0.0, 0.5, 1.0],
+            cluster_id        = 0,
+            reach             = Reach()
+        )
+        assert result.confidence == 100
+
+    def test_coordinates_default_empty(self):
+        """
+        Coordinates default to an empty list when not provided.
+        """
+        result = MatchResult(
+            cluster_distances = [0.1, 0.5],
+            cluster_id        = 0,
+            reach             = Reach()
+        )
+        assert result.coordinates == []
+
+
+class TestScoredTask:
+    """
+    Validate derived properties on scored task results.
+    """
+
+    @mark.parametrize(("similarity", "expected"), [
+        (0.85,  85.0),
+        (0.0,   0.0),
+        (-0.5, -50.0),
+        (1.0,  100.0)
+    ])
+    def test_pct(self, similarity: float, expected: float):
+        """
+        `pct` converts the -1..1 similarity to a percentage with
+        one decimal.
+        """
+        task = ScoredTask(demonstrated=True, name="Test", similarity=similarity)
+        assert task.pct == expected

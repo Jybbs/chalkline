@@ -1,0 +1,431 @@
+# Glossary of terms for contextual hover tooltips.
+# Each entry has a case-insensitive `term` and a plain-English `definition`.
+# Optional `aliases` list matches additional phrasings (acronyms, plurals,
+# alternate names) but all resolve to the same tooltip with the canonical
+# `term` as the title. The annotator wraps the first occurrence per concept
+# per text block, deduping by canonical title.
+# Definitions support **bold**, *italic*, and line breaks via triple-quoted TOML.
+# Optional `url` and `url_label` fields add a clickable link to the tooltip.
+
+[[terms]]
+term       = 'alignment percentile'
+definition = '''Your resume's overall similarity compared against the distribution of posting similarities **within your matched career family**.
+
+A 75th percentile means your resume aligns more closely with the role than three-quarters of the actual job postings in that family. Answers the question: *how does your resume stack up against the postings employers actually wrote?*'''
+
+[[terms]]
+term       = 'apprenticeship'
+aliases    = ['apprenticeships']
+definition = '''A structured, **paid** training program where you learn a trade on the job under experienced workers.
+
+→ Typically 2 to 4 years
+→ Earn while you learn
+→ Leads to **journeyman certification**'''
+url        = 'https://www.apprenticeship.gov/'
+url_label  = 'Learn more at Apprenticeship.gov'
+
+[[terms]]
+term       = 'betweenness'
+aliases    = ['betweenness centrality']
+definition = '''A measure of how often a career family sits on the **shortest path** between other families.
+
+High betweenness means a *gateway role* with the widest range of advancement options in either direction.'''
+url        = 'https://en.wikipedia.org/wiki/Betweenness_centrality'
+url_label  = 'Betweenness centrality on Wikipedia'
+
+[[terms]]
+term       = 'BLS'
+aliases    = ['Bureau of Labor Statistics']
+definition = '''The **Bureau of Labor Statistics**, the U.S. federal agency that publishes wage and employment data.
+
+Chalkline uses BLS data for the Maine wage distributions and 10-year occupational growth projections shown in the Your Match tab.'''
+url        = 'https://www.bls.gov/'
+url_label  = 'Bureau of Labor Statistics'
+
+[[terms]]
+term       = 'bright outlook'
+definition = '''An O*NET designation for occupations expected to grow rapidly, have many openings, or represent new and emerging roles.
+
+Criteria include projected growth **above average**, large numbers of annual openings, or recent emergence in the economy.'''
+url        = 'https://www.onetonline.org/help/bright/'
+url_label  = 'Bright Outlook criteria on O*NET'
+
+[[terms]]
+term       = 'brokerage'
+aliases    = ['brokerage centrality']
+definition = '''How central a career family is to the network of possible career transitions.
+
+High-brokerage families connect many other roles, meaning workers who pass through them have the **most options** for where to go next.'''
+url        = 'https://en.wikipedia.org/wiki/Brokerage_in_social_networks'
+url_label  = 'Network brokerage on Wikipedia'
+
+[[terms]]
+term       = 'career family'
+definition = '''A group of job postings that use **similar language** to describe similar work.
+
+Identified by clustering sentence embeddings of all {n_postings} postings in the corpus. Each of the {n_clusters} career families is assigned an O*NET occupation title based on the closest match.'''
+
+[[terms]]
+term       = 'career pathway'
+definition = '''A possible transition between two career families.
+
+Determined by how similar their job postings are in language and what credentials bridge the gap. Pathways can be *advancement* (*higher Job Zone*) or *lateral* (*same level*).'''
+
+[[terms]]
+term       = 'centroid'
+aliases    = ['centroids']
+definition = '''The **average position** of all job postings in a career family within the embedding space.
+
+Used as the representative point for the group. Your resume is matched by finding which centroid it is closest to.'''
+url        = 'https://en.wikipedia.org/wiki/Centroid'
+url_label  = 'Centroid on Wikipedia'
+
+[[terms]]
+term       = 'cluster'
+aliases    = ['clusters']
+definition = '''A group of job postings identified as similar by the clustering algorithm.
+
+Each cluster becomes a career family. Chalkline uses **{n_clusters} clusters**, determined by Ward-linkage hierarchical agglomerative clustering.'''
+url        = 'https://en.wikipedia.org/wiki/Cluster_analysis'
+url_label  = 'Cluster analysis on Wikipedia'
+
+[[terms]]
+term       = 'corpus'
+definition = '''The full collection of **{n_postings}** job postings scraped from Maine construction job boards.
+
+Every posting in the corpus is encoded as a sentence embedding and clustered into one of {n_clusters} career families.'''
+
+[[terms]]
+term       = 'cosine similarity'
+definition = '''A measure of how closely two texts point in the **same direction** in embedding space.
+
+→ 1.0: identical direction (*very similar language*)
+→ 0.0: unrelated
+→ Negative: opposite meaning
+
+Used to compare your resume against O*NET skill definitions.'''
+url        = 'https://en.wikipedia.org/wiki/Cosine_similarity'
+url_label  = 'Cosine similarity on Wikipedia'
+
+[[terms]]
+term       = 'credential'
+aliases    = ['credentials']
+definition = '''A certification, apprenticeship, or educational program that qualifies a worker for advancement between career families.
+
+Credentials are matched to career transitions using a **dual-threshold cosine filter** that requires relevance to both the source and destination families.'''
+url        = 'https://www.careeronestop.org/Credentials/Toolkit/find-certifications.aspx'
+url_label  = 'Find certifications on CareerOneStop'
+
+[[terms]]
+term       = 'detailed work activities'
+aliases    = ['DWA', 'DWAs']
+definition = '''**DWAs** — O*NET's mid-level descriptions of job activities, sitting between highly specific tasks and broader generalized categories.
+
+Examples: *"Install electrical components, equipment, or systems"* or *"Test electrical systems or continuity of circuits."* Each task in an occupation links to one or more DWAs.'''
+url        = 'https://www.onetcenter.org/dictionary/29.3/text/dwa_reference.html'
+url_label  = 'DWA Reference at O*NET'
+
+[[terms]]
+term       = 'dimensionality reduction'
+definition = '''The process of compressing high-dimensional embeddings into **fewer dimensions** while preserving the most important patterns.
+
+Chalkline uses Truncated SVD to reduce {embed_dim}-dimensional embeddings to {svd_components} dimensions before clustering.'''
+url        = 'https://en.wikipedia.org/wiki/Dimensionality_reduction'
+url_label  = 'Dimensionality reduction on Wikipedia'
+
+[[terms]]
+term       = 'dual-threshold filter'
+definition = '''The method used to match credentials to career transitions.
+
+A credential must exceed a **minimum cosine similarity** to both the source and destination career families to be considered relevant to that transition.'''
+
+[[terms]]
+term       = 'edge weight'
+definition = '''The **cosine similarity** between two connected career families in the pathway graph.
+
+Higher edge weight means the two roles use more similar language in their job postings, indicating a *more natural* career transition.'''
+
+[[terms]]
+term       = 'embedding'
+aliases    = ['embeddings', 'embedding space']
+definition = '''A numerical representation of text as a list of **{embed_dim} numbers**, capturing its meaning so that similar texts have similar numbers.
+
+The *embedding space* is the geometric space all these vectors live in. Every job posting, resume, and O*NET skill definition is converted to an embedding for comparison.'''
+url        = 'https://en.wikipedia.org/wiki/Word_embedding'
+url_label  = 'Word embeddings on Wikipedia'
+
+[[terms]]
+term       = 'euclidean distance'
+definition = '''The **straight-line distance** between two points in embedding space.
+
+Lower distance means a closer match. Used to find which career family centroid your resume is nearest to.'''
+url        = 'https://en.wikipedia.org/wiki/Euclidean_distance'
+url_label  = 'Euclidean distance on Wikipedia'
+
+[[terms]]
+term       = 'gap'
+aliases    = ['gaps']
+definition = '''A skill or competency that job postings in your matched career family emphasize but your resume **does not strongly reflect**.
+
+Gaps are ranked by *magnitude* (*how large the deficit is*) and *frequency* (*how many postings mention it*).'''
+
+[[terms]]
+term       = 'hierarchical clustering'
+aliases    = ['hierarchical agglomerative clustering', 'agglomerative clustering', 'HAC']
+definition = '''The algorithm that groups job postings into career families by **repeatedly merging** the most similar pairs.
+
+The *agglomerative* variant Chalkline uses starts with each posting as its own cluster, then merges the two closest at each step until the desired number of clusters is reached. Cutting the resulting merge hierarchy at $k = {n_clusters}$ produces the final career families.'''
+url        = 'https://en.wikipedia.org/wiki/Hierarchical_clustering'
+url_label  = 'Hierarchical clustering on Wikipedia'
+
+[[terms]]
+term       = 'job zone'
+definition = '''An O*NET **experience level** ranging from 1 to 5.
+
+→ 1: Entry level, little preparation
+→ 2: Some preparation needed
+→ 3: Mid-career, training required
+→ 4: Experienced, specialized training
+→ 5: Advanced, graduate-level'''
+url        = 'https://www.onetonline.org/help/online/zones'
+url_label  = 'Job Zone definitions on O*NET'
+
+[[terms]]
+term       = 'k-means'
+aliases    = ['k-means clustering', 'kmeans', 'K-means']
+definition = '''A **partitioning clustering** algorithm that groups vectors into `k` clusters by iteratively assigning each point to its nearest centroid and recomputing centroids as the mean of their assigned points.
+
+Unlike hierarchical clustering, k-means requires you to choose the number of clusters in advance. Chalkline uses k-means on posting embeddings within a single career family to discover semantic sub-roles, then colors the t-SNE projection by these assignments so the visual sub-structure can be read at a glance.'''
+url        = 'https://en.wikipedia.org/wiki/K-means_clustering'
+url_label  = 'k-means clustering on Wikipedia'
+
+[[terms]]
+term       = 'lateral move'
+definition = '''A career transition between two families at the **same Job Zone** (*experience level*).
+
+Lateral moves let you shift specialization without changing seniority, and appear as *horizontal connections* in the career ladder.'''
+
+[[terms]]
+term       = 'matched career family'
+definition = '''The career family whose centroid is **closest to your resume** in the embedding space.
+
+This is your best-fit role cluster based on language similarity between your resume and the job postings in the corpus.'''
+
+[[terms]]
+term       = 'nearest-centroid classification'
+definition = '''The method that assigns your resume to a career family.
+
+Your resume is encoded as a sentence embedding, projected into the same reduced space as the corpus, and matched to whichever cluster center is **closest by Euclidean distance**.'''
+url        = 'https://en.wikipedia.org/wiki/Nearest_centroid_classifier'
+url_label  = 'Nearest centroid classifier on Wikipedia'
+
+[[terms]]
+term       = 'OEWS'
+aliases    = ['Occupational Employment and Wage Statistics']
+definition = '''The **Occupational Employment and Wage Statistics** survey from BLS, covering 800+ occupations with state-level wage percentiles.
+
+Chalkline uses OEWS 2024 to show 10th, 25th, median, 75th, and 90th percentile annual wages in Maine for each matched occupation.'''
+url        = 'https://www.bls.gov/oes/'
+url_label  = 'OEWS at BLS'
+
+[[terms]]
+term       = 'O*NET'
+aliases    = ['Occupational Information Network']
+definition = '''The **Occupational Information Network**, a federal database of standardized occupation data.
+
+Maintained by the U.S. Department of Labor. Provides skills, tasks, wages, outlook, and Job Zone levels for every occupation. Chalkline uses {n_occupations} O*NET occupations spanning Maine construction.'''
+url        = 'https://www.onetonline.org/'
+url_label  = 'Browse O*NET OnLine'
+
+[[terms]]
+term       = 'pairwise distance'
+aliases    = ['pairwise distances']
+definition = '''The distance between **every pair** of points in a set, producing an $n \times n$ matrix of distances.
+
+Chalkline computes pairwise Euclidean distances between cluster centroids to show how tightly or loosely career families spread across the embedding space, grouped by sector for the inter-cluster distance distribution.'''
+url        = 'https://en.wikipedia.org/wiki/Distance_matrix'
+url_label  = 'Distance matrix on Wikipedia'
+
+[[terms]]
+term       = 'posting'
+aliases    = ['postings']
+definition = '''An individual **job listing** from the AGC Maine corpus.
+
+Each posting was scraped from Maine construction job boards, encoded as a sentence embedding, and clustered into one of {n_clusters} career families.'''
+
+[[terms]]
+term       = 'principal components'
+aliases    = ['principal component', 'PCA', 'principal component analysis']
+definition = '''The orthogonal directions in the data that capture the **most variance**, ordered from largest to smallest.
+
+Truncated SVD on L2-normalized data is mathematically equivalent to *Principal Component Analysis* (*PCA*), so the SVD components shown in the career landscape are exactly the directions along which job postings vary the most. Keeping only the top components discards noise while preserving structure.'''
+url        = 'https://en.wikipedia.org/wiki/Principal_component_analysis'
+url_label  = 'PCA on Wikipedia'
+
+[[terms]]
+term       = 'projection'
+aliases    = ['projected', 'SVD projection']
+definition = '''The mathematical operation of **mapping** a high-dimensional vector into a lower-dimensional space along a fixed set of axes.
+
+Chalkline projects {embed_dim}-dimensional sentence embeddings onto the top {svd_components} SVD components, collapsing each posting from {embed_dim} numbers to {svd_components} while preserving the patterns that matter most for clustering.'''
+url        = 'https://en.wikipedia.org/wiki/Projection_(linear_algebra)'
+url_label  = 'Linear projection on Wikipedia'
+
+[[terms]]
+term       = 'sector'
+aliases    = ['sectors']
+definition = '''One of **three broad divisions** of construction work.
+
+→ Building Construction: commercial and residential structures
+→ Heavy Civil: roads, bridges, infrastructure
+→ Specialty Trade: electrical, plumbing, HVAC, and other focused trades'''
+
+[[terms]]
+term       = 'sector affinity'
+definition = '''How strongly your resume **aligns with each construction sector**.
+
+Calculated by averaging the distance from your resume to all career families within that sector, then converting to a percentage where higher values indicate stronger alignment.'''
+
+[[terms]]
+term       = 'sentence embedding'
+aliases    = ['sentence embeddings']
+definition = '''A **fixed-length numerical representation** of a text passage, produced by a neural network trained to capture semantic meaning.
+
+Chalkline uses the {model_name} model, which produces {embed_dim}-dimensional embeddings.'''
+url        = 'https://en.wikipedia.org/wiki/Sentence_embedding'
+url_label  = 'Sentence embeddings on Wikipedia'
+
+[[terms]]
+term       = 'sentence transformer'
+aliases    = ['sentence transformers']
+definition = '''The **neural network model** that converts job postings and resumes into sentence embeddings for comparison.
+
+Chalkline uses {model_name} via ONNX Runtime for fast CPU inference.'''
+url        = 'https://www.sbert.net/'
+url_label  = 'Sentence-Transformers documentation'
+
+[[terms]]
+term       = 'silhouette'
+aliases    = ['silhouette coefficient', 'silhouette coefficients', 'silhouette score', 'silhouette scores', 'cluster separation']
+definition = '''A measure of how **well-separated** a career family is from its neighbors in the embedding space.
+
+→ Near 1.0: *tight, distinct cluster*
+→ Near 0.0: *overlapping with neighbors*
+→ Negative: *potentially misassigned postings*
+
+Computed per cluster by comparing the average distance to points in the same cluster against the average distance to the nearest other cluster.'''
+url        = 'https://en.wikipedia.org/wiki/Silhouette_(clustering)'
+url_label  = 'Silhouette coefficient on Wikipedia'
+
+[[terms]]
+term       = 'skill'
+aliases    = ['skills']
+definition = '''In Chalkline, a skill is any **O*NET occupational competency** encoded as a sentence embedding and compared against your resume via cosine similarity.
+
+O*NET organizes competencies into 7 element types across three categories:
+→ *Concrete work*: Tasks, Detailed Work Activities
+→ *Abstract capabilities*: Abilities, Knowledge, Skills
+→ *Technical proficiencies*: Technology Skills, Tools & Equipment
+
+Each element is individually scored, and the results are grouped by type in the skill profile radar and gap analysis.'''
+url        = 'https://www.onetonline.org/find/descriptor/browse/Skills/'
+url_label  = 'Browse O*NET skill categories'
+
+[[terms]]
+term       = 'similarity'
+definition = '''**Cosine similarity**, a measure of directional alignment between two vectors in embedding space.
+
+Scores range from -1 to 1, where 1.0 means *identical direction* (*very similar language*) and 0.0 means unrelated. Used throughout the pipeline to compare resumes, postings, and skill definitions.'''
+url        = 'https://en.wikipedia.org/wiki/Cosine_similarity'
+url_label  = 'Cosine similarity on Wikipedia'
+
+[[terms]]
+term       = 'SOC'
+aliases    = ['Standard Occupational Classification']
+definition = '''**Standard Occupational Classification**, the federal system for categorizing occupations.
+
+Each career family is assigned a 6-digit SOC code based on the closest O*NET occupation match. Example: *47-2111* for Electricians.'''
+url        = 'https://www.bls.gov/soc/'
+url_label  = 'SOC system at BLS'
+
+[[terms]]
+term       = 'stepwise k-NN'
+definition = '''The graph construction method where each career family connects to its **k nearest neighbors** at its own Job Zone (*lateral moves*) and at one level up (*advancement paths*).
+
+The "stepwise" part bounds connections by Job Zone step rather than raw distance, ensuring pathways respect realistic experience progression.'''
+
+[[terms]]
+term       = 'strength'
+aliases    = ['strengths']
+definition = '''A skill or competency where your resume language **closely matches** what job postings in your career family describe.
+
+Strengths are O*NET tasks and work activities where your cosine similarity score exceeds the *cluster median*.'''
+
+[[terms]]
+term       = 'SVD'
+aliases    = ['Singular Value Decomposition']
+definition = '''**Singular Value Decomposition**, the technique used to reduce the {embed_dim}-dimensional embeddings to {svd_components} dimensions while preserving the most important patterns.
+
+This makes clustering faster and more stable by removing noise from the high-dimensional space.'''
+url        = 'https://en.wikipedia.org/wiki/Singular_value_decomposition'
+url_label  = 'SVD on Wikipedia'
+
+[[terms]]
+term       = 'task'
+aliases    = ['tasks']
+definition = '''In O*NET's Content Model, an **occupation-specific activity statement** describing what workers actually do in a role.
+
+Each occupation has 15-40 tasks, and they are the most detailed level of O*NET's work-activity hierarchy. Tasks are the primary text used to measure similarity between your resume and each career family.'''
+url        = 'https://www.onetonline.org/help/online/task'
+url_label  = 'Tasks on O*NET OnLine'
+
+[[terms]]
+term       = 't-distributed Stochastic Neighbor Embedding (t-SNE)'
+aliases    = ['t-SNE', 'tSNE', 'TSNE']
+definition = '''A nonlinear **dimensionality reduction** technique that projects high-dimensional vectors into two or three dimensions for visualization, preserving local structure so points that were close together in the original space stay close in the projection.
+
+t-SNE is the standard tool for *seeing* the shape of a cluster of embeddings. Tight blobs in the projection represent genuinely cohesive groups; distinct sub-blobs reveal hidden sub-structure; and isolated points correspond to outliers. Chalkline uses t-SNE with PCA initialization to project posting embeddings inside a single career family.'''
+url        = 'https://lvdmaaten.github.io/tsne/'
+url_label  = 'Original t-SNE paper and implementations'
+
+[[terms]]
+term       = 'Term Frequency-Inverse Document Frequency (TF-IDF)'
+aliases    = ['TF-IDF', 'TF-IDF score', 'tf-idf', 'Term Frequency-Inverse Document Frequency']
+definition = '''A standard text-mining score that highlights words **distinctive to one document** rather than just frequent overall.
+
+A word's score climbs when it appears often inside the document of interest (term frequency) and falls when it appears across many other documents (inverse document frequency). Chalkline treats each career family as one document and ranks vocabulary that characterizes the matched family far more than the rest of the corpus, so generic words like *experience* or *required* drop out and family-specific words rise to the top.'''
+url        = 'https://en.wikipedia.org/wiki/Tf%E2%80%93idf'
+url_label  = 'TF-IDF on Wikipedia'
+
+[[terms]]
+term       = 'top-k'
+aliases    = ['top k']
+definition = '''A retrieval and ranking convention where, instead of returning a single best match, the algorithm returns the **k highest-scoring items**.
+
+Chalkline uses top-k median cosine similarity to assign O*NET occupations to clusters: for each cluster, it takes the top k most similar occupations and uses their median similarity, making the assignment robust to single-task outliers.'''
+
+[[terms]]
+term       = 'truncated SVD'
+definition = '''A **faster variant of SVD** that computes only the top components.
+
+Chalkline uses {svd_components} components, reducing each {embed_dim}-dimensional embedding to {svd_components} numbers that capture the dominant variance directions in the corpus.'''
+url        = 'https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html'
+url_label  = 'TruncatedSVD in scikit-learn'
+
+[[terms]]
+term       = 'variance explained'
+aliases    = ['explained variance', 'variance retained']
+definition = '''The **percentage of information** from the original embeddings preserved after dimensionality reduction.
+
+Higher variance explained means the reduced representation retains more of the original signal. Shown in the ML Internals tab as *individual* and *cumulative* percentages per SVD component.'''
+url        = 'https://en.wikipedia.org/wiki/Explained_variation'
+url_label  = 'Explained variance on Wikipedia'
+
+[[terms]]
+term       = 'ward linkage'
+aliases    = ["Ward's method", 'Ward HAC', 'Ward-linkage']
+definition = '''The specific **merging strategy** used in hierarchical clustering.
+
+At each step, Ward linkage merges the two clusters that produce the smallest increase in total *within-cluster variance*. This tends to produce compact, evenly-sized clusters.'''
+url        = 'https://en.wikipedia.org/wiki/Ward%27s_method'
+url_label  = "Ward's method on Wikipedia"
