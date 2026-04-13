@@ -77,7 +77,13 @@ def _(Path, content, labor, layout, mo, pipeline, upload):
     layout.stack(
         splash(content, labor, layout, Path(__file__).parent / "assets", pipeline),
         upload
-    )
+    ).style({
+        "background"    : "var(--background)",
+        "inset"         : "0",
+        "place-content" : "center",
+        "position"      : "fixed",
+        "z-index"       : "100",
+    })
     return
 
 

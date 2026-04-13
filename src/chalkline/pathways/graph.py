@@ -311,7 +311,11 @@ class CareerPathwayGraph:
         Returns:
             One `CareerEdge` per consecutive pair in the path.
         """
-        return [self._edge(s, t) for s, t in pairwise(path)]
+        return [
+            self._edge(s, t) if self.graph.has_edge(s, t)
+            else self._edge(t, s)
+            for s, t in pairwise(path)
+        ]
 
     def reach(self, cluster_id: int) -> Reach:
         """

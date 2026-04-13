@@ -3,8 +3,8 @@ Map tab renderer composing the career pathway map, sidebar identity
 card, route verdict with skill evidence, and collapsible resource
 drawers.
 
-The map widget occupies the left 70% of the layout with a persistent
-"You are here" sidebar card on the right. Below the map, the default
+The "You are here" sidebar card occupies the left 30% with the map
+widget on the right 70%. Below the header, the default
 state surfaces the matched career's skill profile, credentials, and
 postings. When the user clicks a destination node, the view switches
 to a transition route answering: is this worth it, what credentials
@@ -35,10 +35,10 @@ def map_tab(
 
     return ctx.layout.stack(
         ctx.layout.stack(
-            widget, sidebar,
+            sidebar, widget,
             align     = "start",
             direction = "h",
-            widths    = [0.7, 0.3]
+            widths    = [0.3, 0.7]
         ),
 
         ctx.routes.card(
