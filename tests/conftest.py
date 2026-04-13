@@ -28,6 +28,7 @@ from typing                import Any, Callable
 from chalkline.collection.schemas import Posting
 from chalkline.display.charts     import Charts
 from chalkline.display.loaders    import ContentLoader, Layout
+from chalkline.display.routes     import Routes
 from chalkline.display.theme      import Theme
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
@@ -376,6 +377,14 @@ def posting_factory() -> Callable:
             title       = "Test"
         )
     return _build
+
+
+@fixture
+def routes(layout: Layout, theme: Theme) -> Routes:
+    """
+    Route card builder wired to the shared layout and theme.
+    """
+    return Routes(layout, theme)
 
 
 @fixture

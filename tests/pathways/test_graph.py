@@ -11,8 +11,9 @@ import numpy as np
 
 from networkx import number_weakly_connected_components
 
-from chalkline.pathways.graph   import CareerPathwayGraph
-from chalkline.pathways.schemas import Reach
+from chalkline.pathways.clusters import Clusters
+from chalkline.pathways.graph    import CareerPathwayGraph
+from chalkline.pathways.schemas  import Reach
 
 
 class TestCareerPathwayGraph:
@@ -180,3 +181,44 @@ class TestCareerPathwayGraph:
         """
         cid = cluster_ids[0]
         assert pathway_graph.try_widest_path(cid, cid) == [cid]
+
+    def test_edge_weights_bounded(self, pathway_graph: CareerPathwayGraph):
+        """
+        All edge weights are valid cosine similarities in [-1, 1].
+        """
+        for w in pathway_graph.edge_weights:
+            assert -1 <= w <= 1
+
+    def test_no_credentials_builds_graph(self, clusters: Clusters):
+        """
+        A graph with no credentials still builds a valid backbone
+        with empty credential lists on every edge.
+        """
+        graph = CareerPathwayGraph(
+            clusters               = clusters,
+            credentials            = [],
+            destination_percentile = 5,
+            lateral_neighbors      = 2,
+            source_percentile      = 75,
+            upward_neighbors       = 2
+        )
+        assert graph.graph.number_of_edges() > 0
+        for _, _, data in graph.graph.edges(data=True):
+            assert data["credentials"] == []
+
+    def test_stepping_stone_returns_tuple(self, pathway_graph: CareerPathwayGraph):
+        """
+        When a viable intermediate cluster exists, `stepping_stone`
+        returns a (title, coverage_count) tuple.
+        """
+        import numpy as np
+        cluster = pathway_graph.clusters[pathway_graph.clusters.cluster_ids[0]]
+        reach   = pathway_graph.reach(cluster.cluster_id)
+        if not cluster.tasks or not reach.edges:
+            return
+        task_vectors = np.stack([t.vector for t in cluster.tasks])
+        result = pathway_graph.stepping_stone(cluster, reach, task_vectors)
+        if result is not None:
+            title, count = result
+            assert isinstance(title, str)
+            assert count > 0

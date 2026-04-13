@@ -2,13 +2,14 @@
 Tests for HTML card builders and layout utilities.
 """
 
-from bisect  import bisect
-from typing  import Callable
+from typing import Callable
 
 from pytest import mark
 
 from chalkline.collection.schemas import Posting
 from chalkline.display.loaders    import Layout
+from chalkline.display.theme      import Theme
+from chalkline.pathways.clusters  import Clusters
 
 
 class TestAnnotate:
@@ -16,23 +17,16 @@ class TestAnnotate:
     Validate glossary annotation, dedup, and tooltip structure.
     """
 
-    def test_alias_dedup(self, layout: Layout):
+    @mark.parametrize("html", [
+        "<p>BLS and Bureau of Labor Statistics</p>",
+        "<p>apprenticeship and apprenticeship</p>"
+    ], ids=["alias_dedup", "duplicate_skipped"])
+    def test_single_tooltip(self, layout: Layout, html: str):
         """
-        An alias and its canonical term in the same block produce
-        exactly one tooltip, keyed on the canonical title.
+        Alias/canonical pairs and repeated terms both produce
+        exactly one tooltip, preventing cluttered annotations.
         """
-        result = layout.annotate("<p>BLS and Bureau of Labor Statistics</p>")
-        assert result.count("cl-term") == 1
-
-    def test_duplicate_skipped(self, layout: Layout):
-        """
-        Second occurrence of the same term renders plain text,
-        not a second tooltip.
-        """
-        result = layout.annotate(
-            "<p>apprenticeship and apprenticeship</p>"
-        )
-        assert result.count("cl-term") == 1
+        assert layout.annotate(html).count("cl-term") == 1
 
     def test_first_occurrence_wrapped(self, layout: Layout):
         """
@@ -105,23 +99,36 @@ class TestStatRowColumns:
 
 class TestVerdictThresholds:
     """
-    Validate confidence-to-verdict mapping at bucket boundaries.
+    Validate confidence-to-verdict mapping in the sidebar identity
+    card via `Layout.you_are_here`.
     """
 
     @mark.parametrize(("confidence", "expected"), [
-        (0, "Exploratory"),
-        (39, "Exploratory"),
-        (40, "Multiple good fits"),
-        (69, "Multiple good fits"),
-        (70, "Strong match"),
+        (0,   "Exploratory"),
+        (39,  "Exploratory"),
+        (40,  "Multiple good fits"),
+        (69,  "Multiple good fits"),
+        (70,  "Strong match"),
         (100, "Strong match")
     ])
-    def test_verdict_label(self, confidence: int, expected: str):
+    def test_verdict_label(
+        self,
+        clusters   : Clusters,
+        confidence : int,
+        expected   : str,
+        layout     : Layout,
+        theme      : Theme
+    ):
         """
         Bisect thresholds (40, 70) partition confidence into three
-        verdict buckets.
+        verdict buckets rendered in the sidebar card.
         """
-        verdict = ("Exploratory", "Multiple good fits", "Strong match")[
-            bisect((40, 70), confidence)
-        ]
-        assert verdict == expected
+        profile = next(iter(clusters.values()))
+        html    = layout.you_are_here(
+            confidence    = confidence,
+            n_advancement = 1,
+            n_lateral     = 1,
+            profile       = profile,
+            theme         = theme
+        ).text
+        assert expected in html

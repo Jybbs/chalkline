@@ -99,7 +99,9 @@ class CareerPathwayGraph:
         family. Sharing the matrix avoids the per-render cosine call
         and keeps both consumers reading the same authoritative source.
         """
-        _, matrix = self.credential_matrix
+        creds, matrix = self.credential_matrix
+        if not creds:
+            return np.empty((0, len(self.clusters.cluster_ids)))
         return cosine_similarity(matrix, self.clusters.vectors)
 
     @property
@@ -213,6 +215,11 @@ class CareerPathwayGraph:
         affinity. The second ensures source relevance against the global
         credential-to-cluster distribution.
         """
+        if credential_similarity.size == 0:
+            for _, _, edge_data in g.edges(data=True):
+                edge_data["credentials"] = []
+            return
+
         dest_mask = credential_similarity >= np.percentile(
             a    = credential_similarity,
             axis = 0,

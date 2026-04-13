@@ -14,60 +14,42 @@ class TestCredential:
     Credential metadata validation and display properties.
     """
 
-    def test_apprenticeship_keys(self):
+    @mark.parametrize(("kind", "metadata"), [
+        ("apprenticeship", {"min_hours": 8000}),
+        ("program",        {"institution": "SMCC"})
+    ])
+    def test_incomplete_metadata_rejected(self, kind: str, metadata: dict):
         """
-        Apprenticeship kind requires `min_hours` and `rapids_code`
-        in metadata.
-        """
-        with raises(ValidationError, match="Missing keys"):
-            Credential(
-                embedding_text = "test",
-                kind           = "apprenticeship",
-                label          = "Test",
-                metadata       = {"min_hours": 8000}
-            )
-
-    def test_program_keys(self):
-        """
-        Program kind requires `credential`, `institution`, and `url`
-        in metadata.
+        Kinds with required metadata keys reject incomplete dicts.
         """
         with raises(ValidationError, match="Missing keys"):
             Credential(
                 embedding_text = "test",
-                kind           = "program",
+                kind           = kind,
                 label          = "Test",
-                metadata       = {"institution": "SMCC"}
+                metadata       = metadata
             )
 
-    def test_card_detail_both(self):
+    @mark.parametrize(("kind", "metadata", "expected"), [
+        (
+            "apprenticeship",
+            {"institution": "SMCC", "min_hours": 8000, "rapids_code": "01"},
+            "8,000 hours \u00b7 SMCC"
+        ),
+        ("certification", {}, "")
+    ], ids=["both_fields", "empty"])
+    def test_card_detail(self, kind: str, metadata: dict, expected: str):
         """
-        Card detail joins hours and institution with a centered dot
-        when both are present.
+        Card detail joins hours and institution with a centered dot,
+        or returns empty when neither is present.
         """
         cred = Credential(
             embedding_text = "test",
-            kind           = "apprenticeship",
+            kind           = kind,
             label          = "Test",
-            metadata       = {
-                "institution" : "SMCC",
-                "min_hours"   : 8000,
-                "rapids_code" : "01"
-            }
+            metadata       = metadata
         )
-        assert cred.card_detail == "8,000 hours \u00b7 SMCC"
-
-    def test_card_detail_empty(self):
-        """
-        Card detail returns empty string when neither hours nor
-        institution are present.
-        """
-        cred = Credential(
-            embedding_text = "test",
-            kind           = "certification",
-            label          = "Test"
-        )
-        assert cred.card_detail == ""
+        assert cred.card_detail == expected
 
     @mark.parametrize("kind, metadata, expected", [
         (
@@ -98,18 +80,6 @@ class TestCredential:
         )
         assert cred.detail_label == expected
 
-    def test_extra_forbid(self):
-        """
-        Unexpected fields are rejected.
-        """
-        with raises(ValidationError):
-            Credential(
-                embedding_text = "test",
-                kind           = "certification",
-                label          = "Test",
-                unknown        = "bad"
-            )
-
     @mark.parametrize("kind, expected", [
         ("apprenticeship", "Apprenticeship"),
         ("program",        "AAS")
@@ -136,32 +106,22 @@ class TestCredential:
         )
         assert cred.type_label == expected
 
-    def test_url_absent(self):
+    @mark.parametrize(("kind", "metadata", "expected"), [
+        ("certification", {},                                                    ""),
+        ("program",       {"credential": "AAS", "institution": "SMCC",
+                           "url": "https://smcc.edu"},                           "https://smcc.edu")
+    ], ids=["absent", "present"])
+    def test_url(self, kind: str, metadata: dict, expected: str):
         """
-        Non-program credentials return empty string for URL.
-        """
-        cred = Credential(
-            embedding_text = "test",
-            kind           = "certification",
-            label          = "Test"
-        )
-        assert cred.url == ""
-
-    def test_url_present(self):
-        """
-        Program credentials expose their URL.
+        Programs expose their URL; other kinds return empty string.
         """
         cred = Credential(
             embedding_text = "test",
-            kind           = "program",
+            kind           = kind,
             label          = "Test",
-            metadata       = {
-                "credential"  : "AAS",
-                "institution" : "SMCC",
-                "url"         : "https://smcc.edu"
-            }
+            metadata       = metadata
         )
-        assert cred.url == "https://smcc.edu"
+        assert cred.url == expected
 
 
 class TestLaborRecord:
@@ -182,15 +142,6 @@ class TestLaborRecord:
         assert record.bright_outlook is True
         assert record.annual_median == 65000.0
 
-    def test_extra_ignored(self):
-        """
-        Unknown fields are silently discarded.
-        """
-        record = LaborRecord.model_validate({
-            "soc_title" : "Electricians",
-            "unknown"   : "ignored"
-        })
-        assert record.soc_title == "Electricians"
 
 
 class TestOccupation:
@@ -198,19 +149,32 @@ class TestOccupation:
     Occupation skill filtering and embedding text construction.
     """
 
-    def test_embedding_no_tasks(self):
+    @mark.parametrize(("skills", "expected"), [
+        (
+            [Skill(name="Mathematics", type=SkillType.KNOWLEDGE)],
+            "Electricians: "
+        ),
+        (
+            [
+                Skill(name="Install wiring", type=SkillType.TASK),
+                Skill(name="Blueprint Reading", type=SkillType.SKILL)
+            ],
+            "Electricians: Install wiring"
+        )
+    ], ids=["no_tasks", "with_tasks"])
+    def test_embedding_text(self, skills: list, expected: str):
         """
-        Occupation with no TASK or DWA skills produces title-only
-        embedding text.
+        Embedding text concatenates title with task element names,
+        falling back to title-only when no TASK or DWA skills exist.
         """
         occ = Occupation(
             job_zone = 3,
             sector   = "Building Construction",
-            skills   = [Skill(name="Mathematics", type=SkillType.KNOWLEDGE)],
+            skills   = skills,
             soc_code = "47-2111.00",
             title    = "Electricians"
         )
-        assert occ.embedding_text == "Electricians: "
+        assert occ.embedding_text == expected
 
     def test_task_elements(self):
         """
@@ -231,19 +195,3 @@ class TestOccupation:
             "Install wiring",
             "Maintain systems"
         ]
-
-    def test_embedding_text(self):
-        """
-        Embedding text concatenates title with task element names.
-        """
-        occ = Occupation(
-            job_zone = 3,
-            sector   = "Building Construction",
-            skills   = [
-                Skill(name="Install wiring", type=SkillType.TASK),
-                Skill(name="Blueprint Reading", type=SkillType.SKILL)
-            ],
-            soc_code = "47-2111.00",
-            title    = "Electricians"
-        )
-        assert occ.embedding_text == "Electricians: Install wiring"

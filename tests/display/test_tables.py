@@ -6,6 +6,8 @@ Validates employer fuzzy matching via `StakeholderReference.match_employers`.
 
 from typing import Callable
 
+from pytest import mark
+
 from chalkline.pathways.loaders import StakeholderReference
 
 
@@ -26,30 +28,24 @@ class TestMatchEmployers:
         postings = [posting_factory("Cianbro Corporation")] * 2
         assert len(reference.match_employers(postings)) == 1
 
-    def test_exact_match(
+    @mark.parametrize(("company", "expected_name"), [
+        ("Cianbro Corporation", "Cianbro Corporation"),
+        ("rj grondin & sons",   "R.J. Grondin and Sons")
+    ], ids=["exact", "fuzzy"])
+    def test_match(
         self,
+        company         : str,
+        expected_name   : str,
         posting_factory : Callable,
         reference       : StakeholderReference
     ):
         """
-        Company names identical to a member produce a matched row.
+        Company names matching a member exactly or above the 0.7
+        fuzzy threshold produce a matched row.
         """
-        rows = reference.match_employers([posting_factory("Cianbro Corporation")])
+        rows = reference.match_employers([posting_factory(company)])
         assert len(rows) == 1
-        assert rows[0]["name"] == "Cianbro Corporation"
-
-    def test_fuzzy_match(
-        self,
-        posting_factory : Callable,
-        reference       : StakeholderReference
-    ):
-        """
-        Abbreviated or punctuated names still match above the 0.7
-        threshold.
-        """
-        rows = reference.match_employers([posting_factory("rj grondin & sons")])
-        assert len(rows) == 1
-        assert rows[0]["name"] == "R.J. Grondin and Sons"
+        assert rows[0]["name"] == expected_name
 
     def test_no_match(
         self,

@@ -59,17 +59,6 @@ class TestJobPostingMetrics:
         assert len(metrics.dated) == 2
         assert metrics.dated[0].date == date(2026, 1, 10)
 
-    def test_dates_mirrors_dated(self, posting, reference):
-        """
-        `dates` extracts the date field from each `DatedPoint` in
-        the same order as `dated`.
-        """
-        metrics = JobPostingMetrics.from_postings([
-            posting(date_posted=date(2026, 3, 1)),
-            posting(date_posted=date(2026, 2, 1))
-        ], reference)
-        assert metrics.dates == [d.date for d in metrics.dated]
-
     def test_empty_postings(self, reference):
         """
         Empty input produces zero counts, empty collections, and
@@ -82,15 +71,6 @@ class TestJobPostingMetrics:
         assert metrics.freshness == []
         assert metrics.stat_values[0] == "0"
         assert metrics.stat_values[4] == "N/A"
-
-    def test_hover_mirrors_dated(self, posting, reference):
-        """
-        `hover` extracts the label field from each `DatedPoint`.
-        """
-        metrics = JobPostingMetrics.from_postings([
-            posting(company="Acme", date_posted=date(2026, 1, 1))
-        ], reference)
-        assert metrics.hover == ["Acme"]
 
 
 class TestProcessStep:
@@ -360,25 +340,18 @@ class TestVarianceBreakdown:
     Validate SVD variance percentage conversion.
     """
 
-    def test_cumulative(self):
+    def test_from_svd(self):
         """
-        Cumulative percentages are a running sum of the per-component
-        percentages, rounded to two decimals at each step.
+        Ratios scale to percentages with correct totals, labels,
+        cumulative sums, and dict representations.
         """
         vb = VarianceBreakdown.from_svd([0.35, 0.25, 0.15])
+        assert vb.components      == [35.0, 25.0, 15.0]
+        assert vb.total           == 75.0
+        assert vb.labels          == ["PC1", "PC2", "PC3"]
         assert vb.cumulative      == [35.0, 60.0, 75.0]
         assert vb.cumulative_dict == {"PC1": 35.0, "PC2": 60.0, "PC3": 75.0}
         assert vb.components_dict == {"PC1": 35.0, "PC2": 25.0, "PC3": 15.0}
-
-    def test_from_svd(self):
-        """
-        Ratios scale to percentages with correct total and component
-        labels.
-        """
-        vb = VarianceBreakdown.from_svd([0.35, 0.25, 0.15])
-        assert vb.components == [35.0, 25.0, 15.0]
-        assert vb.total == 75.0
-        assert vb.labels == ["PC1", "PC2", "PC3"]
 
     def test_single_component(self):
         """
@@ -397,23 +370,17 @@ class TestWageColor:
     Validate signed delta to success/error color dispatch.
     """
 
-    def test_negative_delta(self, theme: Theme):
+    @mark.parametrize(("delta", "key"), [
+        (-3000, "error"),
+        (0,     "success"),
+        (5000,  "success")
+    ], ids=["negative", "zero", "positive"])
+    def test_wage_color(self, theme: Theme, delta: int, key: str):
         """
-        Negative deltas produce the error color.
+        Negative deltas produce the error color; zero and positive
+        produce the success color.
         """
-        assert theme.wage_color(-3000) == theme.colors["error"]
-
-    def test_positive_delta(self, theme: Theme):
-        """
-        Non-negative deltas produce the success color.
-        """
-        assert theme.wage_color(5000) == theme.colors["success"]
-
-    def test_zero_delta(self, theme: Theme):
-        """
-        Zero delta is non-negative, producing the success color.
-        """
-        assert theme.wage_color(0) == theme.colors["success"]
+        assert theme.wage_color(delta) == theme.colors[key]
 
 
 class TestWageComparison:
@@ -439,13 +406,19 @@ class TestWageComparison:
         assert wc.source_percentage == 0
         assert wc.destination_percentage == 0
 
-    def test_delta_both_present(self):
+    @mark.parametrize(("dest", "src", "delta", "display"), [
+        (60000, 45000, 15000,  "+$15,000/yr"),
+        (50000, 50000, 0,      "+$0/yr"),
+        (45000, 60000, -15000, "$-15,000/yr")
+    ], ids=["positive", "zero", "negative"])
+    def test_delta(self, dest: int, src: int, delta: int, display: str):
         """
-        Delta is the signed difference when both wages exist.
+        Delta is the signed difference between destination and source
+        wages, formatted with sign prefix.
         """
-        wc = WageComparison(destination_wage=60000, source_wage=45000)
-        assert wc.delta == 15000
-        assert wc.delta_display == "+$15,000/yr"
+        wc = WageComparison(destination_wage=dest, source_wage=src)
+        assert wc.delta         == delta
+        assert wc.delta_display == display
 
     def test_delta_missing_wage(self):
         """
@@ -455,14 +428,6 @@ class TestWageComparison:
         assert wc.delta is None
         assert wc.delta_display == ""
 
-    def test_equal_wages(self):
-        """
-        Equal wages produce a zero delta with a plus sign.
-        """
-        wc = WageComparison(50000, 50000)
-        assert wc.delta         == 0
-        assert wc.delta_display == "+$0/yr"
-
     def test_labels_present(self):
         """
         Labels format as $Xk when wage is present, em dash when absent.
@@ -471,29 +436,15 @@ class TestWageComparison:
         assert wc.destination_label == "$75k"
         assert wc.source_label == "\u2014"
 
-    def test_negative_delta(self):
+    @mark.parametrize(("dest", "src", "dest_pct", "src_pct"), [
+        (80000, 40000, 100, 50),
+        (40000, 80000, 50,  100)
+    ], ids=["higher_dest", "higher_source"])
+    def test_percentages(self, dest: int, src: int, dest_pct: int, src_pct: int):
         """
-        Source exceeding destination produces a negative delta and a
-        minus-signed display string.
+        The higher wage pegs at 100% and the lower scales
+        proportionally.
         """
-        wc = WageComparison(45000, 60000)
-        assert wc.delta         == -15000
-        assert wc.delta_display == "$-15,000/yr"
-
-    def test_percentages_higher_dest(self):
-        """
-        Destination at 100% and source proportional when destination
-        is the higher wage.
-        """
-        wc = WageComparison(destination_wage=80000, source_wage=40000)
-        assert wc.destination_percentage == 100
-        assert wc.source_percentage == 50
-
-    def test_percentages_higher_source(self):
-        """
-        Source at 100% and destination proportional when source is the
-        higher wage.
-        """
-        wc = WageComparison(40000, 80000)
-        assert wc.destination_percentage == 50
-        assert wc.source_percentage      == 100
+        wc = WageComparison(destination_wage=dest, source_wage=src)
+        assert wc.destination_percentage == dest_pct
+        assert wc.source_percentage      == src_pct

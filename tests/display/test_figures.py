@@ -5,6 +5,8 @@ Validates that `Charts` produces figures with expected trace
 counts, annotations, and structural invariants.
 """
 
+from pytest import mark
+
 from chalkline.display.charts import Charts
 
 
@@ -67,32 +69,28 @@ class TestCharts:
         assert "Total (12,345)" in y_labels
         assert "Filtered (678)" in y_labels
 
-    def test_landscape_no_coordinates(self, charts: Charts):
+    @mark.parametrize(("resume_coords", "expected_traces"), [
+        ([],         1),
+        ([0.1, 0.2], 2)
+    ], ids=["no_resume", "with_resume"])
+    def test_landscape_trace_count(
+        self,
+        charts          : Charts,
+        resume_coords   : list,
+        expected_traces : int
+    ):
         """
-        Landscape without coordinates omits the resume marker trace.
+        Landscape adds a resume marker trace only when coordinates
+        are provided.
         """
         fig = charts.landscape(
-            coordinates     = [],
+            coordinates     = resume_coords,
             legend_families = "F",
             legend_resume   = "R",
             x_title         = "X",
             y_title         = "Y"
         )
-        assert len(fig.to_dict()["data"]) == 1
-
-    def test_landscape_resume_trace(self, charts: Charts):
-        """
-        Landscape with coordinates adds a second trace for the
-        resume marker.
-        """
-        fig = charts.landscape(
-            coordinates     = [0.1, 0.2],
-            legend_families = "F",
-            legend_resume   = "R",
-            x_title         = "X",
-            y_title         = "Y"
-        )
-        assert len(fig.to_dict()["data"]) == 2
+        assert len(fig.to_dict()["data"]) == expected_traces
 
     def test_violin_filters_empty(self, charts: Charts):
         """
