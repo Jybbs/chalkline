@@ -355,16 +355,31 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 .cl-path-card { gap: 0.5rem; padding: 1rem 1.25rem; }
 
+.cl-path-details { display: grid; gap: 0.5rem; }
+
 .cl-path-header {
     color          : var(--cl-primary);
+    cursor         : pointer;
     font           : 600 0.85rem var(--marimo-heading-font);
     letter-spacing : 0.03em;
+    list-style     : none;
     text-transform : uppercase;
 }
+
+.cl-path-header::-webkit-details-marker { display: none; }
+
+.cl-path-header::before {
+    content      : "＋";
+    font-size    : 0.75rem;
+    margin-right : 0.5rem;
+}
+
+.cl-path-details[open] > .cl-path-header::before { content: "－"; }
 
 .cl-path-row {
     align-items         : center;
     border-inline-start : 4px solid var(--cl-accent);
+    border-block-start  : 1px solid var(--cl-border);
     display             : flex;
     gap                 : 1rem;
     justify-content     : space-between;

@@ -167,7 +167,7 @@ def _(labor, layout, profile, result, theme):
         n_lateral     = len(result.reach.lateral),
         profile       = profile,
         theme         = theme,
-        wage          = labor.wage(profile.soc_title)
+        wage          = labor[profile.soc_title].annual_median
     )
     return (sidebar,)
 

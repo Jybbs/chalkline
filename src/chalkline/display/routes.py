@@ -6,7 +6,7 @@ composing Marimo HTML elements for career transition routes via
 htpy typed elements.
 """
 
-from htpy       import div, Element, p, span, strong
+from htpy       import details, div, Element, p, span, strong, summary
 from marimo     import Html
 from markupsafe import Markup
 from typing     import Literal, TYPE_CHECKING
@@ -168,16 +168,18 @@ class Routes:
 
         path_cards = [
             div(".cl-path-card")[
-                div(".cl-path-header")[labels["path_header"].format(
-                    n_items    = len(rows),
-                    s          = "s" if len(rows) != 1 else "",
-                    strategy   = labels.get(
-                        f"strategy_{path.strategy}", path.strategy
-                    ),
-                    total      = route.gap_count,
-                    unique_cov = path.unique_coverage
-                )],
-                *rows,
+                details(".cl-path-details", open=True)[
+                    summary(".cl-path-header")[labels["path_header"].format(
+                        n_items    = len(rows),
+                        s          = "s" if len(rows) != 1 else "",
+                        strategy   = labels.get(
+                            f"strategy_{path.strategy}", path.strategy
+                        ),
+                        total      = route.gap_count,
+                        unique_cov = path.unique_coverage
+                    )],
+                    *rows
+                ],
                 *(
                     [div(".cl-path-footer")[
                         labels["coverage_footer"].format(
