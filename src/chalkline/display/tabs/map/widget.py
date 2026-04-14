@@ -136,7 +136,7 @@ class PathwayMap(AnyWidget):
 
         hero = {
             "n_matches"    : len(result.reach.edges),
-            "sector_color" : theme.sector_background(profile.sector),
+            "sector_color" : theme.colors["lavender"],
             "size"         : profile.size,
             "title"        : profile.soc_title,
             "wage"         : select_wage(profile)

@@ -13,6 +13,96 @@ import * as d3 from "https://esm.sh/d3@7";
 
 
 /* ------------------------------------------------------------------ */
+/*  Rectangular bbox collision force (vendored from d3-bboxCollide)   */
+/* ------------------------------------------------------------------ */
+
+function bboxCollide(bbox) {
+    var nodes, boxes, strength = 1, iterations = 1;
+
+    function force() {
+        for (var k = 0; k < iterations; ++k) {
+            var corners = [];
+            nodes.forEach(function (d, i) {
+                var b = boxes[i];
+                var cx = (b[0][0] + b[1][0]) / 2;
+                var cy = (b[0][1] + b[1][1]) / 2;
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + cx, y: d.y + cy});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[0][0], y: d.y + b[0][1]});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[0][0], y: d.y + b[1][1]});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[1][0], y: d.y + b[0][1]});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[1][0], y: d.y + b[1][1]});
+            });
+
+            var tree = d3.quadtree(corners,
+                (d) => d.x + d.vx, (d) => d.y + d.vy);
+
+            for (var i = 0; i < corners.length; ++i) {
+                var ni  = ~~(i / 5);
+                var nd  = nodes[ni];
+                var bi  = boxes[ni];
+                var xi  = nd.x + nd.vx;
+                var yi  = nd.y + nd.vy;
+                var nx1 = xi + bi[0][0], ny1 = yi + bi[0][1];
+                var nx2 = xi + bi[1][0], ny2 = yi + bi[1][1];
+                var bW  = bi[1][0] - bi[0][0];
+                var bH  = bi[1][1] - bi[0][1];
+
+                tree.visit(function (quad, x0, y0, x1, y1) {
+                    if (!quad.data) return x0 > nx2 || x1 < nx1 || y0 > ny2 || y1 < ny1;
+                    if (quad.data.node.index === ni) return;
+
+                    var other = quad.data.node;
+                    var bj    = boxes[other.index];
+                    var dx1   = other.x + other.vx + bj[0][0];
+                    var dy1   = other.y + other.vy + bj[0][1];
+                    var dx2   = other.x + other.vx + bj[1][0];
+                    var dy2   = other.y + other.vy + bj[1][1];
+
+                    if (nx1 > dx2 || dx1 > nx2 || ny1 > dy2 || dy1 > ny2) return;
+
+                    var dW = bj[1][0] - bj[0][0];
+                    var dH = bj[1][1] - bj[0][1];
+                    var xO = bW + dW - (Math.max(nx2, dx2) - Math.min(nx1, dx1));
+                    var yO = bH + dH - (Math.max(ny2, dy2) - Math.min(ny1, dy1));
+
+                    if ((nx1 + nx2) / 2 < (dx1 + dx2) / 2) {
+                        nd.vx    -= xO * strength * (yO / bH);
+                        other.vx += xO * strength * (yO / dH);
+                    } else {
+                        nd.vx    += xO * strength * (yO / bH);
+                        other.vx -= xO * strength * (yO / dH);
+                    }
+                    if ((ny1 + ny2) / 2 < (dy1 + dy2) / 2) {
+                        nd.vy    -= yO * strength * (xO / bW);
+                        other.vy += yO * strength * (xO / dW);
+                    } else {
+                        nd.vy    += yO * strength * (xO / bW);
+                        other.vy -= yO * strength * (xO / dW);
+                    }
+                });
+            }
+        }
+    }
+
+    force.initialize = function (_) {
+        nodes = _;
+        boxes = new Array(nodes.length);
+        for (var i = 0; i < nodes.length; ++i) boxes[i] = bbox(nodes[i], i, nodes);
+    };
+
+    force.iterations = function (_) {
+        return arguments.length ? (iterations = +_, force) : iterations;
+    };
+
+    force.strength = function (_) {
+        return arguments.length ? (strength = +_, force) : strength;
+    };
+
+    return force;
+}
+
+
+/* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -131,13 +221,16 @@ export default {
 
             const sl = edges.filter((e) => byId[e.source] && byId[e.target]);
 
+            const gap = 12;
             d3.forceSimulation(sn)
                 .force("charge",  d3.forceManyBody().strength(-150))
-                .force("collide", d3.forceCollide((d) =>
-                    d.id === mid ? Math.max(hW, hH) / 2 + 28
-                    : d.tier === 1 ? Math.max(cW, cH) / 2 + 26
-                    : cR + 22
-                ).strength(0.9).iterations(10))
+                .force("collide", bboxCollide((d) => {
+                    if (d.id === mid)  return [[-(hW / 2 + gap), -(hH / 2 + gap)],
+                                               [ (hW / 2 + gap),  (hH / 2 + gap)]];
+                    if (d.tier === 1)  return [[-(cW / 2 + gap), -(cH / 2 + gap)],
+                                               [ (cW / 2 + gap),  (cH / 2 + gap)]];
+                    return [[-(cR + gap), -(cR + gap)], [cR + gap, cR + gap]];
+                }).strength(0.9).iterations(10))
                 .force("link",    d3.forceLink(sl).id((d) => d.id)
                     .strength(0.03).distance(180))
                 .force("x",       d3.forceX((d) =>
@@ -293,12 +386,6 @@ export default {
                 hg.append("rect").attr("width", 5).attr("height", hH).attr("rx", 2)
                     .attr("fill", hero.sector_color);
 
-                /* Match count (top right) */
-                if (hero.n_matches > 0) {
-                    hg.append("text").attr("class", "hero-nav")
-                        .attr("x", hW - 12).attr("y", 18).attr("text-anchor", "end")
-                        .text(`${hero.n_matches} \u2192`);
-                }
 
                 const hdR = 22;
                 const hdX = hdR + 14;

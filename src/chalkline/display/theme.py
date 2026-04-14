@@ -33,14 +33,14 @@ class Theme:
             "lavender"   : "#c49bdb",
             "muted"      : "#999999",
             "primary"    : "#E8C840",
-            "specialty"  : "#5cb878",
+            "management" : "#5cb878",
             "success"    : "#8cc5a3",
             "teal"       : "#7ecfc0"
         })
         self.sectors: MappingProxyType[str, str] = MappingProxyType({
             "Building Construction"      : self.colors["building"],
             "Heavy Highway Construction" : self.colors["heavy"],
-            "Specialty Trade"            : self.colors["specialty"]
+            "Construction Managers"      : self.colors["management"]
         })
         self.template = "chalkline_dark"
         self._register_template()
@@ -78,7 +78,7 @@ class Theme:
             "layout" : {
                 "colorway"      : [self.colors[k] for k in (
                     "accent", "heavy", "success", "primary", "error",
-                    "building", "specialty", "lavender", "cream", "teal"
+                    "building", "management", "lavender", "cream", "teal"
                 )],
                 "font"          : {
                     "color"  : self.colors["foreground"],

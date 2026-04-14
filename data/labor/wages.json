@@ -87,7 +87,7 @@
     "hourly_90": 61.33,
     "hourly_median": 38.27,
     "soc_code": "17-1011.00",
-    "soc_title": "Architects, Except Landscape and Naval"
+    "soc_title": "Architects"
   },
   {
     "annual_10": 64650,
@@ -132,7 +132,7 @@
     "hourly_90": 38.77,
     "hourly_median": 29.74,
     "soc_code": "17-3022.00",
-    "soc_title": "Civil Engineering Technologists and Technicians"
+    "soc_title": "Civil Engineering Technicians"
   },
   {
     "annual_10": 53040,
@@ -177,7 +177,7 @@
     "hourly_90": 36.0,
     "hourly_median": 32.32,
     "soc_code": "47-2021.00",
-    "soc_title": "Brickmasons and Blockmasons"
+    "soc_title": "Brickmasons & Blockmasons"
   },
   {
     "annual_10": 40330,
@@ -237,11 +237,11 @@
     "hourly_90": 29.2,
     "hourly_median": 23.22,
     "soc_code": "47-2042.00",
-    "soc_title": "Floor Layers, Except Carpet, Wood, and Hard Tiles"
+    "soc_title": "Floor Layers"
   },
   {
     "soc_code": "47-2043.00",
-    "soc_title": "Floor Sanders and Finishers",
+    "soc_title": "Floor Sanders & Finishers",
     "annual_median": 47020,
     "annual_10": 34860,
     "annual_25": 44370,
@@ -260,14 +260,14 @@
     "annual_75": 75170,
     "annual_90": 81510,
     "annual_median": 68470,
-    "employment": NaN,
+    "employment": null,
     "hourly_10": 25.85,
     "hourly_25": 28.22,
     "hourly_75": 36.14,
     "hourly_90": 39.19,
     "hourly_median": 32.92,
     "soc_code": "47-2044.00",
-    "soc_title": "Tile and Stone Setters"
+    "soc_title": "Tile & Stone Setters"
   },
   {
     "annual_10": 36270,
@@ -282,11 +282,11 @@
     "hourly_90": 42.88,
     "hourly_median": 25.83,
     "soc_code": "47-2051.00",
-    "soc_title": "Cement Masons and Concrete Finishers"
+    "soc_title": "Cement Masons & Finishers"
   },
   {
     "soc_code": "47-2053.00",
-    "soc_title": "Terrazzo Workers and Finishers",
+    "soc_title": "Terrazzo Workers & Finishers",
     "annual_median": 52660,
     "annual_10": 51790,
     "annual_25": 52530,
@@ -432,7 +432,7 @@
     "hourly_90": 33.62,
     "hourly_median": 28.24,
     "soc_code": "47-2131.00",
-    "soc_title": "Insulation Workers, Floor, Ceiling, and Wall"
+    "soc_title": "Insulation Workers, Envelope"
   },
   {
     "annual_10": 48730,
@@ -462,7 +462,7 @@
     "hourly_90": 35.41,
     "hourly_median": 27.06,
     "soc_code": "47-2141.00",
-    "soc_title": "Painters, Construction and Maintenance"
+    "soc_title": "Painters"
   },
   {
     "annual_10": 46370,
@@ -496,7 +496,7 @@
   },
   {
     "soc_code": "47-2161.00",
-    "soc_title": "Plasterers and Stucco Masons",
+    "soc_title": "Plasterers & Stucco Masons",
     "annual_median": 72795,
     "annual_10": 54010,
     "annual_25": 57645,
@@ -556,7 +556,7 @@
   },
   {
     "soc_code": "47-2231.00",
-    "soc_title": "Solar Photovoltaic Installers",
+    "soc_title": "Solar PV Installers",
     "annual_median": 64230,
     "annual_10": 47620,
     "annual_25": 52000,
@@ -582,7 +582,7 @@
     "hourly_90": 41.46,
     "hourly_median": 31.57,
     "soc_code": "47-4011.00",
-    "soc_title": "Construction and Building Inspectors"
+    "soc_title": "Construction Inspectors"
   },
   {
     "annual_10": 49670,
@@ -605,7 +605,7 @@
     "annual_75": 60270,
     "annual_90": 71700,
     "annual_median": 49850,
-    "employment": NaN,
+    "employment": null,
     "hourly_10": 17.0,
     "hourly_25": 18.11,
     "hourly_75": 28.97,
@@ -657,7 +657,7 @@
     "hourly_90": 38.62,
     "hourly_median": 29.87,
     "soc_code": "49-9021.00",
-    "soc_title": "Heating, Air Conditioning, and Refrigeration Mechanics and Installers"
+    "soc_title": "HVAC Mechanics & Installers"
   },
   {
     "annual_10": 46670,
@@ -687,7 +687,7 @@
     "hourly_90": 55.8,
     "hourly_median": 39.92,
     "soc_code": "49-9051.00",
-    "soc_title": "Electrical Power-Line Installers and Repairers"
+    "soc_title": "Power-Line Installers & Repairers"
   },
   {
     "annual_10": 36660,
@@ -702,7 +702,7 @@
     "hourly_90": 35.11,
     "hourly_median": 23.36,
     "soc_code": "49-9071.00",
-    "soc_title": "Maintenance and Repair Workers, General"
+    "soc_title": "General Maintenance Workers"
   },
   {
     "annual_10": 53020,
@@ -732,11 +732,11 @@
     "hourly_90": 40.96,
     "hourly_median": 29.48,
     "soc_code": "53-7021.00",
-    "soc_title": "Crane and Tower Operators"
+    "soc_title": "Crane & Tower Operators"
   },
   {
     "soc_code": "53-7041.00",
-    "soc_title": "Hoist and Winch Operators",
+    "soc_title": "Hoist & Winch Operators",
     "annual_median": 61720,
     "annual_10": 56500,
     "annual_25": 61470,

@@ -110,15 +110,18 @@ class LaborParser:
             **(static or {})
         )
 
-        return (
+        records = (
             result.filter(items=sorted([
                 *numeric.values(), *(text or {}).values(),
                 *(static or {}).keys(), "soc_code", "soc_title"
             ]))
             .sort_values("soc_code")
-            .pipe(lambda df: df.where(df.notna(), None))
             .to_dict("records")
         )
+        return [
+            {k: None if pd.isna(v) else v for k, v in row.items()}
+            for row in records
+        ]
 
     def _write(self, name: str, records: list[dict]) -> int:
         (path := self.out / f"{name}.json").write_text(

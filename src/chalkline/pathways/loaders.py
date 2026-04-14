@@ -62,7 +62,7 @@ class LaborLoader:
         """
         Aggregate employment across all occupations.
         """
-        return sum(r.employment for r in self.items.values())
+        return sum(r.employment or 0 for r in self.items.values())
 
     def __getitem__(self, soc_title: str) -> LaborRecord:
         """

@@ -530,7 +530,7 @@
       }
     ],
     "soc_code": "17-1011.00",
-    "soc_title": "Architects, Except Landscape and Naval"
+    "soc_title": "Architects"
   },
   {
     "bright_outlook": true,
@@ -886,7 +886,7 @@
       }
     ],
     "soc_code": "17-3022.00",
-    "soc_title": "Civil Engineering Technologists and Technicians"
+    "soc_title": "Civil Engineering Technicians"
   },
   {
     "bright_outlook": true,
@@ -1152,7 +1152,7 @@
       }
     ],
     "soc_code": "47-2021.00",
-    "soc_title": "Brickmasons and Blockmasons"
+    "soc_title": "Brickmasons & Blockmasons"
   },
   {
     "bright_outlook": false,
@@ -1508,7 +1508,7 @@
       }
     ],
     "soc_code": "47-2042.00",
-    "soc_title": "Floor Layers, Except Carpet, Wood, and Hard Tiles"
+    "soc_title": "Floor Layers"
   },
   {
     "bright_outlook": false,
@@ -1596,7 +1596,7 @@
       }
     ],
     "soc_code": "47-2043.00",
-    "soc_title": "Floor Sanders and Finishers"
+    "soc_title": "Floor Sanders & Finishers"
   },
   {
     "bright_outlook": true,
@@ -1686,7 +1686,7 @@
       }
     ],
     "soc_code": "47-2044.00",
-    "soc_title": "Tile and Stone Setters"
+    "soc_title": "Tile & Stone Setters"
   },
   {
     "bright_outlook": false,
@@ -1774,7 +1774,7 @@
       }
     ],
     "soc_code": "47-2051.00",
-    "soc_title": "Cement Masons and Concrete Finishers"
+    "soc_title": "Cement Masons & Finishers"
   },
   {
     "bright_outlook": false,
@@ -1862,7 +1862,7 @@
       }
     ],
     "soc_code": "47-2053.00",
-    "soc_title": "Terrazzo Workers and Finishers"
+    "soc_title": "Terrazzo Workers & Finishers"
   },
   {
     "bright_outlook": true,
@@ -2660,7 +2660,7 @@
       }
     ],
     "soc_code": "47-2131.00",
-    "soc_title": "Insulation Workers, Floor, Ceiling, and Wall"
+    "soc_title": "Insulation Workers, Envelope"
   },
   {
     "bright_outlook": true,
@@ -2838,7 +2838,7 @@
       }
     ],
     "soc_code": "47-2141.00",
-    "soc_title": "Painters, Construction and Maintenance"
+    "soc_title": "Painters"
   },
   {
     "bright_outlook": false,
@@ -3104,7 +3104,7 @@
       }
     ],
     "soc_code": "47-2161.00",
-    "soc_title": "Plasterers and Stucco Masons"
+    "soc_title": "Plasterers & Stucco Masons"
   },
   {
     "bright_outlook": true,
@@ -3550,7 +3550,7 @@
       }
     ],
     "soc_code": "47-2231.00",
-    "soc_title": "Solar Photovoltaic Installers"
+    "soc_title": "Solar PV Installers"
   },
   {
     "bright_outlook": false,
@@ -3638,7 +3638,7 @@
       }
     ],
     "soc_code": "47-4011.00",
-    "soc_title": "Construction and Building Inspectors"
+    "soc_title": "Construction Inspectors"
   },
   {
     "bright_outlook": true,
@@ -4172,7 +4172,7 @@
       }
     ],
     "soc_code": "49-9021.00",
-    "soc_title": "Heating, Air Conditioning, and Refrigeration Mechanics and Installers"
+    "soc_title": "HVAC Mechanics & Installers"
   },
   {
     "bright_outlook": false,
@@ -4350,7 +4350,7 @@
       }
     ],
     "soc_code": "49-9051.00",
-    "soc_title": "Electrical Power-Line Installers and Repairers"
+    "soc_title": "Power-Line Installers & Repairers"
   },
   {
     "bright_outlook": true,
@@ -4440,7 +4440,7 @@
       }
     ],
     "soc_code": "49-9071.00",
-    "soc_title": "Maintenance and Repair Workers, General"
+    "soc_title": "General Maintenance Workers"
   },
   {
     "bright_outlook": false,
@@ -4616,7 +4616,7 @@
       }
     ],
     "soc_code": "53-7021.00",
-    "soc_title": "Crane and Tower Operators"
+    "soc_title": "Crane & Tower Operators"
   },
   {
     "bright_outlook": false,
@@ -4704,6 +4704,6 @@
       }
     ],
     "soc_code": "53-7041.00",
-    "soc_title": "Hoist and Winch Operators"
+    "soc_title": "Hoist & Winch Operators"
   }
 ]
