@@ -9,16 +9,18 @@ profile, credentials, and postings. When the user clicks a destination
 node, the view switches to a transition route.
 """
 
-from marimo import Html, accordion
+from marimo     import Html, accordion
+from markupsafe import Markup
 
 from chalkline.display.loaders import TabContext
 from chalkline.display.schemas import RouteDetail
 
 
 def map_tab(
-    ctx    : TabContext,
-    route  : RouteDetail,
-    widget : Html
+    ctx         : TabContext,
+    route       : RouteDetail,
+    wage_filter : Html,
+    widget      : Html
 ) -> Html:
     """
     Compose the full Map tab.
@@ -26,12 +28,15 @@ def map_tab(
     Default state shows the matched career's skill profile,
     credentials, and postings. Clicking a different node switches to
     a transition route between the matched career and the selected
-    destination.
+    destination. The wage filter sits between the map and the route
+    card so the user can constrain the salary range without leaving
+    the visual context.
     """
     tab = ctx.content.tab("map")
 
     return ctx.layout.stack(
-        widget,
+        ctx.layout.to_html(Markup(widget.text), cls = "cl-map-frame"),
+        wage_filter,
 
         ctx.routes.card(
             ctx.routes.verdict(route, tab),

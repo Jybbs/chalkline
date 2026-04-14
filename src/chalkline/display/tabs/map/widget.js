@@ -157,6 +157,8 @@ function wrapText(sel, maxW) {
 export default {
     render({ model, el }) {
 
+        const cache = new Map();
+
         function draw() {
             el.innerHTML = "";
             if (!el.clientWidth) return;
@@ -211,15 +213,19 @@ export default {
             /* ── Force simulation ───────────────────────────────── */
 
             const noWageX = pad + 40;
-            const sn      = nodes.map((n) => ({
-                ...n,
-                x : n.wage ? xScale(n.wage) : noWageX,
-                y : sY[n.sector] || H / 2
-            }));
+            const sn      = nodes.map((n) => {
+                const prior = cache.get(`${mid}:${n.id}`);
+                return {
+                    ...n,
+                    x : prior?.x ?? (n.wage ? xScale(n.wage) : noWageX),
+                    y : prior?.y ?? (sY[n.sector] || H / 2)
+                };
+            });
 
-            const byId = Object.fromEntries(sn.map((n) => [n.id, n]));
-
-            const sl = edges.filter((e) => byId[e.source] && byId[e.target]);
+            const byId     = Object.fromEntries(sn.map((n) => [n.id, n]));
+            const sl       = edges.filter((e) => byId[e.source] && byId[e.target]);
+            const anyFresh = sn.some((n) => !cache.has(`${mid}:${n.id}`));
+            const ticks    = anyFresh ? 500 : 80;
 
             const gap = 12;
             d3.forceSimulation(sn)
@@ -237,7 +243,7 @@ export default {
                     d.wage ? xScale(d.wage) : noWageX).strength(0.6))
                 .force("y",       d3.forceY((d) => sY[d.sector] || H / 2).strength(0.1))
                 .stop()
-                .tick(500);
+                .tick(ticks);
 
             sn.forEach((n) => {
                 const [ex, ey] = n.id === mid ? [hW / 2, hH / 2]
@@ -245,6 +251,7 @@ export default {
                     : [cR, cR];
                 n.x = clamp(n.x, pad + ex, W - pad - ex);
                 n.y = clamp(n.y, pad + ey, H - pad - ey - 40);
+                cache.set(`${mid}:${n.id}`, { x: n.x, y: n.y });
             });
 
             /* ── SVG ────────────────────────────────────────────── */
@@ -254,23 +261,6 @@ export default {
                 .attr("viewBox", `0 0 ${W} ${H}`)
                 .attr("width", "100%")
                 .style("max-height", `${H}px`);
-
-            /* ── Salary axis ────────────────────────────────────── */
-
-            const aY = H - 20;
-
-            svg.append("line").attr("class", "salary-shaft")
-                .attr("x1", xScale(we[0]) - 20).attr("x2", xScale(we[1]) + 20)
-                .attr("y1", aY).attr("y2", aY);
-
-            d3.range(we[0], we[1] + 1, 10000).forEach((t) => {
-                const x = xScale(t);
-                svg.append("line").attr("class", "salary-tick-mark")
-                    .attr("x1", x).attr("x2", x).attr("y1", aY - 4).attr("y2", aY + 4);
-                svg.append("text").attr("class", "salary-label")
-                    .attr("x", x).attr("y", aY + 16).attr("text-anchor", "middle")
-                    .text(wageLabel(t));
-            });
 
             /* ── Edges (1-hop matched only, uniform style) ──────── */
 
@@ -374,7 +364,8 @@ export default {
 
                 svg.append("rect").attr("class", "matched-glow")
                     .attr("x", hx - 5).attr("y", hy - 5)
-                    .attr("width", hW + 10).attr("height", hH + 10).attr("rx", 10);
+                    .attr("width", hW + 10).attr("height", hH + 10).attr("rx", 10)
+                    .attr("stroke", hero.match_color);
 
                 const hg = svg.append("g").datum(hn).attr("class", "hero-card")
                     .attr("transform", `translate(${hx}, ${hy})`)
@@ -382,7 +373,8 @@ export default {
                     .on("click", select);
 
                 hg.append("rect").attr("class", "hero-bg")
-                    .attr("width", hW).attr("height", hH).attr("rx", 8);
+                    .attr("width", hW).attr("height", hH).attr("rx", 8)
+                    .attr("stroke", hero.match_color).attr("stroke-width", 2.5);
                 hg.append("rect").attr("width", 5).attr("height", hH).attr("rx", 2)
                     .attr("fill", hero.sector_color);
 

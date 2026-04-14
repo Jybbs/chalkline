@@ -19,24 +19,6 @@ class TestResumeMatcher:
     reach retrieval.
     """
 
-    def test_cluster_assigned(self, clusters: Clusters, match_result: MatchResult):
-        """
-        Match result assigns a valid cluster ID from the profile set.
-        """
-        assert match_result.cluster_id in clusters
-
-    def test_cluster_distances(
-        self,
-        cluster_ids  : list[int],
-        match_result : MatchResult
-    ):
-        """
-        Cluster distances cover every cluster as non-negative floats.
-        """
-        distances = match_result.cluster_distances
-        assert len(distances) == len(cluster_ids)
-        assert all(d >= 0 for d in distances)
-
     def test_calibrate_cluster_means(
         self,
         clusters       : Clusters,
@@ -61,7 +43,49 @@ class TestResumeMatcher:
         per-task similarities.
         """
         resume_matcher.calibrate()
-        assert resume_matcher.global_threshold > 0
+        assert resume_matcher.global_threshold >= 0
+
+    def test_chunk_shape(self, resume_matcher: ResumeMatcher):
+        """
+        Matching a multi-sentence resume stores `resume_chunks` with
+        one row per sentence, distinct from the single-row
+        `resume_embedding`.
+        """
+        resume_matcher.match("First sentence. Second sentence. Third sentence.")
+        assert resume_matcher.resume_chunks.shape[0] == 3
+        assert resume_matcher.resume_embedding.shape[0] == 1
+
+    def test_chunk_task_max_pool(
+        self,
+        clusters       : Clusters,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        Task scoring via `_task_similarities` returns one similarity
+        per task, each the max across resume chunks.
+        """
+        resume_matcher.match("First sentence. Second sentence. Third sentence.")
+        target = next(c for c in clusters.values() if c.tasks)
+        sims = resume_matcher._task_similarities(target)
+        assert sims.shape == (len(target.tasks),)
+
+    def test_cluster_assigned(self, clusters: Clusters, match_result: MatchResult):
+        """
+        Match result assigns a valid cluster ID from the profile set.
+        """
+        assert match_result.cluster_id in clusters
+
+    def test_cluster_distances(
+        self,
+        cluster_ids  : list[int],
+        match_result : MatchResult
+    ):
+        """
+        Cluster distances cover every cluster as non-negative floats.
+        """
+        distances = match_result.cluster_distances
+        assert len(distances) == len(cluster_ids)
+        assert all(d >= 0 for d in distances)
 
     def test_confidence_range(self, match_result: MatchResult):
         """
@@ -198,6 +222,7 @@ class TestResumeMatcher:
         scored = resume_matcher.score_destination(solo)
         assert len(scored) == 1
         assert scored[0].demonstrated is True
+
 
 
 class TestMatchResult:

@@ -137,28 +137,67 @@ def _(layout, theme):
     return (routes,)
 
 
+# ── Forms ──────────────────────────────────────────────────────────
+
+@app.cell
+def _(layout, mo):
+    from chalkline.display.forms import Forms
+
+    forms = Forms(layout=layout, mo=mo)
+    return (forms,)
+
+
+# ── Wage filter ────────────────────────────────────────────────────
+
+@app.cell
+def _(forms, labor, pipeline):
+    from chalkline.display.tabs.map.widget import PathwayMap as pathway
+
+    wage_filter = forms.wage_filter(
+        clusters = pipeline.clusters,
+        labor    = labor,
+    )
+    wage_slider = wage_filter.slider
+    return pathway, wage_filter, wage_slider
+
+
 # ── Map widget ─────────────────────────────────────────────────────
 
 @app.cell
-def _(labor, mo, pipeline, result, theme):
-    from chalkline.display.tabs.map.widget import PathwayMap
-
-    map_widget = mo.ui.anywidget(PathwayMap.from_graph(
+def _(labor, mo, pathway, pipeline, result, theme):
+    widget = mo.ui.anywidget(pathway.from_graph(
         clusters   = pipeline.clusters,
         graph      = pipeline.graph,
         labor      = labor,
         matched_id = result.cluster_id,
         matcher    = pipeline.matcher,
         result     = result,
-        theme      = theme
+        theme      = theme,
     ))
-    return (map_widget,)
+    return (widget,)
+
+
+# ── Map filter sync ────────────────────────────────────────────────
+
+@app.cell
+def _(labor, pathway, pipeline, result, theme, wage_slider, widget):
+    widget.graph_data = pathway.build_graph_data(
+        clusters    = pipeline.clusters,
+        graph       = pipeline.graph,
+        labor       = labor,
+        matched_id  = result.cluster_id,
+        matcher     = pipeline.matcher,
+        result      = result,
+        theme       = theme,
+        wage_filter = (wage_slider.value or wage_slider.start, wage_slider.stop),
+    )
+    return
 
 
 # ── Route computation ──────────────────────────────────────────────
 
 @app.cell
-def _(labor, map_widget, pipeline, profile, result):
+def _(labor, widget, pipeline, profile, result):
     from chalkline.display.schemas import RouteDetail
 
     route = RouteDetail.from_selection(
@@ -166,7 +205,7 @@ def _(labor, map_widget, pipeline, profile, result):
         pipeline    = pipeline,
         profile     = profile,
         result      = result,
-        selected_id = map_widget.value["selected_id"]
+        selected_id = widget.value["selected_id"]
     )
     return (route,)
 
@@ -199,7 +238,7 @@ def _(
 # ── Three-tab layout ───────────────────────────────────────────────
 
 @app.cell
-def _(ctx, map_widget, mo, route):
+def _(ctx, widget, mo, route, wage_filter):
     from chalkline.display.tabs.data.render    import data_tab
     from chalkline.display.tabs.map.render     import map_tab
     from chalkline.display.tabs.methods.render import methods_tab
@@ -208,9 +247,10 @@ def _(ctx, map_widget, mo, route):
     mo.ui.tabs(
         {
             tn["map"]     : lambda: map_tab(
-                ctx    = ctx,
-                route  = route,
-                widget = map_widget
+                ctx         = ctx,
+                route       = route,
+                wage_filter = wage_filter.row,
+                widget      = widget,
             ),
             tn["data"]    : lambda: data_tab(ctx),
             tn["methods"] : lambda: methods_tab(ctx)

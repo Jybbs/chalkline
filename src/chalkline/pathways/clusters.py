@@ -52,14 +52,6 @@ class Cluster:
         )
 
     @cached_property
-    def task_matrix(self) -> np.ndarray:
-        """
-        Stacked task embedding vectors as a 2D array for cosine
-        similarity computation.
-        """
-        return np.stack([t.vector for t in self.tasks])
-
-    @cached_property
     def distinctive_tokens(self) -> list[list[str]]:
         """
         Per-posting bags of lowercased tokens longer than three
@@ -81,6 +73,35 @@ class Cluster:
                 and zipf_frequency(w, "en") < 5.0
             ]
             for p in self.postings
+        ]
+
+    @cached_property
+    def task_matrix(self) -> np.ndarray:
+        """
+        Stacked task embedding vectors as a 2D array for cosine
+        similarity computation.
+        """
+        return np.stack([t.vector for t in self.tasks])
+
+    @cached_property
+    def task_stems(self) -> list[set[str]]:
+        """
+        Stemmed content words per task for BM25 scoring, filtering
+        stop words and short tokens. One set per task in the same
+        order as `self.tasks`.
+        """
+        from nltk.stem import SnowballStemmer
+        from re        import findall
+        from wordfreq  import zipf_frequency
+
+        stemmer = SnowballStemmer("english")
+        return [
+            {
+                stemmer.stem(w)
+                for w in findall(r"[a-zA-Z]{3,}", t.name.lower())
+                if zipf_frequency(w, "en") < 6.0
+            }
+            for t in self.tasks
         ]
 
     def sub_role_labels(
@@ -168,6 +189,43 @@ class Clusters:
         self.cluster_ids = sorted(self.items)
 
     @cached_property
+    def bm25_average_length(self) -> float:
+        """
+        Mean stem count across all task descriptions in the corpus,
+        used as the average document length for BM25 length
+        normalization.
+        """
+        all_stems = [
+            ts for c in self.values() for ts in c.task_stems
+        ]
+        return float(np.mean([len(s) for s in all_stems]))
+
+    @cached_property
+    def bm25_idf(self) -> dict[str, float]:
+        """
+        Inverse document frequency per stem across all task
+        descriptions, using the BM25 IDF variant with smoothing.
+        Stems appearing in many tasks get low weight, suppressing
+        generic verbs like 'prepare' and 'use' while amplifying
+        domain-specific terms like 'conduit' and 'circuit'.
+        """
+        from math import log
+
+        all_stems = [
+            ts for c in self.values() for ts in c.task_stems
+        ]
+        n = len(all_stems)
+        df: dict[str, int] = {}
+        for doc in all_stems:
+            for s in doc:
+                df[s] = df.get(s, 0) + 1
+
+        return {
+            stem: log((n - count + 0.5) / (count + 0.5) + 1)
+            for stem, count in df.items()
+        }
+
+    @cached_property
     def centroid_cosine(self) -> np.ndarray:
         """
         Pairwise cosine similarity matrix between cluster centroids.
@@ -243,6 +301,17 @@ class Clusters:
             p.location for c in self.values()
             for p in c.postings if p.location
         })
+
+    @cached_property
+    def max_centroid_distance(self) -> float:
+        """
+        Maximum Euclidean distance between any two cluster centroids
+        in the reduced SVD space. Fixed per-corpus, used as the
+        denominator for normalizing resume-to-cluster distances into
+        display match scores.
+        """
+        pairs = self.centroids[:, None] - self.centroids[None, :]
+        return float(np.linalg.norm(pairs, axis=2).max())
 
     @cached_property
     def pairwise_distances(self) -> dict[str, list[float]]:

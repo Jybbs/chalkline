@@ -141,6 +141,7 @@ dependencies = [
     { name = "sf-hamilton", extra = ["diskcache"] },
     { name = "tokenizers" },
     { name = "typer" },
+    { name = "wordfreq" },
 ]
 
 [package.dev-dependencies]
@@ -149,7 +150,6 @@ dev = [
     { name = "openpyxl" },
     { name = "pytest" },
     { name = "pytest-loguru" },
-    { name = "wordfreq" },
 ]
 viz = [
     { name = "seaborn" },
@@ -171,6 +171,7 @@ requires-dist = [
     { name = "sf-hamilton", extras = ["diskcache"] },
     { name = "tokenizers" },
     { name = "typer" },
+    { name = "wordfreq" },
 ]
 
 [package.metadata.requires-dev]
@@ -179,7 +180,6 @@ dev = [
     { name = "openpyxl" },
     { name = "pytest" },
     { name = "pytest-loguru" },
-    { name = "wordfreq" },
 ]
 viz = [{ name = "seaborn" }]
 

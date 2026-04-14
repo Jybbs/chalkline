@@ -1,21 +1,27 @@
 """
-Resume matching via sentence embeddings with per-task gap analysis.
+Resume matching via BM25-weighted sentence embeddings with gap analysis.
 
 Projects an uploaded resume into the fitted SVD space, matches it to the
 nearest career family via cluster centroids, identifies demonstrated
-competencies and gaps via per-task cosine similarity against O*NET Task+DWA
-embeddings, and assembles a reach view with per-edge credential metadata.
+competencies and gaps via BM25-weighted cosine similarity against O*NET
+Task+DWA embeddings, and assembles a reach view with per-edge credential
+metadata. Task scoring uses sentence-level chunking with max-pooling so
+that a specific resume line can drive high similarity for a matching task
+even when the document-level mean is diluted by unrelated content. The
+BM25 weighting suppresses generic verbs that produce artificial similarity
+between structurally parallel but semantically unrelated texts.
 """
 
 import numpy as np
 
 from dataclasses              import dataclass, field
+from functools                import cached_property
 from heapq                    import nlargest
 from sklearn.decomposition    import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
 from chalkline.collection.schemas import Posting
-from chalkline.matching.schemas   import MatchResult, ScoredTask
+from chalkline.matching.schemas   import BM25Config, MatchResult, ScoredTask
 from chalkline.pathways.clusters  import Cluster, Clusters
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pipeline.encoder   import SentenceEncoder
@@ -24,13 +30,16 @@ from chalkline.pipeline.encoder   import SentenceEncoder
 @dataclass(kw_only=True)
 class ResumeMatcher:
     """
-    Embedding-based resume matching with reach exploration.
+    BM25-weighted resume matching with reach exploration.
 
     Holds the sentence transformer encoder, fitted SVD, and the cluster map
     with pre-stacked centroid matrices. The `match()` method encodes resume
     text, projects it into the reduced space, assigns it to the nearest
     cluster, computes per-task gap analysis, and queries the career graph
-    for the local reach view.
+    for the local reach view. Task scoring weights raw cosine similarity by
+    a BM25 relevance signal derived from stem overlap between resume chunks
+    and task descriptions, suppressing generic verbs that appear across many
+    occupations while amplifying domain-specific terms.
 
     Args:
         clusters : Cluster map with centroids for distance computation.
@@ -44,10 +53,63 @@ class ResumeMatcher:
     graph    : CareerPathwayGraph
     svd      : TruncatedSVD
 
-    global_threshold : float      = field(default=0.0, init=False)
-    resume_embedding : np.ndarray = field(init=False)
+    bm25             : BM25Config     = field(default_factory=BM25Config)
+    chunk_stems      : list[set[str]] = field(init=False)
+    global_threshold : float          = field(default=0.0, init=False)
+    resume_chunks    : np.ndarray     = field(init=False)
+    resume_embedding : np.ndarray     = field(init=False)
+    resume_svd       : np.ndarray     = field(init=False)
 
-    def _similarities(self, matrix: np.ndarray) -> np.ndarray:
+    @cached_property
+    def stemmer(self):
+        """
+        Snowball stemmer for English, constructed once per session.
+        """
+        from nltk.stem import SnowballStemmer
+        return SnowballStemmer("english")
+
+    def _bm25_score(
+        self,
+        chunk_stems : set[str],
+        task_stems  : set[str]
+    ) -> float:
+        """
+        BM25 relevance score between a single resume chunk and a
+        single task description, using the corpus-level IDF table
+        from `self.clusters`. Task stems are sets so term frequency
+        is always 1.
+
+        Args:
+            chunk_stems : Stemmed content words from one resume chunk.
+            task_stems  : Stemmed content words from one task.
+        """
+        length_ratio = len(task_stems) / self.clusters.bm25_average_length
+        scale = self.bm25.numerator / (
+            1 + self.bm25.saturation * (
+                self.bm25.base_penalty
+                + self.bm25.length_weight * length_ratio
+            )
+        )
+        return scale * sum(
+            self.clusters.bm25_idf.get(term, 0)
+            for term in chunk_stems & task_stems
+        )
+
+    def _content_stems(self, text: str) -> set[str]:
+        """
+        Stemmed content words from text, filtering high-frequency
+        function words via Zipf threshold.
+        """
+        from re       import findall
+        from wordfreq import zipf_frequency
+
+        return {
+            self.stemmer.stem(w)
+            for w in findall(r"[a-zA-Z]{3,}", text.lower())
+            if zipf_frequency(w, "en") < 6.0
+        }
+
+    def _posting_similarities(self, matrix: np.ndarray) -> np.ndarray:
         """
         Cosine similarity between the stored resume embedding and each
         row of `matrix`, returned as a 1D array.
@@ -57,44 +119,89 @@ class ResumeMatcher:
         """
         return cosine_similarity(self.resume_embedding, matrix)[0]
 
+    def _task_similarities(self, cluster: Cluster) -> np.ndarray:
+        """
+        BM25-weighted per-task cosine similarity via max-pooling
+        across resume chunks.
+
+        Computes raw cosine max-pool, then weights each task score
+        by a normalized BM25 relevance signal derived from stem
+        overlap between resume chunks and task descriptions. Generic
+        verbs that appear across many occupations get suppressed by
+        IDF weighting, while domain-specific terms amplify the score.
+
+        Args:
+            cluster: Career family with task embeddings and stems.
+        """
+        weights = np.array([
+            max(self._bm25_score(cs, ts) for cs in self.chunk_stems)
+            for ts in cluster.task_stems
+        ])
+        if weights.max() > 0:
+            weights = weights / weights.max()
+
+        return (
+            weights *
+            cosine_similarity(self.resume_chunks, cluster.task_matrix).max(axis=0)
+        )
+
     def calibrate(self) -> dict[int, float]:
         """
-        Compute per-cluster mean task similarity against the stored
-        resume embedding and set the global threshold for downstream
-        scoring.
+        Set the per-task threshold for demonstrated/gap splits and
+        return per-cluster match scores for the map widget.
 
-        Builds a similarity dict for all task-bearing clusters, stores
-        the median across all individual task scores as
-        `global_threshold`, and returns the per-cluster means used
-        by the map widget for match percentage rendering.
+        The threshold is the median of all BM25-weighted task scores
+        across task-bearing clusters, stored on `global_threshold`
+        for `score_destination` to classify individual tasks. The
+        returned dict reuses `cluster_score` so map donuts and route
+        fit percentages share a single SVD-derived formula.
 
         Returns:
-            Cluster ID to mean cosine similarity (0.0 for taskless
-            clusters).
+            Cluster ID to match score in [0, 1].
         """
-        sims = {
-            c.cluster_id: self._similarities(c.task_matrix)
+        sims = [
+            self._task_similarities(c)
             for c in self.clusters.values() if c.tasks
-        }
+        ]
         self.global_threshold = (
-            float(np.median(np.concatenate(list(sims.values()))))
-            if sims else 0.0
+            float(np.median(np.concatenate(sims))) if sims else 0.0
         )
-        return {
-            cid: float(s.mean()) if (s := sims.get(cid)) is not None else 0.0
-            for cid in self.clusters
-        }
+        return {cid: self.cluster_score(cid) for cid in self.clusters.cluster_ids}
+
+    def cluster_score(self, cluster_id: int) -> float:
+        """
+        SVD-derived match score for one cluster, in [0, 1].
+
+        A score of 1 means the resume sits exactly on the cluster
+        centroid in reduced SVD space; 0 means the resume is as far
+        from this centroid as the corpus-wide maximum centroid
+        separation. The matched cluster scores highest by construction
+        because it has the minimum distance.
+
+            score_k = 1 − ‖𝐫 − 𝐜ₖ‖₂ / max_{i,j} ‖𝐜ᵢ − 𝐜ⱼ‖₂
+
+        Single source of truth for the map donut and the route fit
+        percentage.
+
+        Args:
+            cluster_id: ID of the cluster to score.
+        """
+        index    = self.clusters.cluster_ids.index(cluster_id)
+        distance = float(np.linalg.norm(
+            self.clusters.centroids[index] - self.resume_svd
+        ))
+        return 1.0 - distance / self.clusters.max_centroid_distance
 
     def match(self, resume_text: str) -> MatchResult:
         """
         Project resume text into the career landscape and return a full
         match result with gap analysis and reach view.
 
-        Encodes the resume with the sentence transformer, L2-normalizes,
-        projects through the fitted SVD, assigns to the nearest cluster
-        centroid via Euclidean distance, then computes per-task cosine gaps
-        and queries the career graph for reach options with credential
-        metadata.
+        Encodes the resume as both a single document vector for
+        centroid matching and as sentence-level chunks for per-task
+        gap analysis. Projects the document vector through the fitted
+        SVD, assigns to the nearest cluster centroid via Euclidean
+        distance, and queries the career graph for reach options.
 
             k* = argmin_k ‖𝐫 − 𝐜ₖ‖₂
 
@@ -104,22 +211,29 @@ class ResumeMatcher:
         Returns:
             `MatchResult` with cluster, gaps, and reach.
         """
-        self.resume_embedding = self.encoder.encode([resume_text])
+        from nltk.tokenize import sent_tokenize
 
-        resume_svd = self.svd.transform(self.resume_embedding)[0]
-        distances  = np.linalg.norm(self.clusters.centroids - resume_svd, axis=1)
-        cluster_id = self.clusters.cluster_ids[np.argmin(distances)]
+        self.resume_embedding = self.encoder.encode([resume_text])
+        sentences             = sent_tokenize(resume_text)
+        self.resume_chunks    = self.encoder.encode(sentences)
+        self.chunk_stems      = [self._content_stems(s) for s in sentences]
+
+        self.resume_svd = self.svd.transform(self.resume_embedding)[0]
+        distances       = np.linalg.norm(
+            self.clusters.centroids - self.resume_svd, axis=1
+        )
+        cluster_id      = self.clusters.cluster_ids[np.argmin(distances)]
         return MatchResult(
             cluster_distances = distances.tolist(),
             cluster_id        = cluster_id,
-            coordinates       = resume_svd.tolist(),
+            coordinates       = self.resume_svd.tolist(),
             reach             = self.graph.reach(cluster_id)
         )
 
     def score_destination(self, cluster: Cluster) -> list[ScoredTask]:
         """
-        Score a destination cluster's O*NET tasks against the user's
-        resume embedding stored from the most recent `match` call.
+        Score a destination cluster's O*NET tasks against the resume
+        chunks stored from the most recent `match` call.
 
         When `global_threshold` has been set (by `calibrate` batch
         scoring), uses that fixed value so the demonstrated/gap
@@ -135,7 +249,7 @@ class ResumeMatcher:
         if not cluster.tasks:
             return []
 
-        similarities = self._similarities(cluster.task_matrix)
+        similarities = self._task_similarities(cluster)
         threshold    = self.global_threshold or float(np.median(similarities))
         return [
             ScoredTask(
@@ -171,7 +285,7 @@ class ResumeMatcher:
                 (p, float(s))
                 for p, s in zip(
                     cluster.postings,
-                    self._similarities(cluster.embeddings)
+                    self._posting_similarities(cluster.embeddings)
                 )
                 if p.date_posted
             ),

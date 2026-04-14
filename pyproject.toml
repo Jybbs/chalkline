@@ -24,7 +24,8 @@ dependencies    = [
     "scikit-learn",
     "sf-hamilton[diskcache]",
     "tokenizers",
-    "typer"
+    "typer",
+    "wordfreq"
 ]
 
 [tool.uv]
@@ -43,7 +44,6 @@ dev = [
     "openpyxl",
     "pytest",
     "pytest-loguru",
-    "wordfreq",
 ]
 viz = [
     "seaborn",

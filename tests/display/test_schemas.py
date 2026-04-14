@@ -145,6 +145,7 @@ class TestRouteDetail:
             destination_wage = 65000,
             display_title    = dst.soc_title,
             gap_vectors      = np.empty((0, 0)),
+            match_score      = 0.5,
             scored_tasks     = [
                 ScoredTask(demonstrated=True,  name="A", similarity=0.9),
                 ScoredTask(demonstrated=True,  name="B", similarity=0.7),
@@ -186,6 +187,7 @@ class TestRouteDetail:
             destination_wage = 65000,
             display_title    = dst.soc_title,
             gap_vectors      = np.empty((0, 0)),
+            match_score      = 0.5,
             scored_tasks     = [],
             source           = src,
             source_wage      = 50000
@@ -203,7 +205,8 @@ class TestRouteDetail:
 
     def test_fit_percentage(self, route: RouteDetail):
         """
-        Fit percentage is demonstrated tasks over total (2/4 = 50%).
+        Fit percentage is the SVD-derived match score as a percentage
+        (0.5 → 50%).
         """
         assert route.fit_percentage == 50
 
@@ -231,6 +234,7 @@ class TestRouteDetail:
             destination_wage = 50000,
             display_title    = cluster.soc_title,
             gap_vectors      = np.empty((0, 0)),
+            match_score      = 1.0,
             scored_tasks     = [],
             source           = cluster,
             source_wage      = 50000

@@ -14,11 +14,12 @@ from dataclasses     import dataclass
 from datetime        import date
 from heapq           import nlargest, nsmallest
 from itertools       import accumulate, chain, islice
+from marimo          import Html
 from math            import log
 from operator        import attrgetter
 from pydantic        import BaseModel
 from statistics      import median
-from typing          import ClassVar, NamedTuple, Self, TypedDict
+from typing          import Any, ClassVar, NamedTuple, Self, TypedDict
 
 from chalkline.collection.schemas    import Posting
 from chalkline.matching.schemas      import MatchResult, ScoredTask
@@ -920,6 +921,7 @@ class RouteDetail(NamedTuple):
     destination_wage : float | None
     display_title    : str
     gap_vectors      : np.ndarray
+    match_score      : float
     scored_tasks     : list[ScoredTask]
     source           : Cluster
     source_wage      : float | None
@@ -957,15 +959,12 @@ class RouteDetail(NamedTuple):
     @property
     def fit_percentage(self) -> int:
         """
-        Mean raw cosine similarity as a 0-100 percentage for hero
-        display, matching the map donut formula.
+        SVD-derived match score as a 0-100 percentage for hero
+        display. Reads `match_score` populated by `from_selection`
+        from `ResumeMatcher.cluster_score`, the single source of
+        truth shared with the map donut.
         """
-        if not self.scored_tasks:
-            return 0
-        return round(
-            100 * sum(t.similarity for t in self.scored_tasks)
-            / len(self.scored_tasks)
-        )
+        return round(100 * self.match_score)
 
     @property
     def gap_count(self) -> int:
@@ -1111,6 +1110,7 @@ class RouteDetail(NamedTuple):
                 else destination.soc_title
             ),
             gap_vectors      = encoded[0],
+            match_score      = pipeline.matcher.cluster_score(destination.cluster_id),
             scored_tasks     = scored,
             source           = profile,
             source_wage      = labor[profile.soc_title].annual_median
@@ -1372,3 +1372,31 @@ class WageComparison(NamedTuple):
         d = self.destination_wage or 0
         s = self.source_wage or 0
         return round(s / max(d, s, 1) * 100)
+
+
+class WageFilter(NamedTuple):
+    """
+    Minimum-salary filter composed by `Forms.wage_filter`.
+
+    Holds the rendered `row` for the map tab alongside the live
+    slider element. The slider must be exposed as a cell-level
+    variable in the consuming Marimo notebook so static analysis
+    tracks the reactive dependency, letting the map cell re-run
+    once the user releases the thumb. The slider's `start` and
+    `stop` define the corpus wage envelope, so `bounds` always
+    returns `(minimum, stop)` as an inclusive wage range.
+    """
+
+    row    : Html
+    slider : Any
+
+    @property
+    def bounds(self) -> tuple[float, float]:
+        """
+        Currently applied (minimum, stop) bounds.
+        """
+        value = self.slider.value
+        return (
+            (float(value) if value is not None else self.slider.start), 
+            self.slider.stop
+        )
