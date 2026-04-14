@@ -4,11 +4,11 @@ Parse raw BLS and O*NET labor market files into structured JSON.
 Reads manually downloaded files from `data/labor/raw/` and writes
 per-source JSON to `data/labor/`. The three outputs are:
 
-- `wages.json` from BLS OEWS state-level Excel (Maine rows only)
+- `wages.json` from BLS OEWS state-level Excel (Maine preferred, NE fallback)
 - `projections.json` from BLS employment projections Table 1.2
 - `outlook.json` from O*NET Bright Outlook CSVs and Related Occupations
 
-All three filter to the 21 stakeholder SOC codes. The downstream
+All three filter to the project's SOC codes. The downstream
 `curate_labor.py` script joins them into a unified `labor.json`.
 
 Run from the worktree root:
@@ -27,8 +27,8 @@ class LaborParser:
     """
     Parse raw BLS and O*NET files into per-source JSON artifacts.
 
-    Each parse method reads one or more raw files, filters to the 21
-    stakeholder SOC codes, and returns a list of dicts ready for JSON
+    Each parse method reads one or more raw files, filters to the
+    project's SOC codes, and returns a list of dicts ready for JSON
     serialization. BLS codes omit the `.00` suffix that O*NET codes
     carry, so a mapping handles the translation.
     """
@@ -41,12 +41,12 @@ class LaborParser:
         self.raw = root / "data/labor/raw"
         self.out = root / "data/labor"
         self.codes = {
-            c["soc_code"]: c for c in loads(
-                (root / "data/stakeholder/reference/onet_codes.json").read_text()
-            )
+            c["soc_code"]: c
+            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
+            for c in loads(path.read_text())
         }
         self.bls_to_onet = {
-            soc.replace(".00", ""): soc for soc in self.codes
+            soc.removesuffix(".00"): soc for soc in self.codes
         }
 
     @staticmethod
@@ -57,8 +57,7 @@ class LaborParser:
         """
         if pd.isna(value):
             return None
-        text = str(value).strip()
-        return None if text in ("", "\u2014", "nan", "*") else text
+        return None if (text := str(value).strip()) in ("", "\u2014", "nan", "*") else text
 
     def _numeric(self, value) -> float | int | None:
         """
@@ -82,7 +81,7 @@ class LaborParser:
         text    : dict[str, str] | None = None
     ) -> list[dict]:
         """
-        Filter a BLS DataFrame to stakeholder SOC codes and reshape
+        Filter a BLS DataFrame to the project's SOC codes and reshape
         into typed output records.
 
         Renames columns per the `numeric` and `text` mappings, applies
@@ -97,38 +96,36 @@ class LaborParser:
             static  : Constant key-value pairs added to every record.
             text    : BLS column to output name for text cleaning.
         """
-        result = (
-            df[df[code].isin(self.bls_to_onet)]
-            .rename(columns={**numeric, **(text or {})})
+        result = df.query(
+            f"`{code}` in @valid", local_dict={"valid": self.bls_to_onet}
+        ).rename(columns={**numeric, **(text or {})})
+
+        result = result.assign(
+            **{c: result[c].apply(self._numeric) for c in numeric.values()},
+            **{c: result[c].apply(self._clean) for c in (text or {}).values()},
+            soc_code  = result[code].map(self.bls_to_onet),
+            soc_title = lambda df: df["soc_code"].map(
+                {soc: entry["title"] for soc, entry in self.codes.items()}
+            ),
+            **(static or {})
         )
 
-        for col in numeric.values():
-            result[col] = result[col].apply(self._numeric)
-        for col in (text or {}).values():
-            result[col] = result[col].apply(self._clean)
-
-        result["soc_code"]  = result[code].map(self.bls_to_onet)
-        result["soc_title"] = result["soc_code"].map(
-            {soc: c["title"] for soc, c in self.codes.items()}
+        return (
+            result.filter(items=sorted([
+                *numeric.values(), *(text or {}).values(),
+                *(static or {}).keys(), "soc_code", "soc_title"
+            ]))
+            .sort_values("soc_code")
+            .pipe(lambda df: df.where(df.notna(), None))
+            .to_dict("records")
         )
 
-        if static:
-            result = result.assign(**static)
-
-        output = sorted([
-            *numeric.values(), *(text or {}).values(),
-            *(static or {}).keys(), "soc_code", "soc_title"
-        ])
-        return [
-            {k: None if pd.isna(v) else v for k, v in r.items()}
-            for r in result[output].sort_values("soc_code").to_dict("records")
-        ]
-
-    def _write(self, name: str, records: list[dict]):
+    def _write(self, name: str, records: list[dict]) -> int:
         (path := self.out / f"{name}.json").write_text(
             dumps(records, indent=2) + "\n"
         )
         print(f"  {name}.json: {len(records)} records -> {path}")
+        return len(records)
 
     def parse_outlook(self) -> list[dict]:
         """
@@ -141,7 +138,7 @@ class LaborParser:
         for career transition targets.
 
         Returns:
-            Outlook records for all 21 SOC codes, sorted by code.
+            Outlook records for all SOC codes, sorted by code.
         """
         with open(self.raw / "onet/bright_outlook.csv") as f:
             bright = {
@@ -150,25 +147,19 @@ class LaborParser:
             }
 
         reasons: dict[str, list[str]] = {}
-        category_files = {
+        for reason, filename in {
             "Rapid Growth"   : "bright_outlook_growth.csv",
             "Many Openings"  : "bright_outlook_openings.csv",
             "New & Emerging" : "bright_outlook_new_emerging.csv"
-        }
-        for reason, filename in category_files.items():
+        }.items():
             with open(self.raw / "onet" / filename) as f:
                 for row in DictReader(f):
                     if (code := row["O*NET-SOC 2019 Code"]) in self.codes:
                         reasons.setdefault(code, []).append(reason)
 
-        related_df = pd.read_csv(
-            self.raw / "onet/related_occupations.txt",
-            dtype = str,
-            sep   = "\t"
-        )
         related = {
             soc: sorted(
-                group[["Related O*NET-SOC Code", "Relatedness Tier"]]
+                group.filter(items=["Related O*NET-SOC Code", "Relatedness Tier"])
                 .rename(columns={
                     "Related O*NET-SOC Code" : "soc_code",
                     "Relatedness Tier"       : "tier"
@@ -176,9 +167,18 @@ class LaborParser:
                 .to_dict("records"),
                 key=lambda e: e["soc_code"]
             )
-            for soc, group in related_df[
-                related_df["O*NET-SOC Code"].isin(self.codes)
-            ].groupby("O*NET-SOC Code")
+            for soc, group in (
+                pd.read_csv(
+                    self.raw / "onet/related_occupations.txt",
+                    dtype = str,
+                    sep   = "\t"
+                )
+                .query(
+                    "`O*NET-SOC Code` in @codes",
+                    local_dict={"codes": self.codes}
+                )
+                .groupby("O*NET-SOC Code")
+            )
         }
 
         return [
@@ -203,16 +203,14 @@ class LaborParser:
         Returns:
             Projection records sorted by SOC code.
         """
-        df = pd.read_excel(
-            self.raw / "bls/projections_2024_2034.xlsx",
-            dtype      = str,
-            header     = 1,
-            sheet_name = "Table 1.2"
-        )
-
         return self._parse_bls(
             code    = "2024 National Employment Matrix code",
-            df      = df[df["Occupation type"] == "Line item"],
+            df      = pd.read_excel(
+                self.raw / "bls/projections_2024_2034.xlsx",
+                dtype      = str,
+                header     = 1,
+                sheet_name = "Table 1.2"
+            ).query("`Occupation type` == 'Line item'"),
             numeric = {
                 "Employment, 2024"                         : "base_employment",
                 "Employment, 2034"                         : "projected_employment",
@@ -234,11 +232,11 @@ class LaborParser:
 
     def parse_wages(self) -> list[dict]:
         """
-        Extract Maine wage percentiles from the BLS OEWS state file.
+        Extract wage percentiles from the BLS OEWS state file.
 
-        Filters to Maine rows matching stakeholder SOC codes and
-        reshapes into records with median, percentile, and employment
-        fields.
+        Prefers Maine rows. For codes where BLS suppresses Maine data
+        due to low employment, falls back to the median across New
+        England states (CT, MA, ME, NH, RI, VT).
 
         Returns:
             Wage records sorted by SOC code.
@@ -247,23 +245,62 @@ class LaborParser:
             self.raw / "bls/oews_state_2024.xlsx", dtype=str
         )
 
-        return self._parse_bls(
+        numeric = {
+            "A_MEDIAN" : "annual_median",
+            "A_PCT10"  : "annual_10",
+            "A_PCT25"  : "annual_25",
+            "A_PCT75"  : "annual_75",
+            "A_PCT90"  : "annual_90",
+            "H_MEDIAN" : "hourly_median",
+            "H_PCT10"  : "hourly_10",
+            "H_PCT25"  : "hourly_25",
+            "H_PCT75"  : "hourly_75",
+            "H_PCT90"  : "hourly_90",
+            "TOT_EMP"  : "employment"
+        }
+
+        maine = self._parse_bls(
             code    = "OCC_CODE",
-            df      = df[df["AREA_TITLE"] == "Maine"],
-            numeric = {
-                "A_MEDIAN" : "annual_median",
-                "A_PCT10"  : "annual_10",
-                "A_PCT25"  : "annual_25",
-                "A_PCT75"  : "annual_75",
-                "A_PCT90"  : "annual_90",
-                "H_MEDIAN" : "hourly_median",
-                "H_PCT10"  : "hourly_10",
-                "H_PCT25"  : "hourly_25",
-                "H_PCT75"  : "hourly_75",
-                "H_PCT90"  : "hourly_90",
-                "TOT_EMP"  : "employment"
-            }
+            df      = df.query("AREA_TITLE == 'Maine'"),
+            numeric = numeric
         )
+        found = {r["soc_code"] for r in maine}
+        missing = {
+            bls: onet for bls, onet in self.bls_to_onet.items()
+            if onet not in found
+        }
+        if not missing:
+            return maine
+
+        ne = df.loc[
+            df["AREA_TITLE"].isin([
+                "Connecticut", "Maine", "Massachusetts",
+                "New Hampshire", "Rhode Island", "Vermont"
+            ])
+            & df["OCC_CODE"].isin(missing)
+        ]
+        if ne.empty:
+            return maine
+
+        ne = ne.assign(**{c: ne[c].apply(self._numeric) for c in numeric})
+
+        fallback = [
+            {
+                "soc_code"  : missing[bls],
+                "soc_title" : self.codes[missing[bls]]["title"],
+                **{c: int(v) if pd.notna(v) else None for c, v in row.items()}
+            }
+            for bls, row in (
+                ne.rename(columns=numeric)
+                .groupby("OCC_CODE")[list(numeric.values())]
+                .median().round(0)
+                .iterrows()
+            )
+        ]
+
+        print(f"  wages: {len(fallback)} codes filled from NE fallback")
+
+        return sorted(maine + fallback, key=lambda r: r["soc_code"])
 
     def run_all(self):
         """
@@ -271,11 +308,10 @@ class LaborParser:
         """
         self.out.mkdir(exist_ok=True, parents=True)
 
-        total = 0
-        for name in ("outlook", "projections", "wages"):
-            records = getattr(self, f"parse_{name}")()
-            self._write(name, records)
-            total += len(records)
+        total = sum(
+            self._write(name, getattr(self, f"parse_{name}")())
+            for name in ("outlook", "projections", "wages")
+        )
 
         print(f"\nParsed {total} total records from 7 raw files")
 

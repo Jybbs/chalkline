@@ -39,7 +39,7 @@ class OnetCurator:
     def __init__(self, root: Path):
         """
         Download NLTK data, compile the chunk parser, and load SOC codes
-        from stakeholder reference and additions.
+        from all `onet_codes.json` files under `data/stakeholder/`.
 
         Args:
             root: Worktree root containing `data/` directories.
@@ -47,11 +47,10 @@ class OnetCurator:
         for corpus in ("averaged_perceptron_tagger_eng", "punkt_tab"):
             download(corpus, quiet=True)
 
-        stakeholder = root / "data/stakeholder"
         self.codes = {
-            c["soc_code"]: c for c in
-            loads((stakeholder / "reference/onet_codes.json").read_text())
-            + loads((stakeholder / "additions/onet_codes.json").read_text())
+            c["soc_code"]: c
+            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
+            for c in loads(path.read_text())
         }
         self.output = root / "data/lexicons/onet.json"
         self.parser = RegexpParser(r"""

@@ -36,11 +36,14 @@ class CredentialCurator:
         Args:
             root: Worktree root containing `data/` directories.
         """
-        stakeholder    = root / "data/stakeholder/reference"
-        self.codes     = self._load(stakeholder / "onet_codes.json", key="soc_code")
+        self.codes = {
+            c["soc_code"]: c
+            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
+            for c in loads(path.read_text())
+        }
         self.output    = root / "data/lexicons/credentials.json"
         self.parsed    = self._load(root / "data/certifications/careeronestop.json", key="id")
-        self.reference = stakeholder
+        self.reference = root / "data/stakeholder/reference"
 
     @staticmethod
     def _cert_record(raw: dict, ambiguous: set[str]) -> dict:
