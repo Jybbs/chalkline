@@ -20,6 +20,7 @@ from json               import dumps, loads
 from nltk               import download, pos_tag, RegexpParser, word_tokenize
 from pandas             import read_csv
 from pathlib            import Path
+from typing             import Any
 from urllib.parse       import quote
 from urllib.request     import urlopen
 from wordfreq           import zipf_frequency
@@ -73,7 +74,7 @@ class OnetCurator:
         Returns:
             List of extracted sub-phrase strings.
         """
-        tree = self.parser.parse(pos_tag(word_tokenize(text)))
+        tree: Any = self.parser.parse(pos_tag(word_tokenize(text)))
         return [
             " ".join(words).lower()
             for subtree in tree.subtrees(

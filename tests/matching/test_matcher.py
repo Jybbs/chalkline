@@ -4,13 +4,56 @@ Tests for embedding-based resume matching with per-task gap analysis.
 
 import numpy as np
 
-from pytest import mark
+from datetime import date
+from pytest   import mark
 
 from chalkline.collection.schemas import Posting
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult, ScoredTask
 from chalkline.pathways.clusters  import Cluster, Clusters, Task
-from chalkline.pathways.schemas   import Reach
+from chalkline.pathways.schemas   import Credential, Reach
+
+
+class TestMatchResult:
+    """
+    Validate derived properties on match results.
+    """
+
+    def test_confidence_perfect_match(self):
+        """
+        When the nearest cluster is at distance 0, confidence is 100%
+        regardless of the farthest distance.
+        """
+        result = MatchResult(
+            cluster_distances = [0.0, 0.5, 1.0],
+            cluster_id        = 0,
+            reach             = Reach()
+        )
+        assert result.confidence == 100
+
+    def test_confidence_uniform_distances(self):
+        """
+        When all cluster distances are equal and nonzero, min/max
+        ratio is 1.0, producing 0% confidence because the resume
+        is equidistant to every cluster.
+        """
+        result = MatchResult(
+            cluster_distances = [0.5, 0.5, 0.5],
+            cluster_id        = 0,
+            reach             = Reach()
+        )
+        assert result.confidence == 0
+
+    def test_coordinates_default_empty(self):
+        """
+        Coordinates default to an empty list when not provided.
+        """
+        result = MatchResult(
+            cluster_distances = [0.1, 0.5],
+            cluster_id        = 0,
+            reach             = Reach()
+        )
+        assert result.coordinates == []
 
 
 class TestResumeMatcher:
@@ -93,6 +136,58 @@ class TestResumeMatcher:
         """
         assert 0 <= match_result.confidence <= 100
 
+    def test_credential_coverage_empty(
+        self,
+        clusters       : Clusters,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        No credentials produces an empty coverage dict regardless
+        of gap indices.
+        """
+        target = next(c for c in clusters.values() if c.tasks)
+        assert resume_matcher.credential_coverage([], target, [0]) == {}
+
+    def test_credential_coverage_varies_by_topicality(
+        self,
+        clusters       : Clusters,
+        match_result   : MatchResult,
+        resume_matcher : ResumeMatcher
+    ):
+        """
+        A credential whose vector aligns with the gap tasks covers
+        more positions than one pointed away, proving coverage sets
+        vary with true topicality rather than a fixed slice.
+        """
+        target        = next(c for c in clusters.values() if c.tasks)
+        gap_indices   = list(range(len(target.tasks)))
+        aligned       = target.task_matrix.mean(axis=0)
+        aligned       = aligned / np.linalg.norm(aligned)
+        opposite      = -aligned
+
+        credentials = [
+            Credential(
+                embedding_text = " ".join(t.name for t in target.tasks),
+                kind           = "certification",
+                label          = "Aligned",
+                vector         = aligned.tolist()
+            ),
+            Credential(
+                embedding_text = "irrelevant",
+                kind           = "certification",
+                label          = "Diffuse",
+                vector         = opposite.tolist()
+            )
+        ]
+        resume_matcher.global_threshold = 0.1
+        coverage = resume_matcher.credential_coverage(
+            credentials = credentials,
+            destination = target,
+            gap_indices = gap_indices
+        )
+        assert len(coverage["Aligned"]) > len(coverage["Diffuse"])
+
     def test_global_threshold(
         self,
         clusters       : Clusters,
@@ -157,7 +252,6 @@ class TestResumeMatcher:
         Dated postings are returned in reverse chronological order,
         and undated postings are filtered out.
         """
-        from datetime import date
         postings = [
             Posting(
                 company     = "A",
@@ -222,49 +316,6 @@ class TestResumeMatcher:
         scored = resume_matcher.score_destination(solo)
         assert len(scored) == 1
         assert scored[0].demonstrated is True
-
-
-
-class TestMatchResult:
-    """
-    Validate derived properties on match results.
-    """
-
-    def test_confidence_uniform_distances(self):
-        """
-        When all cluster distances are equal and nonzero, min/max
-        ratio is 1.0, producing 0% confidence because the resume
-        is equidistant to every cluster.
-        """
-        result = MatchResult(
-            cluster_distances = [0.5, 0.5, 0.5],
-            cluster_id        = 0,
-            reach             = Reach()
-        )
-        assert result.confidence == 0
-
-    def test_confidence_perfect_match(self):
-        """
-        When the nearest cluster is at distance 0, confidence is 100%
-        regardless of the farthest distance.
-        """
-        result = MatchResult(
-            cluster_distances = [0.0, 0.5, 1.0],
-            cluster_id        = 0,
-            reach             = Reach()
-        )
-        assert result.confidence == 100
-
-    def test_coordinates_default_empty(self):
-        """
-        Coordinates default to an empty list when not provided.
-        """
-        result = MatchResult(
-            cluster_distances = [0.1, 0.5],
-            cluster_id        = 0,
-            reach             = Reach()
-        )
-        assert result.coordinates == []
 
 
 class TestScoredTask:

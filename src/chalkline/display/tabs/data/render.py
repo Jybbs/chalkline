@@ -1,11 +1,11 @@
 """
 Data tab for the Chalkline career report.
 
-Walks through the matched career family's job postings from aggregate
-to concrete: hiring companies and locations, then a TF-IDF
-distinctive-vocabulary treemap and t-SNE projection, credential
-pathways, temporal views, and a collapsible drawer of individual
-posting ribbons ranked by resume similarity.
+Walks through the matched career family's job postings from aggregate to
+concrete: hiring companies and locations, then a TF-IDF
+distinctive-vocabulary treemap and t-SNE projection, credential pathways,
+temporal views, and a collapsible drawer of individual posting ribbons
+ranked by resume similarity.
 """
 
 from htpy       import details, summary

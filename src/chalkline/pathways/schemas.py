@@ -6,9 +6,10 @@ properties. Behavioral containers (`Cluster`, `Clusters`, `Task`) live in
 `clusters.py`. No query logic, no builders, no computational imports.
 """
 
-from enum     import StrEnum
-from pydantic import BaseModel, Field, model_validator
-from typing   import Self
+from enum      import StrEnum
+from functools import cached_property
+from pydantic  import BaseModel, Field, model_validator
+from typing    import Self
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -49,12 +50,12 @@ class Credential(BaseModel, extra="forbid"):
     @property
     def card_detail(self) -> str:
         """
-        Dot-joined detail line for credential cards, combining hours
-        and institution when both are present.
+        Dot-joined detail line for credential cards, combining hours and
+        institution when both are present.
 
-        Unlike `detail_label` (which picks one or the other), this
-        joins all available metadata with a centered dot so the card
-        shows the fullest possible detail line.
+        Unlike `detail_label` (which picks one or the other), this joins all
+        available metadata with a centered dot so the card shows the fullest
+        possible detail line.
         """
         return " \u00b7 ".join(filter(None, (
             f"{self.hours:,} hours" if self.hours else None,
@@ -66,8 +67,8 @@ class Credential(BaseModel, extra="forbid"):
         """
         Concise detail line for card and recipe displays.
 
-        Shows hours when available (e.g. "4,000 hours"), falls back
-        to institution name, then to the titlecased kind.
+        Shows hours when available (e.g. "4,000 hours"), falls back to
+        institution name, then to the titlecased kind.
         """
         if self.hours:
             return f"{self.hours:,} hours"
@@ -79,6 +80,25 @@ class Credential(BaseModel, extra="forbid"):
         Minimum apprenticeship term hours, if applicable.
         """
         return self.metadata.get("min_hours")
+
+    @cached_property
+    def stems(self) -> set[str]:
+        """
+        Stemmed content words from `embedding_text` for BM25 scoring against
+        task stems, filtering stop words via Zipf threshold. Mirrors
+        `Cluster.task_stems` so credentials index into `Clusters.bm25_idf`
+        without a separate IDF table.
+        """
+        from nltk.stem import SnowballStemmer
+        from re        import findall
+        from wordfreq  import zipf_frequency
+
+        stemmer = SnowballStemmer("english")
+        return {
+            stemmer.stem(w)
+            for w in findall(r"[a-zA-Z]{3,}", self.embedding_text.lower())
+            if zipf_frequency(w, "en") < 6.0
+        }
 
     @property
     def type_label(self) -> str:
@@ -113,10 +133,10 @@ class LaborRecord(BaseModel, extra="ignore"):
     """
     BLS and O*NET labor market data for one occupation.
 
-    Flattens the nested `outlook`, `projections`, and `wages` objects
-    from `labor.json` into a single model. Uses `extra="ignore"` so the
-    source can carry additional fields beyond what the display layer
-    needs without failing validation.
+    Flattens the nested `outlook`, `projections`, and `wages` objects from
+    `labor.json` into a single model. Uses `extra="ignore"` so the source
+    can carry additional fields beyond what the display layer needs without
+    failing validation.
     """
 
     annual_25      : float | None = Field(default=None, ge=0)

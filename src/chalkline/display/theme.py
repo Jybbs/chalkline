@@ -16,8 +16,8 @@ from types import MappingProxyType
 
 class Theme:
     """
-    Single source of truth for color and palette state across the
-    Chalkline dashboard.
+    Single source of truth for color and palette state across the Chalkline
+    dashboard.
     """
 
     def __init__(self):
@@ -50,11 +50,11 @@ class Theme:
         Build and register the Chalkline dark Plotly template.
 
         Overlays `plotly_dark` with the palette colorway, transparent
-        backgrounds, dotted palette gridlines, and the Chalkline font.
-        Text colors propagate to every axis tick, title, legend,
-        indicator, and pie slice via Plotly's `layout.font`
-        inheritance, which `plotly_dark` itself relies on and sets no
-        descendant-level font overrides against.
+        backgrounds, dotted palette gridlines, and the Chalkline font. Text
+        colors propagate to every axis tick, title, legend, indicator, and
+        pie slice via Plotly's `layout.font` inheritance, which
+        `plotly_dark` itself relies on and sets no descendant-level font
+        overrides against.
         """
         grid        = self.colors["grid"]
         transparent = "rgba(0,0,0,0)"
@@ -102,8 +102,7 @@ class Theme:
         Accent color for a credential kind.
 
         Args:
-            kind: Credential kind such as `"apprenticeship"` or
-                  `"program"`.
+            kind: Credential kind such as `"apprenticeship"` or `"program"`.
 
         Returns:
             Hex color from the palette.
@@ -117,8 +116,8 @@ class Theme:
 
     def resolve_color(self, color: str) -> str:
         """
-        Hex color from a palette key, falling back to the input string
-        when no palette entry matches.
+        Hex color from a palette key, falling back to the input string when
+        no palette entry matches.
 
         Centralizes the `colors.get(key, key)` pattern used by chart
         builders that accept either a theme key or a literal hex value.
@@ -127,11 +126,11 @@ class Theme:
 
     def score_color(self, score: float) -> str:
         """
-        Map a 0-100 percentage to a smooth red→gold→green gradient
-        via Plotly's colorscale sampling.
+        Map a 0-100 percentage to a smooth red→gold→green gradient via
+        Plotly's colorscale sampling.
 
-        Interpolates between three anchor colors derived from the
-        theme palette so every percentage gets a unique shade:
+        Interpolates between three anchor colors derived from the theme
+        palette so every percentage gets a unique shade:
 
             0% → #e8876f  salmon (error)
            50% → #E8C840  gold   (primary)
@@ -155,8 +154,8 @@ class Theme:
 
     def sector_background(self, sector: str) -> str:
         """
-        Hex color for a sector name, falling back to muted when the
-        sector is not in the three-sector palette.
+        Hex color for a sector name, falling back to muted when the sector
+        is not in the three-sector palette.
         """
         return self.sectors.get(sector, self.colors["muted"])
 
@@ -164,16 +163,16 @@ class Theme:
         """
         Per-bar sector colors aligned with an iterable of sector names.
 
-        Centralizes the `theme.sectors[s]` lookup so chart call sites
-        across the methods tab share one resolution path instead of
-        repeating the same comprehension.
+        Centralizes the `theme.sectors[s]` lookup so chart call sites across
+        the methods tab share one resolution path instead of repeating the
+        same comprehension.
         """
         return [self.sectors[s] for s in sectors]
 
     def wage_color(self, delta: float) -> str:
         """
-        Hex color for a signed wage delta: success for non-negative,
-        error for negative.
+        Hex color for a signed wage delta: success for non-negative, error
+        for negative.
         """
         return self.colors["success" if delta >= 0 else "error"]
 

@@ -1,10 +1,10 @@
 """
 Marimo UI primitive composer for interactive widgets.
 
-Owns the runtime Marimo API so cells that need sliders and reactive
-state can request composed widgets through factory methods without
-threading `mo` through every downstream layer. Parallels how
-`Routes` and `Charts` own their domains of HTML and figure rendering.
+Owns the runtime Marimo API so cells that need sliders and reactive state
+can request composed widgets through factory methods without threading `mo`
+through every downstream layer. Parallels how `Routes` and `Charts` own
+their domains of HTML and figure rendering.
 """
 
 from htpy       import span
@@ -22,11 +22,10 @@ class Forms:
     """
     Marimo UI composer constructed once per session.
 
-    The `mo` module is injected at construction so factory methods
-    can build sliders and reactive state without taking `mo` as a
-    per-call argument. Returned widget composers (`WageFilter`,
-    future siblings) expose only the reactive surface their callers
-    need.
+    The `mo` module is injected at construction so factory methods can build
+    sliders and reactive state without taking `mo` as a per-call argument.
+    Returned widget composers (`WageFilter`, future siblings) expose only
+    the reactive surface their callers need.
     """
 
     def __init__(
@@ -43,17 +42,16 @@ class Forms:
         labor    : LaborLoader
     ) -> WageFilter:
         """
-        Build the minimum-salary filter rendered between the map and
-        the route card.
+        Build the minimum-salary filter rendered between the map and the
+        route card.
 
-        The slider covers the corpus wage range rounded outward to
-        the nearest thousand so every cluster falls inside its
-        bounds. Its default setting is the corpus floor so every
-        cluster is visible on first render. Dragging lifts the
-        minimum wage, pruning tier-2 cards that fall below it while
-        leaving the matched cluster pinned. Debounce mode defers the
-        update until the user releases the thumb, so the map
-        re-renders once per gesture rather than on every tick.
+        The slider covers the corpus wage range rounded outward to the
+        nearest thousand so every cluster falls inside its bounds. Its
+        default setting is the corpus floor so every cluster is visible on
+        first render. Dragging lifts the minimum wage, pruning tier-2 cards
+        that fall below it while leaving the matched cluster pinned.
+        Debounce mode defers the update until the user releases the thumb,
+        so the map re-renders once per gesture rather than on every tick.
         """
         wages  = sorted(
             w for c in clusters.values()

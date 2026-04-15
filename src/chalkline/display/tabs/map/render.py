@@ -1,12 +1,12 @@
 """
-Map tab renderer composing the force-directed career pathway map,
-route verdict with skill evidence, and collapsible resource drawers.
+Map tab renderer composing the force-directed career pathway map, route
+verdict with skill evidence, and collapsible resource drawers.
 
-The force-directed map widget spans the full width with the matched
-career rendered as an enriched hero card within the SVG itself. Below
-the map, the default state surfaces the matched career's skill
-profile, credentials, and postings. When the user clicks a destination
-node, the view switches to a transition route.
+The force-directed map widget spans the full width with the matched career
+rendered as an enriched hero card within the SVG itself. Below the map, the
+default state surfaces the matched career's skill profile, credentials, and
+postings. When the user clicks a destination node, the view switches to a
+transition route.
 """
 
 from marimo     import Html, accordion
@@ -25,12 +25,11 @@ def map_tab(
     """
     Compose the full Map tab.
 
-    Default state shows the matched career's skill profile,
-    credentials, and postings. Clicking a different node switches to
-    a transition route between the matched career and the selected
-    destination. The wage filter sits between the map and the route
-    card so the user can constrain the salary range without leaving
-    the visual context.
+    Default state shows the matched career's skill profile, credentials, and
+    postings. Clicking a different node switches to a transition route
+    between the matched career and the selected destination. The wage filter
+    sits between the map and the route card so the user can constrain the
+    salary range without leaving the visual context.
     """
     tab = ctx.content.tab("map")
 
@@ -40,7 +39,7 @@ def map_tab(
 
         ctx.routes.card(
             ctx.routes.verdict(route, tab),
-            ctx.routes.recipe(ctx.pipeline, ctx.result, route, tab),
+            ctx.routes.recipe(route, tab),
             ctx.routes.postings(route, tab)
         ),
 

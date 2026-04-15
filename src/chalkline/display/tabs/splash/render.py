@@ -22,15 +22,15 @@ def splash_page(
     Render the pre-upload splash page with branding and corpus statistics.
 
     The logo is read from a pre-encoded base64 file so the splash works
-    without a static file server. Stat values come from `SplashMetrics`
-    so the formatting lives next to the other tab metrics schemas
-    rather than inline in the renderer.
+    without a static file server. Stat values come from `SplashMetrics` so
+    the formatting lives next to the other tab metrics schemas rather than
+    inline in the renderer.
 
     Args:
         content  : Centralized content loader for display-layer TOML.
         labor    : BLS labor market data.
-        layout   : Shared Layout instance from the Marimo notebook, reused
-                   so the splash and the tabs share one layout state.
+        layout   : Shared Layout instance from the Marimo notebook, reused so the splash
+                   and the tabs share one layout state.
         logo_dir : Directory containing `logo.b64`.
         pipeline : Fitted Chalkline pipeline instance.
 

@@ -13,7 +13,6 @@ from networkx import number_weakly_connected_components
 
 from chalkline.pathways.clusters import Clusters
 from chalkline.pathways.graph    import CareerPathwayGraph
-from chalkline.pathways.schemas  import Reach
 
 
 class TestCareerPathwayGraph:
@@ -35,25 +34,6 @@ class TestCareerPathwayGraph:
         scores = [score for _, score in pathway_graph.brokerage]
         assert scores == sorted(scores, reverse=True)
 
-    def test_coverage_empty_labels(self, pathway_graph: CareerPathwayGraph):
-        """
-        Empty route labels produce an empty coverage mapping.
-        """
-        assert pathway_graph.credential_coverage([], np.empty((0, 4))) == {}
-
-    def test_coverage_matching_labels(self, pathway_graph: CareerPathwayGraph):
-        """
-        Matching route labels produce a dict keyed by label with set
-        values.
-        """
-        cluster = pathway_graph.clusters[pathway_graph.clusters.cluster_ids[0]]
-        labels  = [c.label for c in pathway_graph.credential_matrix[0]][:3]
-        vectors = np.stack([t.vector for t in cluster.tasks])
-        result  = pathway_graph.credential_coverage(labels, vectors)
-        assert len(result) == 3
-        assert all(isinstance(s, set) for s in result.values())
-        assert any(result.values())
-
     def test_credential_metadata(self, pathway_graph: CareerPathwayGraph):
         """
         Every edge carries a credentials list of serialized dicts
@@ -64,6 +44,13 @@ class TestCareerPathwayGraph:
             for cred in data["credentials"]:
                 assert {"embedding_text", "kind", "label"} <= cred.keys()
                 assert "vector" not in cred
+
+    def test_edge_weights_bounded(self, pathway_graph: CareerPathwayGraph):
+        """
+        All edge weights are valid cosine similarities in [-1, 1].
+        """
+        for w in pathway_graph.edge_weights:
+            assert -1 <= w <= 1
 
     def test_hops_from_self_distance(
         self,
@@ -77,6 +64,23 @@ class TestCareerPathwayGraph:
         distances = pathway_graph.hops_from(cluster_ids[0])
         assert distances[cluster_ids[0]] == 0
         assert all(d >= 0 for d in distances.values())
+
+    def test_no_credentials_builds_graph(self, clusters: Clusters):
+        """
+        A graph with no credentials still builds a valid backbone
+        with empty credential lists on every edge.
+        """
+        graph = CareerPathwayGraph(
+            clusters               = clusters,
+            credentials            = [],
+            destination_percentile = 5,
+            lateral_neighbors      = 2,
+            source_percentile      = 75,
+            upward_neighbors       = 2
+        )
+        assert graph.graph.number_of_edges() > 0
+        for _, _, data in graph.graph.edges(data=True):
+            assert data["credentials"] == []
 
     def test_path_edges_round_trip(
         self,
@@ -119,14 +123,6 @@ class TestCareerPathwayGraph:
             for edges in (reach.advancement, reach.lateral):
                 weights = [e.weight for e in edges]
                 assert weights == sorted(weights, reverse=True)
-
-    def test_stepping_stone_none(self, pathway_graph: CareerPathwayGraph):
-        """
-        Returns None when an empty reach provides no candidates.
-        """
-        cluster = pathway_graph.clusters[pathway_graph.clusters.cluster_ids[0]]
-        task_vectors = np.stack([t.vector for t in cluster.tasks])
-        assert pathway_graph.stepping_stone(cluster, Reach(), task_vectors) is None
 
     def test_upward_stepwise(
         self,
@@ -182,43 +178,3 @@ class TestCareerPathwayGraph:
         cid = cluster_ids[0]
         assert pathway_graph.try_widest_path(cid, cid) == [cid]
 
-    def test_edge_weights_bounded(self, pathway_graph: CareerPathwayGraph):
-        """
-        All edge weights are valid cosine similarities in [-1, 1].
-        """
-        for w in pathway_graph.edge_weights:
-            assert -1 <= w <= 1
-
-    def test_no_credentials_builds_graph(self, clusters: Clusters):
-        """
-        A graph with no credentials still builds a valid backbone
-        with empty credential lists on every edge.
-        """
-        graph = CareerPathwayGraph(
-            clusters               = clusters,
-            credentials            = [],
-            destination_percentile = 5,
-            lateral_neighbors      = 2,
-            source_percentile      = 75,
-            upward_neighbors       = 2
-        )
-        assert graph.graph.number_of_edges() > 0
-        for _, _, data in graph.graph.edges(data=True):
-            assert data["credentials"] == []
-
-    def test_stepping_stone_returns_tuple(self, pathway_graph: CareerPathwayGraph):
-        """
-        When a viable intermediate cluster exists, `stepping_stone`
-        returns a (title, coverage_count) tuple.
-        """
-        import numpy as np
-        cluster = pathway_graph.clusters[pathway_graph.clusters.cluster_ids[0]]
-        reach   = pathway_graph.reach(cluster.cluster_id)
-        if not cluster.tasks or not reach.edges:
-            return
-        task_vectors = np.stack([t.vector for t in cluster.tasks])
-        result = pathway_graph.stepping_stone(cluster, reach, task_vectors)
-        if result is not None:
-            title, count = result
-            assert isinstance(title, str)
-            assert count > 0

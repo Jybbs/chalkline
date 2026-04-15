@@ -85,10 +85,9 @@ class SentenceEncoder:
     ) -> str:
         """
         Resolve a file from the HuggingFace repo for this encoder,
-        preferring the local cache to skip the slow hub metadata
-        check. Downloads on first access only. Bypasses the
-        ~10-second round-trip that `Tokenizer.from_pretrained`
-        performs on every instantiation.
+        preferring the local cache to skip the slow hub metadata check.
+        Downloads on first access only. Bypasses the ~10-second round-trip
+        that `Tokenizer.from_pretrained` performs on every instantiation.
         """
         from huggingface_hub import hf_hub_download, try_to_load_from_cache
 

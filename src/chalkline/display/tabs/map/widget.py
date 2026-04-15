@@ -2,11 +2,11 @@
 Interactive career pathway map rendered with D3 via AnyWidget.
 
 Produces a force-directed node-link diagram where horizontal position
-encodes salary (higher wages drift right), node rendering tiers
-distinguish immediate career paths from distant options, and the matched
-career renders as an enriched hero card integrated into the SVG. Click
-and hover events sync back to Python through traitlets for reactive
-panel updates in the Marimo notebook.
+encodes salary (higher wages drift right), node rendering tiers distinguish
+immediate career paths from distant options, and the matched career renders
+as an enriched hero card integrated into the SVG. Click and hover events
+sync back to Python through traitlets for reactive panel updates in the
+Marimo notebook.
 """
 
 from anywidget           import AnyWidget
@@ -56,19 +56,19 @@ class PathwayMap(AnyWidget):
         Serialize the force-directed graph payload as JSON.
 
         Calls the matcher's calibration to obtain per-cluster match
-        percentages, then assembles per-node metadata (wage, sector,
-        tier, display title with collision handling), per-edge
-        metadata, and enriched hero card data for the matched node.
+        percentages, then assembles per-node metadata (wage, sector, tier,
+        display title with collision handling), per-edge metadata, and
+        enriched hero card data for the matched node.
 
-        Tier-2 clusters whose median wage falls outside `wage_filter`
-        are dropped before rendering. The matched cluster always
-        renders so the user keeps their hero card regardless of where
-        their own wage sits in the corpus distribution.
+        Tier-2 clusters whose median wage falls outside `wage_filter` are
+        dropped before rendering. The matched cluster always renders so the
+        user keeps their hero card regardless of where their own wage sits
+        in the corpus distribution.
 
-        Separated from `from_graph` so a live widget can recompute
-        its payload in response to filter changes and assign the
-        result to its `graph_data` traitlet, triggering the JS
-        change listener without a remount.
+        Separated from `from_graph` so a live widget can recompute its
+        payload in response to filter changes and assign the result to its
+        `graph_data` traitlet, triggering the JS change listener without a
+        remount.
 
         Args:
             clusters    : Fitted cluster container with metadata.
@@ -102,26 +102,22 @@ class PathwayMap(AnyWidget):
                 continue
 
             hop   = hops.get(cid)
-            title = (
-                cluster.modal_title
-                if clusters.soc_counts[cluster.soc_title] > 1
-                else cluster.soc_title
-            )
+            title = clusters.display_title(cluster)
 
             nodes.append({
-                "color"     : theme.sector_background(cluster.sector),
-                "full_title": title,
-                "hop"       : hop,
-                "id"        : cid,
-                "match_pct" : round(100 * cluster_mean.get(cid, 0.0)),
-                "sector"    : cluster.sector,
-                "subtitle"  : (
+                "color"      : theme.sector_background(cluster.sector),
+                "full_title" : title,
+                "hop"        : hop,
+                "id"         : cid,
+                "match_pct"  : round(100 * cluster_mean.get(cid, 0.0)),
+                "sector"     : cluster.sector,
+                "subtitle"   : (
                     f"{cluster.size} postings \u00b7 ${round(wage / 1000)}k"
                     if wage else f"{cluster.size} postings"
                 ),
-                "tier"      : 1 if hop is not None and hop <= 1 else 2,
-                "title"     : title,
-                "wage"      : wage
+                "tier"       : 1 if hop is not None and hop <= 1 else 2,
+                "title"      : title,
+                "wage"       : wage
             })
 
         wages    = [n["wage"] for n in nodes if n["wage"]]
@@ -145,7 +141,7 @@ class PathwayMap(AnyWidget):
             "n_matches"    : len(result.reach.edges),
             "sector_color" : theme.sector_background(profile.sector),
             "size"         : profile.size,
-            "title"        : profile.soc_title,
+            "title"        : clusters.display_title(profile),
             "wage"         : labor[profile.soc_title].annual_median
         }
 
@@ -176,10 +172,10 @@ class PathwayMap(AnyWidget):
         Build the widget with its initial serialized graph payload.
 
         Composes `build_graph_data` with traitlet construction so the
-        returned widget is ready for Marimo wrapping. Subsequent
-        filter changes should assign a fresh `build_graph_data`
-        result to `widget.graph_data` rather than constructing a new
-        widget, avoiding an unmount/remount cycle in the frontend.
+        returned widget is ready for Marimo wrapping. Subsequent filter
+        changes should assign a fresh `build_graph_data` result to
+        `widget.graph_data` rather than constructing a new widget, avoiding
+        an unmount/remount cycle in the frontend.
 
         Args:
             clusters    : Fitted cluster container with metadata.
@@ -203,7 +199,7 @@ class PathwayMap(AnyWidget):
                 matcher     = matcher,
                 result      = result,
                 theme       = theme,
-                wage_filter = wage_filter,
+                wage_filter = wage_filter
             ),
             matched_id = matched_id
         )
