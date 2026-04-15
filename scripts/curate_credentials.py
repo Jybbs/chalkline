@@ -32,10 +32,14 @@ class CredentialCurator:
     acronyms, and organizations.
     """
 
-    #: O*NET skill types that contribute discriminating text for downstream matching.
-    #: Excludes `ability` and `skill` which are cross-occupational generalities
-    #: (*`Active Learning`, `Arm-Hand Steadiness`*) and dilute the signal.
-    PROFILE_TYPES = frozenset({"dwa", "knowledge", "task", "technology", "tool"})
+    #: O*NET skill types that describe what the occupation DOES. Matches the
+    #: canonical `Occupation.task_elements` filter in `pathways/schemas.py`
+    #: and the project-wide convention used in `curate_onet` decomposition,
+    #: `soc_tasks` encoding, and the `embedding_text` property. Knowledge
+    #: areas, Technology Skills, and Tools Used are cross-occupational
+    #: generalities that dilute credential vectors into a construction
+    #: centroid.
+    PROFILE_TYPES = frozenset({"dwa", "task"})
 
     def __init__(self, root: Path):
         """

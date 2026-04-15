@@ -60,15 +60,6 @@ class MatchResult(BaseModel, extra="forbid"):
     coordinates : list[float] = Field(default_factory=list)
     reach       : Reach       = Field(default_factory=Reach)
 
-    @property
-    def confidence(self) -> int:
-        """
-        Match confidence as a 0-100 percentage, inversely proportional to
-        distance relative to the farthest cluster.
-        """
-        distances = self.cluster_distances
-        return round(100 * (1 - min(distances) / max(distances)))
-
 
 class ScoredTask(BaseModel, extra="forbid"):
     """

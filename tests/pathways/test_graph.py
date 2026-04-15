@@ -50,7 +50,7 @@ class TestCareerPathwayGraph:
         if len(credentials) >= 2:
             similarity = pathway_graph.credential_similarity
             t_idx      = pathway_graph.clusters.cluster_index[target]
-            creds_pool = pathway_graph.credential_matrix[0]
+            creds_pool = pathway_graph.credential_pool
             scores     = [
                 similarity[creds_pool.index(c), t_idx] for c in credentials
             ]

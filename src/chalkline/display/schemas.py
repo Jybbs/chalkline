@@ -12,7 +12,7 @@ from collections     import Counter, defaultdict
 from collections.abc import Iterable
 from datetime        import date
 from heapq           import nlargest, nsmallest
-from itertools       import accumulate, chain, combinations, islice
+from itertools       import accumulate, chain, islice
 from marimo          import Html
 from math            import log
 from operator        import attrgetter
@@ -55,41 +55,69 @@ class CredentialPath(NamedTuple):
     def from_route(
         cls,
         route    : RouteDetail,
-        strategy : Literal["certs", "fewest"],
-        kind     : Literal["apprenticeship", "certification", "program"] | None = None
+        strategy : Literal["certs", "work_based"],
+        kinds    : frozenset[str] | None = None
     ) -> Self | None:
         """
-        Smallest-footprint combination of size 1-4 whose union covers the
-        route's gap positions. Total footprint equals union plus pairwise
-        overlap, so minimizing footprint minimizes overlap.
+        Greedy targeted-coverage credential stack up to five members.
+
+        At each step picks the credential whose route-coverage affinity is
+        most concentrated on still-uncovered gaps, measured as the ratio of
+        affinity on remaining gaps to the credential's total affinity on
+        this route. Narrow credentials whose entire reach lies in the
+        residual win over broad credentials whose affinity is mostly spent
+        on already-covered gaps. Absolute remaining-affinity is the
+        tiebreaker so a wholly-targeted weak credential does not beat a
+        wholly-targeted stronger one.
 
         Args:
-            route    : Route carrying credential coverage and count.
+            route    : Route carrying per-gap credential affinities.
             strategy : Label written onto the returned path.
-            kind     : Restrict candidates to one credential kind.
+            kinds    : Restrict candidates to credentials of these kinds;
+                       `None` accepts every kind.
         """
         credentials = route.credential_map
-        candidates  = [
-            (label, positions) for label, positions in route.coverage.items()
-            if positions and (kind is None or credentials[label].kind == kind)
+        labels      = [
+            label for label, affinity in route.coverage.items()
+            if affinity and (kinds is None or credentials[label].kind in kinds)
         ]
-        if not candidates:
+        if not labels:
             return None
 
-        best = max(
-            chain.from_iterable(combinations(candidates, k) for k in range(1, 5)),
-            key=lambda combo: (
-                len(set().union(*(positions for _, positions in combo))),
-                -sum(len(positions) for _, positions in combo)
-            )
-        )
+        gaps   = sorted({g for l in labels for g in route.coverage[l]})
+        index  = {g: j for j, g in enumerate(gaps)}
+        matrix = np.zeros((len(labels), len(gaps)))
+        for i, label in enumerate(labels):
+            affinity = route.coverage[label]
+            matrix[i, [index[g] for g in affinity]] = list(affinity.values())
+
+        totals    = matrix.sum(axis=1)
+        remaining = np.ones(len(gaps),   dtype=bool)
+        active    = np.ones(len(labels), dtype=bool)
+        picks     = []
+
+        while remaining.any() and len(picks) < 5:
+            useful = matrix @ remaining
+            if not (eligible := active & (useful > 0)).any():
+                break
+            ratios = np.where(eligible, useful / totals, -np.inf)
+            scores = np.where(eligible, useful,          -np.inf)
+            i      = int(np.lexsort((scores, ratios))[-1])
+            hits   = matrix[i] > 0
+            picks.append((labels[i], int((hits & remaining).sum())))
+            remaining &= ~hits
+            active[i]  = False
+
+        if not picks:
+            return None
+
         return cls(
             items           = [
-                PathItem.from_credential(len(positions), credentials[label], label)
-                for label, positions in best
+                PathItem.from_credential(count, credentials[label], label)
+                for label, count in picks
             ],
             strategy        = strategy,
-            unique_coverage = len(set().union(*(positions for _, positions in best)))
+            unique_coverage = sum(count for _, count in picks)
         )
 
 
@@ -233,9 +261,13 @@ class GapCoverage(NamedTuple):
             unique_coverage = count
         )
         return cls(paths=[path for path in (
-            CredentialPath.from_route(route, "fewest"),
+            CredentialPath.from_route(
+                route, "work_based", kinds=frozenset({"apprenticeship", "certification"})
+            ),
             biggest,
-            CredentialPath.from_route(route, "certs", kind="certification")
+            CredentialPath.from_route(
+                route, "certs", kinds=frozenset({"certification"})
+            )
         ) if path])
 
 
@@ -694,10 +726,9 @@ class RelevantCredentials(BaseModel, extra="forbid"):
                        and the precomputed similarity matrix.
             per_kind : Number of top credentials to keep per kind.
         """
-        with_vectors, _ = graph.credential_matrix
-        column          = clusters.cluster_index[cluster.cluster_id]
-        ranked_creds    = [
-            with_vectors[i]
+        column       = clusters.cluster_index[cluster.cluster_id]
+        ranked_creds = [
+            graph.credential_pool[i]
             for i in np.argsort(-graph.credential_similarity[:, column])
         ]
         return cls(by_kind={
@@ -779,13 +810,13 @@ class RouteDetail(NamedTuple):
     Joined route data for the Map tab's recipe card.
 
     Holds the source and destination `Cluster` objects for dot-notation
-    access to SOC titles, sectors, Job Zones, and postings. Constructed
-    via `from_selection`, which computes credentials per (source,
-    destination) pair through the graph's dual-threshold filter,
-    independent of how many backbone hops separate the two clusters.
+    access to SOC titles, sectors, Job Zones, and postings. Constructed via
+    `from_selection`, which computes credentials per (source, destination)
+    pair through the graph's dual-threshold filter, independent of how many
+    backbone hops separate the two clusters.
     """
 
-    coverage         : dict[str, set[int]]
+    coverage         : dict[str, dict[int, float]]
     credentials      : list[Credential]
     destination      : Cluster
     destination_wage : float | None
@@ -869,10 +900,10 @@ class RouteDetail(NamedTuple):
         return self.source.cluster_id == self.destination.cluster_id
 
     @property
-    def top_coverage(self) -> tuple[str, set[int]] | None:
+    def top_coverage(self) -> tuple[str, dict[int, float]] | None:
         """
-        (label, gap positions) of the credential covering the most gap tasks
-        on this route, or `None` when no credential covers anything.
+        (label, {gap position: affinity}) of the credential covering the most
+        gap tasks on this route, or `None` when no credential covers anything.
         """
         if not self.coverage:
             return None
@@ -928,13 +959,13 @@ class RouteDetail(NamedTuple):
         """
         Build a route from a clicked map node.
 
-        A negative `selected_id` or one equal to the matched cluster
-        builds a self-route so the user sees their own skill profile,
-        credentials, and postings immediately. Otherwise the destination
-        is the clicked cluster. Credentials come from
-        `graph.credentials_for(source, destination)` regardless of
-        adjacency, so the same dual-threshold calibration that previously
-        ran per-edge at fit time now runs per click against any pair.
+        A negative `selected_id` or one equal to the matched cluster builds
+        a self-route so the user sees their own skill profile, credentials,
+        and postings immediately. Otherwise the destination is the clicked
+        cluster. Credentials come from `graph.credentials_for(source,
+        destination)` regardless of adjacency, so the same dual-threshold
+        calibration that previously ran per-edge at fit time now runs per
+        click against any pair.
 
         Args:
             labor       : Occupational wage and outlook loader.

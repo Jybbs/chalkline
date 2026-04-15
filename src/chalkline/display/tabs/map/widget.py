@@ -84,8 +84,10 @@ class PathwayMap(AnyWidget):
             JSON string suitable for the `graph_data` traitlet.
         """
         cluster_mean = matcher.calibrate()
-        geometry     = MapGeometry()
-        hops         = graph.hops_from(matched_id)
+        matcher.calibrate_coverage(graph.credential_pool, graph.credential_vectors)
+
+        geometry = MapGeometry()
+        hops     = graph.hops_from(matched_id)
 
         def in_range(wage: float | None, cid: int) -> bool:
             if cid == matched_id or wage_filter is None:

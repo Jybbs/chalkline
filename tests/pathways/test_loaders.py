@@ -22,7 +22,7 @@ class TestLexiconLoader:
         """
         loader = LexiconLoader(lexicon_dir)
         assert len(loader.occupations) == 2
-        assert loader.occupations[0].soc_code == "47-2111.00"
+        assert loader.occupations[0].title == "Electricians"
 
     def test_missing_file_warns(self, caplog, tmp_path: Path):
         """
@@ -40,7 +40,7 @@ class TestLexiconLoader:
         import numpy as np
         loader = LexiconLoader(lexicon_dir)
         row    = np.array([0.3, 0.9])
-        assert loader.nearest_occupation(row).soc_code == loader.occupations[1].soc_code
+        assert loader.nearest_occupation(row) is loader.occupations[1]
 
 
 class TestStakeholderFilterBoards:

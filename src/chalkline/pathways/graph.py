@@ -5,8 +5,8 @@ Constructs a directed weighted graph where nodes are career clusters from
 Ward-linkage HAC on sentence embeddings and edges connect clusters via
 stepwise k-NN in cosine similarity space. Credentials are computed per
 (source, target) pair on demand via `credentials_for`, applying a
-dual-threshold filter on destination selectivity and source relevance to
-the cluster-credential cosine matrix.
+dual-threshold filter on destination selectivity and source relevance to the
+cluster-credential cosine matrix.
 """
 
 import networkx as nx
@@ -29,8 +29,8 @@ class CareerPathwayGraph:
     filtering.
 
     Accepts a `Clusters` with pre-stacked centroid and embedding matrices,
-    credential embeddings, and graph construction hyperparameters. Builds
-    a stepwise k-NN backbone with bidirectional lateral edges and
+    credential embeddings, and graph construction hyperparameters. Builds a
+    stepwise k-NN backbone with bidirectional lateral edges and
     unidirectional upward edges. Per-route credential lists come from
     `credentials_for(source_id, target_id)` at click time, applying the
     dual-threshold filter to the cluster-credential cosine matrix.
@@ -71,41 +71,35 @@ class CareerPathwayGraph:
         return nx.betweenness_centrality(self.graph, weight="weight")
 
     @cached_property
-    def credential_matrix(self) -> tuple[list[Credential], np.ndarray]:
+    def credential_pool(self) -> list[Credential]:
         """
-        Filtered credentials and their pre-stacked vector matrix.
-
-        Both edge enrichment (during graph construction) and the
-        display-layer `RelevantCredentials` factory rank credentials against
-        cluster vectors via cosine similarity. The filtered list and the
-        stacked matrix are derived purely from `self.credentials`, which is
-        fixed at fit time, so the np.array copy of ~325 vectors only happens
-        once per session instead of twice (once during graph build, once per
-        data tab render).
+        Credentials with non-null vectors, the subset usable for similarity
+        matching. Fixed at fit time and shared across every consumer that
+        needs credential identity (calibrate_coverage, credentials_for, the
+        display-layer `RelevantCredentials` factory).
         """
-        with_vectors = [c for c in self.credentials if c.vector]
-        return with_vectors, np.array([c.vector for c in with_vectors])
+        return [c for c in self.credentials if c.vector]
 
     @cached_property
     def credential_similarity(self) -> np.ndarray:
         """
         Cosine similarity between every credential vector and every cluster
-        vector.
-
-        Shape `(n_credentials, n_clusters)` aligned with
-        `credential_matrix[0]` on the row axis and `clusters.cluster_ids` on
-        the column axis. Computed once during graph construction. The
-        dual-threshold edge enrichment reads every column to filter
-        credentials per edge, and the display layer's
-        `RelevantCredentials.from_cluster` slices a single column per render
-        to rank credentials for the matched career family. Sharing the
-        matrix avoids the per-render cosine call and keeps both consumers
-        reading the same authoritative source.
+        vector, shape `(n_credentials, n_clusters)`. Row axis aligned with
+        `credential_pool`; column axis with `clusters.cluster_ids`. Computed
+        once per fit and shared between `credentials_for` and the display
+        layer so neither has to rerun the cosine sweep per render.
         """
-        creds, matrix = self.credential_matrix
-        if not creds:
+        if not self.credential_pool:
             return np.empty((0, len(self.clusters.cluster_ids)))
-        return cosine_similarity(matrix, self.clusters.vectors)
+        return cosine_similarity(self.credential_vectors, self.clusters.vectors)
+
+    @cached_property
+    def credential_vectors(self) -> np.ndarray:
+        """
+        Row-stacked vectors aligned with `credential_pool`, cached so the
+        np.array copy happens once per session.
+        """
+        return np.array([c.vector for c in self.credential_pool])
 
     @property
     def edge_count(self) -> int:
@@ -124,10 +118,10 @@ class CareerPathwayGraph:
     @cached_property
     def graph(self) -> nx.DiGraph:
         """
-        Stepwise k-NN DiGraph backbone built lazily on first access.
-        Edges carry only cosine-similarity weights; credentials are
-        computed on demand per (source, target) pair via
-        `credentials_for`, not attached at fit time.
+        Stepwise k-NN DiGraph backbone built lazily on first access. Edges
+        carry only cosine-similarity weights; credentials are computed on
+        demand per (source, target) pair via `credentials_for`, not attached
+        at fit time.
         """
         g = nx.DiGraph()
         g.add_nodes_from(self.clusters.cluster_ids)
@@ -144,9 +138,9 @@ class CareerPathwayGraph:
     @cached_property
     def undirected_graph(self) -> nx.Graph:
         """
-        Undirected projection of the directed pathway graph, cached so
-        the map widget's `hops_from` BFS materializes the projection
-        once per session.
+        Undirected projection of the directed pathway graph, cached so the
+        map widget's `hops_from` BFS materializes the projection once per
+        session.
         """
         return self.graph.to_undirected()
 
@@ -204,8 +198,7 @@ class CareerPathwayGraph:
             source_id : Cluster ID the user is matched against.
             target_id : Cluster ID the user clicked, may equal source.
         """
-        creds, _ = self.credential_matrix
-        if not creds:
+        if not (creds := self.credential_pool):
             return []
 
         similarity       = self.credential_similarity

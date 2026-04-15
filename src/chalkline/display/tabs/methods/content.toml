@@ -1,5 +1,5 @@
 info = '''
-The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `{model_name}` into **{embed_dim}-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via top-k median cosine similarity against Task+DWA embeddings.
+The pipeline transforms raw job postings into a navigable career landscape through six stages. Postings are first encoded with `{model_name}` into **{embed_dim}-dimensional sentence embeddings**, then projected via **Truncated SVD** into a lower-dimensional space that captures the dominant variance directions. **Ward-linkage hierarchical agglomerative clustering** groups these reduced embeddings into career families, with each cluster assigned an O\*NET occupation via **ColBERTv2-style late-interaction MaxSim** scoring, in which each posting finds its best-matching Task across every SOC's individual task embeddings and the per-posting maxima are averaged into the cluster-to-occupation score.
 
 **Silhouette coefficients** measure how well-separated each career family is from its neighbors in the embedding space, with values closer to 1.0 indicating tight, distinct clusters. **Brokerage** identifies gateway careers that bridge the most pathways between other families, meaning workers passing through these roles have the widest range of advancement options.'''
 
@@ -114,7 +114,7 @@ description = 'How the corpus breaks down across construction sectors.'
 
 [sections.soc_heatmap]
 title       = 'O*NET Occupation Similarity'
-description = 'Cosine similarity between each career family centroid and all {n_occupations} O*NET occupation embeddings. Brighter cells indicate stronger alignment, revealing which families map cleanly to a single occupation and which straddle multiple.'
+description = 'MaxSim mean-of-max scores between each career family and all {n_occupations} O*NET occupations. Brighter cells indicate stronger alignment, revealing which families map cleanly to a single occupation and which straddle multiple.'
 
 [sections.variance]
 title       = 'Variance Explained'

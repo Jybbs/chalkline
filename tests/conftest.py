@@ -6,7 +6,7 @@ independently tappable by any test module:
 
     corpus → raw_vectors → unit_vectors → coordinates → assignments
                                   ↓                          ↓
-                           soc_vectors → job_zone_map → clusters → graph
+                   encoded_occupations → job_zone_map → clusters → graph
                                                                      ↓
                            credentials ────────────────────────→ matcher
                                                                      ↓

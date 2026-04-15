@@ -1,15 +1,19 @@
 """
-Pydantic models and enums for the career pathway domain.
+Pydantic models, enums, and typed data shapes for the career pathway domain.
 
 Pure data contracts with field declarations, validators, and self-derived
-properties. Behavioral containers (`Cluster`, `Clusters`, `Task`) live in
-`clusters.py`. No query logic, no builders, no computational imports.
+properties. Lightweight typed pairs such as `EncodedOccupation` that attach
+runtime embeddings to a reference schema belong here as well. Behavioral
+containers with query logic (`Cluster`, `Clusters`, `Task`) live in
+`clusters.py`.
 """
+
+import numpy as np
 
 from enum      import StrEnum
 from functools import cached_property
 from pydantic  import BaseModel, Field, model_validator
-from typing    import Self
+from typing    import NamedTuple, Self
 
 
 class CareerEdge(BaseModel, extra="forbid"):
@@ -129,6 +133,22 @@ class Credential(BaseModel, extra="forbid"):
         return self
 
 
+class EncodedOccupation(NamedTuple):
+    """
+    O*NET occupation paired with its L2-normalized task embedding matrix.
+
+    Produced once per fit during task encoding and consumed by `SOCScorer`
+    for late-interaction similarity against cluster postings. Structurally
+    parallel to `Task` in `clusters.py` one level up the taxonomy, where
+    `Task` carries a single task name with its vector and
+    `EncodedOccupation` carries a full occupation schema with the stacked
+    matrix of its task vectors.
+    """
+
+    occupation : Occupation
+    tasks      : np.ndarray
+
+
 class LaborRecord(BaseModel, extra="ignore"):
     """
     BLS and O*NET labor market data for one occupation.
@@ -160,33 +180,20 @@ class LaborRecord(BaseModel, extra="ignore"):
         return data
 
 
-class Occupation(BaseModel, extra="forbid"):
+class Occupation(BaseModel, extra="ignore"):
     """
     An O*NET occupation with its full skill profile.
 
-    Each SOC code in the curated reference set maps to one occupation
-    containing skills across all 8 element types.
+    Each entry in the curated reference set maps to one occupation
+    containing skills across all 8 element types. `extra="ignore"` so the
+    curated `onet.json` may carry provenance keys (*e.g. `soc_code`*) that
+    the runtime pipeline does not consume.
     """
 
     job_zone : int = Field(ge=1, le=5)
     sector   : str
     skills   : list[Skill]
-    soc_code : str
     title    : str
-
-    @property
-    def embedding_text(self) -> str:
-        """
-        Canonical text representation for sentence encoding.
-
-        Concatenates the occupation title with its Task and DWA element
-        names, producing the input string for the sentence transformer
-        during SOC vector construction.
-
-        Returns:
-            `"{title}: {task1}, {task2}, ..."` format.
-        """
-        return f"{self.title}: {', '.join(s.name for s in self.task_elements)}"
 
     @property
     def task_elements(self) -> list[Skill]:

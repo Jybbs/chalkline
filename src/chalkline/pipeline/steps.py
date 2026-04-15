@@ -17,7 +17,6 @@ from json                        import loads
 from loguru                      import logger
 from sklearn.cluster             import AgglomerativeClustering
 from sklearn.decomposition       import TruncatedSVD
-from sklearn.metrics.pairwise    import cosine_similarity
 from sklearn.preprocessing       import normalize
 
 from chalkline.collection.schemas import Corpus
@@ -26,7 +25,9 @@ from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LexiconLoader
-from chalkline.pathways.schemas   import Credential, Occupation
+from chalkline.pathways.schemas   import Credential, EncodedOccupation, Occupation
+from chalkline.pathways.schemas   import SkillType
+from chalkline.pathways.scoring   import SOCScorer
 from chalkline.pipeline.encoder   import SentenceEncoder
 from chalkline.pipeline.schemas   import PipelineConfig
 
@@ -182,8 +183,8 @@ def job_zone_map(
     soc_similarity : np.ndarray
 ) -> dict[int, int]:
     """
-    Assign Job Zones to clusters via top-k median cosine against O*NET
-    Task+DWA embeddings.
+    Assign Job Zones to clusters via top-k median over the MaxSim similarity
+    ranking produced by `soc_similarity`.
     """
     return {
         cid: int(np.median([
@@ -255,14 +256,66 @@ def reduction(config: PipelineConfig, raw_vectors: np.ndarray) -> dict:
     }
 
 
+@tag(batch_label="occupations")
+def encoded_occupations(
+    encoder  : SentenceEncoder,
+    lexicons : LexiconLoader
+) -> list[EncodedOccupation]:
+    """
+    Encode every occupation's Task elements in a single batched pass,
+    pairing each `Occupation` schema with its L2-normalized task matrix.
+
+    Late-interaction scoring in `soc_similarity` requires each task to live
+    as its own vector rather than being pooled into a single occupation
+    embedding. DWA elements are excluded because O*NET's DWA taxonomy is
+    shared across occupations and the generic coordination activities
+    attached to construction-trade SOCs pool into a centroid that outranks
+    specialty SOCs whose tasks carry the discriminative signal.
+
+    Batching every occupation's tasks into one `encoder.encode` call
+    amortizes tokenizer warm-up and ONNX session overhead across the whole
+    lexicon rather than paying it 21 times.
+    """
+    task_lists = [
+        [s.name for s in o.skills if s.type == SkillType.TASK]
+        for o in lexicons.occupations
+    ]
+    flat_names = [n for names in task_lists for n in names]
+    logger.info(
+        f"Encoding {len(flat_names)} tasks across "
+        f"{len(lexicons.occupations)} occupations..."
+    )
+    flat_vectors = encoder.encode(flat_names)
+    offsets      = np.cumsum([0] + [len(names) for names in task_lists])
+    return [
+        EncodedOccupation(
+            occupation = occupation,
+            tasks      = flat_vectors[offsets[i]:offsets[i + 1]]
+        )
+        for i, occupation in enumerate(lexicons.occupations)
+    ]
+
+
 def soc_similarity(
-    cluster_vectors : np.ndarray,
-    soc_vectors     : np.ndarray
+    assignments          : np.ndarray,
+    encoded_occupations  : list[EncodedOccupation],
+    raw_vectors          : np.ndarray
 ) -> np.ndarray:
     """
-    Cosine similarity between cluster centroids and O*NET occupations.
+    ColBERTv2-style late-interaction similarity between cluster postings and
+    O*NET occupations, delegated to `SOCScorer`.
+
+    The concat-then-pool formulation that preceded this was dominated by
+    occupations whose DWA descriptions happened to pool to a generic
+    construction-trade centroid and could not recover SOCs whose specific
+    task language was diluted by shared administrative DWAs. Late
+    interaction lets each posting find its own best-matching task rather
+    than averaging over a pooled vector, so task specificity survives.
     """
-    return cosine_similarity(cluster_vectors, soc_vectors)
+    return SOCScorer(occupations=encoded_occupations).score(
+        assignments = assignments,
+        raw_vectors = raw_vectors
+    )
 
 
 @tag(batch_label="tasks")
@@ -271,31 +324,36 @@ def soc_tasks(
     nearest_occupations : dict[int, Occupation]
 ) -> dict[int, list[Task]]:
     """
-    Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
+    Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis in
+    a single batched pass.
 
-    For each cluster, takes the pre-computed nearest occupation and encodes
-    that occupation's Task+DWA elements as individual embeddings for
-    per-task gap scoring.
+    For each cluster, takes the pre-computed nearest occupation and stages
+    that occupation's Task+DWA elements into a flat batch, encodes the whole
+    corpus at once, then splits the result back along cluster boundaries.
+    Batching avoids re-paying tokenizer and ONNX session overhead per
+    cluster; the per-task vectors land on `Cluster.tasks` for BM25-weighted
+    gap scoring by the resume matcher.
     """
+    ordered_cids = [
+        cid for cid, nearest in nearest_occupations.items()
+        if nearest.task_elements
+    ]
+    per_cluster_elements = [
+        nearest_occupations[cid].task_elements for cid in ordered_cids
+    ]
+    flat_names = [
+        element.name for elements in per_cluster_elements
+        for element in elements
+    ]
+    flat_vectors = encoder.encode(flat_names)
+    offsets      = np.cumsum([0] + [len(elems) for elems in per_cluster_elements])
     return {
         cid: [
-            Task(name=t.name, vector=vec)
-            for t, vec in zip(
-                elems,
-                encoder.encode([t.name for t in elems])
+            Task(name=element.name, vector=vector)
+            for element, vector in zip(
+                per_cluster_elements[i],
+                flat_vectors[offsets[i]:offsets[i + 1]]
             )
         ]
-        for cid, nearest in nearest_occupations.items()
-        for elems in [nearest.task_elements]
-        if elems
+        for i, cid in enumerate(ordered_cids)
     }
-
-
-@tag(batch_label="occupations")
-def soc_vectors(encoder: SentenceEncoder, lexicons: LexiconLoader) -> np.ndarray:
-    """
-    Encode O*NET occupations using uncapped Task+DWA text, L2-normalized for
-    cosine similarity against cluster centroids.
-    """
-    logger.info(f"Encoding {len(lexicons.occupations)} occupations...")
-    return encoder.encode([o.embedding_text for o in lexicons.occupations])

@@ -146,35 +146,8 @@ class TestLaborRecord:
 
 class TestOccupation:
     """
-    Occupation skill filtering and embedding text construction.
+    Occupation skill filtering for task-element selection.
     """
-
-    @mark.parametrize(("skills", "expected"), [
-        (
-            [Skill(name="Mathematics", type=SkillType.KNOWLEDGE)],
-            "Electricians: "
-        ),
-        (
-            [
-                Skill(name="Install wiring", type=SkillType.TASK),
-                Skill(name="Blueprint Reading", type=SkillType.SKILL)
-            ],
-            "Electricians: Install wiring"
-        )
-    ], ids=["no_tasks", "with_tasks"])
-    def test_embedding_text(self, skills: list, expected: str):
-        """
-        Embedding text concatenates title with task element names,
-        falling back to title-only when no TASK or DWA skills exist.
-        """
-        occ = Occupation(
-            job_zone = 3,
-            sector   = "Building Construction",
-            skills   = skills,
-            soc_code = "47-2111.00",
-            title    = "Electricians"
-        )
-        assert occ.embedding_text == expected
 
     def test_task_elements(self):
         """
@@ -188,7 +161,6 @@ class TestOccupation:
                 Skill(name="Maintain systems", type=SkillType.DWA),
                 Skill(name="Mathematics", type=SkillType.KNOWLEDGE)
             ],
-            soc_code = "47-2111.00",
             title    = "Electricians"
         )
         assert [s.name for s in occ.task_elements] == [
