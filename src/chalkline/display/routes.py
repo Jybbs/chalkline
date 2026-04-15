@@ -8,6 +8,7 @@ Marimo HTML elements for career transition routes via htpy typed elements.
 from htpy       import details, div, Element, p, span, strong, summary
 from marimo     import Html
 from markupsafe import Markup
+from operator   import attrgetter
 from typing     import Literal, TYPE_CHECKING
 
 from chalkline.display.schemas       import GapCoverage, RelevantJobBoards, RouteDetail
@@ -177,21 +178,32 @@ class Routes:
             ]
             for path in paths
             for rows in [[
-                div(
-                    ".cl-path-row",
-                    style=f"border-inline-start-color:"
-                          f"{self.theme.credential_color(item.kind)}"
+                details(
+                    ".cl-gap-shelf",
+                    name  = "gap-drawer",
+                    style = f"border-inline-start-color:"
+                            f"{self.theme.credential_color(item.kind)}"
                 )[
-                    div(".cl-path-row-body")[
-                        strong[item.label],
-                        span(".secondary")[
-                            f"{item.kind.title()} \u00b7 {item.detail}"
-                        ]
+                    summary(".cl-gap-shelf-summary")[
+                        div(".cl-path-row-body")[
+                            strong[item.label],
+                            span(".secondary")[
+                                f"{item.kind.title()} \u00b7 {item.detail}"
+                            ]
+                        ],
+                        span(".cl-path-gaps")[labels["gap_badge"].format(
+                            cov = item.coverage,
+                            s   = "s" if item.coverage != 1 else ""
+                        )]
                     ],
-                    span(".cl-path-gaps")[labels["gap_badge"].format(
-                        cov = item.coverage,
-                        s   = "s" if item.coverage != 1 else ""
-                    )]
+                    div(".cl-gap-shelf-body")[
+                        div(".cl-gap-shelf-inner")[
+                            *self._skill_cards(sorted(
+                                (route.gap_tasks[p] for p in route.coverage[item.label]),
+                                key = attrgetter("similarity")
+                            ))
+                        ]
+                    ]
                 ]
                 for item in path.items
             ]]
