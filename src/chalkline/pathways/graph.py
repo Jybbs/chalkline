@@ -3,9 +3,10 @@ Career pathway graph from sentence-embedding cluster centroids.
 
 Constructs a directed weighted graph where nodes are career clusters from
 Ward-linkage HAC on sentence embeddings and edges connect clusters via
-stepwise k-NN in cosine similarity space. Credential metadata
-(apprenticeships, programs, certifications) is attached per-edge using a
-dual-threshold filter on destination selectivity and source relevance.
+stepwise k-NN in cosine similarity space. Credentials are computed per
+(source, target) pair on demand via `credentials_for`, applying a
+dual-threshold filter on destination selectivity and source relevance to
+the cluster-credential cosine matrix.
 """
 
 import networkx as nx
@@ -24,13 +25,15 @@ from chalkline.pathways.schemas  import CareerEdge, Credential, Reach
 @dataclass(kw_only=True)
 class CareerPathwayGraph:
     """
-    Directed weighted career graph with per-edge credential enrichment.
+    Directed weighted career graph backbone with on-demand credential
+    filtering.
 
     Accepts a `Clusters` with pre-stacked centroid and embedding matrices,
-    credential embeddings, and graph construction hyperparameters. Builds a
-    stepwise k-NN backbone with bidirectional lateral edges and
-    unidirectional upward edges, then enriches each edge with credentials
-    filtered by destination selectivity and source relevance thresholds.
+    credential embeddings, and graph construction hyperparameters. Builds
+    a stepwise k-NN backbone with bidirectional lateral edges and
+    unidirectional upward edges. Per-route credential lists come from
+    `credentials_for(source_id, target_id)` at click time, applying the
+    dual-threshold filter to the cluster-credential cosine matrix.
 
     Args:
         clusters               : Cluster map with centroids and vectors.
@@ -121,16 +124,14 @@ class CareerPathwayGraph:
     @cached_property
     def graph(self) -> nx.DiGraph:
         """
-        Stepwise k-NN DiGraph with credential-enriched edges.
-
-        Built lazily on first access. `_add_edges` lays down the backbone
-        from the centroid cosine similarity matrix, then `_enrich_edges`
-        attaches per-edge credential metadata via the dual-threshold filter.
+        Stepwise k-NN DiGraph backbone built lazily on first access.
+        Edges carry only cosine-similarity weights; credentials are
+        computed on demand per (source, target) pair via
+        `credentials_for`, not attached at fit time.
         """
         g = nx.DiGraph()
         g.add_nodes_from(self.clusters.cluster_ids)
         self._add_edges(g, self.clusters.centroid_cosine)
-        self._enrich_edges(g, self.credential_similarity)
         return g
 
     @cached_property
@@ -143,24 +144,11 @@ class CareerPathwayGraph:
     @cached_property
     def undirected_graph(self) -> nx.Graph:
         """
-        Undirected projection of the directed pathway graph.
-
-        Cached so `widest_path_tree` and `hops_from` share one
-        `to_undirected()` materialization across the session instead of
-        rebuilding it on every map render.
+        Undirected projection of the directed pathway graph, cached so
+        the map widget's `hops_from` BFS materializes the projection
+        once per session.
         """
         return self.graph.to_undirected()
-
-    @cached_property
-    def widest_path_tree(self) -> nx.Graph:
-        """
-        Maximum spanning tree of the undirected graph view.
-
-        Cached so route clicks reuse one MST computation across all
-        widest-path queries within a session. The tree is a pure function of
-        the frozen graph.
-        """
-        return nx.maximum_spanning_tree(self.undirected_graph, weight="weight")
 
     def _add_edges(self, g: nx.DiGraph, similarity: np.ndarray):
         """
@@ -195,47 +183,44 @@ class CareerPathwayGraph:
     def _edge(self, source: int, target: int) -> CareerEdge:
         """
         Build one typed `CareerEdge` from a source/target pair, unpacking
-        the graph edge data (weight + credentials).
+        the graph edge weight; the `credentials` field defaults to empty
+        because per-edge enrichment is no longer attached at fit time.
         """
         return CareerEdge(cluster_id=target, **self.graph[source][target])
 
-    def _enrich_edges(self, g: nx.DiGraph, credential_similarity: np.ndarray):
+    def credentials_for(self, source_id: int, target_id: int) -> list[Credential]:
         """
-        Attach per-edge credential metadata to `g` using the dual-threshold
-        filter.
+        Credentials that bridge a specific source-to-target transition,
+        filtered by the dual-threshold rule on destination affinity and
+        source relevance and ranked by descending cosine to the target.
 
-        For each edge (source → target), a credential 𝐜 passes when both
-        conditions hold:
+        Routes the matched cluster to any clicked destination through the
+        same calibration that previously enriched per-edge metadata at fit
+        time, with no path traversal. For self-routes (`source_id ==
+        target_id`) the filter collapses to credentials with high affinity
+        to that cluster on both axes.
 
-            cos(𝐜, 𝐭) ≥ P₁₀₀₋ₚ(cos(·, 𝐭))
-            cos(𝐜, 𝐬) ≥ Pₛ(cos(·, ·))
-
-        The first threshold selects credentials with high destination
-        affinity. The second ensures source relevance against the global
-        credential-to-cluster distribution.
+        Args:
+            source_id : Cluster ID the user is matched against.
+            target_id : Cluster ID the user clicked, may equal source.
         """
-        if credential_similarity.size == 0:
-            for _, _, edge_data in g.edges(data=True):
-                edge_data["credentials"] = []
-            return
+        creds, _ = self.credential_matrix
+        if not creds:
+            return []
 
-        dest_mask = credential_similarity >= np.percentile(
-            a    = credential_similarity,
-            axis = 0,
-            q    = 100 - self.destination_percentile
+        similarity       = self.credential_similarity
+        s_idx            = self.clusters.cluster_index[source_id]
+        t_idx            = self.clusters.cluster_index[target_id]
+        dest_threshold   = np.percentile(
+            similarity[:, t_idx], 100 - self.destination_percentile
         )
-        source_mask = credential_similarity >= np.percentile(
-            a = credential_similarity,
-            q = self.source_percentile
+        source_threshold = np.percentile(similarity, self.source_percentile)
+        passing          = np.flatnonzero(
+            (similarity[:, t_idx] >= dest_threshold) &
+            (similarity[:, s_idx] >= source_threshold)
         )
-
-        for s, t, edge_data in g.edges(data=True):
-            passing = np.flatnonzero(dest_mask[:, t] & source_mask[:, s])
-            ranked  = passing[np.argsort(-credential_similarity[passing, t])]
-            edge_data["credentials"] = [
-                self.credential_matrix[0][i].model_dump(mode="json")
-                for i in ranked
-            ]
+        ranked = passing[np.argsort(-similarity[passing, t_idx])]
+        return [creds[i] for i in ranked]
 
     def hops_from(self, source: int) -> dict[int, int]:
         """
@@ -247,27 +232,6 @@ class CareerPathwayGraph:
         the matched cluster.
         """
         return nx.single_source_shortest_path_length(self.undirected_graph, source)
-
-    def path_edges(self, path: list[int]) -> list[CareerEdge]:
-        """
-        Typed edges for each hop along a cluster ID path.
-
-        Reconstructs `CareerEdge` objects from the raw graph edge data,
-        keeping credential metadata and cosine similarity weights. Used by
-        the display layer to build multi-hop route details without reaching
-        into the internal `nx.DiGraph`.
-
-        Args:
-            path: Ordered cluster IDs from source to destination.
-
-        Returns:
-            One `CareerEdge` per consecutive pair in the path.
-        """
-        return [
-            self._edge(s, t) if self.graph.has_edge(s, t)
-            else self._edge(t, s)
-            for s, t in pairwise(path)
-        ]
 
     def reach(self, cluster_id: int) -> Reach:
         """
@@ -289,29 +253,3 @@ class CareerPathwayGraph:
             lateral     = [e for e in edges if job_zones[e.cluster_id] == zone]
         )
 
-    def try_widest_path(self, source: int, target: int) -> list[int]:
-        """
-        Most achievable multi-hop career progression via max-min bottleneck,
-        returning an empty list when no path exists.
-
-        The max-min bottleneck path between two nodes equals the unique path
-        on the maximum spanning tree, because the MST maximizes the minimum
-        edge weight across any cut. Building the MST on the undirected view
-        lets the route traverse lateral edges in either direction, which may
-        produce routes that reverse upward edges because the path describes
-        skill affinity rather than strict progression order.
-
-        Args:
-            source : Origin cluster ID.
-            target : Destination cluster ID.
-
-        Returns:
-            Ordered cluster IDs from source to target inclusive, or empty when nodes are
-            absent or disconnected.
-        """
-        if source == target:
-            return [source]
-        try:
-            return nx.shortest_path(self.widest_path_tree, source, target)
-        except (nx.NetworkXNoPath, nx.NodeNotFound):
-            return []

@@ -1,10 +1,11 @@
 """
-Validate career pathway graph construction and credential enrichment from
-synthetic embedding fixtures.
+Validate career pathway graph construction and per-pair credential
+filtering from synthetic embedding fixtures.
 
 Tests focus on invariants that would silently corrupt downstream
 reach exploration if broken, including edge directionality, Job Zone
-ordering, backbone connectivity, and credential metadata attachment.
+ordering, backbone connectivity, and the dual-threshold credential
+filter.
 """
 
 import numpy as np
@@ -34,16 +35,26 @@ class TestCareerPathwayGraph:
         scores = [score for _, score in pathway_graph.brokerage]
         assert scores == sorted(scores, reverse=True)
 
-    def test_credential_metadata(self, pathway_graph: CareerPathwayGraph):
+    def test_credentials_for_filters_by_threshold(
+        self,
+        cluster_ids   : list[int],
+        pathway_graph : CareerPathwayGraph
+    ):
         """
-        Every edge carries a credentials list of serialized dicts
-        with required schema fields and the vector excluded.
+        Per-pair credential filter returns Credential instances ranked
+        by descending similarity to the target cluster.
         """
-        for _, _, data in pathway_graph.graph.edges(data=True):
-            assert isinstance(data["credentials"], list)
-            for cred in data["credentials"]:
-                assert {"embedding_text", "kind", "label"} <= cred.keys()
-                assert "vector" not in cred
+        source, target = cluster_ids[0], cluster_ids[-1]
+        credentials    = pathway_graph.credentials_for(source, target)
+        assert all(c.vector for c in credentials)
+        if len(credentials) >= 2:
+            similarity = pathway_graph.credential_similarity
+            t_idx      = pathway_graph.clusters.cluster_index[target]
+            creds_pool = pathway_graph.credential_matrix[0]
+            scores     = [
+                similarity[creds_pool.index(c), t_idx] for c in credentials
+            ]
+            assert scores == sorted(scores, reverse=True)
 
     def test_edge_weights_bounded(self, pathway_graph: CareerPathwayGraph):
         """
@@ -67,8 +78,8 @@ class TestCareerPathwayGraph:
 
     def test_no_credentials_builds_graph(self, clusters: Clusters):
         """
-        A graph with no credentials still builds a valid backbone
-        with empty credential lists on every edge.
+        A graph with no credentials still builds a valid backbone, and
+        the per-pair filter returns empty for any pair.
         """
         graph = CareerPathwayGraph(
             clusters               = clusters,
@@ -79,22 +90,8 @@ class TestCareerPathwayGraph:
             upward_neighbors       = 2
         )
         assert graph.graph.number_of_edges() > 0
-        for _, _, data in graph.graph.edges(data=True):
-            assert data["credentials"] == []
-
-    def test_path_edges_round_trip(
-        self,
-        cluster_ids   : list[int],
-        pathway_graph : CareerPathwayGraph
-    ):
-        """
-        Reconstructed CareerEdges along a widest path return one edge
-        per hop with target cluster IDs matching the path tail.
-        """
-        path  = pathway_graph.try_widest_path(cluster_ids[0], cluster_ids[-1])
-        edges = pathway_graph.path_edges(path)
-        assert len(edges)                    == len(path) - 1
-        assert [e.cluster_id for e in edges] == path[1:]
+        ids = clusters.cluster_ids
+        assert graph.credentials_for(ids[0], ids[-1]) == []
 
     def test_reach_types(
         self,
@@ -142,39 +139,4 @@ class TestCareerPathwayGraph:
             if target_zone > source_zone:
                 assert target_zone == next_zone[source_zone]
 
-    def test_widest_path_endpoints(
-        self,
-        cluster_ids   : list[int],
-        pathway_graph : CareerPathwayGraph
-    ):
-        """
-        Widest path between connected nodes starts at source and ends
-        at target with at least two entries.
-        """
-        path = pathway_graph.try_widest_path(cluster_ids[0], cluster_ids[-1])
-        assert path[0] == cluster_ids[0]
-        assert path[-1] == cluster_ids[-1]
-        assert len(path) >= 2
-
-    def test_widest_path_nonexistent_target(
-        self,
-        cluster_ids   : list[int],
-        pathway_graph : CareerPathwayGraph
-    ):
-        """
-        Querying a node absent from the graph returns an empty list.
-        """
-        assert pathway_graph.try_widest_path(cluster_ids[0], 9999) == []
-
-    def test_widest_path_self_loop(
-        self,
-        cluster_ids   : list[int],
-        pathway_graph : CareerPathwayGraph
-    ):
-        """
-        Widest path from a node to itself returns a single-element
-        list.
-        """
-        cid = cluster_ids[0]
-        assert pathway_graph.try_widest_path(cid, cid) == [cid]
 

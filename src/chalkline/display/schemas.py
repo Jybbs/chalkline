@@ -779,11 +779,10 @@ class RouteDetail(NamedTuple):
     Joined route data for the Map tab's recipe card.
 
     Holds the source and destination `Cluster` objects for dot-notation
-    access to SOC titles, sectors, Job Zones, and postings. Constructed via
-    `from_selection`, which prefers the direct adjacent edge when one exists
-    (the one-hop move the user likely intended by clicking a neighbor) and
-    falls back to the widest-path bottleneck tree for destinations that
-    aren't direct neighbors.
+    access to SOC titles, sectors, Job Zones, and postings. Constructed
+    via `from_selection`, which computes credentials per (source,
+    destination) pair through the graph's dual-threshold filter,
+    independent of how many backbone hops separate the two clusters.
     """
 
     coverage         : dict[str, set[int]]
@@ -925,16 +924,17 @@ class RouteDetail(NamedTuple):
         profile     : Cluster,
         result      : MatchResult,
         selected_id : int
-    ) -> Self | None:
+    ) -> Self:
         """
-        Build a route from a clicked map node, or `None` when no path
-        connects source and destination.
+        Build a route from a clicked map node.
 
-        Prefers the direct adjacent edge when the destination is a reach
-        neighbor, falling back to the widest-path tree otherwise. A negative
-        `selected_id` or one equal to the matched cluster builds a
-        self-route so the user sees their own skill profile, credentials,
-        and postings immediately.
+        A negative `selected_id` or one equal to the matched cluster
+        builds a self-route so the user sees their own skill profile,
+        credentials, and postings immediately. Otherwise the destination
+        is the clicked cluster. Credentials come from
+        `graph.credentials_for(source, destination)` regardless of
+        adjacency, so the same dual-threshold calibration that previously
+        ran per-edge at fit time now runs per click against any pair.
 
         Args:
             labor       : Occupational wage and outlook loader.
@@ -943,36 +943,21 @@ class RouteDetail(NamedTuple):
             result      : Match result carrying reach edges.
             selected_id : Clicked node, negative for no selection.
         """
-        if selected_id < 0 or selected_id == result.cluster_id:
-            destination = profile
-            edges       = result.reach.edges
-
-        elif (adjacent := next(
-            (e for e in result.reach.edges if e.cluster_id == selected_id),
-            None
-        )):
-            destination = pipeline.clusters[selected_id]
-            edges       = [adjacent]
-
-        else:
-            path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
-            edges = pipeline.graph.path_edges(path)
-            if not edges:
-                return None
-            destination = pipeline.clusters[selected_id]
-
-        credentials = [c for e in edges for c in e.credentials]
+        destination = (
+            profile if selected_id < 0 or selected_id == result.cluster_id
+            else pipeline.clusters[selected_id]
+        )
+        credentials = pipeline.graph.credentials_for(
+            profile.cluster_id, destination.cluster_id
+        )
         scored      = pipeline.matcher.score_destination(destination)
         task_index  = {t.name: i for i, t in enumerate(destination.tasks)}
         gap_idx     = [task_index[t.name] for t in scored if not t.demonstrated]
 
         if gap_idx and credentials:
-            lookup      = {c.label: c for c in pipeline.graph.credential_matrix[0]}
             gap_vectors = destination.task_matrix[gap_idx]
             coverage    = pipeline.matcher.credential_coverage(
-                credentials = [
-                    lookup[c.label] for c in credentials if c.label in lookup
-                ],
+                credentials = credentials,
                 destination = destination,
                 gap_indices = gap_idx
             )
