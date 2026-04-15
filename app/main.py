@@ -150,13 +150,10 @@ def _(layout, mo):
 # ── Wage filter ────────────────────────────────────────────────────
 
 @app.cell
-def _(forms, labor, pipeline):
+def _(forms, pipeline):
     from chalkline.display.tabs.map.widget import PathwayMap as pathway
 
-    wage_filter = forms.wage_filter(
-        clusters = pipeline.clusters,
-        labor    = labor,
-    )
+    wage_filter = forms.wage_filter(pipeline.clusters)
     wage_slider = wage_filter.slider
     return pathway, wage_filter, wage_slider
 

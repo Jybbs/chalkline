@@ -15,7 +15,6 @@ from types      import ModuleType
 from chalkline.display.loaders   import Layout
 from chalkline.display.schemas   import WageFilter
 from chalkline.pathways.clusters import Clusters
-from chalkline.pathways.loaders  import LaborLoader
 
 
 class Forms:
@@ -36,11 +35,7 @@ class Forms:
         self.layout = layout
         self.mo     = mo
 
-    def wage_filter(
-        self,
-        clusters : Clusters,
-        labor    : LaborLoader
-    ) -> WageFilter:
+    def wage_filter(self, clusters: Clusters) -> WageFilter:
         """
         Build the minimum-salary filter rendered between the map and the
         route card.
@@ -53,17 +48,14 @@ class Forms:
         Debounce mode defers the update until the user releases the thumb,
         so the map re-renders once per gesture rather than on every tick.
         """
-        wages  = sorted(
-            w for c in clusters.values()
-            if (w := labor[c.soc_title].annual_median)
-        )
+        wages  = sorted(c.wage for c in clusters.values() if c.wage)
         slider = self.mo.ui.slider(
             debounce   = True,
             full_width = True,
             start      = (start := floor(wages[0] / 1000) * 1000),
             step       = 1000,
             stop       = ceil(wages[-1] / 1000) * 1000,
-            value      = start,
+            value      = start
         )
 
         return WageFilter(

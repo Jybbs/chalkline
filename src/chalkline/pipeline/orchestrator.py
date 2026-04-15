@@ -94,7 +94,7 @@ class Chalkline:
         """
         from hamilton.driver import Builder
 
-        from chalkline.pathways.loaders  import LexiconLoader
+        from chalkline.pathways.loaders  import LaborLoader, LexiconLoader
         from chalkline.pipeline          import steps
         from chalkline.pipeline.progress import MarimoDisplay, RichDisplay
 
@@ -119,6 +119,7 @@ class Chalkline:
                 inputs     = {
                     "config"   : config,
                     "encoder"  : encoder,
+                    "labor"    : LaborLoader(config.lexicon_dir / "labor.json"),
                     "lexicons" : LexiconLoader(config.lexicon_dir)
                 }
             )

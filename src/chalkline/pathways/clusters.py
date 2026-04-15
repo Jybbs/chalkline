@@ -8,12 +8,14 @@ keep the schema layer free of computational imports and behavioral logic.
 
 import numpy as np
 
+from collections     import Counter, defaultdict
 from collections.abc import Iterator
 from dataclasses     import dataclass, field
 from functools       import cached_property
 from typing          import NamedTuple
 
 from chalkline.collection.schemas import Posting
+from chalkline.pathways.loaders   import LaborLoader
 
 
 @dataclass
@@ -39,15 +41,20 @@ class Cluster:
     size        : int
     soc_title   : str
 
-    tasks: list[Task] = field(default_factory=list)
+    display_title : str        = field(default="", init=False)
+    soc_weights   : np.ndarray = field(default_factory=lambda: np.empty(0), init=False)
+    tasks         : list[Task] = field(default_factory=list)
+    wage          : float      = field(default=0.0, init=False)
 
     @property
     def display_label(self) -> str:
         """
-        Human-readable cluster identifier for dropdown labels.
+        Human-readable cluster identifier for dropdown labels, using the
+        collision-resolved `display_title` so duplicate SOCs stay
+        distinguishable in the picker.
         """
         return (
-            f"Cluster {self.cluster_id}: {self.soc_title} "
+            f"Cluster {self.cluster_id}: {self.display_title} "
             f"(Job Zone {self.job_zone})"
         )
 
@@ -156,10 +163,15 @@ class Clusters:
     matching, and visualization.
     """
 
-    centroids      : np.ndarray
-    items          : dict[int, Cluster]
-    soc_similarity : np.ndarray
-    vectors        : np.ndarray
+    centroids         : np.ndarray
+    items             : dict[int, Cluster]
+    labor             : LaborLoader
+    occupation_titles : list[str]
+    soc_similarity    : np.ndarray
+    softmax_tau       : float
+    vectors           : np.ndarray
+    wage_round        : int
+    wage_topk         : int
 
     cluster_ids: list[int] = field(init=False)
 
@@ -183,9 +195,17 @@ class Clusters:
 
     def __post_init__(self):
         """
-        Derive sorted cluster IDs for stable iteration order.
+        Derive sorted cluster IDs for stable iteration order, then fan the
+        softmax-derived `soc_weights`, `wage`, and collision-resolved
+        `display_title` onto each child `Cluster` so downstream callers read
+        per-cluster attributes without round-tripping through the parent.
         """
         self.cluster_ids = sorted(self.items)
+        for cid in self.cluster_ids:
+            cluster               = self.items[cid]
+            cluster.soc_weights   = self.soc_weights[cid]
+            cluster.wage          = float(self.cluster_wages[cid])
+            cluster.display_title = self.display_titles[cid]
 
     @cached_property
     def bm25_average_length(self) -> float:
@@ -260,6 +280,24 @@ class Clusters:
         """
         return {cid: i for i, cid in enumerate(self.cluster_ids)}
 
+    @cached_property
+    def cluster_wages(self) -> np.ndarray:
+        """
+        Top-K weighted annual median wage per cluster in `cluster_ids` order.
+        Zero-masked so missing labor data never drags the expectation downward
+        and rounded to `wage_round` to match the granularity of the source
+        labor records.
+        """
+        picks = np.argsort(
+            np.where(self.occupation_wages > 0, self.soc_weights, 0),
+            axis=1
+        )[:, -self.wage_topk:]
+
+        weights   = np.take_along_axis(self.soc_weights, picks, axis=1)
+        weights  /= weights.sum(axis=1, keepdims=True)
+        expected  = (weights * self.occupation_wages[picks]).sum(axis=1)
+        return np.round(expected / self.wage_round) * self.wage_round
+
     @property
     def company_count(self) -> int:
         """
@@ -281,6 +319,30 @@ class Clusters:
             [round(float(v), 3) for v in row]
             for row in self.centroid_cosine
         ]
+
+    @cached_property
+    def display_titles(self) -> dict[int, str]:
+        """
+        Shortest label per cluster that stays distinct across the corpus.
+
+        Each cluster picks from soc title, modal posting title, then
+        `{soc_title} (#{cluster_id})`. On collision the largest cluster
+        keeps the current level and the rest advance, so one Civil
+        Engineers stays bare while duplicates step forward.
+        """
+        cascade = {
+            cid: (c.soc_title, c.modal_title, f"{c.soc_title} (#{cid})")
+            for cid, c in self.items.items()
+        }
+        levels = dict.fromkeys(self.items, 0)
+        for _ in range(3):
+            groups = defaultdict(list)
+            for cid, lvl in levels.items():
+                groups[cascade[cid][lvl]].append(cid)
+            for g in groups.values():
+                for cid in sorted(g, key=lambda c: -self.items[c].size)[1:]:
+                    levels[cid] = min(levels[cid] + 1, 2)
+        return {cid: cascade[cid][lvl] for cid, lvl in levels.items()}
 
     @cached_property
     def job_zone_map(self) -> dict[int, int]:
@@ -308,6 +370,18 @@ class Clusters:
         """
         pairs = self.centroids[:, None] - self.centroids[None, :]
         return float(np.linalg.norm(pairs, axis=2).max())
+
+    @cached_property
+    def occupation_wages(self) -> np.ndarray:
+        """
+        Annual median wage per occupation aligned with `occupation_titles`.
+        Missing records and null wages resolve to 0 so `cluster_wages` can
+        mask and weight the vector directly without per-element None checks.
+        """
+        return np.array([
+            self.labor[t].annual_median or 0
+            for t in self.occupation_titles
+        ])
 
     @cached_property
     def pairwise_distances(self) -> dict[str, list[float]]:
@@ -391,15 +465,6 @@ class Clusters:
         return [c.size for c in self.values()]
 
     @cached_property
-    def soc_counts(self) -> dict[str, int]:
-        """
-        Number of clusters sharing each SOC title, for display-layer title
-        disambiguation.
-        """
-        from collections import Counter
-        return Counter(c.soc_title for c in self.values())
-
-    @cached_property
     def soc_heatmap(self) -> dict[str, list[float]]:
         """
         SOC similarity keyed by display label, rounded to three decimals for
@@ -409,6 +474,19 @@ class Clusters:
             c.display_label: [round(float(v), 3) for v in row]
             for c, row in zip(self.values(), self.soc_similarity)
         }
+
+    @cached_property
+    def soc_weights(self) -> np.ndarray:
+        """
+        Softmax over `soc_similarity` rows at temperature `softmax_tau`,
+        producing a per-cluster distribution over occupations. Feeds the
+        weighted wage computation and the runner-up fallback used by
+        `display_titles` to differentiate colliding SOC labels.
+        """
+        logits  = self.soc_similarity / self.softmax_tau
+        logits -= logits.max(axis=1, keepdims=True)
+        weights = np.exp(logits)
+        return weights / weights.sum(axis=1, keepdims=True)
 
     @cached_property
     def vector_map(self) -> dict[int, np.ndarray]:
@@ -421,19 +499,6 @@ class Clusters:
         matrix never changes after fit.
         """
         return dict(zip(self.cluster_ids, self.vectors))
-
-    def display_title(self, cluster: Cluster) -> str:
-        """
-        Modal posting title when the cluster's SOC is shared across multiple
-        clusters, otherwise the SOC title itself. Single source of truth for
-        map cards and route verdicts so the hero node, tier-2 nodes, and the
-        route callout all agree on a cluster's user-facing label.
-        """
-        return (
-            cluster.modal_title
-            if self.soc_counts[cluster.soc_title] > 1
-            else cluster.soc_title
-        )
 
     def values(self) -> Iterator[Cluster]:
         """

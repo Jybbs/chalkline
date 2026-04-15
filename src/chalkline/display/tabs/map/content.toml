@@ -1,6 +1,5 @@
 [chart_labels]
 bright_outlook      = 'Bright Outlook'
-coverage_footer     = 'Combined unique coverage: {unique_cov} of {total} gaps'
 fit_meter_label     = 'match'
 gap_badge           = '{cov} gap{s}'
 gaps_heading        = 'Growth Areas ({count} to develop)'

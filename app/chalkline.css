@@ -481,7 +481,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     min-height     : 0;
     overflow       : hidden;
     padding-block  : 0.5rem 0.75rem;
-    padding-inline : 2rem 1rem;
+    padding-inline : 1rem;
 }
 
 .cl-path-row-body {
@@ -536,7 +536,22 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 .cl-skill-card-list { display: grid; gap: 0.5rem; }
 
-.cl-skill-card { gap: 0.4rem; padding: 0.6rem 1rem; }
+.cl-skill-card { padding: 0.6rem 1rem; }
+
+.cl-skill-row {
+    align-items           : center;
+    column-gap            : 0.75rem;
+    display               : grid;
+    grid-template-columns : 1.25rem 1fr;
+}
+
+.cl-skill-row-check {
+    color       : var(--cl-primary);
+    font-size   : 0.95rem;
+    font-weight : 600;
+    line-height : 1;
+    text-align  : center;
+}
 
 .cl-skill-card-header {
     align-items     : baseline;

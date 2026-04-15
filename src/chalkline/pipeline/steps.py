@@ -24,7 +24,7 @@ from chalkline.collection.storage import CorpusStorage
 from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
-from chalkline.pathways.loaders   import LexiconLoader
+from chalkline.pathways.loaders   import LaborLoader, LexiconLoader
 from chalkline.pathways.schemas   import Credential, EncodedOccupation, Occupation
 from chalkline.pathways.schemas   import SkillType
 from chalkline.pathways.scoring   import SOCScorer
@@ -67,8 +67,11 @@ def clusters(
     assignments         : np.ndarray,
     centroids           : np.ndarray,
     cluster_vectors     : np.ndarray,
+    config              : PipelineConfig,
     corpus              : Corpus,
     job_zone_map        : dict[int, int],
+    labor               : LaborLoader,
+    lexicons            : LexiconLoader,
     nearest_occupations : dict[int, Occupation],
     raw_vectors         : np.ndarray,
     soc_similarity      : np.ndarray,
@@ -79,7 +82,10 @@ def clusters(
     matching. Returns a `Clusters` container with pre-stacked centroid and
     embedding vector matrices, and per-cluster posting embeddings sliced out
     of `raw_vectors` so display-layer projections never have to re-encode
-    the corpus.
+    the corpus. `Clusters.__post_init__` fans the softmax-derived
+    `soc_weights`, `wage`, and asymmetrically-resolved `display_title` onto
+    each child cluster using the occupation titles, wage vector, and config
+    thresholds threaded through from this step.
     """
     items: dict[int, Cluster] = {}
     for cid in sorted(np.unique(assignments).tolist()):
@@ -99,10 +105,15 @@ def clusters(
         )
 
     return Clusters(
-        centroids      = centroids,
-        items          = items,
-        soc_similarity = soc_similarity,
-        vectors        = cluster_vectors
+        centroids         = centroids,
+        items             = items,
+        labor             = labor,
+        occupation_titles = [o.title for o in lexicons.occupations],
+        soc_similarity    = soc_similarity,
+        softmax_tau       = config.soc_softmax_tau,
+        vectors           = cluster_vectors,
+        wage_round        = config.soc_wage_round,
+        wage_topk         = config.soc_wage_topk
     )
 
 

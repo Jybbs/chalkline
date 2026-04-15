@@ -104,7 +104,8 @@ class CredentialPath(NamedTuple):
             scores = np.where(eligible, useful,          -np.inf)
             i      = int(np.lexsort((scores, ratios))[-1])
             hits   = matrix[i] > 0
-            picks.append((labels[i], int((hits & remaining).sum())))
+            new    = frozenset(int(gaps[g]) for g in np.flatnonzero(hits & remaining))
+            picks.append((labels[i], new))
             remaining &= ~hits
             active[i]  = False
 
@@ -113,11 +114,11 @@ class CredentialPath(NamedTuple):
 
         return cls(
             items           = [
-                PathItem.from_credential(count, credentials[label], label)
-                for label, count in picks
+                PathItem.from_credential(credentials[label], label, positions)
+                for label, positions in picks
             ],
             strategy        = strategy,
-            unique_coverage = sum(count for _, count in picks)
+            unique_coverage = sum(len(p) for _, p in picks)
         )
 
 
@@ -255,7 +256,7 @@ class GapCoverage(NamedTuple):
         count            = len(positions)
         biggest          = CredentialPath(
             items           = [PathItem.from_credential(
-                count, route.credential_map[label], label
+                route.credential_map[label], label, frozenset(positions)
             )],
             strategy        = "biggest",
             unique_coverage = count
@@ -523,34 +524,37 @@ class PathItem(NamedTuple):
     One credential or career node in a gap-closure path.
     """
 
-    coverage : int
-    detail   : str
-    kind     : str
-    label    : str
+    coverage  : int
+    detail    : str
+    kind      : str
+    label     : str
+    positions : frozenset[int]
 
     @classmethod
     def from_credential(
         cls,
-        coverage   : int,
         credential : Credential,
-        label      : str
+        label      : str,
+        positions  : frozenset[int]
     ) -> Self:
         """
         Build from a `Credential` lookup, pulling `detail_label` and `kind`
         from the credential instance.
         """
         return cls(
-            coverage = coverage,
-            detail   = credential.detail_label,
-            kind     = credential.kind,
-            label    = label
+            coverage  = len(positions),
+            detail    = credential.detail_label,
+            kind      = credential.kind,
+            label     = label,
+            positions = positions
         )
 
 
 class PostingProjection(BaseModel, extra="forbid"):
     """
     2D t-SNE projection of the matched cluster's posting embeddings, with
-    k-means sub-clustering on the same vectors for coloring.
+    k-means sub-clustering on the same high-dimensional vectors for
+    coloring.
 
     Reads the per-posting embeddings already stored on the matched `Cluster`
     (no encoding work at render time), runs sklearn t-SNE with PCA
@@ -581,7 +585,7 @@ class PostingProjection(BaseModel, extra="forbid"):
         cls,
         cluster      : Cluster,
         min_postings : int = 5,
-        n_subgroups  : int = 4,
+        n_subgroups  : int = 8,
         random_state : int = 42
     ) -> Self:
         """
@@ -1001,13 +1005,13 @@ class RouteDetail(NamedTuple):
             coverage         = coverage,
             credentials      = credentials,
             destination      = destination,
-            destination_wage = labor[destination.soc_title].annual_median,
-            display_title    = pipeline.clusters.display_title(destination),
+            destination_wage = destination.wage,
+            display_title    = destination.display_title,
             gap_vectors      = gap_vectors,
             match_score      = pipeline.matcher.cluster_score(destination.cluster_id),
             scored_tasks     = scored,
             source           = profile,
-            source_wage      = labor[profile.soc_title].annual_median
+            source_wage      = profile.wage
         )
 
 
@@ -1066,9 +1070,9 @@ class SectorRanking(BaseModel, extra="forbid"):
         """
         resolved = [(clusters[cid], v) for cid, v in ranking]
         return cls(
-            labels  = [c.soc_title for c, _ in resolved],
-            sectors = [c.sector    for c, _ in resolved],
-            values  = [round(v, 4) for _, v in resolved]
+            labels  = [c.display_title for c, _ in resolved],
+            sectors = [c.sector        for c, _ in resolved],
+            values  = [round(v, 4)     for _, v in resolved]
         )
 
     @classmethod
