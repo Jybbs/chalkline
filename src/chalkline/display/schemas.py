@@ -76,19 +76,20 @@ class CredentialPath(NamedTuple):
             kinds    : Restrict candidates to credentials of these kinds;
                        `None` accepts every kind.
         """
-        credentials = route.credential_map
-        labels      = [
-            label for label, affinity in route.coverage.items()
+        credentials   = route.credential_map
+        gap_coverage  = route.gap_coverage
+        labels        = [
+            label for label, affinity in gap_coverage.items()
             if affinity and (kinds is None or credentials[label].kind in kinds)
         ]
         if not labels:
             return None
 
-        gaps   = sorted({g for l in labels for g in route.coverage[l]})
+        gaps   = sorted({g for l in labels for g in gap_coverage[l]})
         index  = {g: j for j, g in enumerate(gaps)}
         matrix = np.zeros((len(labels), len(gaps)))
         for i, label in enumerate(labels):
-            affinity = route.coverage[label]
+            affinity = gap_coverage[label]
             matrix[i, [index[g] for g in affinity]] = list(affinity.values())
 
         totals    = matrix.sum(axis=1)
@@ -879,6 +880,23 @@ class RouteDetail(NamedTuple):
         return len(self.gap_tasks)
 
     @property
+    def gap_coverage(self) -> dict[str, dict[int, float]]:
+        """
+        `coverage` restricted to tasks the resume has not demonstrated.
+
+        Credentials offer skills across the whole cluster, but only the
+        subset that overlaps the user's gaps should drive the greedy picker
+        and the shelf's fill-count badge. This keeps `coverage` honest as the
+        credential's intrinsic offering while giving gap-centric consumers a
+        first-class view.
+        """
+        gap_set = set(self.gap_indices)
+        return {
+            label: {t: s for t, s in scored.items() if t in gap_set}
+            for label, scored in self.coverage.items()
+        }
+
+    @property
     def gap_indices(self) -> list[int]:
         """
         Positions into `destination.tasks` of the gap set, preserving
@@ -904,14 +922,28 @@ class RouteDetail(NamedTuple):
         return self.source.cluster_id == self.destination.cluster_id
 
     @property
+    def task_by_index(self) -> dict[int, ScoredTask]:
+        """
+        `destination.tasks` index to `ScoredTask`, for resolving
+        coverage-map keys back to renderable task rows.
+        """
+        index = {t.name: i for i, t in enumerate(self.destination.tasks)}
+        return {index[t.name]: t for t in self.scored_tasks}
+
+    @property
     def top_coverage(self) -> tuple[str, dict[int, float]] | None:
         """
-        (label, {gap position: affinity}) of the credential covering the most
-        gap tasks on this route, or `None` when no credential covers anything.
+        (label, {task index: affinity}) of the credential filling the most
+        gap tasks on this route, or `None` when no credential fills any. Uses
+        gap-filtered coverage so the "biggest" stack reflects user-relevant
+        fills, not the credential's broader cluster-wide offering.
         """
-        if not self.coverage:
+        if not (gap_coverage := self.gap_coverage):
             return None
-        return max(self.coverage.items(), key=lambda item: len(item[1]))
+        filled = {label: scored for label, scored in gap_coverage.items() if scored}
+        if not filled:
+            return None
+        return max(filled.items(), key=lambda item: len(item[1]))
 
     @property
     def top_gaps(self) -> list[ScoredTask]:
@@ -993,8 +1025,7 @@ class RouteDetail(NamedTuple):
             gap_vectors = destination.task_matrix[gap_idx]
             coverage    = pipeline.matcher.credential_coverage(
                 credentials = credentials,
-                destination = destination,
-                gap_indices = gap_idx
+                destination = destination
             )
         else:
             gap_vectors = np.empty((0, 0))

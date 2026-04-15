@@ -210,10 +210,11 @@ class Routes:
                         div(".cl-gap-shelf-inner")[
                             *self._skill_cards(
                                 covered = {
-                                    route.gap_tasks[p].name for p in item.positions
+                                    route.task_by_index[p].name
+                                    for p in item.positions
                                 },
                                 tasks = sorted(
-                                    route.gap_tasks,
+                                    (route.task_by_index[i] for i in route.coverage[item.label]),
                                     key = attrgetter("similarity")
                                 )
                             )

@@ -112,11 +112,10 @@ class TestResumeMatcher:
         resume_matcher : ResumeMatcher
     ):
         """
-        No credentials produces an empty coverage dict regardless
-        of gap indices.
+        No credentials produces an empty coverage dict.
         """
         target = next(c for c in clusters.values() if c.tasks)
-        assert resume_matcher.credential_coverage([], target, [0]) == {}
+        assert resume_matcher.credential_coverage([], target) == {}
 
     def test_credential_coverage_varies_by_topicality(
         self,
@@ -125,15 +124,14 @@ class TestResumeMatcher:
         resume_matcher : ResumeMatcher
     ):
         """
-        A credential whose vector aligns with the gap tasks covers
+        A credential whose vector aligns with the cluster tasks covers
         more positions than one pointed away, proving coverage sets
         vary with true topicality rather than a fixed slice.
         """
-        target        = next(c for c in clusters.values() if c.tasks)
-        gap_indices   = list(range(len(target.tasks)))
-        aligned       = target.task_matrix.mean(axis=0)
-        aligned       = aligned / np.linalg.norm(aligned)
-        opposite      = -aligned
+        target   = next(c for c in clusters.values() if c.tasks)
+        aligned  = target.task_matrix.mean(axis=0)
+        aligned  = aligned / np.linalg.norm(aligned)
+        opposite = -aligned
 
         credentials = [
             Credential(
@@ -152,10 +150,10 @@ class TestResumeMatcher:
         resume_matcher.credential_threshold = 1e-6
         coverage = resume_matcher.credential_coverage(
             credentials = credentials,
-            destination = target,
-            gap_indices = gap_indices
+            destination = target
         )
         assert len(coverage["Aligned"]) > len(coverage["Diffuse"])
+        assert all(0 <= idx < len(target.tasks) for idx in coverage["Aligned"])
 
     def test_global_threshold(
         self,

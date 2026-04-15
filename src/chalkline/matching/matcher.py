@@ -239,30 +239,31 @@ class ResumeMatcher:
     def credential_coverage(
         self,
         credentials : list,
-        destination : Cluster,
-        gap_indices : list[int]
+        destination : Cluster
     ) -> dict[str, dict[int, float]]:
         """
-        Credential label to the gap-list positions it covers, each mapped to
-        the stem-gated cosine affinity on that gap. A gap is considered
+        Credential label to the cluster task positions it covers, each mapped
+        to the stem-gated cosine affinity on that task. A task is considered
         covered when gated cosine clears `credential_threshold`; keeping the
-        score lets the downstream picker rank candidates by per-gap semantic
+        score lets the downstream picker rank candidates by per-task semantic
         tightness rather than treating every passing credential as equal.
+
+        Scored against every task in `destination.tasks` so callers can
+        distinguish a credential's intrinsic offering from the subset that
+        happens to align with a particular resume's gaps.
 
         Args:
             credentials : Must carry `.stems` and `.vector`. Typically sourced from
                           `graph.credential_pool`.
             destination : Cluster whose tasks are being evaluated.
-            gap_indices : Positions into `destination.tasks`.
         """
         if not (scored := [c for c in credentials if c.vector is not None]):
             return {}
 
-        gap_stems = [destination.task_stems[i] for i in gap_indices]
-        gated     = cosine_similarity(
+        gated = cosine_similarity(
             np.asarray([c.vector for c in scored]),
-            destination.task_matrix[gap_indices]
-        ) * self._stem_gate(scored, gap_stems)
+            destination.task_matrix
+        ) * self._stem_gate(scored, destination.task_stems)
         return {
             c.label: {
                 int(j): float(gated[i, j])
