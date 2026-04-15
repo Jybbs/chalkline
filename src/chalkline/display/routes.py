@@ -39,19 +39,37 @@ class Routes:
         self.layout = layout
         self.theme  = theme
 
-    def _skill_cards(self, tasks: list[ScoredTask]) -> list[Element]:
+    def _skill_cards(
+        self,
+        tasks   : list[ScoredTask],
+        covered : set[str] | None = None
+    ) -> list[Element]:
         """
-        Render pre-calibrated scored tasks as individual card-style elements
-        with the skill name on top and a full-width bar below.
+        Render pre-calibrated scored tasks as individual card rows with the
+        skill name on top and a full-width bar below.
+
+        Each row reserves a fixed-width check column to its left so cards
+        stay aligned whether or not the checkmark is rendered. When
+        `covered` is provided, the glyph appears only for tasks whose names
+        are in the set, marking which gaps the enclosing credential closes.
         """
+        covered = covered or set()
         return [
-            div(".cl-skill-card", style=f"--row-color:{self.theme.score_color(t.pct)}")[
-                div(".cl-skill-card-header")[
-                    span(".cl-skill-card-name")[t.name],
-                    span(".cl-skill-card-pct")[f"{t.pct:.0f}%"]
+            div(".cl-skill-row")[
+                span(".cl-skill-row-check", aria_hidden="true")[
+                    "\u2713" if t.name in covered else ""
                 ],
-                div(".cl-skill-bar")[
-                    div(".cl-skill-fill", style=f"width:{t.pct}%")
+                div(
+                    ".cl-skill-card",
+                    style=f"--row-color:{self.theme.score_color(t.pct)}"
+                )[
+                    div(".cl-skill-card-header")[
+                        span(".cl-skill-card-name")[t.name],
+                        span(".cl-skill-card-pct")[f"{t.pct:.0f}%"]
+                    ],
+                    div(".cl-skill-bar")[
+                        div(".cl-skill-fill", style=f"width:{t.pct}%")
+                    ]
                 ]
             ]
             for t in tasks
@@ -166,15 +184,7 @@ class Routes:
                         unique_cov = path.unique_coverage
                     )],
                     *rows
-                ],
-                *(
-                    [div(".cl-path-footer")[
-                        labels["coverage_footer"].format(
-                            total      = route.gap_count,
-                            unique_cov = path.unique_coverage
-                        )
-                    ]] if len(rows) > 1 else []
-                )
+                ]
             ]
             for path in paths
             for rows in [[
@@ -198,10 +208,16 @@ class Routes:
                     ],
                     div(".cl-gap-shelf-body")[
                         div(".cl-gap-shelf-inner")[
-                            *self._skill_cards(sorted(
-                                (route.gap_tasks[p] for p in route.coverage[item.label]),
-                                key = attrgetter("similarity")
-                            ))
+                            *self._skill_cards(
+                                covered = {
+                                    route.task_by_index[p].name
+                                    for p in item.positions
+                                },
+                                tasks = sorted(
+                                    (route.task_by_index[i] for i in route.coverage[item.label]),
+                                    key = attrgetter("similarity")
+                                )
+                            )
                         ]
                     ]
                 ]

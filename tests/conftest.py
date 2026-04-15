@@ -6,7 +6,7 @@ independently tappable by any test module:
 
     corpus → raw_vectors → unit_vectors → coordinates → assignments
                                   ↓                          ↓
-                           soc_vectors → job_zone_map → clusters → graph
+                   encoded_occupations → job_zone_map → clusters → graph
                                                                      ↓
                            credentials ────────────────────────→ matcher
                                                                      ↓
@@ -34,7 +34,7 @@ from chalkline.matching.matcher   import ResumeMatcher
 from chalkline.matching.schemas   import MatchResult
 from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
-from chalkline.pathways.loaders   import StakeholderReference
+from chalkline.pathways.loaders   import LaborLoader, StakeholderReference
 from chalkline.pathways.schemas   import Credential
 
 
@@ -112,6 +112,19 @@ def second_posting() -> Posting:
 
 
 @fixture
+def labor(tmp_path: Path) -> LaborLoader:
+    """
+    Empty `LaborLoader` backed by an `[]` file so every SOC title resolves
+    to a default-valued `LaborRecord` with null wage. Tests do not depend
+    on real wage values, so the empty loader keeps `Clusters` construction
+    self-contained without fixture data.
+    """
+    path = tmp_path / "labor.json"
+    path.write_text("[]")
+    return LaborLoader(path)
+
+
+@fixture
 def lexicon_dir(tmp_path: Path) -> Path:
     """
     Write synthetic lexicon files to a temporary directory.
@@ -176,6 +189,7 @@ def clusters(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
     job_zone_map    : dict[int, int],
+    labor           : LaborLoader,
     unit_vectors    : np.ndarray
 ) -> Clusters:
     """
@@ -184,28 +198,34 @@ def clusters(
     fewer entries than the synthetic embedding matrix.
     """
     cluster_ids = sorted(np.unique(assignments).tolist())
+    titles      = [f"Occupation {cid}" for cid in cluster_ids]
     items = {
         cid: Cluster(
-            cluster_id   = cid,
-            embeddings   = unit_vectors[assignments == cid],
-            job_zone     = job_zone_map[cid],
-            modal_title  = f"Title {cid}",
-            postings     = [],
-            sector       = f"Sector {cid % 2}",
-            size         = int((assignments == cid).sum()),
-            soc_title    = f"Occupation {cid}",
-            tasks        = [
+            cluster_id  = cid,
+            embeddings  = unit_vectors[assignments == cid],
+            job_zone    = job_zone_map[cid],
+            modal_title = f"Title {cid}",
+            postings    = [],
+            sector      = f"Sector {cid % 2}",
+            size        = int((assignments == cid).sum()),
+            soc_title   = titles[i],
+            tasks       = [
                 Task(name=f"Task {cid}-{i}", vector=v)
                 for i, v in enumerate(_embeddings(5, cid, unit=True))
             ]
         )
-        for cid in cluster_ids
+        for i, cid in enumerate(cluster_ids)
     }
     return Clusters(
-        centroids      = centroids,
-        items          = items,
-        soc_similarity = np.zeros((CLUSTER_COUNT, 1), dtype=np.float32),
-        vectors        = cluster_vectors
+        centroids         = centroids,
+        items             = items,
+        labor             = labor,
+        occupation_titles = titles,
+        soc_similarity    = np.eye(len(cluster_ids), dtype=np.float32),
+        softmax_tau       = 0.02,
+        vectors           = cluster_vectors,
+        wage_round        = 10,
+        wage_topk         = 3
     )
 
 

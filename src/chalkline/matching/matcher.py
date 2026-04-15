@@ -50,12 +50,13 @@ class ResumeMatcher:
     encoder  : SentenceEncoder
     svd      : TruncatedSVD
 
-    bm25             : BM25Config     = field(default_factory=BM25Config)
-    chunk_stems      : list[set[str]] = field(init=False)
-    global_threshold : float          = field(default=0.0, init=False)
-    resume_chunks    : np.ndarray     = field(init=False)
-    resume_embedding : np.ndarray     = field(init=False)
-    resume_svd       : np.ndarray     = field(init=False)
+    bm25                 : BM25Config     = field(default_factory=BM25Config)
+    chunk_stems          : list[set[str]] = field(init=False)
+    credential_threshold : float          = field(default=0.0, init=False)
+    global_threshold     : float          = field(default=0.0, init=False)
+    resume_chunks        : np.ndarray     = field(init=False)
+    resume_embedding     : np.ndarray     = field(init=False)
+    resume_svd           : np.ndarray     = field(init=False)
 
     @cached_property
     def stemmer(self):
@@ -115,6 +116,24 @@ class ResumeMatcher:
         """
         return cosine_similarity(self.resume_embedding, matrix)[0]
 
+    def _stem_gate(
+        self,
+        credentials : list,
+        task_stems  : list[set[str]]
+    ) -> np.ndarray:
+        """
+        Boolean matrix of shape `(n_credentials, n_tasks)` marking pairs
+        that share at least one content stem.
+
+        Used to gate per-task cosine similarity in credential coverage so
+        zero-lexical-overlap coincidences never clear the threshold, while
+        letting semantic strength alone rank the remaining candidates.
+        """
+        return np.array([
+            [bool(c.stems & ts) for ts in task_stems]
+            for c in credentials
+        ])
+
     def _task_similarities(self, cluster: Cluster) -> np.ndarray:
         """
         BM25-weighted per-task cosine similarity via max-pooling across
@@ -164,6 +183,35 @@ class ResumeMatcher:
         )
         return {cid: self.cluster_score(cid) for cid in self.clusters.cluster_ids}
 
+    def calibrate_coverage(self, credentials: list, vectors: np.ndarray):
+        """
+        Set `credential_threshold` to the median of stem-gated cosine over
+        every (credential, cluster-task) matchup in the corpus.
+
+        Cosine carries the semantic signal; the stem gate rejects
+        zero-lexical-overlap coincidences where a credential vector happens
+        to sit near a task in embedding space without sharing any content
+        vocabulary. BM25 magnitude is deliberately excluded because it
+        scales with `embedding_text` length and systematically favors long
+        program descriptions over short narrow certifications.
+
+        Args:
+            credentials : Credentials with cached `.stems`, typically
+                          `graph.credential_pool`.
+            vectors     : Row-stacked embedding vectors aligned with `credentials`,
+                          typically `graph.credential_vectors`.
+        """
+        if not (tasked := [c for c in self.clusters.values() if c.tasks]):
+            self.credential_threshold = 0.0
+            return
+        scores = np.concatenate([
+            cosine_similarity(vectors, cluster.task_matrix)
+            * self._stem_gate(credentials, cluster.task_stems)
+            for cluster in tasked
+        ], axis=None)
+        positive                  = scores[scores > 0]
+        self.credential_threshold = float(np.median(positive)) if positive.size else 0.0
+
     def cluster_score(self, cluster_id: int) -> float:
         """
         SVD-derived match score for one cluster, in [0, 1].
@@ -191,38 +239,36 @@ class ResumeMatcher:
     def credential_coverage(
         self,
         credentials : list,
-        destination : Cluster,
-        gap_indices : list[int]
-    ) -> dict[str, set[int]]:
+        destination : Cluster
+    ) -> dict[str, dict[int, float]]:
         """
-        Credential label to the set of gap-list positions each credential
-        covers, scored with the credential's stems and vector against the
-        objective threshold.
+        Credential label to the cluster task positions it covers, each mapped
+        to the stem-gated cosine affinity on that task. A task is considered
+        covered when gated cosine clears `credential_threshold`; keeping the
+        score lets the downstream picker rank candidates by per-task semantic
+        tightness rather than treating every passing credential as equal.
+
+        Scored against every task in `destination.tasks` so callers can
+        distinguish a credential's intrinsic offering from the subset that
+        happens to align with a particular resume's gaps.
 
         Args:
-            credentials : Must carry `.stems` and `.vector`. Rehydrate from
-                          `graph.credential_matrix` first because edge-attached copies
-                          drop the vector.
+            credentials : Must carry `.stems` and `.vector`. Typically sourced from
+                          `graph.credential_pool`.
             destination : Cluster whose tasks are being evaluated.
-            gap_indices : Positions into `destination.tasks`.
         """
         if not (scored := [c for c in credentials if c.vector is not None]):
             return {}
 
-        weights  = np.array([
-            [
-                self._bm25_score(c.stems, destination.task_stems[i])
-                for i in gap_indices
-            ]
-            for c in scored
-        ])
-        weights /= np.maximum(weights.max(axis=1, keepdims=True), 1e-12)
-        passes   = weights * cosine_similarity(
+        gated = cosine_similarity(
             np.asarray([c.vector for c in scored]),
-            destination.task_matrix[gap_indices]
-        ) >= self.global_threshold
+            destination.task_matrix
+        ) * self._stem_gate(scored, destination.task_stems)
         return {
-            c.label: {int(j) for j in np.flatnonzero(passes[i])}
+            c.label: {
+                int(j): float(gated[i, j])
+                for j in np.flatnonzero(gated[i] >= self.credential_threshold)
+            }
             for i, c in enumerate(scored)
         }
 

@@ -84,8 +84,10 @@ class PathwayMap(AnyWidget):
             JSON string suitable for the `graph_data` traitlet.
         """
         cluster_mean = matcher.calibrate()
-        geometry     = MapGeometry()
-        hops         = graph.hops_from(matched_id)
+        matcher.calibrate_coverage(graph.credential_pool, graph.credential_vectors)
+
+        geometry = MapGeometry()
+        hops     = graph.hops_from(matched_id)
 
         def in_range(wage: float | None, cid: int) -> bool:
             if cid == matched_id or wage_filter is None:
@@ -97,16 +99,15 @@ class PathwayMap(AnyWidget):
         nodes = []
         for cluster in clusters.values():
             cid  = cluster.cluster_id
-            wage = labor[cluster.soc_title].annual_median
+            wage = cluster.wage
             if not in_range(wage, cid):
                 continue
 
-            hop   = hops.get(cid)
-            title = clusters.display_title(cluster)
+            hop = hops.get(cid)
 
             nodes.append({
                 "color"      : theme.sector_background(cluster.sector),
-                "full_title" : title,
+                "full_title" : cluster.display_title,
                 "hop"        : hop,
                 "id"         : cid,
                 "match_pct"  : round(100 * cluster_mean.get(cid, 0.0)),
@@ -116,7 +117,7 @@ class PathwayMap(AnyWidget):
                     if wage else f"{cluster.size} postings"
                 ),
                 "tier"       : 1 if hop is not None and hop <= 1 else 2,
-                "title"      : title,
+                "title"      : cluster.display_title,
                 "wage"       : wage
             })
 
@@ -141,8 +142,8 @@ class PathwayMap(AnyWidget):
             "n_matches"    : len(result.reach.edges),
             "sector_color" : theme.sector_background(profile.sector),
             "size"         : profile.size,
-            "title"        : clusters.display_title(profile),
-            "wage"         : labor[profile.soc_title].annual_median
+            "title"        : profile.display_title,
+            "wage"         : profile.wage
         }
 
         return dumps({

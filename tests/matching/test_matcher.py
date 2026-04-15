@@ -19,31 +19,6 @@ class TestMatchResult:
     Validate derived properties on match results.
     """
 
-    def test_confidence_perfect_match(self):
-        """
-        When the nearest cluster is at distance 0, confidence is 100%
-        regardless of the farthest distance.
-        """
-        result = MatchResult(
-            cluster_distances = [0.0, 0.5, 1.0],
-            cluster_id        = 0,
-            reach             = Reach()
-        )
-        assert result.confidence == 100
-
-    def test_confidence_uniform_distances(self):
-        """
-        When all cluster distances are equal and nonzero, min/max
-        ratio is 1.0, producing 0% confidence because the resume
-        is equidistant to every cluster.
-        """
-        result = MatchResult(
-            cluster_distances = [0.5, 0.5, 0.5],
-            cluster_id        = 0,
-            reach             = Reach()
-        )
-        assert result.confidence == 0
-
     def test_coordinates_default_empty(self):
         """
         Coordinates default to an empty list when not provided.
@@ -130,12 +105,6 @@ class TestResumeMatcher:
         assert len(distances) == len(cluster_ids)
         assert all(d >= 0 for d in distances)
 
-    def test_confidence_range(self, match_result: MatchResult):
-        """
-        Confidence is a 0-100 integer percentage.
-        """
-        assert 0 <= match_result.confidence <= 100
-
     def test_credential_coverage_empty(
         self,
         clusters       : Clusters,
@@ -143,11 +112,10 @@ class TestResumeMatcher:
         resume_matcher : ResumeMatcher
     ):
         """
-        No credentials produces an empty coverage dict regardless
-        of gap indices.
+        No credentials produces an empty coverage dict.
         """
         target = next(c for c in clusters.values() if c.tasks)
-        assert resume_matcher.credential_coverage([], target, [0]) == {}
+        assert resume_matcher.credential_coverage([], target) == {}
 
     def test_credential_coverage_varies_by_topicality(
         self,
@@ -156,15 +124,14 @@ class TestResumeMatcher:
         resume_matcher : ResumeMatcher
     ):
         """
-        A credential whose vector aligns with the gap tasks covers
+        A credential whose vector aligns with the cluster tasks covers
         more positions than one pointed away, proving coverage sets
         vary with true topicality rather than a fixed slice.
         """
-        target        = next(c for c in clusters.values() if c.tasks)
-        gap_indices   = list(range(len(target.tasks)))
-        aligned       = target.task_matrix.mean(axis=0)
-        aligned       = aligned / np.linalg.norm(aligned)
-        opposite      = -aligned
+        target   = next(c for c in clusters.values() if c.tasks)
+        aligned  = target.task_matrix.mean(axis=0)
+        aligned  = aligned / np.linalg.norm(aligned)
+        opposite = -aligned
 
         credentials = [
             Credential(
@@ -180,13 +147,13 @@ class TestResumeMatcher:
                 vector         = opposite.tolist()
             )
         ]
-        resume_matcher.global_threshold = 0.1
+        resume_matcher.credential_threshold = 1e-6
         coverage = resume_matcher.credential_coverage(
             credentials = credentials,
-            destination = target,
-            gap_indices = gap_indices
+            destination = target
         )
         assert len(coverage["Aligned"]) > len(coverage["Diffuse"])
+        assert all(0 <= idx < len(target.tasks) for idx in coverage["Aligned"])
 
     def test_global_threshold(
         self,
