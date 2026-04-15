@@ -45,17 +45,21 @@ EMBEDDING_DIM   = 16
 FIXTURES        = Path(__file__).resolve().parent / "fixtures"
 
 
-_load = lambda schema, path: TypeAdapter(schema).validate_json(
-    (FIXTURES / path).read_bytes()
-)
-
-
 def _embeddings(rows: int, seed: int, unit: bool = False) -> np.ndarray:
     """
     Deterministic random embeddings for test fixtures.
     """
     vectors = np.random.RandomState(seed).randn(rows, EMBEDDING_DIM).astype(np.float32)
     return np.asarray(normalize(vectors)) if unit else vectors
+
+
+def _load(schema: Any, path: str) -> Any:
+    """
+    Validate fixture JSON against a Pydantic schema or container type.
+    """
+    return TypeAdapter(schema).validate_json(
+        (FIXTURES / path).read_bytes()
+    )
 
 
 def _postings() -> list[Posting]:
@@ -228,7 +232,10 @@ def credentials() -> list[Credential]:
             kind           = "apprenticeship" if i < 4 else "program",
             label          = f"Credential {i}",
             metadata       = (
-                {"min_hours": 8000, "rapids_code": f"0{i}"}
+                {
+                    "min_hours"   : 8000,
+                    "rapids_code" : f"0{i}"
+                }
                 if i < 4
                 else {
                     "credential"  : "AAS",
@@ -287,9 +294,8 @@ def raw_vectors() -> np.ndarray:
 
 @fixture
 def resume_matcher(
-    clusters      : Clusters,
-    pathway_graph : CareerPathwayGraph,
-    svd           : TruncatedSVD
+    clusters : Clusters,
+    svd      : TruncatedSVD
 ) -> ResumeMatcher:
     """
     Resume matcher built from synthetic embeddings with mock encoder.
@@ -300,7 +306,6 @@ def resume_matcher(
     return ResumeMatcher(
         clusters = clusters,
         encoder  = mock_encoder,
-        graph    = pathway_graph,
         svd      = svd
     )
 
@@ -311,7 +316,7 @@ def svd(unit_vectors: np.ndarray) -> TruncatedSVD:
     Fitted TruncatedSVD for resume projection tests.
     """
     return TruncatedSVD(
-        n_components = COMPONENT_COUNT, 
+        n_components = COMPONENT_COUNT,
         random_state = 42
     ).fit(unit_vectors)
 
@@ -380,19 +385,19 @@ def posting_factory() -> Callable:
 
 
 @fixture
-def routes(layout: Layout, theme: Theme) -> Routes:
-    """
-    Route card builder wired to the shared layout and theme.
-    """
-    return Routes(layout, theme)
-
-
-@fixture
 def reference() -> StakeholderReference:
     """
     Stakeholder reference data from display fixture JSONs.
     """
     return StakeholderReference(FIXTURES / "display")
+
+
+@fixture
+def routes(layout: Layout, theme: Theme) -> Routes:
+    """
+    Route card builder wired to the shared layout and theme.
+    """
+    return Routes(layout, theme)
 
 
 @fixture

@@ -149,4 +149,6 @@ class Chalkline:
             tmp.flush()
             text = clean_text(extract_pdf(Path(tmp.name), label=label))
 
-        return self.matcher.match(text)
+        result       = self.matcher.match(text)
+        result.reach = self.graph.reach(result.cluster_id)
+        return result

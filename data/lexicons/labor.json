@@ -106,7 +106,7 @@
       "annual_75": 120600,
       "annual_90": 153700,
       "annual_median": 95020,
-      "employment": 700,
+      "employment": 700.0,
       "hourly_10": 29.81,
       "hourly_25": 34.98,
       "hourly_75": 57.98,
@@ -223,7 +223,7 @@
       "annual_75": 132760,
       "annual_90": 167810,
       "annual_median": 104060,
-      "employment": 1720,
+      "employment": 1720.0,
       "hourly_10": 30.41,
       "hourly_25": 41.16,
       "hourly_75": 63.83,
@@ -338,12 +338,127 @@
       "annual_75": 170270,
       "annual_90": 204280,
       "annual_median": 140430,
-      "employment": 780,
+      "employment": 780.0,
       "hourly_10": 50.92,
       "hourly_25": 58.39,
       "hourly_75": 81.86,
       "hourly_90": 98.21,
       "hourly_median": 67.51
+    }
+  },
+  {
+    "soc_code": "13-1051.00",
+    "soc_title": "Cost Estimators",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "11-9021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "11-9041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "13-1023.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "13-1081.01",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "13-1082.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-2051.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-2071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2112.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-2112.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-3012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3026.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3027.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "41-9031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "43-5061.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-1011.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4011.01",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 221.4,
+      "base_year": 2024,
+      "change_number": -9.3,
+      "change_percent": -4.2,
+      "education": "Bachelor's degree",
+      "median_annual_wage": 77070,
+      "openings": 16.9,
+      "projected_employment": 212.1,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 42790,
+      "annual_25": 56100,
+      "annual_75": 84030,
+      "annual_90": 106960,
+      "annual_median": 73090,
+      "employment": 780.0,
+      "hourly_10": 20.57,
+      "hourly_25": 26.97,
+      "hourly_75": 40.4,
+      "hourly_90": 51.42,
+      "hourly_median": 35.14
     }
   },
   {
@@ -456,12 +571,127 @@
       "annual_75": 109020,
       "annual_90": 137700,
       "annual_median": 85420,
-      "employment": 2350,
+      "employment": 2350.0,
       "hourly_10": 28.8,
       "hourly_25": 35.41,
       "hourly_75": 52.42,
       "hourly_90": 66.2,
       "hourly_median": 41.07
+    }
+  },
+  {
+    "soc_code": "17-1011.00",
+    "soc_title": "Architects",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "11-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "11-9021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "11-9041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "11-9199.10",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "13-1082.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "13-1199.05",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-1012.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-2112.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-2199.11",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "25-1031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "27-1021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "27-1025.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-1011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-1011.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9071.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 123.6,
+      "base_year": 2024,
+      "change_number": 4.8,
+      "change_percent": 3.9,
+      "education": "Bachelor's degree",
+      "median_annual_wage": 96690,
+      "openings": 7.8,
+      "projected_employment": 128.4,
+      "projected_year": 2034,
+      "training": "Internship/residency"
+    },
+    "wages": {
+      "annual_10": 48410,
+      "annual_25": 64020,
+      "annual_75": 102360,
+      "annual_90": 127560,
+      "annual_median": 79600,
+      "employment": 500.0,
+      "hourly_10": 23.27,
+      "hourly_25": 30.78,
+      "hourly_75": 49.21,
+      "hourly_90": 61.33,
+      "hourly_median": 38.27
     }
   },
   {
@@ -573,7 +803,7 @@
       "annual_75": 111320,
       "annual_90": 132150,
       "annual_median": 94880,
-      "employment": 1410,
+      "employment": 1410.0,
       "hourly_10": 31.08,
       "hourly_25": 37.58,
       "hourly_75": 53.52,
@@ -674,6 +904,236 @@
     },
     "projections": null,
     "wages": null
+  },
+  {
+    "soc_code": "17-3011.00",
+    "soc_title": "Architectural and Civil Drafters",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "11-9021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "11-9041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "15-1252.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-1011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-2071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2072.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2112.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3012.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3013.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3023.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-3027.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3028.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "27-1021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-4192.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9162.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 110.5,
+      "base_year": 2024,
+      "change_number": 4.6,
+      "change_percent": 4.1,
+      "education": "Associate's degree",
+      "median_annual_wage": 64280,
+      "openings": 10.0,
+      "projected_employment": 115.1,
+      "projected_year": 2034,
+      "training": null
+    },
+    "wages": {
+      "annual_10": 47900,
+      "annual_25": 59460,
+      "annual_75": 76370,
+      "annual_90": 83850,
+      "annual_median": 70760,
+      "employment": 690.0,
+      "hourly_10": 23.03,
+      "hourly_25": 28.59,
+      "hourly_75": 36.72,
+      "hourly_90": 40.31,
+      "hourly_median": 34.02
+    }
+  },
+  {
+    "soc_code": "17-3022.00",
+    "soc_title": "Civil Engineering Technicians",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "11-9021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "11-9041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "13-1082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-1011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2051.01",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-2112.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3012.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3013.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-3023.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-3025.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-3026.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "17-3027.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-3028.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-1011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-1011.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-6041.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 64.9,
+      "base_year": 2024,
+      "change_number": 1.4,
+      "change_percent": 2.1,
+      "education": "Associate's degree",
+      "median_annual_wage": 64200,
+      "openings": 5.5,
+      "projected_employment": 66.2,
+      "projected_year": 2034,
+      "training": null
+    },
+    "wages": {
+      "annual_10": 48250,
+      "annual_25": 53910,
+      "annual_75": 69580,
+      "annual_90": 80640,
+      "annual_median": 61860,
+      "employment": 310.0,
+      "hourly_10": 23.2,
+      "hourly_25": 25.92,
+      "hourly_75": 33.45,
+      "hourly_90": 38.77,
+      "hourly_median": 29.74
+    }
   },
   {
     "soc_code": "47-1011.00",
@@ -784,12 +1244,357 @@
       "annual_75": 91170,
       "annual_90": 108220,
       "annual_median": 75720,
-      "employment": 3230,
+      "employment": 3230.0,
       "hourly_10": 25.5,
       "hourly_25": 29.75,
       "hourly_75": 43.83,
       "hourly_90": 52.03,
       "hourly_median": 36.41
+    }
+  },
+  {
+    "soc_code": "47-2011.00",
+    "soc_title": "Boilermakers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-2092.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9098.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-2023.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-4041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-4121.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-4122.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4192.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-8021.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 10.4,
+      "base_year": 2024,
+      "change_number": -0.2,
+      "change_percent": -2.4,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 73340,
+      "openings": 0.8,
+      "projected_employment": 10.1,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_median": 78005,
+      "annual_10": 65430,
+      "annual_25": 66255,
+      "annual_75": 86190,
+      "annual_90": 88790,
+      "hourly_median": 38,
+      "hourly_10": 31,
+      "hourly_25": 32,
+      "hourly_75": 41,
+      "hourly_90": 43,
+      "employment": 55
+    }
+  },
+  {
+    "soc_code": "47-2021.00",
+    "soc_title": "Brickmasons & Blockmasons",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2022.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2171.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9045.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 74.1,
+      "base_year": 2024,
+      "change_number": 2.4,
+      "change_percent": 3.2,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 60800,
+      "openings": 5.6,
+      "projected_employment": 76.4,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_10": 38550,
+      "annual_25": 54730,
+      "annual_75": 73300,
+      "annual_90": 74890,
+      "annual_median": 67220,
+      "employment": 180.0,
+      "hourly_10": 18.53,
+      "hourly_25": 26.31,
+      "hourly_75": 35.24,
+      "hourly_90": 36.0,
+      "hourly_median": 32.32
+    }
+  },
+  {
+    "soc_code": "47-2022.00",
+    "soc_title": "Stonemasons",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2171.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4091.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-5051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9045.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Primary-Short"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 12.1,
+      "base_year": 2024,
+      "change_number": -0.4,
+      "change_percent": -3.0,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 51990,
+      "openings": 0.8,
+      "projected_employment": 11.8,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_10": 40330,
+      "annual_25": 44820,
+      "annual_75": 62400,
+      "annual_90": 76150,
+      "annual_median": 58580,
+      "employment": 240.0,
+      "hourly_10": 19.39,
+      "hourly_25": 21.55,
+      "hourly_75": 30.0,
+      "hourly_90": 36.61,
+      "hourly_median": 28.16
     }
   },
   {
@@ -901,12 +1706,824 @@
       "annual_75": 64110,
       "annual_90": 75220,
       "annual_median": 59190,
-      "employment": 4830,
+      "employment": 4830.0,
       "hourly_10": 22.44,
       "hourly_25": 23.88,
       "hourly_75": 30.82,
       "hourly_90": 36.17,
       "hourly_median": 28.46
+    }
+  },
+  {
+    "soc_code": "47-2041.00",
+    "soc_title": "Carpet Installers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2043.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2142.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4091.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-6093.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 20.3,
+      "base_year": 2024,
+      "change_number": -1.9,
+      "change_percent": -9.6,
+      "education": "No formal educational credential",
+      "median_annual_wage": 49850,
+      "openings": 1.1,
+      "projected_employment": 18.3,
+      "projected_year": 2034,
+      "training": "Short-term on-the-job training"
+    },
+    "wages": {
+      "annual_median": 48660,
+      "annual_10": 45930,
+      "annual_25": 47160,
+      "annual_75": 61120,
+      "annual_90": 76010,
+      "hourly_median": 23,
+      "hourly_10": 22,
+      "hourly_25": 23,
+      "hourly_75": 29,
+      "hourly_90": 37,
+      "employment": 70
+    }
+  },
+  {
+    "soc_code": "47-2042.00",
+    "soc_title": "Floor Layers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2043.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2142.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-4091.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 33.7,
+      "base_year": 2024,
+      "change_number": 3.2,
+      "change_percent": 9.5,
+      "education": "No formal educational credential",
+      "median_annual_wage": 54340,
+      "openings": 2.7,
+      "projected_employment": 36.9,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 35330,
+      "annual_25": 37360,
+      "annual_75": 59240,
+      "annual_90": 60740,
+      "annual_median": 48300,
+      "employment": 70.0,
+      "hourly_10": 16.99,
+      "hourly_25": 17.96,
+      "hourly_75": 28.48,
+      "hourly_90": 29.2,
+      "hourly_median": 23.22
+    }
+  },
+  {
+    "soc_code": "47-2043.00",
+    "soc_title": "Floor Sanders & Finishers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-7042.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9022.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9123.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9124.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 5.6,
+      "base_year": 2024,
+      "change_number": 0.1,
+      "change_percent": 2.6,
+      "education": "No formal educational credential",
+      "median_annual_wage": 49150,
+      "openings": 0.4,
+      "projected_employment": 5.8,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_median": 47020,
+      "annual_10": 34860,
+      "annual_25": 44370,
+      "annual_75": 55740,
+      "annual_90": 62060,
+      "hourly_median": 23,
+      "hourly_10": 17,
+      "hourly_25": 21,
+      "hourly_75": 27,
+      "hourly_90": 30,
+      "employment": null
+    }
+  },
+  {
+    "soc_code": "47-2044.00",
+    "soc_title": "Tile & Stone Setters",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2022.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2043.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-4091.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 52.6,
+      "base_year": 2024,
+      "change_number": 5.3,
+      "change_percent": 10.1,
+      "education": "No formal educational credential",
+      "median_annual_wage": 52240,
+      "openings": 4.2,
+      "projected_employment": 58.0,
+      "projected_year": 2034,
+      "training": "Long-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 53760,
+      "annual_25": 58690,
+      "annual_75": 75170,
+      "annual_90": 81510,
+      "annual_median": 68470,
+      "employment": null,
+      "hourly_10": 25.85,
+      "hourly_25": 28.22,
+      "hourly_75": 36.14,
+      "hourly_90": 39.19,
+      "hourly_median": 32.92
+    }
+  },
+  {
+    "soc_code": "47-2051.00",
+    "soc_title": "Cement Masons & Finishers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2022.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2071.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2171.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-4091.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9045.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-4071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 206.7,
+      "base_year": 2024,
+      "change_number": 3.8,
+      "change_percent": 1.8,
+      "education": "No formal educational credential",
+      "median_annual_wage": 54660,
+      "openings": 14.3,
+      "projected_employment": 210.4,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 36270,
+      "annual_25": 47890,
+      "annual_75": 71210,
+      "annual_90": 89190,
+      "annual_median": 53730,
+      "employment": 470.0,
+      "hourly_10": 17.44,
+      "hourly_25": 23.02,
+      "hourly_75": 34.24,
+      "hourly_90": 42.88,
+      "hourly_median": 25.83
+    }
+  },
+  {
+    "soc_code": "47-2053.00",
+    "soc_title": "Terrazzo Workers & Finishers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2022.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2043.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-4091.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9045.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-4071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Primary-Long"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 1.5,
+      "base_year": 2024,
+      "change_number": -0.2,
+      "change_percent": -11.1,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 57260,
+      "openings": 0.1,
+      "projected_employment": 1.3,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_median": 52660,
+      "annual_10": 51790,
+      "annual_25": 52530,
+      "annual_75": 59040,
+      "annual_90": 59930,
+      "hourly_median": 25,
+      "hourly_10": 25,
+      "hourly_25": 25,
+      "hourly_75": 28,
+      "hourly_90": 29,
+      "employment": null
+    }
+  },
+  {
+    "soc_code": "47-2061.00",
+    "soc_title": "Construction Laborers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Many Openings",
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2071.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2073.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2151.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-5022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9043.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-7042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7062.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7063.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 1457.0,
+      "base_year": 2024,
+      "change_number": 106.5,
+      "change_percent": 7.3,
+      "education": "No formal educational credential",
+      "median_annual_wage": 46730,
+      "openings": 129.4,
+      "projected_employment": 1563.4,
+      "projected_year": 2034,
+      "training": "Short-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 36330,
+      "annual_25": 39740,
+      "annual_75": 49810,
+      "annual_90": 59410,
+      "annual_median": 45540,
+      "employment": 3180.0,
+      "hourly_10": 17.47,
+      "hourly_25": 19.11,
+      "hourly_75": 23.95,
+      "hourly_90": 28.56,
+      "hourly_median": 21.9
     }
   },
   {
@@ -1016,7 +2633,7 @@
       "annual_75": 65400,
       "annual_90": 80180,
       "annual_median": 54340,
-      "employment": 370,
+      "employment": 370.0,
       "hourly_10": 19.87,
       "hourly_25": 23.88,
       "hourly_75": 31.44,
@@ -1125,7 +2742,19 @@
       "projected_year": 2034,
       "training": "Moderate-term on-the-job training"
     },
-    "wages": null
+    "wages": {
+      "annual_median": 113360,
+      "annual_10": 85020,
+      "annual_25": 112040,
+      "annual_75": 121510,
+      "annual_90": 121590,
+      "hourly_median": 54,
+      "hourly_10": 41,
+      "hourly_25": 54,
+      "hourly_75": 58,
+      "hourly_90": 58,
+      "employment": 220
+    }
   },
   {
     "soc_code": "47-2073.00",
@@ -1234,7 +2863,7 @@
       "annual_75": 61380,
       "annual_90": 75540,
       "annual_median": 55170,
-      "employment": 1980,
+      "employment": 1980.0,
       "hourly_10": 20.74,
       "hourly_25": 23.08,
       "hourly_75": 29.51,
@@ -1349,12 +2978,127 @@
       "annual_75": 62430,
       "annual_90": 68410,
       "annual_median": 60060,
-      "employment": 310,
+      "employment": 310.0,
       "hourly_10": 23.0,
       "hourly_25": 24.45,
       "hourly_75": 30.01,
       "hourly_90": 32.89,
       "hourly_median": 28.87
+    }
+  },
+  {
+    "soc_code": "47-2082.00",
+    "soc_title": "Tapers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2043.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2171.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 15.6,
+      "base_year": 2024,
+      "change_number": 0.0,
+      "change_percent": 0.1,
+      "education": "No formal educational credential",
+      "median_annual_wage": 64700,
+      "openings": 1.1,
+      "projected_employment": 15.6,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 46100,
+      "annual_25": 48750,
+      "annual_75": 55900,
+      "annual_90": 57650,
+      "annual_median": 51880,
+      "employment": 50.0,
+      "hourly_10": 22.16,
+      "hourly_25": 23.44,
+      "hourly_75": 26.88,
+      "hourly_90": 27.72,
+      "hourly_median": 24.94
     }
   },
   {
@@ -1467,12 +3211,242 @@
       "annual_75": 77480,
       "annual_90": 94290,
       "annual_median": 67820,
-      "employment": 3320,
+      "employment": 3320.0,
       "hourly_10": 25.29,
       "hourly_25": 29.9,
       "hourly_75": 37.25,
       "hourly_90": 45.33,
       "hourly_median": 32.61
+    }
+  },
+  {
+    "soc_code": "47-2121.00",
+    "soc_title": "Glaziers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-3022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-7011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.04",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 60.5,
+      "base_year": 2024,
+      "change_number": 2.0,
+      "change_percent": 3.3,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 55440,
+      "openings": 5.1,
+      "projected_employment": 62.5,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_10": 37060,
+      "annual_25": 45490,
+      "annual_75": 54730,
+      "annual_90": 64420,
+      "annual_median": 51360,
+      "employment": 90.0,
+      "hourly_10": 17.82,
+      "hourly_25": 21.87,
+      "hourly_75": 26.31,
+      "hourly_90": 30.97,
+      "hourly_median": 24.69
+    }
+  },
+  {
+    "soc_code": "47-2131.00",
+    "soc_title": "Insulation Workers, Envelope",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2151.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2152.04",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 40.2,
+      "base_year": 2024,
+      "change_number": 1.5,
+      "change_percent": 3.8,
+      "education": "No formal educational credential",
+      "median_annual_wage": 48680,
+      "openings": 3.4,
+      "projected_employment": 41.7,
+      "projected_year": 2034,
+      "training": "Short-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 39000,
+      "annual_25": 46840,
+      "annual_75": 60940,
+      "annual_90": 69930,
+      "annual_median": 58750,
+      "employment": 360.0,
+      "hourly_10": 18.75,
+      "hourly_25": 22.52,
+      "hourly_75": 29.3,
+      "hourly_90": 33.62,
+      "hourly_median": 28.24
     }
   },
   {
@@ -1584,12 +3558,127 @@
       "annual_75": 61980,
       "annual_90": 71850,
       "annual_median": 61980,
-      "employment": 430,
+      "employment": 430.0,
       "hourly_10": 23.43,
       "hourly_25": 24.94,
       "hourly_75": 29.8,
       "hourly_90": 34.54,
       "hourly_median": 29.8
+    }
+  },
+  {
+    "soc_code": "47-2141.00",
+    "soc_title": "Painters",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2142.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3014.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3016.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-9123.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-9124.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 342.2,
+      "base_year": 2024,
+      "change_number": 13.0,
+      "change_percent": 3.8,
+      "education": "No formal educational credential",
+      "median_annual_wage": 48660,
+      "openings": 28.1,
+      "projected_employment": 355.2,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 45430,
+      "annual_25": 48420,
+      "annual_75": 61540,
+      "annual_90": 73640,
+      "annual_median": 56270,
+      "employment": 1950.0,
+      "hourly_10": 21.84,
+      "hourly_25": 23.28,
+      "hourly_75": 29.59,
+      "hourly_90": 35.41,
+      "hourly_median": 27.06
     }
   },
   {
@@ -1699,7 +3788,7 @@
       "annual_75": 62900,
       "annual_90": 89850,
       "annual_median": 59020,
-      "employment": 90,
+      "employment": 90.0,
       "hourly_10": 22.29,
       "hourly_25": 23.29,
       "hourly_75": 30.24,
@@ -1816,12 +3905,127 @@
       "annual_75": 75320,
       "annual_90": 80380,
       "annual_median": 61890,
-      "employment": 2480,
+      "employment": 2480.0,
       "hourly_10": 22.98,
       "hourly_25": 28.17,
       "hourly_75": 36.21,
       "hourly_90": 38.65,
       "hourly_median": 29.76
+    }
+  },
+  {
+    "soc_code": "47-2161.00",
+    "soc_title": "Plasterers & Stucco Masons",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2141.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3014.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3016.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9123.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 24.2,
+      "base_year": 2024,
+      "change_number": 1.0,
+      "change_percent": 4.1,
+      "education": "No formal educational credential",
+      "median_annual_wage": 56020,
+      "openings": 1.9,
+      "projected_employment": 25.2,
+      "projected_year": 2034,
+      "training": "Long-term on-the-job training"
+    },
+    "wages": {
+      "annual_median": 72795,
+      "annual_10": 54010,
+      "annual_25": 57645,
+      "annual_75": 84520,
+      "annual_90": 90275,
+      "hourly_median": 35,
+      "hourly_10": 26,
+      "hourly_25": 28,
+      "hourly_75": 41,
+      "hourly_90": 43,
+      "employment": 150
     }
   },
   {
@@ -1930,6 +4134,238 @@
     "wages": null
   },
   {
+    "soc_code": "47-2181.00",
+    "soc_title": "Roofers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2082.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2121.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-3014.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3016.00",
+          "tier": "Primary-Short"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 166.7,
+      "base_year": 2024,
+      "change_number": 9.8,
+      "change_percent": 5.9,
+      "education": "No formal educational credential",
+      "median_annual_wage": 50970,
+      "openings": 12.7,
+      "projected_employment": 176.5,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 43330,
+      "annual_25": 46900,
+      "annual_75": 59660,
+      "annual_90": 64470,
+      "annual_median": 49990,
+      "employment": 600.0,
+      "hourly_10": 20.83,
+      "hourly_25": 22.55,
+      "hourly_75": 28.69,
+      "hourly_90": 30.99,
+      "hourly_median": 24.03
+    }
+  },
+  {
+    "soc_code": "47-2211.00",
+    "soc_title": "Sheet Metal Workers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2171.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9044.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-2022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-4061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-4111.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4122.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4192.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-7042.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 127.0,
+      "base_year": 2024,
+      "change_number": 3.1,
+      "change_percent": 2.4,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 60850,
+      "openings": 10.6,
+      "projected_employment": 130.1,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_10": 42210,
+      "annual_25": 50210,
+      "annual_75": 64420,
+      "annual_90": 73590,
+      "annual_median": 60320,
+      "employment": 880.0,
+      "hourly_10": 20.29,
+      "hourly_25": 24.14,
+      "hourly_75": 30.97,
+      "hourly_90": 35.38,
+      "hourly_median": 29.0
+    }
+  },
+  {
     "soc_code": "47-2221.00",
     "soc_title": "Structural Iron and Steel Workers",
     "outlook": {
@@ -2036,12 +4472,244 @@
       "annual_75": 70570,
       "annual_90": 73410,
       "annual_median": 62730,
-      "employment": 780,
+      "employment": 780.0,
       "hourly_10": 23.54,
       "hourly_25": 30.16,
       "hourly_75": 33.93,
       "hourly_90": 35.3,
       "hourly_median": 30.16
+    }
+  },
+  {
+    "soc_code": "47-2231.00",
+    "soc_title": "Solar PV Installers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "17-2071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2199.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2199.10",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2199.11",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "27-4015.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "41-4011.07",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-1011.03",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2111.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2152.04",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-2092.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2093.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-2094.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-2095.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9071.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9099.01",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-8013.04",
+          "tier": "Primary-Long"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 28.6,
+      "base_year": 2024,
+      "change_number": 12.0,
+      "change_percent": 42.1,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 51860,
+      "openings": 4.1,
+      "projected_employment": 40.6,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_median": 64230,
+      "annual_10": 47620,
+      "annual_25": 52000,
+      "annual_75": 64650,
+      "annual_90": 71470,
+      "hourly_median": 31,
+      "hourly_10": 23,
+      "hourly_25": 25,
+      "hourly_75": 31,
+      "hourly_90": 34,
+      "employment": 60
+    }
+  },
+  {
+    "soc_code": "47-4011.00",
+    "soc_title": "Construction Inspectors",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "11-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "11-9021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "13-1041.04",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "17-1011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2111.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2112.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-3022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "19-5011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "33-2021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-1011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-1011.03",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2111.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-4011.01",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9071.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-9061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-6051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-6051.01",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-6051.07",
+          "tier": "Primary-Short"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 147.6,
+      "base_year": 2024,
+      "change_number": -1.2,
+      "change_percent": -0.8,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 72120,
+      "openings": 14.8,
+      "projected_employment": 146.5,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 43680,
+      "annual_25": 57160,
+      "annual_75": 78060,
+      "annual_90": 86240,
+      "annual_median": 65670,
+      "employment": 710.0,
+      "hourly_10": 21.0,
+      "hourly_25": 27.48,
+      "hourly_75": 37.53,
+      "hourly_90": 41.46,
+      "hourly_median": 31.57
     }
   },
   {
@@ -2153,12 +4821,129 @@
       "annual_75": 146830,
       "annual_90": 150400,
       "annual_median": 138520,
-      "employment": 130,
+      "employment": 130.0,
       "hourly_10": 23.88,
       "hourly_25": 40.76,
       "hourly_75": 70.59,
       "hourly_90": 72.31,
       "hourly_median": 66.59
+    }
+  },
+  {
+    "soc_code": "47-4031.00",
+    "soc_title": "Fence Erectors",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2111.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2132.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2151.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2171.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2211.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-4061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4192.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 26.4,
+      "base_year": 2024,
+      "change_number": 1.2,
+      "change_percent": 4.6,
+      "education": "No formal educational credential",
+      "median_annual_wage": 46940,
+      "openings": 2.3,
+      "projected_employment": 27.6,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 35360,
+      "annual_25": 37670,
+      "annual_75": 60270,
+      "annual_90": 71700,
+      "annual_median": 49850,
+      "employment": null,
+      "hourly_10": 17.0,
+      "hourly_25": 18.11,
+      "hourly_75": 28.97,
+      "hourly_90": 34.47,
+      "hourly_median": 23.97
     }
   },
   {
@@ -2268,7 +5053,7 @@
       "annual_75": 50460,
       "annual_90": 57720,
       "annual_median": 47380,
-      "employment": 1450,
+      "employment": 1450.0,
       "hourly_10": 18.51,
       "hourly_25": 20.41,
       "hourly_75": 24.26,
@@ -2377,6 +5162,921 @@
       "projected_year": 2034,
       "training": "Moderate-term on-the-job training"
     },
+    "wages": {
+      "annual_median": 82840,
+      "annual_10": 61200,
+      "annual_25": 76590,
+      "annual_75": 86110,
+      "annual_90": 99900,
+      "hourly_median": 40,
+      "hourly_10": 29,
+      "hourly_25": 37,
+      "hourly_75": 41,
+      "hourly_90": 48,
+      "employment": 390
+    }
+  },
+  {
+    "soc_code": "47-4091.00",
+    "soc_title": "Segmental Pavers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2021.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2022.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2043.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2053.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2071.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2081.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2151.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2161.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2181.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-4061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-5051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-9195.03",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": null,
     "wages": null
+  },
+  {
+    "soc_code": "49-9021.00",
+    "soc_title": "HVAC Mechanics & Installers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "17-2141.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "17-2199.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2131.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2152.04",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-2092.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-2093.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2094.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-3023.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9012.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9031.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9071.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9098.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9099.01",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-8013.03",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-8021.00",
+          "tier": "Primary-Short"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 425.2,
+      "base_year": 2024,
+      "change_number": 34.5,
+      "change_percent": 8.1,
+      "education": "Postsecondary nondegree award",
+      "median_annual_wage": 59810,
+      "openings": 40.1,
+      "projected_employment": 459.7,
+      "projected_year": 2034,
+      "training": "Long-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 47590,
+      "annual_25": 52950,
+      "annual_75": 74240,
+      "annual_90": 80330,
+      "annual_median": 62130,
+      "employment": 2110.0,
+      "hourly_10": 22.88,
+      "hourly_25": 25.46,
+      "hourly_75": 35.69,
+      "hourly_90": 38.62,
+      "hourly_median": 29.87
+    }
+  },
+  {
+    "soc_code": "49-9044.00",
+    "soc_title": "Millwrights",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "17-3028.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2073.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2092.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-3041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-3042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9043.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9071.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9096.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9098.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-2022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2023.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2031.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4122.00",
+          "tier": "Primary-Long"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 41.3,
+      "base_year": 2024,
+      "change_number": 0.0,
+      "change_percent": 0.0,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 65170,
+      "openings": 3.6,
+      "projected_employment": 41.3,
+      "projected_year": 2034,
+      "training": "Apprenticeship"
+    },
+    "wages": {
+      "annual_10": 46670,
+      "annual_25": 54720,
+      "annual_75": 77990,
+      "annual_90": 84850,
+      "annual_median": 64500,
+      "employment": 330.0,
+      "hourly_10": 22.44,
+      "hourly_25": 26.31,
+      "hourly_75": 37.5,
+      "hourly_90": 40.79,
+      "hourly_median": 31.01
+    }
+  },
+  {
+    "soc_code": "49-9051.00",
+    "soc_title": "Power-Line Installers & Repairers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Rapid Growth"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "47-2073.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2111.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2151.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3013.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-4061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2092.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-2093.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-2095.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9052.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9096.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9097.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9098.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-8012.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "53-7041.00",
+          "tier": "Primary-Short"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 127.4,
+      "base_year": 2024,
+      "change_number": 8.4,
+      "change_percent": 6.6,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 92560,
+      "openings": 10.7,
+      "projected_employment": 135.8,
+      "projected_year": 2034,
+      "training": "Long-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 48950,
+      "annual_25": 65660,
+      "annual_75": 103030,
+      "annual_90": 116070,
+      "annual_median": 83030,
+      "employment": 860.0,
+      "hourly_10": 23.54,
+      "hourly_25": 31.57,
+      "hourly_75": 49.54,
+      "hourly_90": 55.8,
+      "hourly_median": 39.92
+    }
+  },
+  {
+    "soc_code": "49-9071.00",
+    "soc_title": "General Maintenance Workers",
+    "outlook": {
+      "bright_outlook": true,
+      "outlook_reasons": [
+        "Many Openings"
+      ],
+      "related_occupations": [
+        {
+          "soc_code": "11-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2152.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-3013.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-3015.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2092.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2093.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-2094.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-3041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-3042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9012.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9021.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9043.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9098.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-2031.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-8013.04",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-8021.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 1629.7,
+      "base_year": 2024,
+      "change_number": 62.4,
+      "change_percent": 3.8,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 48620,
+      "openings": 159.8,
+      "projected_employment": 1692.1,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 36660,
+      "annual_25": 42060,
+      "annual_75": 59090,
+      "annual_90": 73020,
+      "annual_median": 48590,
+      "employment": 5440.0,
+      "hourly_10": 17.62,
+      "hourly_25": 20.22,
+      "hourly_75": 28.41,
+      "hourly_90": 35.11,
+      "hourly_median": 23.36
+    }
+  },
+  {
+    "soc_code": "49-9096.00",
+    "soc_title": "Riggers",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "27-4015.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2072.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2073.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-5022.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-5071.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-3042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9043.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9044.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9098.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-2041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-4122.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7042.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-7031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-7051.00",
+          "tier": "Primary-Short"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 24.6,
+      "base_year": 2024,
+      "change_number": 0.8,
+      "change_percent": 3.2,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 62060,
+      "openings": 2.5,
+      "projected_employment": 25.4,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 53020,
+      "annual_25": 60590,
+      "annual_75": 71650,
+      "annual_90": 78540,
+      "annual_median": 63340,
+      "employment": 340.0,
+      "hourly_10": 25.49,
+      "hourly_25": 29.13,
+      "hourly_75": 34.45,
+      "hourly_90": 37.76,
+      "hourly_median": 30.45
+    }
+  },
+  {
+    "soc_code": "53-7021.00",
+    "soc_title": "Crane & Tower Operators",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2072.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2073.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-2221.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-5022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-5041.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-5044.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-3042.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9043.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9044.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9096.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "51-2011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7042.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7041.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-7051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-7062.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7063.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7121.00",
+          "tier": "Primary-Long"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 42.3,
+      "base_year": 2024,
+      "change_number": 1.3,
+      "change_percent": 3.0,
+      "education": "High school diploma or equivalent",
+      "median_annual_wage": 66370,
+      "openings": 3.8,
+      "projected_employment": 43.5,
+      "projected_year": 2034,
+      "training": "Moderate-term on-the-job training"
+    },
+    "wages": {
+      "annual_10": 44090,
+      "annual_25": 46370,
+      "annual_75": 73310,
+      "annual_90": 85200,
+      "annual_median": 61320,
+      "employment": 430.0,
+      "hourly_10": 21.2,
+      "hourly_25": 22.3,
+      "hourly_75": 35.24,
+      "hourly_90": 40.96,
+      "hourly_median": 29.48
+    }
+  },
+  {
+    "soc_code": "53-7041.00",
+    "soc_title": "Hoist & Winch Operators",
+    "outlook": {
+      "bright_outlook": false,
+      "outlook_reasons": [],
+      "related_occupations": [
+        {
+          "soc_code": "47-2061.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-2072.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "47-2073.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-5022.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "47-5044.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "47-5071.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-3042.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9041.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9043.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "49-9044.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9051.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "49-9096.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "51-4034.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "51-7042.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7011.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7021.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-7031.00",
+          "tier": "Supplemental"
+        },
+        {
+          "soc_code": "53-7051.00",
+          "tier": "Primary-Short"
+        },
+        {
+          "soc_code": "53-7062.00",
+          "tier": "Primary-Long"
+        },
+        {
+          "soc_code": "53-7121.00",
+          "tier": "Supplemental"
+        }
+      ]
+    },
+    "projections": {
+      "base_employment": 2.7,
+      "base_year": 2024,
+      "change_number": 0.0,
+      "change_percent": -1.1,
+      "education": "No formal educational credential",
+      "median_annual_wage": 52310,
+      "openings": 0.3,
+      "projected_employment": 2.7,
+      "projected_year": 2034,
+      "training": "Short-term on-the-job training"
+    },
+    "wages": {
+      "annual_median": 61720,
+      "annual_10": 56500,
+      "annual_25": 61470,
+      "annual_75": 106500,
+      "annual_90": 106500,
+      "hourly_median": 30,
+      "hourly_10": 27,
+      "hourly_25": 30,
+      "hourly_75": 51,
+      "hourly_90": 51,
+      "employment": null
+    }
   }
 ]

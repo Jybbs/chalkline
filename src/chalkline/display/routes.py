@@ -1,20 +1,20 @@
 """
 Career route rendering for the Map tab.
 
-Parallels how `Charts` renders Plotly figures from theme state,
-composing Marimo HTML elements for career transition routes via
-htpy typed elements.
+Parallels how `Charts` renders Plotly figures from theme state, composing
+Marimo HTML elements for career transition routes via htpy typed elements.
 """
 
 from htpy       import details, div, Element, p, span, strong, summary
 from marimo     import Html
 from markupsafe import Markup
+from operator   import attrgetter
 from typing     import Literal, TYPE_CHECKING
 
 from chalkline.display.schemas       import GapCoverage, RelevantJobBoards, RouteDetail
 from chalkline.display.schemas       import TabContent
 from chalkline.display.theme         import Theme
-from chalkline.matching.schemas      import MatchResult, ScoredTask
+from chalkline.matching.schemas      import ScoredTask
 from chalkline.pathways.loaders      import StakeholderReference
 from chalkline.pipeline.orchestrator import Chalkline
 
@@ -26,10 +26,9 @@ class Routes:
     """
     Map tab card builders for career transition routes.
 
-    Delegates to `Layout` for generic primitives (`grid`,
-    `callout`, `posting_card`) while owning the htpy construction
-    of route-specific components like wage bars, fit meters, and
-    credential path cards.
+    Delegates to `Layout` for generic primitives (`grid`, `callout`,
+    `posting_card`) while owning the htpy construction of route-specific
+    components like wage bars, fit meters, and credential path cards.
     """
 
     def __init__(
@@ -42,9 +41,8 @@ class Routes:
 
     def _skill_cards(self, tasks: list[ScoredTask]) -> list[Element]:
         """
-        Render pre-calibrated scored tasks as individual card-style
-        elements with the skill name on top and a full-width bar
-        below.
+        Render pre-calibrated scored tasks as individual card-style elements
+        with the skill name on top and a full-width bar below.
         """
         return [
             div(".cl-skill-card", style=f"--row-color:{self.theme.score_color(t.pct)}")[
@@ -80,12 +78,12 @@ class Routes:
 
     def card(self, *sections: Html) -> Html:
         """
-        Combine route sections (verdict, recipe, postings) into a
-        single card container.
+        Combine route sections (verdict, recipe, postings) into a single
+        card container.
         """
         return self.layout.to_html(
             *(Markup(s.text) for s in sections),
-            cls = "cl-route-card"
+            cls="cl-route-card"
         )
 
     def evidence(
@@ -94,11 +92,11 @@ class Routes:
         tab   : TabContent
     ) -> Html:
         """
-        Evidence drawer with percentile-calibrated skill cards (8
-        per section).
+        Evidence drawer with percentile-calibrated skill cards (8 per
+        section).
 
-        Each skill renders as an individual card with name and
-        percentage on top and a full-width bar below.
+        Each skill renders as an individual card with name and percentage on
+        top and a full-width bar below.
         """
         sections = [
             self.layout.to_html(
@@ -106,7 +104,7 @@ class Routes:
                     tab.chart_labels[key].format(count=count)
                 ],
                 *self._skill_cards(skills),
-                cls = "cl-skill-card-list"
+                cls="cl-skill-card-list"
             )
             for key, skills, count in (
                 ("strengths_heading", route.top_strengths, route.demonstrated_count),
@@ -132,38 +130,27 @@ class Routes:
         return self.layout.to_html(
             div(".cl-route-label")[
                 tab.chart_labels["postings_heading"].format(
-                    count = route.destination.size
+                    count=route.destination.size
                 )
             ],
             Markup(self.layout.grid(
                 map(self.layout.posting_card, postings),
-                columns = 5
+                columns=5
             ).text),
-            cls = "cl-route-postings"
+            cls="cl-route-postings"
         )
 
-    def recipe(
-        self,
-        pipeline : Chalkline,
-        result   : MatchResult,
-        route    : RouteDetail,
-        tab      : TabContent
-    ) -> Html:
+    def recipe(self, route: RouteDetail, tab: TabContent) -> Html:
         """
         Gap-coverage credential paths as stacked cards.
 
-        Proposes 2-3 alternative credential combinations via greedy
-        set-cover with different optimization strategies. Each path
-        shows per-item gap coverage counts, hours or institution,
-        and combined unique coverage.
+        Proposes 2-3 alternative credential combinations via exhaustive
+        min-overlap set cover. Each path shows per-item gap coverage counts,
+        hours or institution, and combined unique coverage.
         """
         labels = tab.chart_labels
 
-        if not (paths := GapCoverage.from_route(
-            pipeline = pipeline,
-            result   = result,
-            route    = route
-        ).paths):
+        if not (paths := GapCoverage.from_route(route).paths):
             return self.layout.callout(tab.fallbacks["no_credentials"])
 
         path_cards = [
@@ -191,22 +178,32 @@ class Routes:
             ]
             for path in paths
             for rows in [[
-                div(
-                    ".cl-path-row",
-                    style=f"border-inline-start-color:"
-                          f"{self.theme.credential_color(item.kind)}"
+                details(
+                    ".cl-gap-shelf",
+                    name  = "gap-drawer",
+                    style = f"border-inline-start-color:"
+                            f"{self.theme.credential_color(item.kind)}"
                 )[
-                    div(".cl-path-row-body")[
-                        strong[item.label],
-                        span(".secondary")[
-                            labels["career_label"] if item.kind == "career"
-                            else f"{item.kind.title()} \u00b7 {item.detail}"
-                        ]
+                    summary(".cl-gap-shelf-summary")[
+                        div(".cl-path-row-body")[
+                            strong[item.label],
+                            span(".secondary")[
+                                f"{item.kind.title()} \u00b7 {item.detail}"
+                            ]
+                        ],
+                        span(".cl-path-gaps")[labels["gap_badge"].format(
+                            cov = item.coverage,
+                            s   = "s" if item.coverage != 1 else ""
+                        )]
                     ],
-                    span(".cl-path-gaps")[labels["gap_badge"].format(
-                        cov = item.coverage,
-                        s   = "s" if item.coverage != 1 else ""
-                    )]
+                    div(".cl-gap-shelf-body")[
+                        div(".cl-gap-shelf-inner")[
+                            *self._skill_cards(sorted(
+                                (route.gap_tasks[p] for p in route.coverage[item.label]),
+                                key = attrgetter("similarity")
+                            ))
+                        ]
+                    ]
                 ]
                 for item in path.items
             ]]
@@ -219,7 +216,7 @@ class Routes:
                 total        = route.total_tasks
             ))],
             *path_cards,
-            cls = "cl-recipe"
+            cls="cl-recipe"
         )
 
     def resources(
@@ -230,8 +227,8 @@ class Routes:
         tab       : TabContent
     ) -> Html:
         """
-        Resource drawer with the full credential catalog, employers,
-        and semantically-ranked job boards for deeper exploration.
+        Resource drawer with the full credential catalog, employers, and
+        semantically-ranked job boards for deeper exploration.
         """
         return self.layout.stack(
             self.layout.header("credentials", tab),
@@ -266,10 +263,10 @@ class Routes:
         """
         Fit meter, wage comparison bars, bold verdict, and extras.
 
-        Key values are wrapped in HTML strong tags via Markup so they
-        render bold in the htpy tree. Self-routes show one wage bar
-        and skip the delta. Transition routes show source and
-        destination bars with a signed delta.
+        Key values are wrapped in HTML strong tags via Markup so they render
+        bold in the htpy tree. Self-routes show one wage bar and skip the
+        delta. Transition routes show source and destination bars with a
+        signed delta.
         """
         dst    = route.destination
         wages  = route.wage_comparison
@@ -325,5 +322,5 @@ class Routes:
                 total        = route.total_tasks
             ))],
             div(".cl-route-hero-extras")[extras],
-            cls = "cl-route-hero"
+            cls="cl-route-hero"
         )

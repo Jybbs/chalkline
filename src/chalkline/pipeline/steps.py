@@ -76,9 +76,9 @@ def clusters(
     """
     Build unified cluster objects from assignments, corpus, and O*NET SOC
     matching. Returns a `Clusters` container with pre-stacked centroid and
-    embedding vector matrices, and per-cluster posting embeddings sliced
-    out of `raw_vectors` so display-layer projections never have to
-    re-encode the corpus.
+    embedding vector matrices, and per-cluster posting embeddings sliced out
+    of `raw_vectors` so display-layer projections never have to re-encode
+    the corpus.
     """
     items: dict[int, Cluster] = {}
     for cid in sorted(np.unique(assignments).tolist()):
@@ -125,17 +125,18 @@ def credentials(config: PipelineConfig, encoder: SentenceEncoder) -> list[Creden
     Load the curated credential catalog, encode with the sentence
     transformer, and attach vectors to each credential instance.
 
-    Extra fields beyond the core `Credential` schema are packed into the
-    `metadata` dict automatically.
+    The curated `credentials.json` stores kind-specific extras inside a
+    `metadata` object per record; the loader threads that through directly
+    so apprenticeship RAPIDS codes, program URLs, and other type-specific
+    fields reach the display layer intact.
     """
-    known_fields = {"embedding_text", "kind", "label"}
-    raw          = loads((config.lexicon_dir / "credentials.json").read_bytes())
-    records      = [
+    raw     = loads((config.lexicon_dir / "credentials.json").read_bytes())
+    records = [
         Credential(
             embedding_text = entry["embedding_text"],
             kind           = entry["kind"],
             label          = entry["label"],
-            metadata       = {k: v for k, v in entry.items() if k not in known_fields}
+            metadata       = entry.get("metadata", {})
         )
         for entry in raw
     ]
@@ -196,17 +197,16 @@ def job_zone_map(
 def matcher(
     clusters : Clusters,
     encoder  : SentenceEncoder,
-    graph    : CareerPathwayGraph,
     svd      : TruncatedSVD
 ) -> ResumeMatcher:
     """
     Build the resume matcher with all artifacts needed for single-resume
-    inference.
+    inference. Reach composition lives on the orchestrator because the
+    matcher itself has no reason to know about the career graph.
     """
     return ResumeMatcher(
         clusters = clusters,
         encoder  = encoder,
-        graph    = graph,
         svd      = svd
     )
 
@@ -217,9 +217,9 @@ def nearest_occupations(
     soc_similarity : np.ndarray
 ) -> dict[int, Occupation]:
     """
-    Top-similarity O*NET occupation per cluster, computed once and reused
-    by `clusters` and `soc_tasks` so the argmax over the similarity matrix
-    runs only once per cluster.
+    Top-similarity O*NET occupation per cluster, computed once and reused by
+    `clusters` and `soc_tasks` so the argmax over the similarity matrix runs
+    only once per cluster.
     """
     return {
         cid: lexicons.nearest_occupation(soc_similarity[cid])
@@ -273,9 +273,9 @@ def soc_tasks(
     """
     Encode per-cluster O*NET Task+DWA embeddings for resume gap analysis.
 
-    For each cluster, takes the pre-computed nearest occupation and
-    encodes that occupation's Task+DWA elements as individual embeddings
-    for per-task gap scoring.
+    For each cluster, takes the pre-computed nearest occupation and encodes
+    that occupation's Task+DWA elements as individual embeddings for
+    per-task gap scoring.
     """
     return {
         cid: [

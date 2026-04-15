@@ -1,0 +1,49 @@
+# Program to O*NET-SOC mappings for AGC Maine-relevant training programs.
+#
+# Derived from the NCES Classification of Instructional Programs (CIP 2020)
+# crosswalked to O*NET-SOC via the O*NET Center Education CIP to O*NET-SOC
+# Crosswalk (July 2024): https://www.onetcenter.org/crosswalks/cip/.
+#
+# Each program's SOC list is the intersection of the crosswalk's recommended
+# SOCs with Chalkline's 60-code reference set. AAS degrees legitimately span
+# multiple trades, so programs are one-to-many. Maine-specific initiatives
+# without federal CIP equivalents (Alfond Center, Maine Construction Academy,
+# Workforce Development Compact, TREC, Transfer ME, Advanced Technology
+# Centers) are hand-mapped to closest applicable CIP analogues — e.g.,
+# Alfond Center's trades track maps to `46.0 Construction Trades, General`
+# plus the specific trades Alfond teaches.
+
+# ── Community college AAS degrees + certificates ─────────────────────────
+
+"Building Construction"            = ["47-2031.00", "47-2061.00", "47-4011.00"]   # CIP 46.0412
+"Building Construction Tech"       = ["47-2031.00", "47-2061.00", "47-4011.00"]   # CIP 46.0412
+"Building Construction Technology" = ["47-2031.00", "47-2061.00", "47-4011.00"]   # CIP 46.0412
+"Construction Technology"          = ["11-9021.00", "13-1051.00", "17-3022.00"]   # CIP 15.1001
+"HVAC/R Technology"                = ["49-9021.00"]                               # CIP 47.0201
+"Plumbing & Heating"               = ["47-2152.00", "49-9021.00"]                 # CIP 46.0503
+"Plumbing & Heating Technology"    = ["47-2152.00", "49-9021.00"]                 # CIP 46.0503
+"Plumbing"                         = ["47-2152.00"]                               # CIP 46.0503
+"Refrigeration, AC & Heating"      = ["49-9021.00"]                               # CIP 47.0201
+"Heavy Equipment Maintenance"      = ["49-3042.00"]                               # CIP 47.0302
+"Heavy Equipment Operations"       = ["47-2073.00"]                               # CIP 49.0202
+"Industrial Welding Techniques"    = ["51-4121.00"]                               # CIP 48.0508
+
+# ── Statewide initiatives (hand-mapped to closest CIP analogues) ─────────
+
+"Advanced Technology Centers"         = ["17-3011.00", "17-3022.00"]                              # CIP 15.1001 (Construction Eng Tech) + 15.1304 (Civil Drafting)
+"Alfond Center: Trades Track"         = ["47-2031.00", "47-2061.00", "47-2111.00", "47-2152.00"]  # CIP 46.0 (Construction Trades, General)
+"Maine Construction Academy (MCA)"    = ["47-2031.00", "47-2061.00"]                              # CIP 46.0 (Construction Trades, General)
+"Maine Workforce Development Compact" = ["11-9021.00"]                                            # CIP 52.2001 (Construction Management)
+"TREC Program"                        = ["47-2231.00", "49-9021.00"]                              # CIP 47.0201 + 15.1703 (Solar Energy Tech)
+"Transfer ME (Pre-Engineering)"       = ["17-1011.00", "17-2051.00"]                              # CIP 14.0101 (Engineering General) + 04.0201 (Architecture)
+
+# ── University (bachelor's and professional degrees) ─────────────────────
+
+"Architecture (5-Year Professional Degree)"  = ["17-1011.00"]                # CIP 04.0201
+"Civil & Environmental Engineering"          = ["17-2051.00", "17-2051.01"]  # CIP 14.0899
+"Construction Engineering Technology"        = ["11-9021.00", "17-3022.00"]  # CIP 15.1001
+"Electrical & Computer Engineering"          = ["17-2071.00"]                # CIP 14.1001
+"Industrial Engineering"                     = ["17-2112.00"]                # CIP 14.3501
+"Maine Engineering Pathways"                 = ["17-2051.00", "17-2051.01"]  # CIP 14.0801 (Civil Engineering)
+"Mechanical Engineering"                     = ["17-2141.00"]                # CIP 14.1901
+"Surveying Engineering Technology"           = ["17-3011.00", "17-3022.00"]  # CIP 15.1304 (Civil Drafting); no SOC for Surveyors in reference set

@@ -142,8 +142,8 @@ class Layout:
     @cached_property
     def external_icon(self) -> Markup:
         """
-        External-link icon SVG, rendered once per Layout and reused
-        across every card builder that calls `_link`.
+        External-link icon SVG, rendered once per Layout and reused across
+        every card builder that calls `_link`.
         """
         return Markup(icon("lucide:external-link", size=14).text)
 
@@ -190,9 +190,9 @@ class Layout:
     def _stat_row(self, pairs: Iterable[tuple[str, str]], rows: int) -> Element:
         """
         Stat tile grid as a raw htpy `div`, used by both `stats` (which
-        wraps the result in a Marimo `Html`) and `splash` (which nests
-        the row inside a larger htpy tree). Returning htpy here keeps
-        the marimo-`Html` boundary at exactly one place per call site.
+        wraps the result in a Marimo `Html`) and `splash` (which nests the
+        row inside a larger htpy tree). Returning htpy here keeps the
+        marimo-`Html` boundary at exactly one place per call site.
         """
         tiles = [self._stat(label, value) for label, value in pairs]
         return div(
@@ -252,8 +252,8 @@ class Layout:
         Mirrors the splash stat tile aesthetic by leading with a large
         primary-color percentage (`match_score`) above the board name,
         category badge, and focus blurb. The percentage is the cosine
-        similarity between the board's encoded focus text and the
-        matched cluster's vector, rounded to the nearest integer.
+        similarity between the board's encoded focus text and the matched
+        cluster's vector, rounded to the nearest integer.
         """
         return self.to_html(
             div(".cl-stat-value")[f"{kwargs['match_score']}%"],
@@ -284,14 +284,14 @@ class Layout:
         """
         Credential card with kind-aware accent color and metadata.
 
-        The card's left border matches the kind's accent color (cream
-        for apprenticeship, lavender for certification, accent for
-        program), the kind badge sits alone on its own line at the top,
-        and the title wraps onto a new line below the badge.
+        The card's left border matches the kind's accent color (cream for
+        apprenticeship, lavender for certification, accent for program), the
+        kind badge sits alone on its own line at the top, and the title
+        wraps onto a new line below the badge.
 
         The `.cl-credential` modifier class enforces a minimum height so
-        cards in a grid stay visually uniform regardless of how much
-        their individual content varies.
+        cards in a grid stay visually uniform regardless of how much their
+        individual content varies.
 
         Args:
             credential : Pathways credential with kind and metadata.
@@ -320,11 +320,10 @@ class Layout:
         Render credentials grouped by kind in a horizontal multi-column
         grid, one column per kind.
 
-        Shared by the Data tab's credential pathways section, the Map
-        tab's resources drawer, and any future tab that needs the same
-        layout. Each column renders up to `per_kind` cards via
-        `credential_card`, and the columns stack horizontally with
-        equal widths.
+        Shared by the Data tab's credential pathways section, the Map tab's
+        resources drawer, and any future tab that needs the same layout.
+        Each column renders up to `per_kind` cards via `credential_card`,
+        and the columns stack horizontally with equal widths.
 
         Args:
             by_kind  : Credential label to list mapping, keyed by kind.
@@ -442,8 +441,8 @@ class Layout:
         Stack a section header above a Plotly chart as one logical unit.
 
         The core tab-renderer primitive: every chart panel is a header
-        followed by a Plotly figure, grouped so rows inside `two_col`
-        stay aligned and top-level charts share the same grouping.
+        followed by a Plotly figure, grouped so rows inside `two_col` stay
+        aligned and top-level charts share the same grouping.
         """
         return self.stack(
             self.header(key, tab, **fmt),
@@ -480,9 +479,9 @@ class Layout:
         similarity : float
     ) -> Html:
         """
-        Single-line posting row with cosine similarity score, title
-        in serif, company, location, days since posted, and an
-        external link on the right.
+        Single-line posting row with cosine similarity score, title in
+        serif, company, location, days since posted, and an external link on
+        the right.
 
         Args:
             color      : CSS color string for the similarity score.
@@ -521,12 +520,12 @@ class Layout:
         """
         Horizontal process flow diagram as a CSS flexbox strip.
 
-        Each step renders as a numbered card with a label and detail
-        line, connected by arrow separators. Optional `accent` and
-        `arrow_label` fields on `ProcessStep` enable sector-color left
-        borders and natural-language labels above the incoming arrow,
-        used by the Map tab career path flow to convey sector identity
-        and per-hop transition difficulty.
+        Each step renders as a numbered card with a label and detail line,
+        connected by arrow separators. Optional `accent` and `arrow_label`
+        fields on `ProcessStep` enable sector-color left borders and
+        natural-language labels above the incoming arrow, used by the Map
+        tab career path flow to convey sector identity and per-hop
+        transition difficulty.
 
         Args:
             steps: Process steps with pre-formatted detail lines.
@@ -568,9 +567,9 @@ class Layout:
         Conditionally render a headed chart panel.
 
         Returns a header followed by the wrapped Plotly chart when
-        `condition` is truthy, or an empty list for unpacking into a
-        `stack` call. Bakes the `ui.plotly` wrap so call sites match
-        `panel`'s signature.
+        `condition` is truthy, or an empty list for unpacking into a `stack`
+        call. Bakes the `ui.plotly` wrap so call sites match `panel`'s
+        signature.
 
         Args:
             chart     : Plotly figure to render below the header.
@@ -602,8 +601,8 @@ class Layout:
             logo_src    : Base64 data URI for the logo image.
             stat_values : Pre-formatted stat strings aligned with `tab.stat_labels`.
             tab         : Splash tab content with stat labels, tagline, and title.
-            stat_rows   : Number of rows to lay the stat tiles out in. The
-                          splash overrides this to 2.
+            stat_rows   : Number of rows to lay the stat tiles out in. The splash
+                          overrides this to 2.
 
         Returns:
             Full-width splash element with logo, tagline, and stats.
@@ -656,9 +655,9 @@ class Layout:
 
         Pairs with `*` spread inside `stack` calls so a tab renderer can
         drop a whole section based on data presence without wrapping a
-        conditional expression and an empty-list fallback at the call
-        site. `section_if` is a thin wrapper that pre-builds a header
-        and chart pair on top of this primitive.
+        conditional expression and an empty-list fallback at the call site.
+        `section_if` is a thin wrapper that pre-builds a header and chart
+        pair on top of this primitive.
         """
         return list(items) if condition else []
 
@@ -678,8 +677,8 @@ class Layout:
 
         Args:
             pairs : (label, value) tuples in display order.
-            rows  : Number of rows to lay the tiles out in. The splash
-                    overrides this to 2.
+            rows  : Number of rows to lay the tiles out in. The splash overrides this to
+                    2.
 
         Returns:
             Stat row element.
@@ -706,8 +705,8 @@ class Layout:
         """
         Two-column horizontal stack with equal widths.
 
-        Shorthand for the most common chart-pair layout in the methods
-        and data tabs.
+        Shorthand for the most common chart-pair layout in the methods and
+        data tabs.
         """
         return Layout.stack(left, right, direction="h", widths=[1, 1])
 

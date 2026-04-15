@@ -1,10 +1,9 @@
 """
 Methods tab renderer.
 
-Renders the pipeline methodology panel with variance charts, cluster
-quality metrics, SOC heatmaps, and career landscape visualizations.
-Adapted from the ML Internals tab with the cluster landscape treemap
-removed.
+Renders the pipeline methodology panel with variance charts, cluster quality
+metrics, SOC heatmaps, and career landscape visualizations. Adapted from the
+ML Internals tab with the cluster landscape treemap removed.
 """
 
 from marimo import accordion, Html, tree
@@ -15,8 +14,8 @@ from chalkline.display.schemas import MlMetrics
 
 def methods_tab(ctx: TabContext) -> Html:
     """
-    Render the Methods tab with pipeline statistics, variance
-    charts, cluster quality metrics, and SOC heatmaps.
+    Render the Methods tab with pipeline statistics, variance charts,
+    cluster quality metrics, and SOC heatmaps.
     """
     tab         = ctx.content.tab("methods")
     ml          = MlMetrics.from_pipeline(ctx.pipeline)

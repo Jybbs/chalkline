@@ -64,8 +64,8 @@ class Charts:
         Args:
             height       : Figure height in pixels.
             trace_or_fig : A trace, list of traces, or pre-built figure. Pre-built
-                           figures (e.g. from `make_subplots`) pass through
-                           unchanged so subplot domains survive layout application.
+                           figures (e.g. from `make_subplots`) pass through unchanged so
+                           subplot domains survive layout application.
             **overrides  : Layout keys forwarded to `update_layout`. Supports `x_title`
                            / `y_title` as aliases for Plotly's axis title keys.
 
@@ -197,10 +197,10 @@ class Charts:
         """
         Bubble scatter of brokerage centrality vs silhouette coefficient.
 
-        Brokerage values become integer-percentage x-coordinates (min 1
-        for marker visibility), silhouette values become one-decimal
-        y-coordinates and marker color/size, and brokerage labels carry
-        the hover text.
+        Brokerage values become integer-percentage x-coordinates (min 1 for
+        marker visibility), silhouette values become one-decimal
+        y-coordinates and marker color/size, and brokerage labels carry the
+        hover text.
 
         Args:
             brokerage  : Per-cluster brokerage centrality ranking.
@@ -237,18 +237,17 @@ class Charts:
     ) -> go.Figure:
         """
         Scatter of `(x, y)` points grouped into one Plotly trace per
-        category, so each category draws its own legend entry and
-        distinct color from the theme colorway.
+        category, so each category draws its own legend entry and distinct
+        color from the theme colorway.
 
-        Mirrors `bar.data` in shape, with a single mapping the call
-        site builds directly instead of four parallel sequences the
-        chart has to bucket internally. Each value is a
-        `{"hover", "x", "y"}` dict of parallel lists for one trace.
+        Mirrors `bar.data` in shape, with a single mapping the call site
+        builds directly instead of four parallel sequences the chart has to
+        bucket internally. Each value is a `{"hover", "x", "y"}` dict of
+        parallel lists for one trace.
 
         Args:
-            data    : Category name to a `{"hover", "x", "y"}` mapping
-                      of parallel sequences, one entry per point in that
-                      category.
+            data    : Category name to a `{"hover", "x", "y"}` mapping of parallel
+                      sequences, one entry per point in that category.
             height  : Figure height in pixels.
             x_title : X-axis title.
             y_title : Y-axis title.
@@ -286,20 +285,19 @@ class Charts:
         horizontal row, one per facet.
 
         Each facet gets its own subplot domain, so tile area is meaningful
-        within a facet but never compared across facets. This sidesteps
-        the crowding problem of a single hierarchical treemap when one
-        branch's totals dwarf another. Subplot titles label each facet
-        directly under the chart's main title, and optional `descriptions`
-        render a smaller muted second line beneath each facet title to
-        clarify how the facets differ from one another.
+        within a facet but never compared across facets. This sidesteps the
+        crowding problem of a single hierarchical treemap when one branch's
+        totals dwarf another. Subplot titles label each facet directly under
+        the chart's main title, and optional `descriptions` render a smaller
+        muted second line beneath each facet title to clarify how the facets
+        differ from one another.
 
         Args:
-            facets       : Facet title to label-value mapping per facet,
-                           in left-to-right display order.
+            facets       : Facet title to label-value mapping per facet, in
+                           left-to-right display order.
             height       : Figure height in pixels.
-            descriptions : Optional facet title to short-description map
-                           rendered as a second muted line beneath each
-                           facet title.
+            descriptions : Optional facet title to short-description map rendered as a
+                           second muted line beneath each facet title.
 
         Returns:
             Configured multi-domain treemap figure.
@@ -351,8 +349,8 @@ class Charts:
         """
         Horizontal funnel showing progressive narrowing.
 
-        Stage names are decorated with their values in parentheses so
-        the rendered label includes both name and count.
+        Stage names are decorated with their values in parentheses so the
+        rendered label includes both name and count.
 
         Args:
             height : Figure height in pixels.
@@ -520,9 +518,9 @@ class Charts:
         Strip scatter plotting one dot per posting along a date axis.
 
         The y-axis is hidden so the chart reads as a one-dimensional
-        timeline, with date clustering visible by horizontal density and
-        the company or title revealed on hover. Marker size and alpha are
-        kept low so dense regions remain legible.
+        timeline, with date clustering visible by horizontal density and the
+        company or title revealed on hover. Marker size and alpha are kept
+        low so dense regions remain legible.
 
         Args:
             dates  : Posting dates, one per dot.

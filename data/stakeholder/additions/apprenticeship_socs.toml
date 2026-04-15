@@ -1,0 +1,31 @@
+# Apprenticeship to O*NET-SOC mappings for AGC Maine-sponsored programs.
+#
+# Curated against Chalkline's 60-code O*NET reference set because the
+# `rapids_code` values in the AGC workbook are internal tracking numbers,
+# not federal RAPIDS IDs. The O*NET Apprenticeship_RAPIDS_to_ONET-SOC
+# crosswalk at https://www.onetcenter.org/crosswalks/rapids/ keys on a
+# different RAPIDS numbering scheme, so title-based judgment is the
+# cleanest route for 19 apprenticeships. Each mapping is the closest-fit
+# SOC among the reference set; flagged ambiguous cases
+# (*Construction Specialist, Concrete Laborer, Heavy/Highway Laborer*) are
+# documented in `docs/comments/CL-16.md`.
+
+"595"   = "37-3013.00"  # Arborist                                → Tree Trimmers & Pruners
+"90046" = "47-2111.00"  # Electrician                             → Electricians
+"90050" = "47-2073.00"  # Construction Equipment Operator         → Operating Engineers
+"90380" = "47-2031.00"  # Bridge Carpenter/Heavy Highway          → Carpenters
+"90415" = "47-2031.00"  # Construction Carpenter                  → Carpenters
+"90699" = "47-2061.00"  # Construction Craft Heavy / Highway      → Construction Laborers
+"90700" = "47-2231.00"  # Solar Mechanical Installation Tech      → Solar PV Installers
+"90708" = "47-2061.00"  # Construction Craft Concrete Laborer     → Construction Laborers
+"90884" = "51-4121.00"  # Welder                                  → Welders, Cutters, & Solderers
+"90885" = "49-3042.00"  # Crane Mechanic                          → Mobile Heavy Equipment Mechanics
+"90949" = "53-7021.00"  # Crane Operator                          → Crane & Tower Operators
+"90966" = "47-2061.00"  # Earthworks Laborer                      → Construction Laborers
+"91014" = "45-4022.00"  # Lead Logging Equipment Operator         → Logging Equipment Operators
+"91055" = "47-2061.00"  # Construction Specialist                 → Construction Laborers
+"91056" = "47-1011.00"  # Foreman                                 → First-Line Supervisors
+"91066" = "47-4031.00"  # Fencing Installer                       → Fence Erectors
+"91123" = "47-2132.00"  # Firestopping Installer                  → Insulation Workers, Mechanical
+"91124" = "47-2132.00"  # Firestopping Technician                 → Insulation Workers, Mechanical
+"91125" = "47-2031.00"  # Marine Carpenter - Heavy Civil          → Carpenters

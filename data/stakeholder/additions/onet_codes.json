@@ -1,0 +1,236 @@
+[
+  {
+    "role_description": "Prepare cost estimates for product manufacturing, construction projects, or services to aid management in bidding on or determining price of product or service. May specialize according to particular service performed or type of product manufactured.",
+    "sector": "Construction Managers",
+    "soc_code": "13-1051.00",
+    "title": "Cost Estimators"
+  },
+  {
+    "role_description": "Plan and design structures, such as private residences, office buildings, theaters, factories, and other structural property.",
+    "sector": "Construction Managers",
+    "soc_code": "17-1011.00",
+    "title": "Architects"
+  },
+  {
+    "role_description": "Research, design, develop, test, or supervise the manufacturing and installation of electrical equipment, components, or systems for commercial, industrial, military, or scientific use.",
+    "sector": "Construction Managers",
+    "soc_code": "17-2071.00",
+    "title": "Electrical Engineers"
+  },
+  {
+    "role_description": "Design, develop, or evaluate integrated systems for managing industrial production processes, including human work factors, quality control, inventory control, logistics and material flow, cost analysis, and production coordination.",
+    "sector": "Construction Managers",
+    "soc_code": "17-2112.00",
+    "title": "Industrial Engineers"
+  },
+  {
+    "role_description": "Perform engineering duties in planning and designing tools, engines, machines, and other mechanically functioning equipment. Oversee installation, operation, maintenance, and repair of equipment such as centralized heat, gas, water, and steam systems.",
+    "sector": "Construction Managers",
+    "soc_code": "17-2141.00",
+    "title": "Mechanical Engineers"
+  },
+  {
+    "role_description": "Prepare detailed drawings of architectural and structural features of buildings or drawings and topographical relief maps used in civil engineering projects, such as highways, bridges, and public works. Use knowledge of building materials, engineering practices, and mathematics to complete drawings.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "17-3011.00",
+    "title": "Architectural and Civil Drafters"
+  },
+  {
+    "role_description": "Apply theory and principles of civil engineering in planning, designing, and overseeing construction and maintenance of structures and facilities under the direction of engineering staff or physical scientists.",
+    "sector": "Construction Managers",
+    "soc_code": "17-3022.00",
+    "title": "Civil Engineering Technicians"
+  },
+  {
+    "role_description": "Cut away dead or excess branches from trees or shrubs to maintain right-of-way for roads, sidewalks, or utilities, or to improve appearance, health, and value of tree. Prune or treat trees or shrubs using handsaws, hand pruners, clippers, and power pruners. Works off the ground in the tree canopy and may use truck-mounted lifts.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "37-3013.00",
+    "title": "Tree Trimmers & Pruners"
+  },
+  {
+    "role_description": "Drive logging tractor or wheeled vehicle equipped with one or more accessories, such as bulldozer blade, frontal shear, grapple, logging arch, cable winches, hoisting rack, or crane boom, to fell tree, to skid, load, unload, or stack logs, or to pull stumps or clear brush. Includes operating grapple loaders and self-propelled log loaders and unloaders at a camp, landing, or mill.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "45-4022.00",
+    "title": "Logging Equipment Operators"
+  },
+  {
+    "role_description": "Construct, assemble, maintain, and repair stationary steam boilers and boiler house auxiliaries. Align structures or plate sections to assemble boiler frame tanks or vats, following blueprints. Work involves use of hand and power tools, plumb bobs, levels, wedges, dogs, or turnbuckles. Assist in testing assembled vessels. Direct cleaning of boilers and boiler furnaces. Inspect and repair boiler fittings, such as safety valves, regulators, automatic-control mechanisms, water columns, and auxiliary machines.",
+    "sector": "Building Construction",
+    "soc_code": "47-2011.00",
+    "title": "Boilermakers"
+  },
+  {
+    "role_description": "Lay and bind building materials, such as brick, structural tile, concrete block, cinder block, glass block, and terra-cotta block, with mortar and other substances, to construct or repair walls, partitions, arches, sewers, and other structures.",
+    "sector": "Building Construction",
+    "soc_code": "47-2021.00",
+    "title": "Brickmasons & Blockmasons"
+  },
+  {
+    "role_description": "Build stone structures, such as piers, walls, and abutments. Lay walks, curbstones, or special types of masonry for vats, tanks, and floors.",
+    "sector": "Building Construction",
+    "soc_code": "47-2022.00",
+    "title": "Stonemasons"
+  },
+  {
+    "role_description": "Lay and install carpet from rolls or blocks on floors. Install padding and trim flooring materials.",
+    "sector": "Building Construction",
+    "soc_code": "47-2041.00",
+    "title": "Carpet Installers"
+  },
+  {
+    "role_description": "Apply blocks, strips, or sheets of shock-absorbing, sound-deadening, or decorative coverings to floors.",
+    "sector": "Building Construction",
+    "soc_code": "47-2042.00",
+    "title": "Floor Layers"
+  },
+  {
+    "role_description": "Scrape and sand wooden floors to smooth surfaces using floor scraper and floor sanding machine, and apply coats of finish.",
+    "sector": "Building Construction",
+    "soc_code": "47-2043.00",
+    "title": "Floor Sanders & Finishers"
+  },
+  {
+    "role_description": "Apply hard tile, stone, and comparable materials to walls, floors, ceilings, countertops, and roof decks.",
+    "sector": "Building Construction",
+    "soc_code": "47-2044.00",
+    "title": "Tile & Stone Setters"
+  },
+  {
+    "role_description": "Smooth and finish surfaces of poured concrete, such as floors, walks, sidewalks, roads, or curbs using a variety of hand and power tools. Align forms for sidewalks, curbs, or gutters; patch voids; and use saws to cut expansion joints.",
+    "sector": "Building Construction",
+    "soc_code": "47-2051.00",
+    "title": "Cement Masons & Finishers"
+  },
+  {
+    "role_description": "Apply a mixture of cement, sand, pigment, or marble chips to floors, stairways, and cabinet fixtures to fashion durable and decorative surfaces.",
+    "sector": "Building Construction",
+    "soc_code": "47-2053.00",
+    "title": "Terrazzo Workers & Finishers"
+  },
+  {
+    "role_description": "Perform tasks involving physical labor at construction sites. May operate hand and power tools of all types: air hammers, earth tampers, cement mixers, small mechanical hoists, surveying and measuring equipment, and a variety of other equipment and instruments. May clean and prepare sites, dig trenches, set braces to support the sides of excavations, erect scaffolding, and clean up rubble, debris, and other waste materials. May assist other craft workers.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "47-2061.00",
+    "title": "Construction Laborers"
+  },
+  {
+    "role_description": "Seal joints between plasterboard or other wallboard to prepare wall surface for painting or papering.",
+    "sector": "Building Construction",
+    "soc_code": "47-2082.00",
+    "title": "Tapers"
+  },
+  {
+    "role_description": "Install glass in windows, skylights, store fronts, and display cases, or on surfaces, such as building fronts, interior walls, ceilings, and tabletops.",
+    "sector": "Building Construction",
+    "soc_code": "47-2121.00",
+    "title": "Glaziers"
+  },
+  {
+    "role_description": "Line and cover structures with insulating materials. May work with batt, roll, or blown insulation materials.",
+    "sector": "Building Construction",
+    "soc_code": "47-2131.00",
+    "title": "Insulation Workers, Envelope"
+  },
+  {
+    "role_description": "Paint walls, equipment, buildings, bridges, and other structural surfaces, using brushes, rollers, and spray guns. May remove old paint to prepare surface prior to painting. May mix colors or oils to obtain desired color or consistency.",
+    "sector": "Building Construction",
+    "soc_code": "47-2141.00",
+    "title": "Painters"
+  },
+  {
+    "role_description": "Apply interior or exterior plaster, cement, stucco, or similar materials. May also set ornamental plaster.",
+    "sector": "Building Construction",
+    "soc_code": "47-2161.00",
+    "title": "Plasterers & Stucco Masons"
+  },
+  {
+    "role_description": "Cover roofs of structures with shingles, slate, asphalt, aluminum, wood, or related materials. May spray roofs, sidings, and walls with material to bind, seal, insulate, or soundproof sections of structures.",
+    "sector": "Building Construction",
+    "soc_code": "47-2181.00",
+    "title": "Roofers"
+  },
+  {
+    "role_description": "Fabricate, assemble, install, and repair sheet metal products and equipment, such as ducts, control boxes, drainpipes, and furnace casings. Work may involve any of the following: setting up and operating fabricating machines to cut, bend, and straighten sheet metal; shaping metal over anvils, blocks, or forms using hammer; operating soldering and welding equipment to join sheet metal parts; or inspecting, assembling, and smoothing seams and joints of burred surfaces. Includes sheet metal duct installers who install prefabricated sheet metal ducts used for heating, air conditioning, or other purposes.",
+    "sector": "Building Construction",
+    "soc_code": "47-2211.00",
+    "title": "Sheet Metal Workers"
+  },
+  {
+    "role_description": "Assemble, install, or maintain solar photovoltaic (PV) systems on roofs or other structures in compliance with site assessment and schematics. May include measuring, cutting, assembling, and bolting structural framing and solar modules. May perform minor electrical work such as current checks.",
+    "sector": "Building Construction",
+    "soc_code": "47-2231.00",
+    "title": "Solar PV Installers"
+  },
+  {
+    "role_description": "Inspect structures using engineering skills to determine structural soundness and compliance with specifications, building codes, and other regulations. Inspections may be general in nature or may be limited to a specific area, such as electrical systems or plumbing.",
+    "sector": "Building Construction",
+    "soc_code": "47-4011.00",
+    "title": "Construction Inspectors"
+  },
+  {
+    "role_description": "Erect and repair fences and fence gates, using hand and power tools.",
+    "sector": "Building Construction",
+    "soc_code": "47-4031.00",
+    "title": "Fence Erectors"
+  },
+  {
+    "role_description": "Lay out, cut, and place segmental paving units. Includes installers of bedding and restraining materials for the paving units.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "47-4091.00",
+    "title": "Segmental Pavers"
+  },
+  {
+    "role_description": "Diagnose, adjust, repair, or overhaul mobile mechanical, hydraulic, and pneumatic equipment, such as cranes, bulldozers, graders, and conveyors, used in construction, logging, and mining.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "49-3042.00",
+    "title": "Mobile Heavy Equipment Mechanics"
+  },
+  {
+    "role_description": "Install or repair heating, central air conditioning, HVAC, or refrigeration systems, including oil burners, hot-air furnaces, and heating stoves.",
+    "sector": "Building Construction",
+    "soc_code": "49-9021.00",
+    "title": "HVAC Mechanics & Installers"
+  },
+  {
+    "role_description": "Install, dismantle, or move machinery and heavy equipment according to layout plans, blueprints, or other drawings.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "49-9044.00",
+    "title": "Millwrights"
+  },
+  {
+    "role_description": "Install or repair cables or wires used in electrical power or distribution systems. May erect poles and light or heavy duty transmission towers.",
+    "sector": "Building Construction",
+    "soc_code": "49-9051.00",
+    "title": "Power-Line Installers & Repairers"
+  },
+  {
+    "role_description": "Perform work involving the skills of two or more maintenance or craft occupations to keep machines, mechanical equipment, or the structure of a building in repair. Duties may involve pipe fitting; HVAC maintenance; insulating; welding; machining; carpentry; repairing electrical or mechanical equipment; installing, aligning, and balancing new equipment; and repairing buildings, floors, or stairs.",
+    "sector": "Building Construction",
+    "soc_code": "49-9071.00",
+    "title": "General Maintenance Workers"
+  },
+  {
+    "role_description": "Set up or repair rigging for construction projects, manufacturing plants, logging yards, ships and shipyards, or for the entertainment industry.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "49-9096.00",
+    "title": "Riggers"
+  },
+  {
+    "role_description": "Use hand-welding, flame-cutting, hand-soldering, or brazing equipment to weld or join metal components or to fill holes, indentations, or seams of fabricated metal products.",
+    "sector": "Building Construction",
+    "soc_code": "51-4121.00",
+    "title": "Welders, Cutters, & Solderers"
+  },
+  {
+    "role_description": "Operate mechanical boom and cable or tower and cable equipment to lift and move materials, machines, or products in many directions.",
+    "sector": "Building Construction",
+    "soc_code": "53-7021.00",
+    "title": "Crane & Tower Operators"
+  },
+  {
+    "role_description": "Operate or tend hoists or winches to lift and pull loads using power-operated cable equipment.",
+    "sector": "Heavy Highway Construction",
+    "soc_code": "53-7041.00",
+    "title": "Hoist & Winch Operators"
+  }
+]

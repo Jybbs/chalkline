@@ -31,9 +31,11 @@ class LaborCurator:
             }
             for name in ("outlook", "projections", "wages")
         }
-        self.codes  = loads(
-            (root / "data/stakeholder/reference/onet_codes.json").read_text()
-        )
+        self.codes = [
+            c
+            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
+            for c in loads(path.read_text())
+        ]
         self.output = root / "data/lexicons/labor.json"
 
     def run_all(self):

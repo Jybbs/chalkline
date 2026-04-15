@@ -1,8 +1,8 @@
 """
-Curate the O*NET occupation-skill mapping for Chalkline's 21 SOC codes.
+Curate the O*NET occupation-skill mapping for Chalkline's SOC codes.
 
 Downloads element-type files from the O*NET 30.0 database, filters to the
-stakeholder-curated SOC codes, merges Skills, Knowledge, Abilities, Tasks,
+project's SOC codes, merges Skills, Knowledge, Abilities, Tasks,
 Emerging Tasks, Technology Skills, Detailed Work Activities, and Tools Used
 into a structured `skills` array, decomposes Task and DWA entries into
 matchable sub-phrases via POS-based chunking, filters ambiguous single-word
@@ -20,6 +20,7 @@ from json               import dumps, loads
 from nltk               import download, pos_tag, RegexpParser, word_tokenize
 from pandas             import read_csv
 from pathlib            import Path
+from typing             import Any
 from urllib.parse       import quote
 from urllib.request     import urlopen
 from wordfreq           import zipf_frequency
@@ -31,15 +32,15 @@ class OnetCurator:
     occupation-skill lexicon for Aho-Corasick extraction.
 
     Downloads tab-delimited files from the O*NET 30.0 database, filters
-    to stakeholder SOC codes, merges element types with POS-based phrase
+    to the project's SOC codes, merges element types with POS-based phrase
     decomposition for Tasks and DWAs, and excludes ambiguous single-word
     tools and technologies via wordfreq Zipf frequency.
     """
 
     def __init__(self, root: Path):
         """
-        Download NLTK data, compile the chunk parser, and load stakeholder
-        SOC codes.
+        Download NLTK data, compile the chunk parser, and load SOC codes
+        from all `onet_codes.json` files under `data/stakeholder/`.
 
         Args:
             root: Worktree root containing `data/` directories.
@@ -48,9 +49,9 @@ class OnetCurator:
             download(corpus, quiet=True)
 
         self.codes = {
-            c["soc_code"]: c for c in loads(
-                (root / "data/stakeholder/reference/onet_codes.json").read_text()
-            )
+            c["soc_code"]: c
+            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
+            for c in loads(path.read_text())
         }
         self.output = root / "data/lexicons/onet.json"
         self.parser = RegexpParser(r"""
@@ -73,7 +74,7 @@ class OnetCurator:
         Returns:
             List of extracted sub-phrase strings.
         """
-        tree = self.parser.parse(pos_tag(word_tokenize(text)))
+        tree: Any = self.parser.parse(pos_tag(word_tokenize(text)))
         return [
             " ".join(words).lower()
             for subtree in tree.subtrees(

@@ -2,12 +2,47 @@
 Data models for resume matching results.
 
 Captures cluster distance rankings, per-task cosine gap analysis against
-O*NET Task+DWA embeddings, and the full match result with reach exploration.
+O*NET Task+DWA embeddings, BM25 weighting configuration, and the full match
+result with reach exploration.
 """
 
 from pydantic import BaseModel, Field
 
 from chalkline.pathways.schemas import Reach
+
+
+class BM25Config(BaseModel, extra="forbid"):
+    """
+    BM25 scoring parameters for weighting cosine similarity by lexical
+    relevance.
+
+    The `length_weight` parameter controls how much task description length
+    affects scoring (0 = no normalization, 1 = full normalization). The
+    `saturation` parameter controls how quickly term frequency gains
+    diminish (higher = slower saturation). With stem sets where each term
+    appears at most once, `saturation` primarily affects the ratio of IDF
+    contribution to length penalty.
+    """
+
+    length_weight : float = Field(default=0.75, ge=0, le=1)
+    saturation    : float = Field(default=1.5, gt=0)
+
+    @property
+    def base_penalty(self) -> float:
+        """
+        Length-independent portion of the BM25 denominator, `1 -
+        length_weight`. When `length_weight` is 0, the denominator collapses
+        to `1 + saturation` regardless of document length.
+        """
+        return 1 - self.length_weight
+
+    @property
+    def numerator(self) -> float:
+        """
+        BM25 numerator `saturation + 1`, constant across all terms and
+        documents for a given config.
+        """
+        return self.saturation + 1
 
 
 class MatchResult(BaseModel, extra="forbid"):
@@ -21,9 +56,9 @@ class MatchResult(BaseModel, extra="forbid"):
 
     cluster_distances : list[float]
     cluster_id        : int = Field(ge=0)
-    reach             : Reach
 
-    coordinates: list[float] = Field(default_factory=list)
+    coordinates : list[float] = Field(default_factory=list)
+    reach       : Reach       = Field(default_factory=Reach)
 
     @property
     def confidence(self) -> int:

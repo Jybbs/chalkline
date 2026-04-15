@@ -28,11 +28,13 @@
 
 .cl-card,
 .cl-route-card {
-    background          : var(--cl-card);
     border-inline-start : 4px solid var(--cl-primary);
     border-radius       : var(--cl-radius);
     color               : var(--cl-card-foreground);
 }
+
+.cl-card       { background: var(--cl-muted); }
+.cl-route-card { background: var(--cl-card); }
 
 .cl-card {
     margin-block-end : 0.75rem;
@@ -53,13 +55,13 @@
 }
 
 .cl-card-link {
+    aspect-ratio    : 1;
     background      : var(--cl-muted);
     border          : 1px solid var(--cl-border);
     border-radius   : 50%;
     bottom          : 0.75rem;
     color           : var(--cl-muted-foreground);
     display         : grid;
-    height          : 1.75rem;
     place-items     : center;
     position        : absolute;
     right           : 0.75rem;
@@ -85,6 +87,7 @@
 }
 
 .cl-credential {
+    background     : var(--cl-on-color);
     display        : flex;
     flex-direction : column;
     gap            : 0.35rem;
@@ -114,12 +117,12 @@
 }
 
 .cl-logo {
-    background  : var(--cl-primary);
-    display     : inline-block;
-    height      : 4.5rem;
-    mask-repeat : no-repeat;
-    mask-size   : contain;
-    width       : 4.5rem;
+    aspect-ratio : 1;
+    background   : var(--cl-primary);
+    display      : inline-block;
+    mask-repeat  : no-repeat;
+    mask-size    : contain;
+    width        : 4.5rem;
 }
 
 .cl-tagline {
@@ -138,6 +141,92 @@
 
 /* Force Marimo file upload to fill container width */
 marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
+
+/* ── Map frame ───────────────────────────────────────────────── */
+
+.cl-map-frame { display: block; min-height: 660px; }
+
+/* ── Wage filter ─────────────────────────────────────────────── */
+
+.cl-wage-filter {
+    background     : var(--cl-card);
+    border         : 1px solid var(--cl-border);
+    border-radius  : var(--cl-radius);
+    display        : flex;
+    flex-direction : column;
+    gap            : 0.5rem;
+    margin         : 0.75rem 0;
+    padding        : 0.65rem 1.25rem 0.9rem;
+}
+
+.cl-wage-label {
+    color          : var(--cl-primary);
+    font           : 600 0.85rem var(--marimo-text-font);
+    letter-spacing : 0.04em;
+    text-align     : center;
+    text-transform : uppercase;
+}
+
+.cl-wage-row {
+    align-items : center;
+    display     : flex;
+    gap         : 1rem;
+}
+
+.cl-wage-bound {
+    color       : var(--cl-primary);
+    flex-shrink : 0;
+    font        : 700 1.1rem var(--marimo-heading-font);
+    white-space : nowrap;
+}
+
+.cl-wage-track {
+    display   : block;
+    flex      : 1;
+    min-width : 0;
+}
+
+.cl-wage-track marimo-slider,
+.cl-wage-track .mo-label {
+    margin  : 0 !important;
+    padding : 0 !important;
+    width   : 100% !important;
+}
+
+.cl-wage-track .mo-label > label { display: none !important; }
+
+.cl-wage-track [data-orientation="horizontal"] { height: 6px !important; }
+
+.cl-wage-track [data-orientation="horizontal"] > :first-child,
+.cl-wage-track [role="slider"] ~ span:first-of-type,
+.cl-wage-track .bg-slate-200,
+.cl-wage-track .dark\:bg-accent\/60 {
+    background : var(--cl-muted) !important;
+}
+
+.cl-wage-track [data-orientation="horizontal"] span[style*="left"],
+.cl-wage-track .bg-blue-500,
+.cl-wage-track .dark\:bg-primary {
+    background : var(--cl-primary) !important;
+}
+
+.cl-wage-track [role="slider"] {
+    background   : var(--cl-primary) !important;
+    border-color : var(--cl-primary) !important;
+    box-shadow   : 0 0 0 3px var(--cl-card) !important;
+}
+
+[data-radix-popper-content-wrapper] [role="tooltip"],
+[data-radix-popper-content-wrapper] [data-state="delayed-open"],
+[data-radix-popper-content-wrapper] > * {
+    background     : var(--cl-card) !important;
+    border         : 1px solid var(--cl-border) !important;
+    border-radius  : 6px !important;
+    color          : var(--cl-primary) !important;
+    font           : 700 0.85rem var(--marimo-text-font) !important;
+    letter-spacing : 0.02em;
+    padding        : 0.3rem 0.6rem !important;
+}
 
 .cl-stat-row {
     display               : grid;
@@ -256,6 +345,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 .cl-fit-meter {
     align-items     : center;
     animation       : cl-fit-pop 0.4s ease-out;
+    aspect-ratio    : 1;
     background      : var(--cl-card);
     border          : 3px solid var(--cl-primary);
     border-radius   : 999px;
@@ -264,7 +354,6 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     flex-direction  : column;
     flex-shrink     : 0;
     font            : 700 1.4rem var(--marimo-heading-font);
-    height          : 5.5rem;
     justify-content : center;
     line-height     : 1;
     text-align      : center;
@@ -360,14 +449,39 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 .cl-path-details[open] > .cl-path-header::before,
 .cl-posting-drawer[open] > summary::before { content: "－"; }
 
-.cl-path-row {
-    align-items         : center;
-    border-inline-start : 4px solid var(--cl-accent);
+.cl-gap-shelf {
+    background          : var(--cl-on-color);
     border-block-start  : 1px solid var(--cl-border);
-    display             : flex;
-    gap                 : 1rem;
-    justify-content     : space-between;
-    padding             : 0.6rem 1rem;
+    border-inline-start : 4px solid var(--cl-accent);
+}
+
+.cl-gap-shelf-summary {
+    align-items     : center;
+    cursor          : pointer;
+    display         : flex;
+    gap             : 1rem;
+    justify-content : space-between;
+    list-style      : none;
+    padding         : 0.6rem 1rem;
+}
+
+.cl-gap-shelf-summary::-webkit-details-marker { display: none; }
+
+.cl-gap-shelf-body {
+    display            : grid;
+    grid-template-rows : 0fr;
+    transition         : grid-template-rows 250ms ease;
+}
+
+.cl-gap-shelf[open] > .cl-gap-shelf-body { grid-template-rows: 1fr; }
+
+.cl-gap-shelf-inner {
+    display        : grid;
+    gap            : 0.5rem;
+    min-height     : 0;
+    overflow       : hidden;
+    padding-block  : 0.5rem 0.75rem;
+    padding-inline : 2rem 1rem;
 }
 
 .cl-path-row-body {
@@ -534,8 +648,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     position         : absolute;
     top              : calc(100% + 0.4rem);
     transform        : translateY(-2px);
-    transition       : opacity 100ms, transform 100ms;
-    transition-delay : 150ms;
+    transition : opacity 100ms 150ms, transform 100ms 150ms;
     white-space      : pre-line;
     width            : max-content;
     z-index          : 100;
@@ -579,7 +692,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 /* ── Pathway map widget ──────────────────────────────────────── */
 
 .cl-pathway-map {
-    & .node-subtitle                     { fill: var(--cl-muted-foreground); font-size: 10px; }
+    & :is(.node-subtitle, .tooltip-dim)  { fill: var(--cl-muted-foreground); font-size: 10px; }
     & :is(.edge, .matched-glow)          { fill: none; }
     & :is(.node, .node-circle)           { cursor: pointer; }
     & .node-rect                         { fill: var(--cl-border); }
@@ -592,12 +705,6 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
     & :is(.hero-title, .node-title, .tooltip-title) { font-family: var(--marimo-heading-font); }
     & :is(.hero-donut-label, .node-title, .tooltip-title) { font-size: 11px; }
-
-    /* ── Salary axis ─────────────────────────────────────── */
-
-    & .salary-shaft     { stroke: var(--cl-border); stroke-width: 1.5; }
-    & .salary-tick-mark { stroke: var(--cl-border); stroke-width: 1; }
-    & .salary-label     { fill: var(--cl-muted-foreground); font-size: 10px; }
 
     /* ── Tier 2 circles with progress ring ───────────────── */
 
@@ -635,15 +742,10 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
     & .matched-glow {
         opacity      : 0.35;
-        stroke       : var(--cl-secondary);
         stroke-width : 2;
     }
 
-    & .hero-bg {
-        fill         : var(--cl-card);
-        stroke       : var(--cl-secondary);
-        stroke-width : 2.5;
-    }
+    & .hero-bg { fill: var(--cl-card); }
 
     & .hero-title { font-size: 14px; }
 
@@ -657,7 +759,6 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
         stroke  : var(--cl-border);
     }
 
-    & .tooltip-dim      { fill: var(--cl-muted-foreground); font-size: 10px; }
     & .tooltip-bar-you  { fill: var(--cl-accent); opacity: 0.8; }
     & .tooltip-bar-dest { fill: var(--cl-primary); opacity: 0.8; }
     & :is(.tooltip-positive, .tooltip-negative) { font-size: 10px; font-weight: 600; }

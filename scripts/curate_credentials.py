@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from json               import dumps, loads
 from pathlib            import Path
 from re                 import search
+from tomllib            import loads as toml_loads
 from typing             import Any
 from urllib.request     import Request, urlopen
 from wordfreq           import zipf_frequency
@@ -31,58 +32,79 @@ class CredentialCurator:
     acronyms, and organizations.
     """
 
+    #: O*NET skill types that contribute discriminating text for downstream matching.
+    #: Excludes `ability` and `skill` which are cross-occupational generalities
+    #: (*`Active Learning`, `Arm-Hand Steadiness`*) and dilute the signal.
+    PROFILE_TYPES = frozenset({"dwa", "knowledge", "task", "technology", "tool"})
+
     def __init__(self, root: Path):
         """
         Args:
             root: Worktree root containing `data/` directories.
         """
-        stakeholder    = root / "data/stakeholder/reference"
-        self.codes     = self._load(stakeholder / "onet_codes.json", key="soc_code")
+        self.additions = root / "data/stakeholder/additions"
+        self.codes = {
+            c["soc_code"]: c
+            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
+            for c in loads(path.read_text())
+        }
+        self.onet      = self._load(root / "data/lexicons/onet.json", key="soc_code")
         self.output    = root / "data/lexicons/credentials.json"
         self.parsed    = self._load(root / "data/certifications/careeronestop.json", key="id")
-        self.reference = stakeholder
+        self.reference = root / "data/stakeholder/reference"
 
     @staticmethod
-    def _cert_record(raw: dict, ambiguous: set[str]) -> dict:
+    def _cert_record(ambiguous: set[str], raw: dict) -> dict:
         """
         Build a single certification credential record.
 
         Acronyms that collide with common English are stripped from
         the label and embedding text so they do not pollute
-        downstream similarity matching.
+        downstream similarity matching. The CareerOneStop description
+        and type fields ride along in the embedding text when present
+        so cosine similarity against O*NET task vocabulary reflects
+        actual certification scope rather than title tokens alone.
 
         Args:
-            raw       : Parsed CareerOneStop certification entry.
             ambiguous : Set of acronyms to suppress.
+            raw       : Parsed CareerOneStop certification entry.
         """
-        acronym = raw["acronym"]
-        if acronym in ambiguous:
-            acronym = None
-
+        acronym = raw["acronym"] if raw["acronym"] not in ambiguous else None
         return {
-            "embedding_text" : " ".join(
-                x for x in (acronym, raw["name"], raw["organization"])
-                if x
-            ),
+            "embedding_text" : " ".join(filter(None, (
+                acronym,
+                raw["name"],
+                raw["organization"],
+                raw.get("description"),
+                raw.get("type")
+            ))),
             "kind"           : "certification",
             "label"          : (
-                f"{acronym} {raw['name']}" if acronym
-                else raw["name"]
+                f"{acronym} {raw['name']}" if acronym else raw["name"]
             )
         }
 
     def _curate_apprenticeships(self) -> list[dict]:
         """
         Transform raw apprenticeship data into credential records.
+
+        Each apprenticeship inherits the task, DWA, technology, tool,
+        and knowledge text from its mapped O*NET SOC so cosine
+        similarity against a cluster's gap tasks reflects genuine
+        skill overlap rather than surface-level title tokens.
         """
+        mapping = self._load(self.additions / "apprenticeship_socs.toml")
         return [
             {
-                "embedding_text" : raw["title"],
+                "embedding_text" : (
+                    f"{raw['title']}. {self._profile(mapping[raw['rapids_code']])}"
+                ),
                 "kind"           : "apprenticeship",
                 "label"          : raw["title"],
                 "metadata"       : {
                     "min_hours"   : int(raw["term_hours"].split("-")[0]),
-                    "rapids_code" : raw["rapids_code"]
+                    "rapids_code" : raw["rapids_code"],
+                    "soc_code"    : mapping[raw["rapids_code"]]
                 }
             }
             for raw in self._load(self.reference / "apprenticeships.json")
@@ -118,23 +140,39 @@ class CredentialCurator:
                 f"acronyms: {sorted(ambiguous)}"
             )
 
-        return [self._cert_record(r, ambiguous) for r in certs]
+        return [self._cert_record(ambiguous, r) for r in certs]
 
     def _curate_programs(self) -> list[dict]:
         """
         Normalize and merge community college and university programs.
-        """
-        cc = self._load(self.reference / "cc_programs.json", {})
-        um = self._load(self.reference / "umaine_programs.json", [])
 
-        def program(credential: str, institution: str, name: str, url: str):
+        Each program's `embedding_text` inherits joined task, DWA,
+        technology, tool, and knowledge text from the O*NET SOCs
+        hand-mapped in `additions/program_socs.toml`. AAS degrees
+        legitimately span multiple trades, so the mapping is
+        one-program-to-many-SOCs per the NCES CIP → O*NET-SOC
+        crosswalk (July 2024).
+        """
+        cc      = self._load(self.reference / "cc_programs.json", {})
+        um      = self._load(self.reference / "umaine_programs.json", [])
+        mapping = self._load(self.additions / "program_socs.toml")
+
+        def program(
+            credential  : str,
+            institution : str,
+            name        : str,
+            url         : str
+        ):
+            socs    = mapping[name]
+            profile = " ".join(self._profile(s) for s in socs)
             return {
-                "embedding_text" : f"{credential} {name} {institution}",
+                "embedding_text" : f"{name}. {credential} at {institution}. {profile}",
                 "kind"           : "program",
                 "label"          : name,
                 "metadata"       : {
                     "credential"  : credential,
                     "institution" : institution,
+                    "soc_codes"   : socs,
                     "url"         : url
                 }
             }
@@ -199,12 +237,16 @@ class CredentialCurator:
         path    : Path,
         default : Any = ...,
         key     : str | None = None
-    ):
+    ) -> Any:
         """
-        Read and parse a JSON file, optionally indexing by a field.
+        Read and parse a config file, optionally indexing list entries
+        by a field. Dispatches on suffix so JSON artifacts and TOML
+        reference mappings share one loader. Returns `Any` because the
+        file's shape varies (dict, list of dicts, flat mapping) and
+        each caller knows what it asked for.
 
         Args:
-            path    : JSON file to read.
+            path    : Config file to read.
             default : Value to return when the file does not exist.
                       Omit to let `FileNotFoundError` propagate.
             key     : When provided, return a `{record[key]: record}`
@@ -212,10 +254,24 @@ class CredentialCurator:
         """
         if default is not ... and not path.exists():
             return default
-        records = loads(path.read_text())
+        parser       = toml_loads if path.suffix == ".toml" else loads
+        records: Any = parser(path.read_text())
         if key:
             return {r[key]: r for r in records}
         return records
+
+    def _profile(self, soc_code: str) -> str:
+        """
+        Join the discriminating O*NET skill names for one SOC into a
+        single-line text block suitable for embedding.
+
+        Args:
+            soc_code: O*NET SOC code present in `onet.json`.
+        """
+        return " ".join(
+            s["name"] for s in self.onet[soc_code]["skills"]
+            if s["type"] in self.PROFILE_TYPES
+        )
 
     def run_all(self):
         """

@@ -1,6 +1,5 @@
 [chart_labels]
 bright_outlook      = 'Bright Outlook'
-career_label        = 'Career move'
 coverage_footer     = 'Combined unique coverage: {unique_cov} of {total} gaps'
 fit_meter_label     = 'match'
 gap_badge           = '{cov} gap{s}'
@@ -8,12 +7,11 @@ gaps_heading        = 'Growth Areas ({count} to develop)'
 open_positions      = 'open positions'
 path_header         = '{strategy} ({n_items} step{s} → covers {unique_cov} of {total})'
 postings_heading    = 'Open Positions for This Role ({count} available)'
-strategy_biggest    = 'Biggest Single Investment'
-strategy_education  = 'Education-Led'
-strategy_fewest     = 'Fewest Steps to Coverage'
-strategy_stepping   = 'Try This Role First'
+strategy_biggest    = '🥇  Bang for Your Buck'
+strategy_certs      = '📜  Certification Stack'
+strategy_fewest     = '🧩  Fewest Steps to Coverage'
 strengths_heading   = 'Strengths ({count} demonstrated)'
-verdict_intro       = 'You have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills. For the <strong>{gaps}</strong> you don’t have yet:'
+verdict_intro       = 'For the <strong>{gaps}</strong> you don’t have yet:'
 verdict_match       = 'You’re a <strong>{fit_pct}%</strong> match. You already have <strong>{demonstrated}</strong> of <strong>{total}</strong> skills common to <strong>{soc_title}</strong> roles.'
 
 [sections.evidence]

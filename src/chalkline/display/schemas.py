@@ -2,30 +2,30 @@
 Display-layer data models for the Chalkline career report.
 
 Each model defines a data shape consumed by tab renderers and chart
-builders, with a `from_` factory classmethod that constructs the model
-from raw pipeline state.
+builders, with a `from_` factory classmethod that constructs the model from
+raw pipeline state.
 """
 
 import numpy as np
 
 from collections     import Counter, defaultdict
 from collections.abc import Iterable
-from dataclasses     import dataclass
 from datetime        import date
 from heapq           import nlargest, nsmallest
-from itertools       import accumulate, chain, islice
+from itertools       import accumulate, chain, combinations, islice
+from marimo          import Html
 from math            import log
 from operator        import attrgetter
 from pydantic        import BaseModel
 from statistics      import median
-from typing          import ClassVar, NamedTuple, Self, TypedDict
+from typing          import Any, ClassVar, Literal, NamedTuple, Self, TypedDict
 
 from chalkline.collection.schemas    import Posting
 from chalkline.matching.schemas      import MatchResult, ScoredTask
 from chalkline.pathways.clusters     import Cluster, Clusters
 from chalkline.pathways.graph        import CareerPathwayGraph
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
-from chalkline.pathways.schemas      import Credential, Reach
+from chalkline.pathways.schemas      import Credential
 from chalkline.pipeline.encoder      import SentenceEncoder
 from chalkline.pipeline.orchestrator import Chalkline
 
@@ -42,126 +42,6 @@ class BoardMatch(TypedDict):
     name        : str
 
 
-@dataclass
-class CoverageBuilder:
-    """
-    Shared context for greedy set-cover across multiple gap-closure
-    strategies within a single route.
-
-    Holds the credential-to-gap-index mapping, credential lookup, and
-    total gap count so each strategy call only specifies what varies:
-    the strategy name, the uncovered set, and an optional seed.
-    """
-
-    active         : dict[str, set[int]]
-    credential_map : dict[str, Credential]
-    n_gaps         : int
-
-    @property
-    def best_item(self) -> PathItem | None:
-        """
-        Single credential covering the most gap tasks, or `None`.
-        """
-        return max(
-            (
-                PathItem.from_credential(len(gaps), c, label)
-                for label, gaps in self.active.items()
-                if (c := self.credential_map.get(label))
-            ),
-            key     = lambda p: p.coverage,
-            default = None
-        )
-
-    @property
-    def programs(self) -> dict[str, set[int]]:
-        """
-        Subset of `active` filtered to program-kind credentials.
-        """
-        return {
-            l: s for l, s in self.active.items()
-            if (c := self.credential_map.get(l)) and c.kind == "program"
-        }
-
-    def path(
-        self,
-        strategy  : str,
-        uncovered : set[int],
-        seed      : list[str] | None = None
-    ) -> CredentialPath | None:
-        """
-        Greedy set-cover: pick the credential covering the most
-        uncovered gaps each step, up to four items.
-
-        Returns `None` when no credential covers any uncovered gap
-        and no seed labels were provided.
-
-        Args:
-            strategy  : Display label for this path.
-            uncovered : Gap indices not yet covered.
-            seed      : Labels to prepend before greedy fill.
-        """
-        selected  = list(seed or [])
-        remaining = set(uncovered)
-        for _ in range(4):
-            best = max(
-                self.active,
-                key     = lambda l: len(self.active[l] & remaining),
-                default = None
-            )
-            if not best or not (overlap := self.active.get(best, set()) & remaining):
-                break
-            selected.append(best)
-            remaining -= overlap
-        if not selected:
-            return None
-        return CredentialPath(
-            items = [
-                PathItem.from_credential(len(self.active[l]), c, l)
-                for l in selected
-                if (c := self.credential_map.get(l))
-            ],
-            strategy        = strategy,
-            unique_coverage = self.n_gaps - len(remaining)
-        )
-
-    def stepping_path(
-        self,
-        best_item    : PathItem | None,
-        graph        : CareerPathwayGraph,
-        reach        : Reach,
-        route        : RouteDetail
-    ) -> CredentialPath | None:
-        """
-        Stepping-stone strategy: find the best intermediate cluster
-        that covers gap tasks, optionally paired with `best_item`.
-
-        Returns `None` when no viable intermediate exists.
-        """
-        stepping = graph.stepping_stone(
-            destination  = route.destination,
-            reach        = reach,
-            task_vectors = route.gap_vectors
-        )
-        if not stepping:
-            return None
-        title, cov = stepping
-        step_item = PathItem(
-            coverage = cov,
-            detail   = "stepping",
-            kind     = "career",
-            label    = title
-        )
-        items = [step_item, best_item] if best_item else [step_item]
-        return CredentialPath(
-            items           = items,
-            strategy        = "stepping",
-            unique_coverage = min(
-                cov + (best_item.coverage if best_item else 0),
-                self.n_gaps
-            )
-        )
-
-
 class CredentialPath(NamedTuple):
     """
     One gap-closure strategy with its credentials and total coverage.
@@ -171,13 +51,54 @@ class CredentialPath(NamedTuple):
     strategy        : str
     unique_coverage : int
 
+    @classmethod
+    def from_route(
+        cls,
+        route    : RouteDetail,
+        strategy : Literal["certs", "fewest"],
+        kind     : Literal["apprenticeship", "certification", "program"] | None = None
+    ) -> Self | None:
+        """
+        Smallest-footprint combination of size 1-4 whose union covers the
+        route's gap positions. Total footprint equals union plus pairwise
+        overlap, so minimizing footprint minimizes overlap.
+
+        Args:
+            route    : Route carrying credential coverage and count.
+            strategy : Label written onto the returned path.
+            kind     : Restrict candidates to one credential kind.
+        """
+        credentials = route.credential_map
+        candidates  = [
+            (label, positions) for label, positions in route.coverage.items()
+            if positions and (kind is None or credentials[label].kind == kind)
+        ]
+        if not candidates:
+            return None
+
+        best = max(
+            chain.from_iterable(combinations(candidates, k) for k in range(1, 5)),
+            key=lambda combo: (
+                len(set().union(*(positions for _, positions in combo))),
+                -sum(len(positions) for _, positions in combo)
+            )
+        )
+        return cls(
+            items           = [
+                PathItem.from_credential(len(positions), credentials[label], label)
+                for label, positions in best
+            ],
+            strategy        = strategy,
+            unique_coverage = len(set().union(*(positions for _, positions in best)))
+        )
+
 
 class DatedPoint(NamedTuple):
     """
     One posting plotted on the timeline strip scatter.
 
-    `label` is the company name when present, falling back to the
-    posting title so every dot has hover text.
+    `label` is the company name when present, falling back to the posting
+    title so every dot has hover text.
     """
 
     date  : date
@@ -189,21 +110,20 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
     Words distinctive to the matched career family vs the full corpus,
     bucketed into three tiers by document frequency.
 
-    Treats every cluster as a TF-IDF document and combines each
-    posting's title and description as one bag of words. The tiers
-    split eligible words by how many clusters each one appears in:
-    `unique to this family` for words found only here, `rare across
-    the corpus` for words found in two to four families, and `notable
-    vocabulary` for words found in five or more families that still
-    rank high inside the matched family. Each tier is sized
-    independently so a sparser tier never gets visually crowded by a
-    denser one.
+    Treats every cluster as a TF-IDF document and combines each posting's
+    title and description as one bag of words. The tiers split eligible
+    words by how many clusters each one appears in: `unique to this family`
+    for words found only here, `rare across the corpus` for words found in
+    two to four families, and `notable vocabulary` for words found in five
+    or more families that still rank high inside the matched family. Each
+    tier is sized independently so a sparser tier never gets visually
+    crowded by a denser one.
 
-    `tiers` is laid out in the same shape `Charts.faceted_treemap`
-    accepts via its `facets=` parameter, so the chart caller can pass
+    `tiers` is laid out in the same shape `Charts.faceted_treemap` accepts
+    via its `facets=` parameter, so the chart caller can pass
     `vocabulary.tiers` directly. Each tier maps a word to its in-cluster
-    count, ordered by descending TF-IDF score; empty tiers are dropped
-    in the factory so the chart never receives a blank facet.
+    count, ordered by descending TF-IDF score, with empty tiers dropped in
+    the factory so the chart never receives a blank facet.
     """
 
     tiers: dict[str, dict[str, int]]
@@ -220,28 +140,25 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
         per_tier          : int = 12
     ) -> Self:
         """
-        Rank vocabulary by TF-IDF over clusters-as-documents and bucket
-        into three distinctiveness tiers.
+        Rank vocabulary by TF-IDF over clusters-as-documents and bucket into
+        three distinctiveness tiers.
 
-        The corpus-wide `(per_cluster, doc_freq)` pair depends only on
-        the cluster collection, not on `cluster`, so it is cached at the
-        class level keyed by `id(clusters)`. Per-render work collapses
-        to picking the matched cluster's Counter and ranking its
-        eligible words by TF-IDF. Pipeline rebuilds invalidate the cache
-        naturally because the new `clusters` instance has a different
-        identity.
+        The corpus-wide `(per_cluster, doc_freq)` pair depends only on the
+        cluster collection, not on `cluster`, so it is cached at the class
+        level keyed by `id(clusters)`. Per-render work collapses to picking
+        the matched cluster's Counter and ranking its eligible words by
+        TF-IDF. Pipeline rebuilds invalidate the cache naturally because the
+        new `clusters` instance has a different identity.
 
         Args:
             cluster           : Matched career family.
             clusters          : Fitted cluster container with all postings.
-            tier_descriptions : Tier label-to-description mapping from
-                                tab TOML, iterated for tier names.
-            min_count         : Minimum in-cluster occurrences for a
-                                word to be eligible, suppressing
-                                single-occurrence noise that would
+            tier_descriptions : Tier label-to-description mapping from tab TOML,
+                                iterated for tier names.
+            min_count         : Minimum in-cluster occurrences for a word to be
+                                eligible, suppressing single-occurrence noise that would
                                 otherwise top the ranking.
-            per_tier          : Maximum words to keep per
-                                distinctiveness tier.
+            per_tier          : Maximum words to keep per distinctiveness tier.
         """
         if (cache_key := id(clusters)) not in cls.corpus_cache:
             per_cluster = {
@@ -279,7 +196,7 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
                 w: eligible[w] for w in nlargest(
                     per_tier,
                     (w for w in eligible if predicate(doc_freq[w])),
-                    key = scores.__getitem__
+                    key=scores.__getitem__
                 )
             })
         })
@@ -287,82 +204,39 @@ class DistinctiveVocabulary(BaseModel, extra="forbid"):
 
 class GapCoverage(NamedTuple):
     """
-    Gap-closure analysis for a career transition.
+    Gap-closure strategies for a career transition.
 
-    Encodes the destination cluster's gap task names, computes
-    cosine similarity between each credential's embedding and every
-    gap task, thresholds at the per-credential 75th percentile, then
-    runs greedy set-cover to propose 2-4 alternative credential
-    combinations with different time/coverage tradeoffs.
-
-    The factory mirrors the `RelevantCredentials.from_cluster` and
-    `RelevantJobBoards.from_cluster` patterns: it takes individual
-    pipeline components rather than `TabContext` so the schema stays
-    independent of the display wiring.
+    Assembles up to three candidate paths against the route's pre-computed
+    credential coverage: the smallest min-overlap combination closing every
+    gap, the single largest-coverage credential, and a certification-only
+    stack.
     """
 
     paths: list[CredentialPath]
 
     @classmethod
-    def from_route(
-        cls,
-        pipeline : Chalkline,
-        result   : MatchResult,
-        route    : "RouteDetail"
-    ) -> Self:
+    def from_route(cls, route: RouteDetail) -> Self:
         """
         Assemble gap-closure strategies from the route's pre-computed
         coverage mapping.
-
-        The route carries `coverage` and `gap_vectors` computed during
-        `RouteDetail.from_selection`, so this method focuses purely on
-        strategy assembly via `CoverageBuilder`.
-
-        Args:
-            pipeline : Fitted pipeline for stepping-stone lookup.
-            result   : Match result with reach edges for the
-                       stepping-stone strategy.
-            route    : Route with pre-computed coverage and gap vectors.
         """
-        if not route.coverage:
+        if not (top := route.top_coverage):
             return cls(paths=[])
 
-        builder  = CoverageBuilder(
-            active         = {l: g for l, g in route.coverage.items() if g},
-            credential_map = route.credential_map,
-            n_gaps         = route.gap_count
+        label, positions = top
+        count            = len(positions)
+        biggest          = CredentialPath(
+            items           = [PathItem.from_credential(
+                count, route.credential_map[label], label
+            )],
+            strategy        = "biggest",
+            unique_coverage = count
         )
-        all_gaps   = set(range(builder.n_gaps))
-        best_item  = builder.best_item
-        paths: list[CredentialPath] = []
-
-        if (fewest := builder.path("fewest", all_gaps)):
-            paths.append(fewest)
-
-        if best_item and (not fewest or best_item.label != fewest.items[0].label):
-            paths.append(CredentialPath(
-                items           = [best_item],
-                strategy        = "biggest",
-                unique_coverage = best_item.coverage
-            ))
-
-        if (programs := builder.programs):
-            seed = max(programs, key=lambda l: len(programs[l]))
-            education = builder.path(
-                "education", all_gaps - programs[seed], [seed]
-            )
-            if education and (not fewest or education.items != fewest.items):
-                paths.append(education)
-
-        if (stepping := builder.stepping_path(
-            best_item = best_item,
-            graph     = pipeline.graph,
-            reach     = result.reach,
-            route     = route
-        )):
-            paths.append(stepping)
-
-        return cls(paths=paths)
+        return cls(paths=[path for path in (
+            CredentialPath.from_route(route, "fewest"),
+            biggest,
+            CredentialPath.from_route(route, "certs", kind="certification")
+        ) if path])
 
 
 class JobPostingMetrics(BaseModel, extra="forbid"):
@@ -453,8 +327,8 @@ class Labels(BaseModel, extra="forbid"):
     Shared display labels loaded from `tabs/shared/labels.toml`.
 
     Cross-cutting text used by layout helpers and the Marimo notebook
-    itself. Validated at load time so that missing keys surface
-    immediately rather than at render time.
+    itself. Validated at load time so that missing keys surface immediately
+    rather than at render time.
     """
 
     fallback_location : str
@@ -468,10 +342,10 @@ class MapGeometry(BaseModel, extra="forbid"):
     """
     Static layout geometry for the force-directed pathway map widget.
 
-    Owns pixel-level constants for node dimensions, force simulation
-    tuning, and text-fit thresholds. The JS renderer receives a
-    `dimensions` payload with the values it needs, while the Python
-    side uses `title_char_limit` for pre-truncation.
+    Owns pixel-level constants for node dimensions, force simulation tuning,
+    and text-fit thresholds. The JS renderer receives a `dimensions` payload
+    with the values it needs, while the Python side uses `title_char_limit`
+    for pre-truncation.
     """
 
     card_h              : int        = 56
@@ -630,8 +504,8 @@ class PathItem(NamedTuple):
         label      : str
     ) -> Self:
         """
-        Build from a `Credential` lookup, pulling `detail_label` and
-        `kind` from the credential instance.
+        Build from a `Credential` lookup, pulling `detail_label` and `kind`
+        from the credential instance.
         """
         return cls(
             coverage = coverage,
@@ -643,19 +517,19 @@ class PathItem(NamedTuple):
 
 class PostingProjection(BaseModel, extra="forbid"):
     """
-    2D t-SNE projection of the matched cluster's posting embeddings,
-    with k-means sub-clustering on the same vectors for coloring.
+    2D t-SNE projection of the matched cluster's posting embeddings, with
+    k-means sub-clustering on the same vectors for coloring.
 
-    Reads the per-posting embeddings already stored on the matched
-    `Cluster` (no encoding work at render time), runs sklearn t-SNE
-    with PCA initialization to map them to two dimensions, and runs
-    k-means on the same high-dimensional vectors to discover sub-roles
-    within the family. Coloring by k-means assignment surfaces actual
-    semantic sub-structure rather than employer boilerplate, and pairs
-    naturally with t-SNE since both are unsupervised methods.
+    Reads the per-posting embeddings already stored on the matched `Cluster`
+    (no encoding work at render time), runs sklearn t-SNE with PCA
+    initialization to map them to two dimensions, and runs k-means on the
+    same high-dimensional vectors to discover sub-roles within the family.
+    Coloring by k-means assignment surfaces actual semantic sub-structure
+    rather than employer boilerplate, and pairs naturally with t-SNE since
+    both are unsupervised methods.
 
-    `series` is laid out in the same shape `Charts.category_scatter`
-    accepts via its `data=` parameter, so the chart caller can pass
+    `series` is laid out in the same shape `Charts.category_scatter` accepts
+    via its `data=` parameter, so the chart caller can pass
     `projection.series` directly without unpacking parallel arrays.
     """
 
@@ -665,8 +539,8 @@ class PostingProjection(BaseModel, extra="forbid"):
 
     def __bool__(self) -> bool:
         """
-        True when the projection contains at least one sub-role
-        series, gating the conditional scatter panel in the render.
+        True when the projection contains at least one sub-role series,
+        gating the conditional scatter panel in the render.
         """
         return bool(self.series)
 
@@ -679,9 +553,9 @@ class PostingProjection(BaseModel, extra="forbid"):
         random_state : int = 42
     ) -> Self:
         """
-        Project the cluster's pre-computed embeddings to 2D and color
-        by k-means sub-cluster, labeling each sub-cluster with its top
-        TF-IDF distinctive words.
+        Project the cluster's pre-computed embeddings to 2D and color by
+        k-means sub-cluster, labeling each sub-cluster with its top TF-IDF
+        distinctive words.
 
         Result is cached at the class level keyed by `id(cluster)`, so
         re-renders that match the same career family (e.g. uploading a
@@ -690,14 +564,13 @@ class PostingProjection(BaseModel, extra="forbid"):
         pipeline, so their identities are stable for the session.
 
         Args:
-            cluster      : Matched career family with stored per-posting
-                           embeddings.
-            min_postings : Below this size t-SNE is not meaningful;
-                           returns an empty projection so the render
-                           layer can skip the panel.
-            n_subgroups  : Target number of k-means sub-clusters; the
-                           actual count is capped at one third of the
-                           posting count to keep groups non-trivial.
+            cluster      : Matched career family with stored per-posting embeddings.
+            min_postings : Below this size t-SNE is not meaningful, so the factory
+                           returns an empty projection and the render layer skips the
+                           panel.
+            n_subgroups  : Target number of k-means sub-clusters, with the actual count
+                           capped at one third of the posting count to keep groups
+                           non-trivial.
             random_state : Seed for reproducible projections.
         """
         key = id(cluster)
@@ -712,7 +585,7 @@ class PostingProjection(BaseModel, extra="forbid"):
         from sklearn.manifold import TSNE
 
         embeddings = cluster.embeddings
-        coords = TSNE(
+        coords     = TSNE(
             init         = "pca",
             n_components = 2,
             perplexity   = max(2.0, min(15.0, (cluster.size - 1) / 3)),
@@ -756,8 +629,8 @@ class ProcessStep(BaseModel, extra="forbid"):
 
     Used by `Layout.process_flow` to render numbered cards with optional
     sector-color accents and natural-language hop labels above incoming
-    arrows. The Methods tab pipeline diagram uses only the required
-    fields; the Map tab career path flow uses the accent and arrow_label
+    arrows. The Methods tab pipeline diagram uses only the required fields,
+    whereas the Map tab career path flow uses the accent and arrow_label
     extensions to convey sector identity and transition difficulty.
     """
 
@@ -772,11 +645,11 @@ class ProcessStep(BaseModel, extra="forbid"):
         """
         Return a copy with `detail` formatted against the given kwargs.
 
-        Used by `Layout.process_flow` to substitute corpus-level values
-        like `{corpus_size}` and `{cluster_count}` into each step's
-        detail line at render time. The accent and arrow_label fields
-        pass through unchanged because they carry colors and fixed
-        phrases that need no substitution.
+        Used by `Layout.process_flow` to substitute corpus-level values like
+        `{corpus_size}` and `{cluster_count}` into each step's detail line
+        at render time. The accent and arrow_label fields pass through
+        unchanged because they carry colors and fixed phrases that need no
+        substitution.
         """
         return self.model_copy(update={"detail": self.detail.format(**kwargs)})
 
@@ -785,15 +658,14 @@ class RelevantCredentials(BaseModel, extra="forbid"):
     """
     Top concrete credentials per kind for the matched career family.
 
-    Reuses the cluster-vector and credential-vector cosine machinery
-    that powers per-edge credential enrichment in the graph layer.
-    Instead of returning per-kind counts, the factory returns the actual
-    `Credential` objects ranked by similarity and bucketed by kind, so
-    the render layer can surface concrete examples (apprenticeship
-    RAPIDS codes and hours, program institutions and links, recognizable
-    certification labels) instead of meaningless catalog-side counts.
-    Designed for reuse on other tabs (Splash, Your Match) without
-    modification.
+    Reuses the cluster-vector and credential-vector cosine machinery that
+    powers per-edge credential enrichment in the graph layer. Instead of
+    returning per-kind counts, the factory returns the actual `Credential`
+    objects ranked by similarity and bucketed by kind, so the render layer
+    can surface concrete examples (apprenticeship RAPIDS codes and hours,
+    program institutions and links, recognizable certification labels)
+    instead of meaningless catalog-side counts. Designed for reuse on other
+    tabs (Splash, Your Match) without modification.
     """
 
     by_kind: dict[str, list[Credential]]
@@ -807,20 +679,19 @@ class RelevantCredentials(BaseModel, extra="forbid"):
         per_kind : int = 4
     ) -> Self:
         """
-        Rank credentials by cosine similarity to the matched cluster
-        and keep the top `per_kind` of each kind.
+        Rank credentials by cosine similarity to the matched cluster and
+        keep the top `per_kind` of each kind.
 
-        Slices a single column from `graph.credential_similarity`,
-        which the graph already computes once during construction for
-        edge enrichment. The factory does no cosine work of its own;
-        it just argsorts and bucket-walks the precomputed column.
+        Slices a single column from `graph.credential_similarity`, which the
+        graph already computes once during construction for edge enrichment.
+        The factory does no cosine work of its own, instead argsorting and
+        bucket-walking the precomputed column.
 
         Args:
             cluster  : Matched career family.
             clusters : Fitted cluster container with stacked vectors.
-            graph    : Fitted career pathway graph, source of both the
-                       credential list and the precomputed similarity
-                       matrix.
+            graph    : Fitted career pathway graph, source of both the credential list
+                       and the precomputed similarity matrix.
             per_kind : Number of top credentials to keep per kind.
         """
         with_vectors, _ = graph.credential_matrix
@@ -840,19 +711,20 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
     Job boards aligned with this career family via semantic similarity.
 
     Encodes each board's `focus + best_for + category` text via the
-    pipeline's existing `SentenceEncoder` once at first call, caches
-    the flattened board list and the pre-stacked vector matrix together
-    on the class so subsequent renders skip both the encoding work and
-    the per-render dict-to-matrix rebuild, then ranks boards by cosine
-    similarity to the matched cluster's vector. Each returned board
-    dict carries a `match_score` percentage so the render layer can
-    surface a meaningful relevance signal instead of a near-binary
-    keyword count. Designed for reuse on other tabs (Splash, Your
-    Match) without modification.
+    pipeline's existing `SentenceEncoder` once at first call, caches the
+    flattened board list and the pre-stacked vector matrix together on the
+    class so subsequent renders skip both the encoding work and the
+    per-render dict-to-matrix rebuild, then ranks boards by cosine
+    similarity to the matched cluster's vector. Each returned board dict
+    carries a `match_score` percentage so the render layer can surface a
+    meaningful relevance signal instead of a near-binary keyword count.
+    Designed for reuse on other tabs (Splash, Your Match) without
+    modification.
     """
 
-    boards      : list[BoardMatch]
-    board_cache : ClassVar[tuple[list, np.ndarray] | None] = None
+    boards: list[BoardMatch]
+
+    board_cache: ClassVar[tuple[list, np.ndarray] | None] = None
 
     @classmethod
     def from_cluster(
@@ -869,13 +741,13 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
         Args:
             cluster   : Matched career family.
             clusters  : Fitted cluster container with stacked vectors.
-            encoder   : Sentence encoder shared with the pipeline, used
-                        once per session to embed every board's focus
-                        text into the same space as the cluster vectors.
-            reference : Stakeholder reference exposing the job board
-                        catalog under `job_boards`.
-            limit     : Maximum boards to return, ordered by descending
-                        semantic similarity.
+            encoder   : Sentence encoder shared with the pipeline, used once per session
+                        to embed every board's focus text into the same space as the
+                        cluster vectors.
+            reference : Stakeholder reference exposing the job board catalog under
+                        `job_boards`.
+            limit     : Maximum boards to return, ordered by descending semantic
+                        similarity.
         """
         from sklearn.metrics.pairwise import cosine_similarity
 
@@ -896,7 +768,7 @@ class RelevantJobBoards(BaseModel, extra="forbid"):
         return cls(boards=[
             BoardMatch(
                 **all_boards[i],
-                match_score = round(float(similarities[i]) * 100)
+                match_score=round(float(similarities[i]) * 100)
             )
             for i in np.argsort(-similarities)[:limit]
         ])
@@ -908,10 +780,9 @@ class RouteDetail(NamedTuple):
 
     Holds the source and destination `Cluster` objects for dot-notation
     access to SOC titles, sectors, Job Zones, and postings. Constructed
-    via `from_selection`, which prefers the direct adjacent edge when
-    one exists (the one-hop move the user likely intended by clicking
-    a neighbor) and falls back to the widest-path bottleneck tree for
-    destinations that aren't direct neighbors.
+    via `from_selection`, which computes credentials per (source,
+    destination) pair through the graph's dual-threshold filter,
+    independent of how many backbone hops separate the two clusters.
     """
 
     coverage         : dict[str, set[int]]
@@ -920,6 +791,7 @@ class RouteDetail(NamedTuple):
     destination_wage : float | None
     display_title    : str
     gap_vectors      : np.ndarray
+    match_score      : float
     scored_tasks     : list[ScoredTask]
     source           : Cluster
     source_wage      : float | None
@@ -938,9 +810,9 @@ class RouteDetail(NamedTuple):
         """
         Route credentials grouped by kind, with empty kinds omitted.
 
-        Reusable for both the recipe section (top picks per kind) and
-        the resources drawer (full catalog per kind) so neither has
-        to rebuild the grouping.
+        Reusable for both the recipe section (top picks per kind) and the
+        resources drawer (full catalog per kind) so neither has to rebuild
+        the grouping.
         """
         by_kind: dict[str, list[Credential]] = {}
         for credential in self.credentials:
@@ -957,15 +829,12 @@ class RouteDetail(NamedTuple):
     @property
     def fit_percentage(self) -> int:
         """
-        Mean raw cosine similarity as a 0-100 percentage for hero
-        display, matching the map donut formula.
+        SVD-derived match score as a 0-100 percentage for hero display.
+        Reads `match_score` populated by `from_selection` from
+        `ResumeMatcher.cluster_score`, the single source of truth shared
+        with the map donut.
         """
-        if not self.scored_tasks:
-            return 0
-        return round(
-            100 * sum(t.similarity for t in self.scored_tasks)
-            / len(self.scored_tasks)
-        )
+        return round(100 * self.match_score)
 
     @property
     def gap_count(self) -> int:
@@ -973,6 +842,16 @@ class RouteDetail(NamedTuple):
         Number of destination tasks the resume does not demonstrate.
         """
         return len(self.gap_tasks)
+
+    @property
+    def gap_indices(self) -> list[int]:
+        """
+        Positions into `destination.tasks` of the gap set, preserving
+        `scored_tasks` order so coverage dicts index the same way whether
+        keyed on credentials or intermediate clusters.
+        """
+        index = {t.name: i for i, t in enumerate(self.destination.tasks)}
+        return [index[t.name] for t in self.scored_tasks if not t.demonstrated]
 
     @property
     def gap_tasks(self) -> list[ScoredTask]:
@@ -984,11 +863,20 @@ class RouteDetail(NamedTuple):
     @property
     def is_self(self) -> bool:
         """
-        True when source and destination are the same cluster,
-        meaning the user is viewing their matched career rather
-        than a transition route.
+        True when source and destination are the same cluster, meaning the
+        user is viewing their matched career rather than a transition route.
         """
         return self.source.cluster_id == self.destination.cluster_id
+
+    @property
+    def top_coverage(self) -> tuple[str, set[int]] | None:
+        """
+        (label, gap positions) of the credential covering the most gap tasks
+        on this route, or `None` when no credential covers anything.
+        """
+        if not self.coverage:
+            return None
+        return max(self.coverage.items(), key=lambda item: len(item[1]))
 
     @property
     def top_gaps(self) -> list[ScoredTask]:
@@ -998,7 +886,7 @@ class RouteDetail(NamedTuple):
         return nsmallest(
             8,
             self.gap_tasks,
-            key = attrgetter("similarity")
+            key=attrgetter("similarity")
         )
 
     @property
@@ -1010,7 +898,7 @@ class RouteDetail(NamedTuple):
         return nlargest(
             8,
             (t for t in self.scored_tasks if t.demonstrated),
-            key = attrgetter("similarity")
+            key=attrgetter("similarity")
         )
 
     @property
@@ -1023,34 +911,10 @@ class RouteDetail(NamedTuple):
     @property
     def wage_comparison(self) -> WageComparison:
         """
-        Wage bar data for the verdict hero section, with display
-        labels and percentages derived from the raw amounts.
+        Wage bar data for the verdict hero section, with display labels and
+        percentages derived from the raw amounts.
         """
         return WageComparison(self.destination_wage, self.source_wage)
-
-    @staticmethod
-    def _encode_gaps(
-        credentials  : list[Credential],
-        pipeline     : Chalkline,
-        scored_tasks : list[ScoredTask]
-    ) -> tuple[np.ndarray, dict[str, set[int]]]:
-        """
-        Encode gap task names and compute credential coverage,
-        returning empty defaults when there are no gaps or
-        credentials to evaluate.
-        """
-        gaps = [t.name for t in scored_tasks if not t.demonstrated]
-        if not gaps or not credentials:
-            return np.empty((0, 0)), {}
-
-        vectors = pipeline.matcher.encoder.encode(gaps)
-        return (
-            vectors,
-            pipeline.graph.credential_coverage(
-                route_labels = [c.label for c in credentials],
-                task_vectors = vectors
-            )
-        )
 
     @classmethod
     def from_selection(
@@ -1060,57 +924,56 @@ class RouteDetail(NamedTuple):
         profile     : Cluster,
         result      : MatchResult,
         selected_id : int
-    ) -> Self | None:
+    ) -> Self:
         """
-        Build a route from a clicked map node, or `None` if the click
-        is invalid (no selection, the matched cluster itself, or no
-        path connects the source and destination).
+        Build a route from a clicked map node.
 
-        Prefers the direct adjacent edge (single-hop) when the
-        destination is a direct neighbor of the matched cluster,
-        because the user clicked a specific node and the one-hop
-        move carries the most relevant credentials. Falls back to the
-        widest-path tree for non-adjacent destinations.
+        A negative `selected_id` or one equal to the matched cluster
+        builds a self-route so the user sees their own skill profile,
+        credentials, and postings immediately. Otherwise the destination
+        is the clicked cluster. Credentials come from
+        `graph.credentials_for(source, destination)` regardless of
+        adjacency, so the same dual-threshold calibration that previously
+        ran per-edge at fit time now runs per click against any pair.
 
-        When `selected_id` is negative (no click yet) or equals the
-        matched cluster, builds a self-route so the user sees their
-        skill profile, credentials, and postings for the matched
-        career immediately rather than an empty callout.
+        Args:
+            labor       : Occupational wage and outlook loader.
+            pipeline    : Fitted pipeline carrying clusters, graph, and matcher.
+            profile     : Source cluster (the user's match).
+            result      : Match result carrying reach edges.
+            selected_id : Clicked node, negative for no selection.
         """
-        if selected_id < 0 or selected_id == result.cluster_id:
-            destination = profile
-            edges       = result.reach.edges
-
-        elif (adjacent := next(
-            (e for e in result.reach.edges if e.cluster_id == selected_id),
-            None
-        )):
-            destination = pipeline.clusters[selected_id]
-            edges       = [adjacent]
-
-        else:
-            path  = pipeline.graph.try_widest_path(profile.cluster_id, selected_id)
-            edges = pipeline.graph.path_edges(path)
-            if not edges:
-                return None
-            destination = pipeline.clusters[selected_id]
-
-        credentials = [c for e in edges for c in e.credentials]
+        destination = (
+            profile if selected_id < 0 or selected_id == result.cluster_id
+            else pipeline.clusters[selected_id]
+        )
+        credentials = pipeline.graph.credentials_for(
+            profile.cluster_id, destination.cluster_id
+        )
         scored      = pipeline.matcher.score_destination(destination)
-        encoded     = cls._encode_gaps(credentials, pipeline, scored)
+        task_index  = {t.name: i for i, t in enumerate(destination.tasks)}
+        gap_idx     = [task_index[t.name] for t in scored if not t.demonstrated]
+
+        if gap_idx and credentials:
+            gap_vectors = destination.task_matrix[gap_idx]
+            coverage    = pipeline.matcher.credential_coverage(
+                credentials = credentials,
+                destination = destination,
+                gap_indices = gap_idx
+            )
+        else:
+            gap_vectors = np.empty((0, 0))
+            coverage    = {}
 
         return cls(
             bright_outlook   = labor[destination.soc_title].bright_outlook,
-            coverage         = encoded[1],
+            coverage         = coverage,
             credentials      = credentials,
             destination      = destination,
             destination_wage = labor[destination.soc_title].annual_median,
-            display_title    = (
-                destination.modal_title
-                if pipeline.clusters.soc_counts[destination.soc_title] > 1
-                else destination.soc_title
-            ),
-            gap_vectors      = encoded[0],
+            display_title    = pipeline.clusters.display_title(destination),
+            gap_vectors      = gap_vectors,
+            match_score      = pipeline.matcher.cluster_score(destination.cluster_id),
             scored_tasks     = scored,
             source           = profile,
             source_wage      = labor[profile.soc_title].annual_median
@@ -1309,10 +1172,9 @@ class WageComparison(NamedTuple):
     """
     Wage bar data for the route card verdict section.
 
-    Accepts nullable wages directly from `RouteDetail` and resolves
-    them to zero internally so callers never need `or 0`. Display
-    percentages are relative to the higher wage so the longer bar
-    is always 100%.
+    Accepts nullable wages directly from `RouteDetail` and resolves them to
+    zero internally so callers never need `or 0`. Display percentages are
+    relative to the higher wage so the longer bar is always 100%.
     """
 
     destination_wage : float | None = None
@@ -1321,8 +1183,7 @@ class WageComparison(NamedTuple):
     @property
     def delta(self) -> float | None:
         """
-        Annual wage difference, or `None` when either wage is
-        unavailable.
+        Annual wage difference, or `None` when either wage is unavailable.
         """
         if not self.source_wage or not self.destination_wage:
             return None
@@ -1335,7 +1196,7 @@ class WageComparison(NamedTuple):
         """
         if (d := self.delta) is None:
             return ""
-        return f"{'+'  if d >= 0 else ''}${d:,.0f}/yr"
+        return f"{'+' if d >= 0 else ''}${d:,.0f}/yr"
 
     @property
     def destination_label(self) -> str:
@@ -1372,3 +1233,30 @@ class WageComparison(NamedTuple):
         d = self.destination_wage or 0
         s = self.source_wage or 0
         return round(s / max(d, s, 1) * 100)
+
+
+class WageFilter(NamedTuple):
+    """
+    Minimum-salary filter composed by `Forms.wage_filter`.
+
+    Holds the rendered `row` for the map tab alongside the live slider
+    element. The slider must be exposed as a cell-level variable in the
+    consuming Marimo notebook so static analysis tracks the reactive
+    dependency, letting the map cell re-run once the user releases the
+    thumb. The slider's `start` and `stop` define the corpus wage envelope,
+    so `bounds` always returns `(minimum, stop)` as an inclusive wage range.
+    """
+
+    row    : Html
+    slider : Any
+
+    @property
+    def bounds(self) -> tuple[float, float]:
+        """
+        Currently applied (minimum, stop) bounds.
+        """
+        value = self.slider.value
+        return (
+            (float(value) if value is not None else self.slider.start),
+            self.slider.stop
+        )

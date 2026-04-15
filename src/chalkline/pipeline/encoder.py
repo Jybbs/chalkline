@@ -32,21 +32,16 @@ class SentenceEncoder:
         batch_size : int         = 32,
         tqdm_class : type | None = None
     ):
-        from huggingface_hub import hf_hub_download
-        from onnxruntime     import InferenceSession
-        from tokenizers      import Tokenizer
+        from onnxruntime import InferenceSession
+        from tokenizers  import Tokenizer
 
         self.batch_size = batch_size
         self.name       = name
 
         logger.info(f"Initializing ONNX encoder ({name!r})")
-        self.session = InferenceSession(hf_hub_download(
-            name,
-            cache_dir  = Path(".cache/models"),
-            filename   = "onnx/model.onnx",
-            tqdm_class = tqdm_class
-        ))
-        self.tokenizer = Tokenizer.from_pretrained(name)
+
+        self.session   = InferenceSession(self._path("onnx/model.onnx", tqdm_class))
+        self.tokenizer = Tokenizer.from_file(self._path("tokenizer.json"))
         self.tokenizer.enable_padding()
 
         self.dimension = self.session.get_outputs()[0].shape[-1]
@@ -82,6 +77,30 @@ class SentenceEncoder:
             self.on_batch(batch_index, total)
 
         return hidden[:, 0, :]
+
+    def _path(
+        self,
+        filename   : str,
+        tqdm_class : type | None = None
+    ) -> str:
+        """
+        Resolve a file from the HuggingFace repo for this encoder,
+        preferring the local cache to skip the slow hub metadata check.
+        Downloads on first access only. Bypasses the ~10-second round-trip
+        that `Tokenizer.from_pretrained` performs on every instantiation.
+        """
+        from huggingface_hub import hf_hub_download, try_to_load_from_cache
+
+        cache_dir = Path(".cache/models")
+        cached    = try_to_load_from_cache(self.name, filename, cache_dir)
+        if isinstance(cached, str):
+            return cached
+        return hf_hub_download(
+            self.name,
+            cache_dir  = cache_dir,
+            filename   = filename,
+            tqdm_class = tqdm_class,
+        )
 
     def encode(self, texts: list[str], unit: bool = True) -> np.ndarray:
         """

@@ -13,6 +13,96 @@ import * as d3 from "https://esm.sh/d3@7";
 
 
 /* ------------------------------------------------------------------ */
+/*  Rectangular bbox collision force (vendored from d3-bboxCollide)   */
+/* ------------------------------------------------------------------ */
+
+function bboxCollide(bbox) {
+    var nodes, boxes, strength = 1, iterations = 1;
+
+    function force() {
+        for (var k = 0; k < iterations; ++k) {
+            var corners = [];
+            nodes.forEach(function (d, i) {
+                var b = boxes[i];
+                var cx = (b[0][0] + b[1][0]) / 2;
+                var cy = (b[0][1] + b[1][1]) / 2;
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + cx, y: d.y + cy});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[0][0], y: d.y + b[0][1]});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[0][0], y: d.y + b[1][1]});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[1][0], y: d.y + b[0][1]});
+                corners.push({node: d, vx: d.vx, vy: d.vy, x: d.x + b[1][0], y: d.y + b[1][1]});
+            });
+
+            var tree = d3.quadtree(corners,
+                (d) => d.x + d.vx, (d) => d.y + d.vy);
+
+            for (var i = 0; i < corners.length; ++i) {
+                var ni  = ~~(i / 5);
+                var nd  = nodes[ni];
+                var bi  = boxes[ni];
+                var xi  = nd.x + nd.vx;
+                var yi  = nd.y + nd.vy;
+                var nx1 = xi + bi[0][0], ny1 = yi + bi[0][1];
+                var nx2 = xi + bi[1][0], ny2 = yi + bi[1][1];
+                var bW  = bi[1][0] - bi[0][0];
+                var bH  = bi[1][1] - bi[0][1];
+
+                tree.visit(function (quad, x0, y0, x1, y1) {
+                    if (!quad.data) return x0 > nx2 || x1 < nx1 || y0 > ny2 || y1 < ny1;
+                    if (quad.data.node.index === ni) return;
+
+                    var other = quad.data.node;
+                    var bj    = boxes[other.index];
+                    var dx1   = other.x + other.vx + bj[0][0];
+                    var dy1   = other.y + other.vy + bj[0][1];
+                    var dx2   = other.x + other.vx + bj[1][0];
+                    var dy2   = other.y + other.vy + bj[1][1];
+
+                    if (nx1 > dx2 || dx1 > nx2 || ny1 > dy2 || dy1 > ny2) return;
+
+                    var dW = bj[1][0] - bj[0][0];
+                    var dH = bj[1][1] - bj[0][1];
+                    var xO = bW + dW - (Math.max(nx2, dx2) - Math.min(nx1, dx1));
+                    var yO = bH + dH - (Math.max(ny2, dy2) - Math.min(ny1, dy1));
+
+                    if ((nx1 + nx2) / 2 < (dx1 + dx2) / 2) {
+                        nd.vx    -= xO * strength * (yO / bH);
+                        other.vx += xO * strength * (yO / dH);
+                    } else {
+                        nd.vx    += xO * strength * (yO / bH);
+                        other.vx -= xO * strength * (yO / dH);
+                    }
+                    if ((ny1 + ny2) / 2 < (dy1 + dy2) / 2) {
+                        nd.vy    -= yO * strength * (xO / bW);
+                        other.vy += yO * strength * (xO / dW);
+                    } else {
+                        nd.vy    += yO * strength * (xO / bW);
+                        other.vy -= yO * strength * (xO / dW);
+                    }
+                });
+            }
+        }
+    }
+
+    force.initialize = function (_) {
+        nodes = _;
+        boxes = new Array(nodes.length);
+        for (var i = 0; i < nodes.length; ++i) boxes[i] = bbox(nodes[i], i, nodes);
+    };
+
+    force.iterations = function (_) {
+        return arguments.length ? (iterations = +_, force) : iterations;
+    };
+
+    force.strength = function (_) {
+        return arguments.length ? (strength = +_, force) : strength;
+    };
+
+    return force;
+}
+
+
+/* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -66,6 +156,8 @@ function wrapText(sel, maxW) {
 
 export default {
     render({ model, el }) {
+
+        const cache = new Map();
 
         function draw() {
             el.innerHTML = "";
@@ -121,30 +213,37 @@ export default {
             /* ── Force simulation ───────────────────────────────── */
 
             const noWageX = pad + 40;
-            const sn      = nodes.map((n) => ({
-                ...n,
-                x : n.wage ? xScale(n.wage) : noWageX,
-                y : sY[n.sector] || H / 2
-            }));
+            const sn      = nodes.map((n) => {
+                const prior = cache.get(`${mid}:${n.id}`);
+                return {
+                    ...n,
+                    x : prior?.x ?? (n.wage ? xScale(n.wage) : noWageX),
+                    y : prior?.y ?? (sY[n.sector] || H / 2)
+                };
+            });
 
-            const byId = Object.fromEntries(sn.map((n) => [n.id, n]));
+            const byId     = Object.fromEntries(sn.map((n) => [n.id, n]));
+            const sl       = edges.filter((e) => byId[e.source] && byId[e.target]);
+            const anyFresh = sn.some((n) => !cache.has(`${mid}:${n.id}`));
+            const ticks    = anyFresh ? 500 : 80;
 
-            const sl = edges.filter((e) => byId[e.source] && byId[e.target]);
-
+            const gap = 12;
             d3.forceSimulation(sn)
                 .force("charge",  d3.forceManyBody().strength(-150))
-                .force("collide", d3.forceCollide((d) =>
-                    d.id === mid ? Math.max(hW, hH) / 2 + 28
-                    : d.tier === 1 ? Math.max(cW, cH) / 2 + 26
-                    : cR + 22
-                ).strength(0.9).iterations(10))
+                .force("collide", bboxCollide((d) => {
+                    if (d.id === mid)  return [[-(hW / 2 + gap), -(hH / 2 + gap)],
+                                               [ (hW / 2 + gap),  (hH / 2 + gap)]];
+                    if (d.tier === 1)  return [[-(cW / 2 + gap), -(cH / 2 + gap)],
+                                               [ (cW / 2 + gap),  (cH / 2 + gap)]];
+                    return [[-(cR + gap), -(cR + gap)], [cR + gap, cR + gap]];
+                }).strength(0.9).iterations(10))
                 .force("link",    d3.forceLink(sl).id((d) => d.id)
                     .strength(0.03).distance(180))
                 .force("x",       d3.forceX((d) =>
                     d.wage ? xScale(d.wage) : noWageX).strength(0.6))
                 .force("y",       d3.forceY((d) => sY[d.sector] || H / 2).strength(0.1))
                 .stop()
-                .tick(500);
+                .tick(ticks);
 
             sn.forEach((n) => {
                 const [ex, ey] = n.id === mid ? [hW / 2, hH / 2]
@@ -152,6 +251,7 @@ export default {
                     : [cR, cR];
                 n.x = clamp(n.x, pad + ex, W - pad - ex);
                 n.y = clamp(n.y, pad + ey, H - pad - ey - 40);
+                cache.set(`${mid}:${n.id}`, { x: n.x, y: n.y });
             });
 
             /* ── SVG ────────────────────────────────────────────── */
@@ -161,23 +261,6 @@ export default {
                 .attr("viewBox", `0 0 ${W} ${H}`)
                 .attr("width", "100%")
                 .style("max-height", `${H}px`);
-
-            /* ── Salary axis ────────────────────────────────────── */
-
-            const aY = H - 20;
-
-            svg.append("line").attr("class", "salary-shaft")
-                .attr("x1", xScale(we[0]) - 20).attr("x2", xScale(we[1]) + 20)
-                .attr("y1", aY).attr("y2", aY);
-
-            d3.range(we[0], we[1] + 1, 10000).forEach((t) => {
-                const x = xScale(t);
-                svg.append("line").attr("class", "salary-tick-mark")
-                    .attr("x1", x).attr("x2", x).attr("y1", aY - 4).attr("y2", aY + 4);
-                svg.append("text").attr("class", "salary-label")
-                    .attr("x", x).attr("y", aY + 16).attr("text-anchor", "middle")
-                    .text(wageLabel(t));
-            });
 
             /* ── Edges (1-hop matched only, uniform style) ──────── */
 
@@ -281,7 +364,8 @@ export default {
 
                 svg.append("rect").attr("class", "matched-glow")
                     .attr("x", hx - 5).attr("y", hy - 5)
-                    .attr("width", hW + 10).attr("height", hH + 10).attr("rx", 10);
+                    .attr("width", hW + 10).attr("height", hH + 10).attr("rx", 10)
+                    .attr("stroke", hero.match_color);
 
                 const hg = svg.append("g").datum(hn).attr("class", "hero-card")
                     .attr("transform", `translate(${hx}, ${hy})`)
@@ -289,16 +373,11 @@ export default {
                     .on("click", select);
 
                 hg.append("rect").attr("class", "hero-bg")
-                    .attr("width", hW).attr("height", hH).attr("rx", 8);
+                    .attr("width", hW).attr("height", hH).attr("rx", 8)
+                    .attr("stroke", hero.match_color).attr("stroke-width", 2.5);
                 hg.append("rect").attr("width", 5).attr("height", hH).attr("rx", 2)
                     .attr("fill", hero.sector_color);
 
-                /* Match count (top right) */
-                if (hero.n_matches > 0) {
-                    hg.append("text").attr("class", "hero-nav")
-                        .attr("x", hW - 12).attr("y", 18).attr("text-anchor", "end")
-                        .text(`${hero.n_matches} \u2192`);
-                }
 
                 const hdR = 22;
                 const hdX = hdR + 14;

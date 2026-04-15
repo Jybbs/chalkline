@@ -19,15 +19,15 @@ from chalkline.collection.schemas import Posting
 @dataclass
 class Cluster:
     """
-    Unified per-cluster representation combining profile metadata,
-    resolved postings, per-posting embeddings, and optional O*NET task
-    embeddings for gap analysis.
+    Unified per-cluster representation combining profile metadata, resolved
+    postings, per-posting embeddings, and optional O*NET task embeddings for
+    gap analysis.
 
-    `embeddings` is the slice of `raw_vectors` that belongs to this
-    cluster, retained at fit time so display-layer projections (t-SNE,
-    sub-clustering, distance-from-centroid views) operate on the
-    pipeline's already-computed encodings rather than re-running the
-    encoder per render.
+    `embeddings` is the slice of `raw_vectors` that belongs to this cluster,
+    retained at fit time so display-layer projections (t-SNE,
+    sub-clustering, distance-from-centroid views) operate on the pipeline's
+    already-computed encodings rather than re-running the encoder per
+    render.
     """
 
     cluster_id  : int
@@ -52,26 +52,17 @@ class Cluster:
         )
 
     @cached_property
-    def task_matrix(self) -> np.ndarray:
-        """
-        Stacked task embedding vectors as a 2D array for cosine
-        similarity computation.
-        """
-        return np.stack([t.vector for t in self.tasks])
-
-    @cached_property
     def distinctive_tokens(self) -> list[list[str]]:
         """
-        Per-posting bags of lowercased tokens longer than three
-        characters whose Zipf frequency falls below the common-word
-        floor, lazily computed once per session and cached on the
-        instance.
+        Per-posting bags of lowercased tokens longer than three characters
+        whose Zipf frequency falls below the common-word floor, lazily
+        computed once per session and cached on the instance.
 
-        Display-layer factories that build TF-IDF rankings over
-        postings iterate this list to assemble word counters without
-        re-running the tokenizer per render. Caching here keeps the
-        matched cluster's tokenization shared between cross-corpus
-        distinctiveness ranking and intra-cluster sub-role labeling.
+        Display-layer factories that build TF-IDF rankings over postings
+        iterate this list to assemble word counters without re-running the
+        tokenizer per render. Caching here keeps the matched cluster's
+        tokenization shared between cross-corpus distinctiveness ranking and
+        intra-cluster sub-role labeling.
         """
         from wordfreq import zipf_frequency
         return [
@@ -83,19 +74,48 @@ class Cluster:
             for p in self.postings
         ]
 
+    @cached_property
+    def task_matrix(self) -> np.ndarray:
+        """
+        Stacked task embedding vectors as a 2D array for cosine similarity
+        computation.
+        """
+        return np.stack([t.vector for t in self.tasks])
+
+    @cached_property
+    def task_stems(self) -> list[set[str]]:
+        """
+        Stemmed content words per task for BM25 scoring, filtering stop
+        words and short tokens. One set per task in the same order as
+        `self.tasks`.
+        """
+        from nltk.stem import SnowballStemmer
+        from re        import findall
+        from wordfreq  import zipf_frequency
+
+        stemmer = SnowballStemmer("english")
+        return [
+            {
+                stemmer.stem(w)
+                for w in findall(r"[a-zA-Z]{3,}", t.name.lower())
+                if zipf_frequency(w, "en") < 6.0
+            }
+            for t in self.tasks
+        ]
+
     def sub_role_labels(
         self,
         assignments : np.ndarray,
         k           : int
     ) -> list[str]:
         """
-        TF-IDF top-2 word labels for each k-means sub-cluster,
-        derived from `distinctive_tokens`.
+        TF-IDF top-2 word labels for each k-means sub-cluster, derived from
+        `distinctive_tokens`.
 
-        Each sub-cluster's word counter is ranked by TF-IDF where
-        documents are sub-clusters. Words appearing in all k groups
-        or fewer than twice are suppressed. Falls back to a numbered
-        label when no distinctive words survive filtering.
+        Each sub-cluster's word counter is ranked by TF-IDF where documents
+        are sub-clusters. Words appearing in all k groups or fewer than
+        twice are suppressed. Falls back to a numbered label when no
+        distinctive words survive filtering.
 
         Args:
             assignments : Per-posting k-means cluster assignment array.
@@ -168,16 +188,52 @@ class Clusters:
         self.cluster_ids = sorted(self.items)
 
     @cached_property
+    def bm25_average_length(self) -> float:
+        """
+        Mean stem count across all task descriptions in the corpus, used as
+        the average document length for BM25 length normalization.
+        """
+        all_stems = [
+            ts for c in self.values() for ts in c.task_stems
+        ]
+        return float(np.mean([len(s) for s in all_stems]))
+
+    @cached_property
+    def bm25_idf(self) -> dict[str, float]:
+        """
+        Inverse document frequency per stem across all task descriptions,
+        using the BM25 IDF variant with smoothing. Stems appearing in many
+        tasks get low weight, suppressing generic verbs like 'prepare' and
+        'use' while amplifying domain-specific terms like 'conduit' and
+        'circuit'.
+        """
+        from math import log
+
+        all_stems = [
+            ts for c in self.values() for ts in c.task_stems
+        ]
+        n = len(all_stems)
+        df: dict[str, int] = {}
+        for doc in all_stems:
+            for s in doc:
+                df[s] = df.get(s, 0) + 1
+
+        return {
+            stem: log((n - count + 0.5) / (count + 0.5) + 1)
+            for stem, count in df.items()
+        }
+
+    @cached_property
     def centroid_cosine(self) -> np.ndarray:
         """
         Pairwise cosine similarity matrix between cluster centroids.
 
-        Single source of truth for centroid similarity, consumed by both
-        the graph backbone construction (which reads the raw ndarray to
-        build stepwise k-NN edges) and `cosine_similarity_matrix` (which
-        rounds and converts for heatmap rendering). Caching here means
-        `cosine_similarity(self.centroids)` runs once per session
-        instead of once for the methods tab and once for the graph.
+        Single source of truth for centroid similarity, consumed by both the
+        graph backbone construction (which reads the raw ndarray to build
+        stepwise k-NN edges) and `cosine_similarity_matrix` (which rounds
+        and converts for heatmap rendering). Caching here means
+        `cosine_similarity(self.centroids)` runs once per session instead of
+        once for the methods tab and once for the graph.
         """
         from sklearn.metrics.pairwise import cosine_similarity
         return cosine_similarity(self.centroids)
@@ -185,8 +241,8 @@ class Clusters:
     @cached_property
     def cluster_heatmap(self) -> dict[str, list[float]]:
         """
-        Centroid cosine similarity keyed by SOC title for the
-        inter-cluster heatmap.
+        Centroid cosine similarity keyed by SOC title for the inter-cluster
+        heatmap.
         """
         return {
             c.soc_title: row
@@ -196,11 +252,11 @@ class Clusters:
     @cached_property
     def cluster_index(self) -> dict[int, int]:
         """
-        Cluster ID to its row index in the stacked `vectors` and
-        `centroids` matrices, mirroring `vector_map` but exposing the
-        position rather than the vector itself. Enables display-layer
-        factories to slice precomputed similarity matrices by
-        cluster_id without iterating `cluster_ids`.
+        Cluster ID to its row index in the stacked `vectors` and `centroids`
+        matrices, mirroring `vector_map` but exposing the position rather
+        than the vector itself. Enables display-layer factories to slice
+        precomputed similarity matrices by cluster_id without iterating
+        `cluster_ids`.
         """
         return {cid: i for i, cid in enumerate(self.cluster_ids)}
 
@@ -218,9 +274,8 @@ class Clusters:
     def cosine_similarity_matrix(self) -> list[list[float]]:
         """
         Cosine similarity between all cluster centroids as a 2D list of
-        rounded floats for heatmap rendering. Derived from
-        `centroid_cosine` to share the underlying matrix computation
-        with the graph backbone.
+        rounded floats for heatmap rendering. Derived from `centroid_cosine`
+        to share the underlying matrix computation with the graph backbone.
         """
         return [
             [round(float(v), 3) for v in row]
@@ -243,6 +298,16 @@ class Clusters:
             p.location for c in self.values()
             for p in c.postings if p.location
         })
+
+    @cached_property
+    def max_centroid_distance(self) -> float:
+        """
+        Maximum Euclidean distance between any two cluster centroids in the
+        reduced SVD space. Fixed per-corpus, used as the denominator for
+        normalizing resume-to-cluster distances into display match scores.
+        """
+        pairs = self.centroids[:, None] - self.centroids[None, :]
+        return float(np.linalg.norm(pairs, axis=2).max())
 
     @cached_property
     def pairwise_distances(self) -> dict[str, list[float]]:
@@ -328,8 +393,8 @@ class Clusters:
     @cached_property
     def soc_counts(self) -> dict[str, int]:
         """
-        Number of clusters sharing each SOC title, for display-layer
-        title disambiguation.
+        Number of clusters sharing each SOC title, for display-layer title
+        disambiguation.
         """
         from collections import Counter
         return Counter(c.soc_title for c in self.values())
@@ -337,8 +402,8 @@ class Clusters:
     @cached_property
     def soc_heatmap(self) -> dict[str, list[float]]:
         """
-        SOC similarity keyed by display label, rounded to three
-        decimals for the SOC assignment heatmap.
+        SOC similarity keyed by display label, rounded to three decimals for
+        the SOC assignment heatmap.
         """
         return {
             c.display_label: [round(float(v), 3) for v in row]
@@ -348,14 +413,27 @@ class Clusters:
     @cached_property
     def vector_map(self) -> dict[int, np.ndarray]:
         """
-        Cluster ID to its row in the stacked `vectors` matrix, mirroring
-        the `job_zone_map` lookup pattern so display-layer factories can
-        fetch a single cluster's vector without indexing into the row
-        order via `cluster_ids.index(...)`. Cached because both
-        `RelevantCredentials` and `RelevantJobBoards` look it up per
-        render and the underlying matrix never changes after fit.
+        Cluster ID to its row in the stacked `vectors` matrix, mirroring the
+        `job_zone_map` lookup pattern so display-layer factories can fetch a
+        single cluster's vector without indexing into the row order via
+        `cluster_ids.index(...)`. Cached because both `RelevantCredentials`
+        and `RelevantJobBoards` look it up per render and the underlying
+        matrix never changes after fit.
         """
         return dict(zip(self.cluster_ids, self.vectors))
+
+    def display_title(self, cluster: Cluster) -> str:
+        """
+        Modal posting title when the cluster's SOC is shared across multiple
+        clusters, otherwise the SOC title itself. Single source of truth for
+        map cards and route verdicts so the hero node, tier-2 nodes, and the
+        route callout all agree on a cluster's user-facing label.
+        """
+        return (
+            cluster.modal_title
+            if self.soc_counts[cluster.soc_title] > 1
+            else cluster.soc_title
+        )
 
     def values(self) -> Iterator[Cluster]:
         """

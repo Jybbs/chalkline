@@ -62,12 +62,12 @@ class LaborLoader:
         """
         Aggregate employment across all occupations.
         """
-        return sum(r.employment for r in self.items.values())
+        return sum(r.employment or 0 for r in self.items.values())
 
     def __getitem__(self, soc_title: str) -> LaborRecord:
         """
-        Look up a labor record by SOC title, returning a
-        default-valued record when unavailable.
+        Look up a labor record by SOC title, returning a default-valued
+        record when unavailable.
         """
         return self.items.get(soc_title, LaborRecord(soc_title=soc_title))
 
@@ -76,8 +76,8 @@ class LexiconLoader:
     """
     Load and validate the O*NET occupation lexicon from a directory.
 
-    `occupations` holds the validated `list[Occupation]`, falling back to
-    an empty list if `onet.json` is missing.
+    `occupations` holds the validated `list[Occupation]`, falling back to an
+    empty list if `onet.json` is missing.
     """
 
     def __init__(self, lexicon_dir: Path):

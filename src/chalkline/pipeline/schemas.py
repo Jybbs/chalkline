@@ -1,12 +1,26 @@
 """
-Pipeline configuration.
+Pipeline configuration and cache row schema.
 
-Pure Pydantic config model with defaults tuned for the 922-posting Maine
-construction corpus. No query logic, no builders, no computational imports.
+Holds the Pydantic config model with defaults tuned for the 922-posting
+Maine construction corpus, alongside the NamedTuple row shape for Hamilton's
+on-disk metadata store. No query logic, no builders, no computational
+imports.
 """
 
 from pathlib  import Path
 from pydantic import BaseModel, Field
+from typing   import NamedTuple
+
+
+class CacheRow(NamedTuple):
+    """
+    One row from Hamilton's `metadata_store.db`.
+    """
+
+    node    : str
+    code    : str
+    data    : str
+    created : str
 
 
 class PipelineConfig(BaseModel, extra="forbid"):
