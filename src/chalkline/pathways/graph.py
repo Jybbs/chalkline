@@ -4,9 +4,9 @@ Career pathway graph from sentence-embedding cluster centroids.
 Constructs a directed weighted graph where nodes are career clusters from
 Ward-linkage HAC on sentence embeddings and edges connect clusters via
 stepwise k-NN in cosine similarity space. Credentials are computed per
-(source, target) pair on demand via `credentials_for`, applying a
-dual-threshold filter on destination selectivity and source relevance to the
-cluster-credential cosine matrix.
+target on demand via `credentials_for`, applying a destination-affinity
+percentile filter to the cluster-credential cosine matrix so each route
+sees the candidate set most aligned with where the user is going.
 """
 
 import networkx as nx
@@ -32,15 +32,14 @@ class CareerPathwayGraph:
     credential embeddings, and graph construction hyperparameters. Builds a
     stepwise k-NN backbone with bidirectional lateral edges and
     unidirectional upward edges. Per-route credential lists come from
-    `credentials_for(source_id, target_id)` at click time, applying the
-    dual-threshold filter to the cluster-credential cosine matrix.
+    `credentials_for(target_id)` at click time, keeping credentials whose
+    similarity to the target cluster sits in the top `destination_percentile`.
 
     Args:
         clusters               : Cluster map with centroids and vectors.
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
         lateral_neighbors      : k for same Job Zone bidirectional edges.
-        source_percentile      : Floor percentile for source relevance.
         upward_neighbors       : k for next Job Zone unidirectional edges.
     """
 
@@ -48,7 +47,6 @@ class CareerPathwayGraph:
     credentials            : list[Credential]
     destination_percentile : int
     lateral_neighbors      : int
-    source_percentile      : int
     upward_neighbors       : int
 
     @property
@@ -119,9 +117,8 @@ class CareerPathwayGraph:
     def graph(self) -> nx.DiGraph:
         """
         Stepwise k-NN DiGraph backbone built lazily on first access. Edges
-        carry only cosine-similarity weights; credentials are computed on
-        demand per (source, target) pair via `credentials_for`, not attached
-        at fit time.
+        carry only cosine-similarity weights. Credentials are computed on
+        demand per target via `credentials_for`, not attached at fit time.
         """
         g = nx.DiGraph()
         g.add_nodes_from(self.clusters.cluster_ids)
@@ -182,37 +179,29 @@ class CareerPathwayGraph:
         """
         return CareerEdge(cluster_id=target, **self.graph[source][target])
 
-    def credentials_for(self, source_id: int, target_id: int) -> list[Credential]:
+    def credentials_for(self, target_id: int) -> list[Credential]:
         """
-        Credentials that bridge a specific source-to-target transition,
-        filtered by the dual-threshold rule on destination affinity and
-        source relevance and ranked by descending cosine to the target.
+        Credentials aligned with a specific destination, filtered by the
+        top destination_percentile of cluster-credential cosine similarity
+        and ranked by descending affinity to the target.
 
-        Routes the matched cluster to any clicked destination through the
-        same calibration that previously enriched per-edge metadata at fit
-        time, with no path traversal. For self-routes (`source_id ==
-        target_id`) the filter collapses to credentials with high affinity
-        to that cluster on both axes.
+        Career-change recommendations are about destination relevance,
+        so the filter gates only on where the user is going, not on how
+        closely a credential already overlaps with where they are.
 
         Args:
-            source_id : Cluster ID the user is matched against.
-            target_id : Cluster ID the user clicked, may equal source.
+            target_id: Cluster ID the user clicked, may equal the matched cluster.
         """
         if not (creds := self.credential_pool):
             return []
 
-        similarity       = self.credential_similarity
-        s_idx            = self.clusters.cluster_index[source_id]
-        t_idx            = self.clusters.cluster_index[target_id]
-        dest_threshold   = np.percentile(
+        similarity     = self.credential_similarity
+        t_idx          = self.clusters.cluster_index[target_id]
+        dest_threshold = np.percentile(
             similarity[:, t_idx], 100 - self.destination_percentile
         )
-        source_threshold = np.percentile(similarity, self.source_percentile)
-        passing          = np.flatnonzero(
-            (similarity[:, t_idx] >= dest_threshold) &
-            (similarity[:, s_idx] >= source_threshold)
-        )
-        ranked = passing[np.argsort(-similarity[passing, t_idx])]
+        passing = np.flatnonzero(similarity[:, t_idx] >= dest_threshold)
+        ranked  = passing[np.argsort(-similarity[passing, t_idx])]
         return [creds[i] for i in ranked]
 
     def hops_from(self, source: int) -> dict[int, int]:

@@ -13,6 +13,7 @@ license         = { text = "MIT" }
 dependencies    = [
     "anywidget",
     "htpy",
+    "kneed",
     "loguru",
     "marimo",
     "networkx",

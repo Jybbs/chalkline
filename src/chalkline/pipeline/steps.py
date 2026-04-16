@@ -27,7 +27,7 @@ from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LaborLoader, LexiconLoader
 from chalkline.pathways.schemas   import Credential, EncodedOccupation, Occupation
 from chalkline.pathways.schemas   import SkillType
-from chalkline.pathways.scoring   import SOCScorer
+from chalkline.pathways.selection import SOCScorer
 from chalkline.pipeline.encoder   import SentenceEncoder
 from chalkline.pipeline.schemas   import PipelineConfig
 
@@ -169,15 +169,14 @@ def graph(
     credentials : list[Credential]
 ) -> CareerPathwayGraph:
     """
-    Build the career pathway graph with stepwise k-NN backbone and per-edge
-    credential enrichment.
+    Build the career pathway graph with stepwise k-NN backbone and
+    on-demand destination-affinity credential filtering.
     """
     result = CareerPathwayGraph(
         clusters               = clusters,
         credentials            = credentials,
         destination_percentile = config.destination_percentile,
         lateral_neighbors      = config.lateral_neighbors,
-        source_percentile      = config.source_percentile,
         upward_neighbors       = config.upward_neighbors
     )
     logger.info(

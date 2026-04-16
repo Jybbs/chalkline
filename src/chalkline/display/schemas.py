@@ -998,10 +998,10 @@ class RouteDetail(NamedTuple):
         A negative `selected_id` or one equal to the matched cluster builds
         a self-route so the user sees their own skill profile, credentials,
         and postings immediately. Otherwise the destination is the clicked
-        cluster. Credentials come from `graph.credentials_for(source,
-        destination)` regardless of adjacency, so the same dual-threshold
-        calibration that previously ran per-edge at fit time now runs per
-        click against any pair.
+        cluster. Credentials come from `graph.credentials_for(destination)`
+        regardless of adjacency, gated on destination affinity so each
+        route surfaces the candidates most aligned with where the user is
+        going.
 
         Args:
             labor       : Occupational wage and outlook loader.
@@ -1014,9 +1014,7 @@ class RouteDetail(NamedTuple):
             profile if selected_id < 0 or selected_id == result.cluster_id
             else pipeline.clusters[selected_id]
         )
-        credentials = pipeline.graph.credentials_for(
-            profile.cluster_id, destination.cluster_id
-        )
+        credentials = pipeline.graph.credentials_for(destination.cluster_id)
         scored      = pipeline.matcher.score_destination(destination)
         task_index  = {t.name: i for i, t in enumerate(destination.tasks)}
         gap_idx     = [task_index[t.name] for t in scored if not t.demonstrated]
