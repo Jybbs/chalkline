@@ -236,8 +236,8 @@ class Reach(BaseModel, extra="forbid"):
 class SelectedCredential(NamedTuple):
     """
     One credential in a waste-aware stack with its incremental gap
-    positions, meaning only the gaps this pick newly contributes
-    relative to earlier picks in the same stack.
+    positions, meaning only the gaps this pick newly contributes relative to
+    earlier picks in the same stack.
     """
 
     label     : str
@@ -255,8 +255,8 @@ class SelectedCredential(NamedTuple):
 
         Args:
             label     : Credential display label.
-            row_mask  : Boolean array marking the gap tasks this pick newly
-                        contributes (after prior picks are subtracted).
+            row_mask  : Boolean array marking the gap tasks this pick newly contributes
+                        (after prior picks are subtracted).
             task_axis : Integer array of task indices aligned with `row_mask`.
         """
         return cls(
@@ -269,11 +269,11 @@ class SelectorConfig(BaseModel, extra="forbid"):
     """
     Tuning for the waste-aware Pareto-knee credential picker.
 
-    `alpha_max` and `alpha_steps` set the resolution of the penalty
-    sweep that builds the Pareto frontier. `coverage_floor` anchors the
-    knee to the eligible high-coverage region and has a direct
-    stakeholder interpretation, namely the minimum fraction of skill
-    gaps a recommended stack must fill when reachable.
+    `alpha_max` and `alpha_steps` set the resolution of the penalty sweep
+    that builds the Pareto frontier. `coverage_floor` anchors the knee to
+    the eligible high-coverage region and has a direct stakeholder
+    interpretation, namely the minimum fraction of skill gaps a recommended
+    stack must fill when reachable.
     """
 
     alpha_max      : float = Field(default=5.0,  gt=0)
@@ -283,9 +283,9 @@ class SelectorConfig(BaseModel, extra="forbid"):
     @property
     def alphas(self) -> list[float]:
         """
-        Penalty coefficients the selector sweeps when building the
-        Pareto frontier, batched into Python floats via `tolist()` so the
-        caller iterates without per-step numpy conversions.
+        Penalty coefficients the selector sweeps when building the Pareto
+        frontier, batched into Python floats via `tolist()` so the caller
+        iterates without per-step numpy conversions.
         """
         return np.linspace(0.0, self.alpha_max, self.alpha_steps).tolist()
 
@@ -294,12 +294,11 @@ class SelectorFrontier(NamedTuple):
     """
     One Pareto-dominant point on the coverage-versus-waste curve.
 
-    `CredentialSelector` sweeps the penalty coefficient across a fixed
-    range and records each greedy run's (gaps_filled, total_reach)
-    footprint with the row indices that produced it. Points dominated
-    on both axes drop before knee detection. `waste` derives from the
-    two stored counts so callers see a single redundancy signal without
-    storing it twice.
+    `CredentialSelector` sweeps the penalty coefficient across a fixed range
+    and records each greedy run's (gaps_filled, total_reach) footprint with
+    the row indices that produced it. Points dominated on both axes drop
+    before knee detection. `waste` derives from the two stored counts so
+    callers see a single redundancy signal without storing it twice.
     """
 
     alpha       : float

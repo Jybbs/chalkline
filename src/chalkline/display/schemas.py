@@ -47,79 +47,57 @@ class CredentialPath(NamedTuple):
     One gap-closure strategy with its credentials and total coverage.
     """
 
-    items           : list[PathItem]
-    strategy        : str
-    unique_coverage : int
+    coverage_floor_met : bool
+    items              : list[PathItem]
+    strategy           : str
+    unique_coverage    : int
 
     @classmethod
     def from_route(
         cls,
-        route    : RouteDetail,
-        strategy : Literal["certs", "work_based"],
-        kinds    : frozenset[str] | None = None
+        route     : RouteDetail,
+        strategy  : str,
+        kinds     : frozenset[str] | None = None,
+        max_picks : int = 5
     ) -> Self | None:
         """
-        Greedy targeted-coverage credential stack up to five members.
+        Waste-aware credential stack via Pareto-knee selection.
 
-        At each step picks the credential whose route-coverage affinity is
-        most concentrated on still-uncovered gaps, measured as the ratio of
-        affinity on remaining gaps to the credential's total affinity on
-        this route. Narrow credentials whose entire reach lies in the
-        residual win over broad credentials whose affinity is mostly spent
-        on already-covered gaps. Absolute remaining-affinity is the
-        tiebreaker so a wholly-targeted weak credential does not beat a
-        wholly-targeted stronger one.
+        Filters the route's full coverage to credentials of the requested
+        kinds, delegates to `CredentialSelector.select_stack` for the
+        frontier sweep and knee detection, then wraps the returned picks
+        into `PathItem` instances for shelf rendering.
 
         Args:
-            route    : Route carrying per-gap credential affinities.
-            strategy : Label written onto the returned path.
-            kinds    : Restrict candidates to credentials of these kinds;
-                       `None` accepts every kind.
+            route     : Route carrying per-task credential affinities.
+            strategy  : Label written onto the returned path.
+            kinds     : Restrict candidates to credentials of these kinds; `None`
+                        accepts every kind.
+            max_picks : Hard cap on stack size.
         """
-        credentials   = route.credential_map
-        gap_coverage  = route.gap_coverage
-        labels        = [
-            label for label, affinity in gap_coverage.items()
-            if affinity and (kinds is None or credentials[label].kind in kinds)
-        ]
-        if not labels:
-            return None
+        from chalkline.pathways.selection import CredentialSelector
 
-        gaps   = sorted({g for l in labels for g in gap_coverage[l]})
-        index  = {g: j for j, g in enumerate(gaps)}
-        matrix = np.zeros((len(labels), len(gaps)))
-        for i, label in enumerate(labels):
-            affinity = gap_coverage[label]
-            matrix[i, [index[g] for g in affinity]] = list(affinity.values())
-
-        totals    = matrix.sum(axis=1)
-        remaining = np.ones(len(gaps),   dtype=bool)
-        active    = np.ones(len(labels), dtype=bool)
-        picks     = []
-
-        while remaining.any() and len(picks) < 5:
-            useful = matrix @ remaining
-            if not (eligible := active & (useful > 0)).any():
-                break
-            ratios = np.where(eligible, useful / totals, -np.inf)
-            scores = np.where(eligible, useful,          -np.inf)
-            i      = int(np.lexsort((scores, ratios))[-1])
-            hits   = matrix[i] > 0
-            new    = frozenset(int(gaps[g]) for g in np.flatnonzero(hits & remaining))
-            picks.append((labels[i], new))
-            remaining &= ~hits
-            active[i]  = False
-
+        credentials = route.credential_map
+        coverage    = {
+            label: scored for label, scored in route.coverage.items()
+            if scored and (kinds is None or credentials[label].kind in kinds)
+        }
+        picks, floor_met = CredentialSelector().select_stack(
+            coverage  = coverage,
+            gap_set   = frozenset(route.gap_indices),
+            max_picks = max_picks
+        )
         if not picks:
             return None
 
         return cls(
-            items           = [
-                PathItem.from_credential(credentials[label], label, positions)
-                for label, positions in picks
+            coverage_floor_met = floor_met,
+            items              = [
+                PathItem.from_credential(credentials[p.label], p.label, p.positions)
+                for p in picks
             ],
             strategy        = strategy,
-            unique_coverage = sum(len(p) for _, p in picks)
+            unique_coverage = sum(len(p.positions) for p in picks)
         )
 
 
@@ -236,10 +214,11 @@ class GapCoverage(NamedTuple):
     """
     Gap-closure strategies for a career transition.
 
-    Assembles up to three candidate paths against the route's pre-computed
-    credential coverage: the smallest min-overlap combination closing every
-    gap, the single largest-coverage credential, and a certification-only
-    stack.
+    Assembles three candidate paths via the waste-aware Pareto-knee picker,
+    including a work-based stack (apprenticeship + certification), a single
+    bang-for-buck credential (any kind), and a certification-only stack. All
+    three route through the same picker with different kind filters and
+    max_picks caps.
     """
 
     paths: list[CredentialPath]
@@ -250,23 +229,11 @@ class GapCoverage(NamedTuple):
         Assemble gap-closure strategies from the route's pre-computed
         coverage mapping.
         """
-        if not (top := route.top_coverage):
-            return cls(paths=[])
-
-        label, positions = top
-        count            = len(positions)
-        biggest          = CredentialPath(
-            items           = [PathItem.from_credential(
-                route.credential_map[label], label, frozenset(positions)
-            )],
-            strategy        = "biggest",
-            unique_coverage = count
-        )
         return cls(paths=[path for path in (
             CredentialPath.from_route(
                 route, "work_based", kinds=frozenset({"apprenticeship", "certification"})
             ),
-            biggest,
+            CredentialPath.from_route(route, "biggest", max_picks=1),
             CredentialPath.from_route(
                 route, "certs", kinds=frozenset({"certification"})
             )
@@ -879,22 +846,7 @@ class RouteDetail(NamedTuple):
         """
         return len(self.gap_tasks)
 
-    @property
-    def gap_coverage(self) -> dict[str, dict[int, float]]:
-        """
-        `coverage` restricted to tasks the resume has not demonstrated.
 
-        Credentials offer skills across the whole cluster, but only the
-        subset that overlaps the user's gaps should drive the greedy picker
-        and the shelf's fill-count badge. This keeps `coverage` honest as the
-        credential's intrinsic offering while giving gap-centric consumers a
-        first-class view.
-        """
-        gap_set = set(self.gap_indices)
-        return {
-            label: {t: s for t, s in scored.items() if t in gap_set}
-            for label, scored in self.coverage.items()
-        }
 
     @property
     def gap_indices(self) -> list[int]:
@@ -930,20 +882,6 @@ class RouteDetail(NamedTuple):
         index = {t.name: i for i, t in enumerate(self.destination.tasks)}
         return {index[t.name]: t for t in self.scored_tasks}
 
-    @property
-    def top_coverage(self) -> tuple[str, dict[int, float]] | None:
-        """
-        (label, {task index: affinity}) of the credential filling the most
-        gap tasks on this route, or `None` when no credential fills any. Uses
-        gap-filtered coverage so the "biggest" stack reflects user-relevant
-        fills, not the credential's broader cluster-wide offering.
-        """
-        if not (gap_coverage := self.gap_coverage):
-            return None
-        filled = {label: scored for label, scored in gap_coverage.items() if scored}
-        if not filled:
-            return None
-        return max(filled.items(), key=lambda item: len(item[1]))
 
     @property
     def top_gaps(self) -> list[ScoredTask]:
@@ -999,9 +937,8 @@ class RouteDetail(NamedTuple):
         a self-route so the user sees their own skill profile, credentials,
         and postings immediately. Otherwise the destination is the clicked
         cluster. Credentials come from `graph.credentials_for(destination)`
-        regardless of adjacency, gated on destination affinity so each
-        route surfaces the candidates most aligned with where the user is
-        going.
+        regardless of adjacency, gated on destination affinity so each route
+        surfaces the candidates most aligned with where the user is going.
 
         Args:
             labor       : Occupational wage and outlook loader.

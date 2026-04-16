@@ -5,8 +5,8 @@ Constructs a directed weighted graph where nodes are career clusters from
 Ward-linkage HAC on sentence embeddings and edges connect clusters via
 stepwise k-NN in cosine similarity space. Credentials are computed per
 target on demand via `credentials_for`, applying a destination-affinity
-percentile filter to the cluster-credential cosine matrix so each route
-sees the candidate set most aligned with where the user is going.
+percentile filter to the cluster-credential cosine matrix so each route sees
+the candidate set most aligned with where the user is going.
 """
 
 import networkx as nx
@@ -33,7 +33,8 @@ class CareerPathwayGraph:
     stepwise k-NN backbone with bidirectional lateral edges and
     unidirectional upward edges. Per-route credential lists come from
     `credentials_for(target_id)` at click time, keeping credentials whose
-    similarity to the target cluster sits in the top `destination_percentile`.
+    similarity to the target cluster sits in the top
+    `destination_percentile`.
 
     Args:
         clusters               : Cluster map with centroids and vectors.
@@ -181,13 +182,13 @@ class CareerPathwayGraph:
 
     def credentials_for(self, target_id: int) -> list[Credential]:
         """
-        Credentials aligned with a specific destination, filtered by the
-        top destination_percentile of cluster-credential cosine similarity
-        and ranked by descending affinity to the target.
+        Credentials aligned with a specific destination, filtered by the top
+        destination_percentile of cluster-credential cosine similarity and
+        ranked by descending affinity to the target.
 
-        Career-change recommendations are about destination relevance,
-        so the filter gates only on where the user is going, not on how
-        closely a credential already overlaps with where they are.
+        Career-change recommendations are about destination relevance, so
+        the filter gates only on where the user is going, not on how closely
+        a credential already overlaps with where they are.
 
         Args:
             target_id: Cluster ID the user clicked, may equal the matched cluster.

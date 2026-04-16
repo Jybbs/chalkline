@@ -41,11 +41,11 @@ class TestCareerPathwayGraph:
         pathway_graph : CareerPathwayGraph
     ):
         """
-        Per-pair credential filter returns Credential instances ranked
+        Destination-affinity filter returns Credential instances ranked
         by descending similarity to the target cluster.
         """
-        source, target = cluster_ids[0], cluster_ids[-1]
-        credentials    = pathway_graph.credentials_for(source, target)
+        target      = cluster_ids[-1]
+        credentials = pathway_graph.credentials_for(target)
         assert all(c.vector for c in credentials)
         if len(credentials) >= 2:
             similarity = pathway_graph.credential_similarity
@@ -84,14 +84,12 @@ class TestCareerPathwayGraph:
         graph = CareerPathwayGraph(
             clusters               = clusters,
             credentials            = [],
-            destination_percentile = 5,
+            destination_percentile = 20,
             lateral_neighbors      = 2,
-            source_percentile      = 75,
             upward_neighbors       = 2
         )
         assert graph.graph.number_of_edges() > 0
-        ids = clusters.cluster_ids
-        assert graph.credentials_for(ids[0], ids[-1]) == []
+        assert graph.credentials_for(clusters.cluster_ids[-1]) == []
 
     def test_reach_types(
         self,

@@ -169,8 +169,8 @@ def graph(
     credentials : list[Credential]
 ) -> CareerPathwayGraph:
     """
-    Build the career pathway graph with stepwise k-NN backbone and
-    on-demand destination-affinity credential filtering.
+    Build the career pathway graph with stepwise k-NN backbone and on-demand
+    destination-affinity credential filtering.
     """
     result = CareerPathwayGraph(
         clusters               = clusters,

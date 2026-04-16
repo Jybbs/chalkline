@@ -31,10 +31,10 @@ class CredentialSelector:
 
     Sweeps a penalty coefficient across a fixed range, runs vectorized
     greedy `Δgaps − α · Δwaste` for each α, keeps the Pareto-dominant
-    points, and selects the knee via the Kneedle algorithm. The
-    coverage floor on `SelectorConfig` anchors the knee to the eligible
-    high-coverage region when the pool can satisfy it, with graceful
-    fallback to the unconstrained efficiency point otherwise.
+    points, and selects the knee via the Kneedle algorithm. The coverage
+    floor on `SelectorConfig` anchors the knee to the eligible high-coverage
+    region when the pool can satisfy it, with graceful fallback to the
+    unconstrained efficiency point otherwise.
 
     Args:
         config: Sweep resolution, penalty range, and coverage floor.
@@ -51,10 +51,11 @@ class CredentialSelector:
     ) -> tuple[list[int], np.ndarray]:
         """
         Vectorized greedy for one α, returning pick row indices. Per-column
-        weights fold the penalty into a single `(reach & ~covered) @ weights`
-        matmul that scores every active credential in one BLAS sweep, where
-        each gap column contributes +1 and each non-gap column contributes
-        −α; the argmax wins while the marginal score stays positive.
+        weights fold the penalty into a single `(reach & ~covered) @
+        weights` matmul that scores every active credential in one BLAS
+        sweep, where each gap column contributes +1 and each non-gap column
+        contributes −α; the argmax wins while the marginal score stays
+        positive.
 
         Args:
             alpha     : Penalty on new reach onto already-covered tasks.
@@ -84,8 +85,8 @@ class CredentialSelector:
     ) -> tuple[list[SelectedCredential], bool]:
         """
         Waste-aware credential stack anchored to the coverage floor when
-        reachable, with graceful fallback to the efficiency-optimal
-        frontier point otherwise.
+        reachable, with graceful fallback to the efficiency-optimal frontier
+        point otherwise.
 
         Returns each pick's incremental gap positions for shelf rendering
         along with a bool signalling whether the floor was met.

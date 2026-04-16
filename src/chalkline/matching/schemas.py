@@ -37,6 +37,22 @@ class BM25Config(BaseModel, extra="forbid"):
         return 1 - self.length_weight
 
     @property
+    def base_denominator(self) -> float:
+        """
+        Length-independent floor of the BM25 denominator, `1 + saturation *
+        base_penalty`.
+        """
+        return 1 + self.saturation * self.base_penalty
+
+    @property
+    def length_scale(self) -> float:
+        """
+        Multiplier on the task-length ratio in the BM25 denominator,
+        `saturation * length_weight`.
+        """
+        return self.saturation * self.length_weight
+
+    @property
     def numerator(self) -> float:
         """
         BM25 numerator `saturation + 1`, constant across all terms and

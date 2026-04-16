@@ -283,10 +283,10 @@ class Clusters:
     @cached_property
     def cluster_wages(self) -> np.ndarray:
         """
-        Top-K weighted annual median wage per cluster in `cluster_ids` order.
-        Zero-masked so missing labor data never drags the expectation downward
-        and rounded to `wage_round` to match the granularity of the source
-        labor records.
+        Top-K weighted annual median wage per cluster in `cluster_ids`
+        order. Zero-masked so missing labor data never drags the expectation
+        downward and rounded to `wage_round` to match the granularity of the
+        source labor records.
         """
         picks = np.argsort(
             np.where(self.occupation_wages > 0, self.soc_weights, 0),
@@ -327,8 +327,8 @@ class Clusters:
 
         Each cluster picks from soc title, modal posting title, then
         `{soc_title} (#{cluster_id})`. On collision the largest cluster
-        keeps the current level and the rest advance, so one Civil
-        Engineers stays bare while duplicates step forward.
+        keeps the current level and the rest advance, so one Civil Engineers
+        stays bare while duplicates step forward.
         """
         cascade = {
             cid: (c.soc_title, c.modal_title, f"{c.soc_title} (#{cid})")
