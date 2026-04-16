@@ -4,12 +4,15 @@ Resume matching via BM25-weighted sentence embeddings with gap analysis.
 Projects an uploaded resume into the fitted SVD space, matches it to the
 nearest career family via cluster centroids, identifies demonstrated
 competencies and gaps via BM25-weighted cosine similarity against O*NET
-Task+DWA embeddings, and assembles a reach view with per-edge credential
-metadata. Task scoring uses sentence-level chunking with max-pooling so that
-a specific resume line can drive high similarity for a matching task even
-when the document-level mean is diluted by unrelated content. The BM25
-weighting suppresses generic verbs that produce artificial similarity
-between structurally parallel but semantically unrelated texts.
+Task+DWA embeddings, and assembles a reach view with per-route credential
+coverage.
+
+Task scoring uses sentence-level chunking with max-pooling so that a
+specific resume line can drive high similarity for a matching task even when
+the document-level mean is diluted by unrelated content. Credential coverage
+uses the same BM25 weighting with per-credential row normalization so the
+downstream waste-aware picker can distinguish narrow certifications from
+broad apprenticeships.
 """
 
 import numpy as np
@@ -66,31 +69,46 @@ class ResumeMatcher:
         from nltk.stem import SnowballStemmer
         return SnowballStemmer("english")
 
-    def _bm25_score(
+    def _bm25_weights(
         self,
-        chunk_stems : set[str],
-        task_stems  : set[str]
-    ) -> float:
+        stem_sets   : list[set[str]],
+        task_stems  : list[set[str]],
+        task_matrix : np.ndarray | None = None,
+        vectors     : np.ndarray | None = None
+    ) -> np.ndarray:
         """
-        BM25 relevance score between a single resume chunk and a single task
-        description, using the corpus-level IDF table from `self.clusters`.
-        Task stems are sets so term frequency is always 1.
+        BM25 weight matrix of shape `(len(stem_sets), len(task_stems))`.
+
+        When `vectors` and `task_matrix` are provided, row-normalizes and
+        multiplies by cosine similarity in one shot, returning the full
+        BM25-weighted cosine matrix used by credential coverage. When
+        omitted, returns raw weights for callers that need their own
+        aggregation (column-max for resume chunks).
 
         Args:
-            chunk_stems : Stemmed content words from one resume chunk.
-            task_stems  : Stemmed content words from one task.
+            stem_sets   : One stem set per row (credential stems or resume chunk stems).
+            task_stems  : One stem set per task in the target cluster.
+            task_matrix : Cluster task embedding matrix for cosine.
+            vectors     : Row-stacked embeddings aligned with `stem_sets`.
         """
-        length_ratio = len(task_stems) / self.clusters.bm25_average_length
-        scale        = self.bm25.numerator / (
-            1 + self.bm25.saturation * (
-                self.bm25.base_penalty
-                + self.bm25.length_weight * length_ratio
-            )
-        )
-        return scale * sum(
-            self.clusters.bm25_idf.get(term, 0)
-            for term in chunk_stems & task_stems
-        )
+        weights = np.array([
+            [
+                self.bm25.numerator / (
+                    self.bm25.base_denominator + self.bm25.length_scale * len(ts)
+                    / self.clusters.bm25_average_length
+                )
+                * sum(self.clusters.bm25_idf.get(t, 0) for t in ss & ts)
+                for ts in task_stems
+            ]
+            for ss in stem_sets
+        ])
+
+        if vectors is None or task_matrix is None:
+            return weights
+
+        row_max = weights.max(axis=1, keepdims=True)
+        np.divide(weights, row_max, out=weights, where=row_max > 0)
+        return weights * cosine_similarity(vectors, task_matrix)
 
     def _content_stems(self, text: str) -> set[str]:
         """
@@ -116,24 +134,6 @@ class ResumeMatcher:
         """
         return cosine_similarity(self.resume_embedding, matrix)[0]
 
-    def _stem_gate(
-        self,
-        credentials : list,
-        task_stems  : list[set[str]]
-    ) -> np.ndarray:
-        """
-        Boolean matrix of shape `(n_credentials, n_tasks)` marking pairs
-        that share at least one content stem.
-
-        Used to gate per-task cosine similarity in credential coverage so
-        zero-lexical-overlap coincidences never clear the threshold, while
-        letting semantic strength alone rank the remaining candidates.
-        """
-        return np.array([
-            [bool(c.stems & ts) for ts in task_stems]
-            for c in credentials
-        ])
-
     def _task_similarities(self, cluster: Cluster) -> np.ndarray:
         """
         BM25-weighted per-task cosine similarity via max-pooling across
@@ -148,10 +148,7 @@ class ResumeMatcher:
         Args:
             cluster: Career family with task embeddings and stems.
         """
-        weights = np.array([
-            max(self._bm25_score(cs, ts) for cs in self.chunk_stems)
-            for ts in cluster.task_stems
-        ])
+        weights = self._bm25_weights(self.chunk_stems, cluster.task_stems).max(axis=0)
         if weights.max() > 0:
             weights = weights / weights.max()
 
@@ -185,15 +182,14 @@ class ResumeMatcher:
 
     def calibrate_coverage(self, credentials: list, vectors: np.ndarray):
         """
-        Set `credential_threshold` to the median of stem-gated cosine over
-        every (credential, cluster-task) matchup in the corpus.
+        Set `credential_threshold` to the median of BM25-weighted cosine
+        over every (credential, cluster-task) matchup in the corpus.
 
-        Cosine carries the semantic signal; the stem gate rejects
-        zero-lexical-overlap coincidences where a credential vector happens
-        to sit near a task in embedding space without sharing any content
-        vocabulary. BM25 magnitude is deliberately excluded because it
-        scales with `embedding_text` length and systematically favors long
-        program descriptions over short narrow certifications.
+        BM25 weighting replaces the binary stem gate so that credential
+        reach discriminates by term specificity rather than any-overlap
+        presence. Per-credential row normalization prevents long
+        `embedding_text` from systematically outscoring short narrow
+        certifications.
 
         Args:
             credentials : Credentials with cached `.stems`, typically
@@ -204,12 +200,12 @@ class ResumeMatcher:
         if not (tasked := [c for c in self.clusters.values() if c.tasks]):
             self.credential_threshold = 0.0
             return
-        scores = np.concatenate([
-            cosine_similarity(vectors, cluster.task_matrix)
-            * self._stem_gate(credentials, cluster.task_stems)
-            for cluster in tasked
+        stem_sets = [c.stems for c in credentials]
+        scores    = np.concatenate([
+            self._bm25_weights(stem_sets, c.task_stems, c.task_matrix, vectors)
+            for c in tasked
         ], axis=None)
-        positive                  = scores[scores > 0]
+        positive = scores[scores > 0]
         self.credential_threshold = float(np.median(positive)) if positive.size else 0.0
 
     def cluster_score(self, cluster_id: int) -> float:
@@ -242,32 +238,33 @@ class ResumeMatcher:
         destination : Cluster
     ) -> dict[str, dict[int, float]]:
         """
-        Credential label to the cluster task positions it covers, each mapped
-        to the stem-gated cosine affinity on that task. A task is considered
-        covered when gated cosine clears `credential_threshold`; keeping the
-        score lets the downstream picker rank candidates by per-task semantic
-        tightness rather than treating every passing credential as equal.
+        Credential label to the cluster task positions it covers, each
+        mapped to the BM25-weighted cosine affinity on that task.
 
-        Scored against every task in `destination.tasks` so callers can
-        distinguish a credential's intrinsic offering from the subset that
-        happens to align with a particular resume's gaps.
+        BM25 weighting produces sharper per-task discrimination than the
+        binary stem gate, so the downstream waste-aware picker can
+        distinguish narrow credentials from broad ones. Per-credential row
+        normalization follows the same pattern as `_task_similarities` to
+        prevent `embedding_text` length bias.
 
         Args:
-            credentials : Must carry `.stems` and `.vector`. Typically sourced from
+            credentials : Must carry `.stems` and `.vector`, typically from
                           `graph.credential_pool`.
             destination : Cluster whose tasks are being evaluated.
         """
         if not (scored := [c for c in credentials if c.vector is not None]):
             return {}
 
-        gated = cosine_similarity(
-            np.asarray([c.vector for c in scored]),
-            destination.task_matrix
-        ) * self._stem_gate(scored, destination.task_stems)
+        weighted = self._bm25_weights(
+            [c.stems for c in scored],
+            destination.task_stems,
+            destination.task_matrix,
+            np.asarray([c.vector for c in scored])
+        )
         return {
             c.label: {
-                int(j): float(gated[i, j])
-                for j in np.flatnonzero(gated[i] >= self.credential_threshold)
+                int(j): float(weighted[i, j])
+                for j in np.flatnonzero(weighted[i] >= self.credential_threshold)
             }
             for i, c in enumerate(scored)
         }

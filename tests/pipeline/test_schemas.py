@@ -74,8 +74,6 @@ class TestPipelineConfig:
         ("component_count",        0),
         ("destination_percentile", -1),
         ("destination_percentile", 101),
-        ("source_percentile",      -1),
-        ("source_percentile",      101),
         ("lateral_neighbors",      0),
         ("upward_neighbors",       0)
     ])

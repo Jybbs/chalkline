@@ -27,7 +27,7 @@ description = 'Each dot is one job posting from this career family, projected fr
 
 [sections.credential_pathways]
 title       = 'Credential Pathways for This Career'
-description = 'Concrete training pathways from the AGC catalog ranked by how closely each one aligns with this career family in the embedding space, then bucketed into apprenticeships on the left, educational programs in the middle, and industry certifications on the right. Apprenticeship cards carry hour requirements drawn from their RAPIDS registration, program cards carry the Maine institution that offers them with an outbound link, and certification cards show the recognizable industry name.'
+description = 'Concrete training pathways from the AGC catalog ranked by destination affinity to this career family, then bucketed into apprenticeships on the left, educational programs in the middle, and industry certifications on the right. Apprenticeship cards carry hour requirements drawn from their RAPIDS registration, program cards carry the Maine institution that offers them with an outbound link, and certification cards show the recognizable industry name.'
 
 [sections.freshness_histogram]
 title       = 'How Stale is This Data?'

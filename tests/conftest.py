@@ -297,9 +297,8 @@ def pathway_graph(
     return CareerPathwayGraph(
         clusters               = clusters,
         credentials            = credentials,
-        destination_percentile = 5,
+        destination_percentile = 20,
         lateral_neighbors      = 2,
-        source_percentile      = 75,
         upward_neighbors       = 2
     )
 

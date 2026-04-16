@@ -63,9 +63,9 @@ Chalkline is a single-track embedding pipeline orchestrated by [Hamilton](https:
 | 2 | **Sentence Encoding** | [`Alibaba-NLP/gte-base-en-v1.5`](https://huggingface.co/Alibaba-NLP/gte-base-en-v1.5) via ONNX with CLS pooling | `pipeline.encoder` |
 | 3 | **Dimensionality Reduction** | L2-normalize embeddings, then [TruncatedSVD](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html) to **10** components | `pipeline.steps` |
 | 4 | **Clustering** | [Ward-linkage HAC](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html) at $`k = 20`$ career families | `pipeline.steps` |
-| 5 | **SOC Assignment** | Posting-level ColBERTv2 MaxSim against Task embeddings of all **60** O\*NET occupations | `pathways.scoring` |
+| 5 | **SOC Assignment** | Posting-level ColBERTv2 MaxSim against Task embeddings of all **60** O\*NET occupations | `pathways.selection` |
 | 6 | **Per-Cluster Wage** | Top-K softmax expectation over labor wages weighted by SOC similarity | `pathways.clusters` |
-| 7 | **Career Graph** | Stepwise k-NN backbone (*lateral at same Job Zone, upward at next*) with per-pair dual-threshold credential filter on demand | `pathways.graph` |
+| 7 | **Career Graph** | Stepwise k-NN backbone (*lateral at same Job Zone, upward at next*) with per-route destination-affinity credential pool and waste-aware Pareto-knee selection | `pathways.graph` |
 | 8 | **Resume Matching** | Sentence chunking, per-task MaxSim, BM25-weighted gap ranking, SVD projection for centroid distance | `matching.matcher` |
 
 The `SentenceEncoder` in `pipeline/encoder.py` downloads the ONNX model from HuggingFace on first use and runs inference via `onnxruntime` in fixed-size batches with CLS pooling followed by L2 normalization, with the ~430 MB model file deliberately instantiated outside the DAG, so that Hamilton's disk cache only serializes NumPy array outputs rather than the encoder weights themselves. Cold-start time for subsequent sessions drops from **~10.4s** to **~0.35s** because the encoder loads tokenizer files through `Tokenizer.from_file` and reuses `try_to_load_from_cache` rather than re-resolving the HuggingFace revision each time.
@@ -184,27 +184,27 @@ where $`f`$ is the term's frequency in the task, $`\ell`$ is the task length, $`
 
 The career graph connects the **20** career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint ensures edges only link clusters at the same Job Zone (*lateral pivots*) or one level apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_\text{lateral} = 2`$ bidirectional edges to clusters at the same Job Zone and $`k_\text{upward} = 2`$ unidirectional edges to clusters at the next Job Zone level.
 
-Credentials attach per route rather than per edge, meaning that `CareerPathwayGraph.credentials_for(source_id, destination_id)` applies a dual-threshold cosine filter to the full credential set on demand, so that every route the user explores receives a freshly computed, pair-specific credential set. For a route from cluster $`\mathbf{s}`$ to cluster $`\mathbf{d}`$, a credential $`\mathbf{c}`$ passes when
+Credentials attach per route rather than per edge, meaning that `CareerPathwayGraph.credentials_for(target_id)` applies a destination-affinity filter to the full credential set on demand, so that every route the user explores receives a freshly computed, destination-specific credential pool. A credential $`\mathbf{c}`$ passes when its similarity to the destination cluster $`\mathbf{d}`$ exceeds the **80th** percentile of all credential similarities to that target:
 
 $`
 \hspace{0.5cm} \displaystyle
-\cos(\mathbf{c}, \mathbf{d}) \geq \tau_\text{dest}(\mathbf{d}) \quad \wedge \quad \cos(\mathbf{c}, \mathbf{s}) \geq \tau_\text{src}
+\cos(\mathbf{c}, \mathbf{d}) \geq \tau_\text{dest}(\mathbf{d})
 `$  
 <br>
 
-The destination threshold $`\tau_\text{dest}(\mathbf{d})`$ is the **95th** percentile of credential similarities to that specific target cluster, selecting only the most closely aligned credentials. The source threshold $`\tau_\text{src}`$ is the **75th** percentile of the global credential distribution, ensuring each credential is relevant to the worker's current position rather than a non-sequitur. Because the filter runs per route, the credential set adapts to every source-destination pair the user explores rather than being frozen at fit time.
+where $`\tau_\text{dest}(\mathbf{d})`$ is the **80th** percentile (*top 20%*) of credential similarities to cluster $`\mathbf{d}`$. Because career-change recommendations are about destination relevance, the filter gates only on where the user is going rather than requiring overlap with the user's current position. The filter runs per route, so the credential pool adapts to every destination the user explores rather than being frozen at fit time.
 
-### Gap Coverage via Greedy Targeted-Ratio Selection
+### Gap Coverage via Waste-Aware Pareto-Knee Selection
 
-Once a route's gap set and credential set are known, the route recipe picks up to five credentials that jointly cover as many gaps as possible. The greedy picker scores each credential by the ratio of its remaining-gap affinity to its total affinity on this route:
+Once a route's gap set and credential pool are known, the `CredentialSelector` picks up to five credentials that jointly cover as many gaps as possible while minimizing redundant reach. The selector sweeps a waste-penalty parameter $`\alpha`$ across the candidate pool, where each step runs a greedy pass scoring credentials by
 
 $`
 \hspace{0.5cm} \displaystyle
-\text{score}(c \mid R) = \frac{\sum_{g \in R} \mathbb{1}[\mathbf{A}_{c,g} > 0] \cdot \mathbf{A}_{c,g}}{\sum_{g} \mathbf{A}_{c,g}}
+\text{score}(c \mid R) = \Delta\text{gaps}(c, R) - \alpha \cdot \Delta\text{waste}(c, R)
 `$  
 <br>
 
-where $`\mathbf{A}_{c,g}`$ is the stem-gated cosine affinity between credential $`c`$ and gap task $`g`$, and $`R`$ is the still-uncovered residual. Narrow credentials whose entire reach lies in the residual win over broad credentials whose affinity is mostly spent on already-covered gaps. Absolute remaining-affinity acts as a tiebreaker so a wholly-targeted weak credential does not beat a wholly-targeted stronger one. Each picked credential records its incremental `positions: frozenset[int]` (*intersection of its reach with the residual at pick time*), which the UI uses to check off only the gaps that credential newly contributes rather than every gap the credential can cover in isolation.
+where $`\Delta\text{gaps}`$ is the number of new gaps credential $`c`$ covers beyond the current residual $`R`$, and $`\Delta\text{waste}`$ is the number of positions in $`c`$'s reach that land on already-covered or non-gap tasks. Each $`\alpha`$ produces a different stack with a different trade-off between gap coverage and waste, and the set of non-dominated (*gaps filled, waste*) outcomes forms a Pareto frontier. The selector filters the frontier to stacks meeting a **coverage floor** of $`\lceil 0.80 \times |G| \rceil`$ gaps, then applies the Kneedle algorithm[^66] to find the knee point where marginal waste reduction per gap lost bends most sharply. When no stack on the frontier reaches the coverage floor, the selector falls back to the unconstrained Pareto knee. Each picked credential records its incremental `positions: frozenset[int]` (*newly covered gaps at pick time*), which the UI uses to check off only the gaps that credential contributes rather than every gap it can cover in isolation.
 
 ### Per-Cluster Wage Expectation
 
@@ -497,3 +497,5 @@ AGC provided the posting corpus, the stakeholder reference data defining the pro
 [^61]: Santhanam, et al. 2022. "ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction." *Proceedings of the 2022 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies*: 3715-3734. https://doi.org/10.18653/v1/2022.naacl-main.272
 
 [^65]: Achananuparp, et al. 2025. "A Multi-Stage Framework with Taxonomy-Guided Reasoning for Occupation Classification Using Large Language Models." *arXiv preprint, accepted at ICWSM 2026*. https://doi.org/10.48550/arXiv.2503.12989
+
+[^66]: Satopaa, et al. 2011. "Finding a 'Kneedle' in a Haystack: Detecting Knee Points in System Behavior." *31st International Conference on Distributed Computing Systems Workshops*: 166-171. https://doi.org/10.1109/ICDCSW.2011.20
