@@ -48,11 +48,10 @@ class OnetCurator:
         for corpus in ("averaged_perceptron_tagger_eng", "punkt_tab"):
             download(corpus, quiet=True)
 
-        self.codes = {
-            c["soc_code"]: c
-            for path in sorted((root / "data/stakeholder").rglob("onet_codes.json"))
-            for c in loads(path.read_text())
-        }
+        self.codes: dict[str, dict] = {}
+        for path in sorted((root / "data/stakeholder").rglob("onet_codes.json")):
+            for c in loads(path.read_text()):
+                self.codes.setdefault(c["soc_code"], c)
         self.output = root / "data/lexicons/onet.json"
         self.parser = RegexpParser(r"""
             NP: {<DT>?<JJ>*<NN.*>+}
