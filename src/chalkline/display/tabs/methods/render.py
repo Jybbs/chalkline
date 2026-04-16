@@ -99,6 +99,7 @@ def methods_tab(ctx: TabContext) -> Html:
 
         ctx.layout.two_col(
             ctx.layout.panel(ctx.charts.violin(
+                colors  = ctx.theme.sectors,
                 groups  = ml.pairwise_distances,
                 height  = 350,
                 y_title = tab.chart_labels["pairwise_title"]

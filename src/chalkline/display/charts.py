@@ -50,7 +50,7 @@ class Charts:
     def _apply_layout(
         self,
         height       : int,
-        trace_or_fig : go.Figure | BaseTraceType | list[BaseTraceType],
+        trace_or_fig : go.Figure | BaseTraceType | Sequence[BaseTraceType],
         **overrides
     ) -> go.Figure:
         """
@@ -551,13 +551,21 @@ class Charts:
         self,
         groups  : dict[str, list[float]],
         height  : int,
-        y_title : str
+        y_title : str,
+        colors  : Mapping[str, str] | None = None
     ) -> go.Figure:
         """
-        Violin plots grouped by label, with Plotly's default colorway
-        assigning distinct palette colors per violin in rendering order.
+        Violin plots grouped by label.
+
+        When `colors` is supplied, the figure's `layout.colorway` is
+        overridden with colors aligned to sorted group keys, letting Plotly
+        assign them in trace order (*the same mechanism the template uses*)
+        so sector-keyed groups match the theme's sector palette instead of
+        drifting into the default colorway.
 
         Args:
+            colors  : Optional group-label to color mapping, either hex strings or
+                      palette keys.
             groups  : Label to list of values.
             height  : Figure height in pixels.
             y_title : Y-axis label.
@@ -565,6 +573,12 @@ class Charts:
         Returns:
             Configured violin figure.
         """
+        entries   = [(key, values) for key, values in sorted(groups.items()) if values]
+        overrides = {"showlegend": False, "y_title": y_title}
+        if colors:
+            overrides["colorway"] = [
+                self.theme.resolve_color(colors[key]) for key, _ in entries
+            ]
         return self._apply_layout(
             height,
             [
@@ -574,10 +588,8 @@ class Charts:
                     name     = key,
                     y        = values
                 )
-                for key, values in sorted(groups.items())
-                if values
+                for key, values in entries
             ],
-            showlegend = False,
-            y_title    = y_title
+            **overrides
         )
 

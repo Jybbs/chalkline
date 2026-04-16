@@ -1,9 +1,27 @@
 [
   {
+    "role_description": "Plan, direct, or coordinate, usually through subordinate supervisory personnel, activities concerned with the construction and maintenance of structures, facilities, and systems. Participate in the conceptual development of a construction project and oversee its organization, scheduling, budgeting, and implementation. Includes managers in specialized construction fields, such as carpentry or plumbing.",
+    "sector": "Construction Managers",
+    "soc_code": "11-9021.00",
+    "title": "Construction Managers"
+  },
+  {
     "role_description": "Prepare cost estimates for product manufacturing, construction projects, or services to aid management in bidding on or determining price of product or service. May specialize according to particular service performed or type of product manufactured.",
     "sector": "Construction Managers",
     "soc_code": "13-1051.00",
     "title": "Cost Estimators"
+  },
+  {
+    "role_description": "Perform engineering duties in planning, designing, and overseeing construction and maintenance of building structures and facilities, such as roads, railroads, airports, bridges, harbors, channels, dams, irrigation projects, pipelines, power plants, and water and sewage systems.",
+    "sector": "Construction Managers",
+    "soc_code": "17-2051.00",
+    "title": "Civil Engineers"
+  },
+  {
+    "role_description": "Develop plans for surface transportation projects, according to established engineering standards and state or federal construction policy. Prepare designs, specifications, or estimates for transportation facilities. Plan modifications of existing streets, highways, or freeways to improve traffic flow.",
+    "sector": "Construction Managers",
+    "soc_code": "17-2051.01",
+    "title": "Transportation Engineers"
   },
   {
     "role_description": "Plan and design structures, such as private residences, office buildings, theaters, factories, and other structural property.",
@@ -31,7 +49,7 @@
   },
   {
     "role_description": "Prepare detailed drawings of architectural and structural features of buildings or drawings and topographical relief maps used in civil engineering projects, such as highways, bridges, and public works. Use knowledge of building materials, engineering practices, and mathematics to complete drawings.",
-    "sector": "Heavy Highway Construction",
+    "sector": "Construction Managers",
     "soc_code": "17-3011.00",
     "title": "Architectural and Civil Drafters"
   },
@@ -163,7 +181,7 @@
   },
   {
     "role_description": "Inspect structures using engineering skills to determine structural soundness and compliance with specifications, building codes, and other regulations. Inspections may be general in nature or may be limited to a specific area, such as electrical systems or plumbing.",
-    "sector": "Building Construction",
+    "sector": "Construction Managers",
     "soc_code": "47-4011.00",
     "title": "Construction Inspectors"
   },
