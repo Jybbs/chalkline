@@ -137,12 +137,12 @@ url_label  = 'Dimensionality reduction on Wikipedia'
 term       = 'coverage floor'
 definition = '''The **minimum gap coverage** the credential selector targets before relaxing its constraints.
 
-For a route with $|G|$ skill gaps, the selector requires at least $\lceil 0.80 \times |G| \rceil$ gaps covered. When no credential combination on the Pareto frontier can reach that floor, the selector falls back to the unconstrained Pareto knee.'''
+The selector requires at least **80%** of the skill gaps for a given route to be covered. When no credential combination on the Pareto frontier can reach that floor, the selector falls back to the unconstrained Pareto knee.'''
 
 [[terms]]
 term       = 'destination affinity'
 aliases    = ['destination-affinity filter']
-definition = '''How closely a credential aligns with a **destination career family**, measured by $\cos(\mathbf{c}, \mathbf{d})$ between the credential embedding $\mathbf{c}$ and the cluster embedding $\mathbf{d}$.
+definition = '''How closely a credential aligns with a **destination career family**, measured by the cosine similarity between the credential embedding and the cluster embedding.
 
 For each route, credentials are filtered to those above the **80th percentile** of similarity to the destination cluster, keeping the candidate pool focused on where you are going rather than where you are now.'''
 
@@ -258,7 +258,7 @@ term       = 'Pareto knee'
 aliases    = ['Pareto frontier', 'knee point']
 definition = '''The point on the **coverage-vs-waste trade-off curve** where adding another credential yields diminishing returns.
 
-The selector sweeps a waste penalty $\alpha$ and scores each credential by $\Delta\text{gaps} - \alpha \cdot \Delta\text{waste}$, producing a frontier of achievable (*gaps filled*, *waste*) combinations. The Kneedle algorithm finds the *knee* where the curve bends most sharply, balancing gap coverage against redundant credential reach.'''
+The selector sweeps a waste penalty and scores each credential by the gap coverage it adds minus the waste it introduces, producing a frontier of achievable (*gaps filled*, *waste*) combinations. The Kneedle algorithm finds the *knee* where the curve bends most sharply, balancing gap coverage against redundant credential reach.'''
 url        = 'https://doi.org/10.1109/ICDCSW.2011.20'
 url_label  = 'Satopaa et al. 2011 — Finding a "Kneedle" in a Haystack'
 
@@ -396,9 +396,9 @@ url        = 'https://www.onetonline.org/help/online/task'
 url_label  = 'Tasks on O*NET OnLine'
 
 [[terms]]
-term       = 't-distributed Stochastic Neighbor Embedding (t-SNE)'
-aliases    = ['t-SNE', 'tSNE', 'TSNE']
-definition = '''A nonlinear **dimensionality reduction** technique that projects high-dimensional vectors into two or three dimensions for visualization, preserving local structure so points that were close together in the original space stay close in the projection.
+term       = 't-SNE'
+aliases    = ['tSNE', 'TSNE', 't-distributed Stochastic Neighbor Embedding']
+definition = '''**t-distributed Stochastic Neighbor Embedding**, a nonlinear dimensionality reduction technique that projects high-dimensional vectors into two or three dimensions for visualization, preserving local structure so points that were close together in the original space stay close in the projection.
 
 t-SNE is the standard tool for *seeing* the shape of a cluster of embeddings. Tight blobs in the projection represent genuinely cohesive groups; distinct sub-blobs reveal hidden sub-structure; and isolated points correspond to outliers. Chalkline uses t-SNE with PCA initialization to project posting embeddings inside a single career family.'''
 url        = 'https://lvdmaaten.github.io/tsne/'
