@@ -23,7 +23,7 @@ description = 'Full credential catalog, employers, and job boards for deeper exp
 
 [sections.credentials]
 title       = 'Credentials That Bridge This Move'
-description = 'Apprenticeships, programs, and certifications ranked by their fit with this specific career transition.'
+description = 'Apprenticeships, programs, and certifications selected by destination affinity to this career family. Each credential combination is chosen to maximize gap coverage while minimizing waste, targeting a coverage floor of 80%. When that floor is unreachable, the selector falls back to the Pareto knee of the trade-off curve.'
 
 [sections.employers]
 title       = 'Employers Hiring for This Role'

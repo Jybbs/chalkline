@@ -112,7 +112,7 @@ term       = 'credential'
 aliases    = ['credentials']
 definition = '''A certification, apprenticeship, or educational program that qualifies a worker for advancement between career families.
 
-Credentials are matched to career transitions using a **dual-threshold cosine filter** that requires relevance to both the source and destination families.'''
+Credentials are matched to career transitions using a **destination-affinity filter** that selects the most relevant candidates for where you are headed, then a waste-aware selector picks the combination that covers the most skill gaps with the least redundant reach.'''
 url        = 'https://www.careeronestop.org/Credentials/Toolkit/find-certifications.aspx'
 url_label  = 'Find certifications on CareerOneStop'
 
@@ -134,10 +134,17 @@ url        = 'https://en.wikipedia.org/wiki/Dimensionality_reduction'
 url_label  = 'Dimensionality reduction on Wikipedia'
 
 [[terms]]
-term       = 'dual-threshold filter'
-definition = '''The method used to match credentials to career transitions.
+term       = 'coverage floor'
+definition = '''The **minimum gap coverage** the credential selector targets before relaxing its constraints.
 
-A credential must exceed a **minimum cosine similarity** to both the source and destination career families to be considered relevant to that transition.'''
+For a route with $|G|$ skill gaps, the selector requires at least $\lceil 0.80 \times |G| \rceil$ gaps covered. When no credential combination on the Pareto frontier can reach that floor, the selector falls back to the unconstrained Pareto knee.'''
+
+[[terms]]
+term       = 'destination affinity'
+aliases    = ['destination-affinity filter']
+definition = '''How closely a credential aligns with a **destination career family**, measured by $\cos(\mathbf{c}, \mathbf{d})$ between the credential embedding $\mathbf{c}$ and the cluster embedding $\mathbf{d}$.
+
+For each route, credentials are filtered to those above the **80th percentile** of similarity to the destination cluster, keeping the candidate pool focused on where you are going rather than where you are now.'''
 
 [[terms]]
 term       = 'edge weight'
@@ -245,6 +252,15 @@ definition = '''The distance between **every pair** of points in a set, producin
 Chalkline computes pairwise Euclidean distances between cluster centroids to show how tightly or loosely career families spread across the embedding space, grouped by sector for the inter-cluster distance distribution.'''
 url        = 'https://en.wikipedia.org/wiki/Distance_matrix'
 url_label  = 'Distance matrix on Wikipedia'
+
+[[terms]]
+term       = 'Pareto knee'
+aliases    = ['Pareto frontier', 'knee point']
+definition = '''The point on the **coverage-vs-waste trade-off curve** where adding another credential yields diminishing returns.
+
+The selector sweeps a waste penalty $\alpha$ and scores each credential by $\Delta\text{gaps} - \alpha \cdot \Delta\text{waste}$, producing a frontier of achievable (*gaps filled*, *waste*) combinations. The Kneedle algorithm finds the *knee* where the curve bends most sharply, balancing gap coverage against redundant credential reach.'''
+url        = 'https://doi.org/10.1109/ICDCSW.2011.20'
+url_label  = 'Satopaa et al. 2011 — Finding a "Kneedle" in a Haystack'
 
 [[terms]]
 term       = 'posting'
