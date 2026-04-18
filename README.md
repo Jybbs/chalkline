@@ -1,8 +1,6 @@
 <div align="center">
-
-# 📐 Chalkline
-
-### *Unsupervised Career Mapping for Maine's Construction Trades*
+<img src="paper/figures/00_title.png" alt="Chalkline" width="720">
+<h3><em>Bottom-Up Career Pathway Discovery from Maine Construction Job Postings</em></h3>
 
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-latest-f7931e.svg)](https://scikit-learn.org/)
@@ -11,6 +9,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 </div>
+
+---
+
+## 🎓 The Paper
+
+Chalkline's full writeup lives at [`paper/README.md`](paper/README.md), covering the bottom-up career-mapping thesis, the stage-by-stage algorithmic defense, the stakeholder data gaps the pipeline had to route around, and the bibliography. Start there if you want the project's reasoning before its mechanics.
 
 ---
 
@@ -140,7 +144,7 @@ $`
 `$  
 <br>
 
-Each posting casts its best-matching single task against each SOC, and the cluster-level score is the mean of those maxes. The `SOCScorer` dataclass in `pathways/scoring.py` stacks every SOC's task matrix into one contiguous array at construction, and resolves every cluster-occupation pair with a single BLAS matmul plus `np.maximum.reduceat` for per-occupation max-pooling, so that the `soc_similarity` Hamilton node collapses to a three-line delegation.
+Each posting casts its best-matching single task against each SOC, and the cluster-level score is the mean of those maxes. The `SOCScorer` dataclass in `pathways/selection.py` stacks every SOC's task matrix into one contiguous array at construction, and resolves every cluster-occupation pair with a single BLAS matmul plus `np.maximum.reduceat` for per-occupation max-pooling, so that the `soc_similarity` Hamilton node collapses to a three-line delegation.
 
 The full `(n_clusters, n_occupations)` similarity matrix feeds two downstream consumers. The argmax assigns each cluster's SOC title and sector, and a softmax over each row at temperature $`\tau = 0.02`$ produces per-cluster occupation weights that drive wage expectation and Job Zone voting. Using task-only descriptions for assignment is deliberate, because task specificity discriminates adjacent trades whose aggregated descriptions otherwise blur together under pooled scoring[^65]. The downstream resume matcher uses a different regime, namely Task+DWA with BM25 weighting, because the gap view's purpose is to surface the matched occupation's full activity profile, rather than to re-pick the occupation.
 
@@ -359,6 +363,8 @@ chalkline/
 │   └── main.py                            Marimo reactive notebook (career report)
 │
 ├── data/
+│   ├── certifications/                    CareerOneStop certification curations (committed)
+│   │   └── careeronestop.json             Scraped certification records for credential enrichment
 │   ├── labor/                             BLS OEWS raw curations (committed)
 │   │   ├── outlook.json                   O*NET Bright Outlook flags for 53 SOCs
 │   │   ├── projections.json               10-year employment projections for 51 SOCs
@@ -366,8 +372,10 @@ chalkline/
 │   ├── lexicons/                          Pipeline inputs (committed)
 │   │   ├── credentials.json               836 credentials (19 apprenticeships, 787 certs, 30 programs)
 │   │   ├── labor.json                     Joined wage + projection + outlook table for 53 SOCs
-│   │   └── onet.json                      60 SOC codes with Tasks, DWAs, Technology Skills, KSAs
-│   ├── postings/                          Scraped AGC corpus (gitignored, 2154 records)
+│   │   ├── onet.json                      60 SOC codes with Tasks, DWAs, Technology Skills, KSAs
+│   │   ├── osha.json                      OSHA regulatory topic vocabulary list
+│   │   └── supplement.json                Supplemental construction term vocabulary
+│   ├── postings/                          Scraped AGC corpus (2154 records)
 │   └── stakeholder/                       AGC Maine reference data (gitignored)
 │       ├── additions/                     Scope extensions (apprenticeship SOCs, program SOCs)
 │       └── reference/                     Members, apprenticeships, programs, job boards, etc.
@@ -418,7 +426,7 @@ chalkline/
 │   │   ├── graph.py                       NetworkX stepwise k-NN backbone with per-pair credentials_for
 │   │   ├── loaders.py                     LaborLoader and StakeholderReference
 │   │   ├── schemas.py                     Credential, EncodedOccupation, Occupation, SkillType
-│   │   └── scoring.py                     SOCScorer with ColBERTv2 MaxSim late interaction
+│   │   └── selection.py                   SOCScorer (ColBERTv2 MaxSim) and CredentialSelector (waste-aware Pareto-knee)
 │   │
 │   └── pipeline/                          Orchestration and shared types
 │       ├── encoder.py                     ONNX sentence transformer wrapper with CLS pooling
@@ -426,6 +434,10 @@ chalkline/
 │       ├── progress.py                    Loguru + Rich progress with per-node timing
 │       ├── schemas.py                     PipelineConfig (Pydantic, extra="forbid")
 │       └── steps.py                       Hamilton node functions (the full DAG)
+│
+├── paper/                                 Final report and figures (GitHub auto-renders paper/README.md)
+│   ├── figures/                           PNG renders referenced from the report
+│   └── README.md                          Final DS5230 writeup with bibliography
 │
 ├── tests/                                 Pytest suite mirroring src/ structure
 ├── pyproject.toml                         Build config, dependencies, CLI entry point
