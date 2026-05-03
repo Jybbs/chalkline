@@ -32,14 +32,35 @@ from chalkline.pipeline.encoder   import SentenceEncoder
 from chalkline.pipeline.schemas   import PipelineConfig
 
 
-def assignments(config: PipelineConfig, coordinates: np.ndarray) -> np.ndarray:
+def assignments(config: PipelineConfig, raw_vectors: np.ndarray) -> np.ndarray:
     """
-    Fit Ward-linkage HAC on SVD coordinates and return label array.
+    Consensus cluster labels via evidence accumulation across
+    `consensus_seeds` independent SVD-then-Ward chains, finalized by
+    average-linkage HAC on the resulting pairwise co-association matrix.
+    Stabilizes membership for postings near fuzzy cluster boundaries that
+    single-seed runs assign inconsistently.
     """
+    normed = normalize(raw_vectors)
+    co     = np.zeros((raw_vectors.shape[0],) * 2, dtype=np.float32)
+    logger.info(
+        f"Consensus clustering: {config.consensus_seeds} seeds at "
+        f"k={config.cluster_count}"
+    )
+    for seed in range(config.consensus_seeds):
+        coordinates = TruncatedSVD(
+            n_components = config.component_count,
+            random_state = seed
+        ).fit_transform(normed)
+        labels = AgglomerativeClustering(
+            linkage    = "ward",
+            n_clusters = config.cluster_count
+        ).fit_predict(coordinates)
+        co += np.equal.outer(labels, labels)
     return AgglomerativeClustering(
-        linkage    = "ward",
+        linkage    = "average",
+        metric     = "precomputed",
         n_clusters = config.cluster_count
-    ).fit_predict(coordinates)
+    ).fit_predict(1.0 - co / config.consensus_seeds)
 
 
 def centroids(assignments: np.ndarray, coordinates: np.ndarray) -> np.ndarray:
@@ -69,6 +90,7 @@ def clusters(
     cluster_vectors     : np.ndarray,
     config              : PipelineConfig,
     corpus              : Corpus,
+    credentials         : list[Credential],
     job_zone_map        : dict[int, int],
     labor               : LaborLoader,
     lexicons            : LexiconLoader,
@@ -106,6 +128,7 @@ def clusters(
 
     return Clusters(
         centroids         = centroids,
+        credentials       = credentials,
         items             = items,
         labor             = labor,
         occupation_titles = [o.title for o in lexicons.occupations],

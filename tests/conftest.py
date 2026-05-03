@@ -36,6 +36,7 @@ from chalkline.pathways.clusters  import Cluster, Clusters, Task
 from chalkline.pathways.graph     import CareerPathwayGraph
 from chalkline.pathways.loaders   import LaborLoader, StakeholderReference
 from chalkline.pathways.schemas   import Credential
+from chalkline.pipeline.schemas   import PipelineConfig
 
 
 CLUSTER_COUNT   = 4
@@ -188,6 +189,7 @@ def clusters(
     assignments     : np.ndarray,
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
+    credentials     : list[Credential],
     job_zone_map    : dict[int, int],
     labor           : LaborLoader,
     unit_vectors    : np.ndarray
@@ -218,6 +220,7 @@ def clusters(
     }
     return Clusters(
         centroids         = centroids,
+        credentials       = credentials,
         items             = items,
         labor             = labor,
         occupation_titles = titles,
@@ -300,6 +303,22 @@ def pathway_graph(
         destination_percentile = 20,
         lateral_neighbors      = 2,
         upward_neighbors       = 2
+    )
+
+
+@fixture
+def pipeline_config(tmp_path: Path) -> PipelineConfig:
+    """
+    Pipeline config wired with the test-suite constants and a `tmp_path` for
+    both lexicon and postings directories. Tests that need a different field
+    override it via `model_copy(update={...})`.
+    """
+    return PipelineConfig(
+        cluster_count   = CLUSTER_COUNT,
+        component_count = COMPONENT_COUNT,
+        consensus_seeds = 3,
+        lexicon_dir     = tmp_path,
+        postings_dir    = tmp_path
     )
 
 

@@ -206,7 +206,7 @@ class ResumeMatcher:
             for c in tasked
         ], axis=None)
         positive = scores[scores > 0]
-        self.credential_threshold = float(np.median(positive)) if positive.size else 0.0
+        self.credential_threshold = float(np.percentile(positive, 75)) if positive.size else 0.0
 
     def cluster_score(self, cluster_id: int) -> float:
         """

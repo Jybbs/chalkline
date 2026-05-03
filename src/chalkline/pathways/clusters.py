@@ -16,6 +16,7 @@ from typing          import NamedTuple
 
 from chalkline.collection.schemas import Posting
 from chalkline.pathways.loaders   import LaborLoader
+from chalkline.pathways.schemas   import Credential
 
 
 @dataclass
@@ -164,6 +165,7 @@ class Clusters:
     """
 
     centroids         : np.ndarray
+    credentials       : list[Credential]
     items             : dict[int, Cluster]
     labor             : LaborLoader
     occupation_titles : list[str]
@@ -221,18 +223,23 @@ class Clusters:
     @cached_property
     def bm25_idf(self) -> dict[str, float]:
         """
-        Inverse document frequency per stem across all task descriptions,
-        using the BM25 IDF variant with smoothing. Stems appearing in many
-        tasks get low weight, suppressing generic verbs like 'prepare' and
-        'use' while amplifying domain-specific terms like 'conduit' and
-        'circuit'.
+        Inverse document frequency per stem across the union of cluster
+        task descriptions and credential descriptions, using the BM25 IDF
+        variant with smoothing.
+
+        Counting both sides of the matching pair surfaces what is rare
+        across the corpus rather than only what is rare across tasks.
+        Boilerplate stems shared by many credentials and many tasks
+        (`technician`, `inspector`, `professional`) get suppressed while
+        specialty stems on either side stay discriminative, narrowing the
+        gap by which broad-text apprenticeships accumulated coverage on
+        common stems.
         """
         from math import log
 
-        all_stems = [
-            ts for c in self.values() for ts in c.task_stems
-        ]
-        n = len(all_stems)
+        all_stems  = [ts for c in self.values() for ts in c.task_stems]
+        all_stems += [c.stems for c in self.credentials]
+        n  = len(all_stems)
         df: dict[str, int] = {}
         for doc in all_stems:
             for s in doc:
