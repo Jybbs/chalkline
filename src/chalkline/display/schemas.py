@@ -344,7 +344,7 @@ class MapGeometry(BaseModel, extra="forbid"):
     with the values it needs.
     """
 
-    card_h              : int        = 66
+    card_h              : int        = 60
     card_w              : int        = 200
     circle_r            : int        = 24
     default_wage_range  : list[int]  = [30000, 90000]

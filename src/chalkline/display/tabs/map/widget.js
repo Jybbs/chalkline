@@ -193,7 +193,7 @@ export default {
                 pad
             } = dims;
             const W      = el.clientWidth || dims.width;
-            const donutR = 17;
+            const donutR = 20;
 
             /* ── Scales ─────────────────────────────────────────── */
 
@@ -336,7 +336,7 @@ export default {
 
             const dnX = donutR + 10;
             const dnY = cH / 2;
-            addDonut(t1G, dnX, dnY, "donut-label", donutR, 3, 4);
+            addDonut(t1G, dnX, dnY, "donut-label", donutR, 3, 5);
 
             /* Title + italic suffix + stats subtitle (vertically centered) */
             const ttX = dnX + donutR + 8;

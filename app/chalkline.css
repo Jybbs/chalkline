@@ -730,7 +730,8 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
         stroke-width : 1;
     }
 
-    & :is(.circle-pct, .donut-label) { font-size: 9px; }
+    & .circle-pct                    { font-size: 9px; }
+    & .donut-label                   { font-size: 10px; }
     & .circle-label  { fill: var(--cl-muted-foreground); font-size: 7px; }
     & .progress-ring { fill: var(--cl-primary); opacity: 0.7; }
 
