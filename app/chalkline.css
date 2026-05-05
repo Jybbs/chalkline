@@ -708,6 +708,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 .cl-pathway-map {
     & :is(.node-subtitle, .tooltip-dim)  { fill: var(--cl-muted-foreground); font-size: 10px; }
+    & .node-suffix                       { fill: var(--cl-muted-foreground); font-size: 10px; font-style: italic; }
     & :is(.edge, .matched-glow)          { fill: none; }
     & :is(.node, .node-circle)           { cursor: pointer; }
     & .node-rect                         { fill: var(--cl-border); }

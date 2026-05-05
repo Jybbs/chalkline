@@ -85,7 +85,6 @@ class TestMapGeometry:
         """
         dims = MapGeometry().dimensions
         assert "default_wage_range" not in dims
-        assert "title_char_limit" not in dims
 
     def test_dimensions_includes_layout(self):
         """

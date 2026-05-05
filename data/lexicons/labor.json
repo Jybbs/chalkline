@@ -233,7 +233,7 @@
   },
   {
     "soc_code": "11-9041.00",
-    "soc_title": "Architectural & Engineering Managers",
+    "soc_title": "Arch. & Eng. Managers",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -463,7 +463,7 @@
   },
   {
     "soc_code": "13-1082.00",
-    "soc_title": "Project Management Specialists",
+    "soc_title": "Project Specialists",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -813,7 +813,7 @@
   },
   {
     "soc_code": "17-2051.01",
-    "soc_title": "Transportation Engineers",
+    "soc_title": "Transport Engineers",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -907,7 +907,7 @@
   },
   {
     "soc_code": "17-3011.00",
-    "soc_title": "Architectural and Civil Drafters",
+    "soc_title": "Arch. & Civil Drafters",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -1022,7 +1022,7 @@
   },
   {
     "soc_code": "17-3022.00",
-    "soc_title": "Civil Engineering Technicians",
+    "soc_title": "Civil Eng. Technicians",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -1369,7 +1369,7 @@
   },
   {
     "soc_code": "47-2021.00",
-    "soc_title": "Brickmasons & Blockmasons",
+    "soc_title": "Brick & Blockmasons",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -1948,7 +1948,7 @@
   },
   {
     "soc_code": "47-2043.00",
-    "soc_title": "Floor Sanders & Finishers",
+    "soc_title": "Floor Finishers",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -2180,7 +2180,7 @@
   },
   {
     "soc_code": "47-2051.00",
-    "soc_title": "Cement Masons & Finishers",
+    "soc_title": "Cement Masons",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -2295,7 +2295,7 @@
   },
   {
     "soc_code": "47-2053.00",
-    "soc_title": "Terrazzo Workers & Finishers",
+    "soc_title": "Terrazzo Finishers",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -2528,7 +2528,7 @@
   },
   {
     "soc_code": "47-2071.00",
-    "soc_title": "Paving & Tamping Operators",
+    "soc_title": "Paving Operators",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -2873,7 +2873,7 @@
   },
   {
     "soc_code": "47-2081.00",
-    "soc_title": "Drywall & Ceiling Tile Installers",
+    "soc_title": "Drywall Installers",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -3336,7 +3336,7 @@
   },
   {
     "soc_code": "47-2131.00",
-    "soc_title": "Insulation Workers, Envelope",
+    "soc_title": "Envelope Insulators",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -3451,7 +3451,7 @@
   },
   {
     "soc_code": "47-2132.00",
-    "soc_title": "Insulation Workers, Mechanical",
+    "soc_title": "Mechanical Insulators",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -3915,7 +3915,7 @@
   },
   {
     "soc_code": "47-2161.00",
-    "soc_title": "Plasterers & Stucco Masons",
+    "soc_title": "Plasterers",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -4030,7 +4030,7 @@
   },
   {
     "soc_code": "47-2171.00",
-    "soc_title": "Reinforcing Iron & Rebar Workers",
+    "soc_title": "Rebar Workers",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -4367,7 +4367,7 @@
   },
   {
     "soc_code": "47-2221.00",
-    "soc_title": "Structural Iron and Steel Workers",
+    "soc_title": "Iron & Steel Workers",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -4599,7 +4599,7 @@
   },
   {
     "soc_code": "47-4011.00",
-    "soc_title": "Construction Inspectors",
+    "soc_title": "Building Inspectors",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -4714,7 +4714,7 @@
   },
   {
     "soc_code": "47-4021.00",
-    "soc_title": "Elevator & Escalator Installers",
+    "soc_title": "Elevator Installers",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -4948,7 +4948,7 @@
   },
   {
     "soc_code": "47-4051.00",
-    "soc_title": "Highway Maintenance Workers",
+    "soc_title": "Highway Maintenance",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -5063,7 +5063,7 @@
   },
   {
     "soc_code": "47-4061.00",
-    "soc_title": "Rail-Track Laying Equipment",
+    "soc_title": "Rail-Track Operators",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -5270,7 +5270,7 @@
   },
   {
     "soc_code": "49-9021.00",
-    "soc_title": "HVAC Mechanics & Installers",
+    "soc_title": "HVAC Mechanics",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -5502,7 +5502,7 @@
   },
   {
     "soc_code": "49-9051.00",
-    "soc_title": "Power-Line Installers & Repairers",
+    "soc_title": "Power-Line Installers",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -5619,7 +5619,7 @@
   },
   {
     "soc_code": "49-9071.00",
-    "soc_title": "General Maintenance Workers",
+    "soc_title": "General Maintenance",
     "outlook": {
       "bright_outlook": true,
       "outlook_reasons": [
@@ -5851,7 +5851,7 @@
   },
   {
     "soc_code": "53-7021.00",
-    "soc_title": "Crane & Tower Operators",
+    "soc_title": "Crane Operators",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],
@@ -5966,7 +5966,7 @@
   },
   {
     "soc_code": "53-7041.00",
-    "soc_title": "Hoist & Winch Operators",
+    "soc_title": "Hoist Operators",
     "outlook": {
       "bright_outlook": false,
       "outlook_reasons": [],

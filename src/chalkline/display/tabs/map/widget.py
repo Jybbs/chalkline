@@ -116,8 +116,12 @@ class PathwayMap(AnyWidget):
                     f"{cluster.size} postings \u00b7 ${round(wage / 1000)}k"
                     if wage else f"{cluster.size} postings"
                 ),
+                "suffix"     : (
+                    cluster.display_title[len(cluster.soc_title) + 2:-1]
+                    if cluster.display_title != cluster.soc_title else ""
+                ),
                 "tier"       : 1 if hop is not None and hop <= 1 else 2,
-                "title"      : cluster.display_title,
+                "title"      : cluster.soc_title,
                 "wage"       : wage
             })
 

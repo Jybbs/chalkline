@@ -341,11 +341,10 @@ class MapGeometry(BaseModel, extra="forbid"):
 
     Owns pixel-level constants for node dimensions, force simulation tuning,
     and text-fit thresholds. The JS renderer receives a `dimensions` payload
-    with the values it needs, while the Python side uses `title_char_limit`
-    for pre-truncation.
+    with the values it needs.
     """
 
-    card_h              : int        = 56
+    card_h              : int        = 66
     card_w              : int        = 200
     circle_r            : int        = 24
     default_wage_range  : list[int]  = [30000, 90000]
@@ -353,7 +352,6 @@ class MapGeometry(BaseModel, extra="forbid"):
     hero_h              : int        = 80
     hero_w              : int        = 280
     pad                 : int        = 50
-    title_char_limit    : int        = 28
     width               : int        = 1800
 
     @property
@@ -361,7 +359,7 @@ class MapGeometry(BaseModel, extra="forbid"):
         """
         Layout constants for the JS force simulation and renderer.
         """
-        return self.model_dump(exclude={"default_wage_range", "title_char_limit"})
+        return self.model_dump(exclude={"default_wage_range"})
 
 
 class MlMetrics(BaseModel, extra="forbid"):

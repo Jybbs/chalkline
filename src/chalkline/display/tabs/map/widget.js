@@ -338,21 +338,32 @@ export default {
             const dnY = cH / 2;
             addDonut(t1G, dnX, dnY, "donut-label", donutR, 3, 4);
 
-            /* Title + subtitle (vertically centered as a block) */
+            /* Title + italic suffix + stats subtitle (vertically centered) */
             const ttX = dnX + donutR + 8;
             t1G.append("text").attr("class", "node-title")
                 .attr("x", ttX).attr("y", 0)
                 .text((d) => d.title).call(wrapText, cW - ttX - 6);
+            t1G.filter((d) => d.suffix)
+                .append("text").attr("class", "node-suffix")
+                .attr("x", ttX).attr("y", 0)
+                .text((d) => d.suffix);
             t1G.append("text").attr("class", "node-subtitle")
                 .attr("x", ttX).attr("y", 0)
                 .text((d) => d.subtitle);
 
-            t1G.each(function () {
-                const g     = d3.select(this);
-                const lines = tspanCount(g.select(".node-title"));
-                const y0    = (cH - (lines * 13 + 14)) / 2 + 11;
-                g.select(".node-title").attr("y", y0);
-                g.select(".node-subtitle").attr("y", y0 + lines * 13 + 2);
+            t1G.each(function (d) {
+                const g       = d3.select(this);
+                const lines   = tspanCount(g.select(".node-title"));
+                const blockH  = lines * 13 + (d.suffix ? 13 : 0) + 13;
+                const y0      = (cH - blockH) / 2 + 11;
+                let cursor    = y0;
+                g.select(".node-title").attr("y", cursor);
+                cursor += lines * 13;
+                if (d.suffix) {
+                    g.select(".node-suffix").attr("y", cursor + 2);
+                    cursor += 13;
+                }
+                g.select(".node-subtitle").attr("y", cursor + 2);
             });
 
             /* ── Hero card ──────────────────────────────────────── */
