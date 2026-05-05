@@ -131,11 +131,11 @@ class Chalkline:
                     "lexicons"               : LexiconLoader(config.lexicon_dir),
                     "postings_dir"           : str(config.postings_dir),
                     "random_seed"            : config.random_seed,
-                    "soc_neighbors"          : config.soc_neighbors,
                     "soc_softmax_tau"        : config.soc_softmax_tau,
                     "soc_wage_round"         : config.soc_wage_round,
                     "soc_wage_topk"          : config.soc_wage_topk,
-                    "upward_neighbors"       : config.upward_neighbors
+                    "upward_neighbors"       : config.upward_neighbors,
+                    "wage_tier_count"        : config.wage_tier_count
                 }
             )
         )

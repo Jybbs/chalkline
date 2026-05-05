@@ -84,13 +84,13 @@ description = 'Pairwise distances between cluster centroids, grouped by sector. 
 title       = 'Gateway Careers'
 description = 'Career families that bridge the most pathways, sorted by brokerage score. High brokerage means the role is a common stepping stone.'
 
-[sections.job_zone_distribution]
-title       = 'Career Families by Experience Level'
-description = 'How the {n_clusters} career families distribute across O*NET Job Zones, showing whether the corpus is balanced across entry-level, mid-career, and advanced roles.'
+[sections.wage_tier_distribution]
+title       = 'Career Families by Wage Tier'
+description = 'How the {n_clusters} career families distribute across the wage-banded ladder, showing whether the corpus is balanced across entry-level, mid-tier, and senior pay bands.'
 
-[sections.sector_job_zone]
-title       = 'Sector by Experience Level'
-description = 'Joint distribution of career families across sectors and Job Zones. Bright cells indicate concentrations, empty cells reveal gaps in the corpus.'
+[sections.sector_wage_tier]
+title       = 'Sector by Wage Tier'
+description = 'Joint distribution of career families across sectors and wage tiers. Bright cells indicate concentrations, empty cells reveal gaps in the corpus.'
 
 [sections.landscape]
 title       = 'Career Landscape'

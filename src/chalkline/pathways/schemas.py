@@ -217,8 +217,8 @@ class Reach(BaseModel, extra="forbid"):
     """
     Local reach exploration view from the matched cluster.
 
-    Shows advancement paths (edges to higher Job Zone clusters) and lateral
-    pivots (edges to same Job Zone clusters), each with per-edge credential
+    Shows advancement paths (edges to higher wage-tier clusters) and lateral
+    pivots (edges to same wage-tier clusters), each with per-edge credential
     metadata identifying the training that bridges each specific transition.
     """
 

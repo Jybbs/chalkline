@@ -305,22 +305,19 @@ class JobPostingMetrics(BaseModel, extra="forbid"):
         )
 
 
-class JobZoneBreakdown(NamedTuple):
+class WageTierBreakdown(NamedTuple):
     """
-    Cluster counts by Job Zone with cross-tabulated sector breakdown.
+    Cluster counts by wage tier with cross-tabulated sector breakdown.
 
     Groups the two related views the methods tab needs together so they
     travel as one field on `MlMetrics` instead of two parallel fields.
+    Counts are already keyed by display label (`Tier 1`, `Tier 2`, ...) so
+    no separate label mapping is needed at render time, and matrix columns
+    align with `counts.keys()` order.
     """
 
-    counts : dict[int, int]
+    counts : dict[str, int]
     matrix : dict[str, list[int]]
-
-    def labeled_counts(self, names: dict[int, str]) -> dict[str, int]:
-        """
-        Apply a level-to-name map to produce a label-keyed count dict.
-        """
-        return {names[level]: count for level, count in self.counts.items()}
 
 
 class Labels(BaseModel, extra="forbid"):
@@ -333,7 +330,6 @@ class Labels(BaseModel, extra="forbid"):
     """
 
     fallback_location : str
-    job_zones         : dict[int, str]
     spinner_text      : str
     tab_names         : dict[str, str]
     upload_label      : str
@@ -388,12 +384,12 @@ class MlMetrics(BaseModel, extra="forbid"):
     edge_weights       : list[float]
     embed_dim          : int
     embedding_model    : str
-    job_zone           : JobZoneBreakdown
     pairwise_distances : dict[str, list[float]]
     sector_sizes       : dict[str, int]
     silhouette         : SectorRanking
     soc_heatmap        : dict[str, list[float]]
     variance           : VarianceBreakdown
+    wage_tier          : WageTierBreakdown
 
     @property
     def funnel_stages(self) -> dict[str, int]:
@@ -456,12 +452,14 @@ class MlMetrics(BaseModel, extra="forbid"):
         ratio     = pipeline.matcher.svd.explained_variance_ratio_
         brokerage = SectorRanking.from_ranking(clusters, pipeline.graph.brokerage)
 
-        job_zone_counts = Counter(c.job_zone for c in clusters.values())
-        sector_pairs    = Counter((c.sector, c.job_zone) for c in clusters.values())
-        job_zone        = JobZoneBreakdown(
-            counts = (sorted_counts := dict(sorted(job_zone_counts.items()))),
+        tier_label   = lambda t: f"Tier {t + 1}"
+        tier_counts  = Counter(c.wage_tier for c in clusters.values())
+        sector_pairs = Counter((c.sector, c.wage_tier) for c in clusters.values())
+        ordered      = sorted(tier_counts)
+        wage_tier    = WageTierBreakdown(
+            counts = {tier_label(t): tier_counts[t] for t in ordered},
             matrix = {
-                sector: [sector_pairs[sector, level] for level in sorted_counts]
+                sector: [sector_pairs[sector, t] for t in ordered]
                 for sector in clusters.sectors
             }
         )
@@ -478,12 +476,12 @@ class MlMetrics(BaseModel, extra="forbid"):
             edge_weights       = pipeline.graph.edge_weights,
             embed_dim          = pipeline.embed_dim,
             embedding_model    = pipeline.config.embedding_model,
-            job_zone           = job_zone,
             pairwise_distances = clusters.pairwise_distances,
             sector_sizes       = clusters.sector_sizes,
             silhouette         = SectorRanking.from_tuples(clusters.silhouette_scores),
             soc_heatmap        = clusters.soc_heatmap,
-            variance           = VarianceBreakdown.from_svd(ratio)
+            variance           = VarianceBreakdown.from_svd(ratio),
+            wage_tier          = wage_tier
         )
 
 
@@ -782,7 +780,7 @@ class RouteDetail(NamedTuple):
     Joined route data for the Map tab's recipe card.
 
     Holds the source and destination `Cluster` objects for dot-notation
-    access to SOC titles, sectors, Job Zones, and postings. Constructed via
+    access to SOC titles, sectors, wage tiers, and postings. Constructed via
     `from_selection`, which computes credentials per (source, destination)
     pair through the graph's dual-threshold filter, independent of how many
     backbone hops separate the two clusters.

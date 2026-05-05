@@ -2,13 +2,6 @@ fallback_location = 'Maine'
 spinner_text      = 'Analyzing your resume...'
 upload_label      = 'Drop a resume PDF here'
 
-[job_zones]
-1 = 'Entry Level'
-2 = 'Some Preparation'
-3 = 'Mid-Career'
-4 = 'Experienced'
-5 = 'Advanced'
-
 [tab_names]
 data    = 'Data'
 map     = 'Map'

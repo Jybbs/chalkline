@@ -94,7 +94,6 @@ def clusters(
     cluster_vectors     : np.ndarray,
     corpus              : Corpus,
     credentials         : list[Credential],
-    job_zone_map        : dict[int, int],
     labor               : LaborLoader,
     lexicons            : LexiconLoader,
     nearest_occupations : dict[int, Occupation],
@@ -103,7 +102,8 @@ def clusters(
     soc_softmax_tau     : float,
     soc_tasks           : dict[int, list[Task]],
     soc_wage_round      : int,
-    soc_wage_topk       : int
+    soc_wage_topk       : int,
+    wage_tier_count     : int
 ) -> Clusters:
     """
     Build unified cluster objects from assignments, corpus, and O*NET SOC
@@ -111,9 +111,10 @@ def clusters(
     embedding vector matrices, and per-cluster posting embeddings sliced out
     of `raw_vectors` so display-layer projections never have to re-encode
     the corpus. `Clusters.__post_init__` fans the softmax-derived
-    `soc_weights`, `wage`, and zipf-windowed TF-IDF `display_title` onto
-    each child cluster using the occupation titles, wage vector, and the
-    softmax/wage thresholds threaded through from this step.
+    `soc_weights`, `wage`, K-means-derived `wage_tier`, and zipf-windowed
+    TF-IDF `display_title` onto each child cluster using the occupation
+    titles, wage vector, and the softmax/wage/tier thresholds threaded
+    through from this step.
     """
     items: dict[int, Cluster] = {}
     for cid in sorted(np.unique(assignments).tolist()):
@@ -123,7 +124,6 @@ def clusters(
         items[cid] = Cluster(
             cluster_id  = cid,
             embeddings  = raw_vectors[member_idx],
-            job_zone    = job_zone_map[cid],
             modal_title = Counter(p.title for p in postings).most_common(1)[0][0],
             postings    = postings,
             sector      = nearest.sector,
@@ -142,6 +142,7 @@ def clusters(
         softmax_tau       = soc_softmax_tau,
         vectors           = cluster_vectors,
         wage_round        = soc_wage_round,
+        wage_tier_count   = wage_tier_count,
         wage_topk         = soc_wage_topk
     )
 
@@ -221,25 +222,6 @@ def graph(
         f"{result.edge_count} edges"
     )
     return result
-
-
-def job_zone_map(
-    assignments    : np.ndarray,
-    lexicons       : LexiconLoader,
-    soc_neighbors  : int,
-    soc_similarity : np.ndarray
-) -> dict[int, int]:
-    """
-    Assign Job Zones to clusters via top-k median over the MaxSim similarity
-    ranking produced by `soc_similarity`.
-    """
-    return {
-        cid: int(np.median([
-            lexicons.occupations[i].job_zone
-            for i in np.argsort(soc_similarity[cid])[-soc_neighbors:]
-        ]))
-        for cid in sorted(np.unique(assignments))
-    }
 
 
 def matcher(

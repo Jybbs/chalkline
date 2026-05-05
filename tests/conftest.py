@@ -4,18 +4,25 @@ Shared test fixtures for the Chalkline test suite.
 Fixtures form an embedding pipeline chain where each step's output is
 independently tappable by any test module:
 
-    corpus → raw_vectors → unit_vectors → coordinates → assignments
-                                  ↓                          ↓
-                   encoded_occupations → job_zone_map → clusters → graph
-                                                                     ↓
-                           credentials ────────────────────────→ matcher
-                                                                     ↓
-                                    reference → charts
+    raw_vectors ─→ unit_vectors ─→ coordinates ─→ assignments
+                         │              │              │
+                         ↓              ↓              ↓
+                        svd        centroids    cluster_vectors
+                                                       │
+              credentials ───→ clusters ←── labor ─────┘
+                                  │
+                       ┌──────────┴──────────┐
+                       ↓                     ↓
+                 pathway_graph         resume_matcher
+                       │                     │
+                       ↓                     ↓
+                    charts             match_result
 """
 
 import numpy as np
 
 from datetime              import date
+from json                  import dumps
 from pathlib               import Path
 from pydantic              import TypeAdapter
 from pytest                import fixture
@@ -115,13 +122,16 @@ def second_posting() -> Posting:
 @fixture
 def labor(tmp_path: Path) -> LaborLoader:
     """
-    Empty `LaborLoader` backed by an `[]` file so every SOC title resolves
-    to a default-valued `LaborRecord` with null wage. Tests do not depend
-    on real wage values, so the empty loader keeps `Clusters` construction
-    self-contained without fixture data.
+    Synthetic labor data with monotonically increasing wages keyed to the
+    test occupation titles `Occupation 0`..`Occupation N-1`, so that
+    `Clusters.wage_tier_map` produces deterministic tier indices for graph
+    fixtures rather than degenerating on identical zero wages.
     """
     path = tmp_path / "labor.json"
-    path.write_text("[]")
+    path.write_text(dumps([
+        {"soc_title": f"Occupation {cid}", "annual_median": 40000 + cid * 20000}
+        for cid in range(CLUSTER_COUNT)
+    ]))
     return LaborLoader(path)
 
 
@@ -190,7 +200,6 @@ def clusters(
     centroids       : np.ndarray,
     cluster_vectors : np.ndarray,
     credentials     : list[Credential],
-    job_zone_map    : dict[int, int],
     labor           : LaborLoader,
     unit_vectors    : np.ndarray
 ) -> Clusters:
@@ -205,7 +214,6 @@ def clusters(
         cid: Cluster(
             cluster_id  = cid,
             embeddings  = unit_vectors[assignments == cid],
-            job_zone    = job_zone_map[cid],
             modal_title = f"Title {cid}",
             postings    = [],
             sector      = f"Sector {cid % 2}",
@@ -228,6 +236,7 @@ def clusters(
         softmax_tau       = 0.02,
         vectors           = cluster_vectors,
         wage_round        = 10,
+        wage_tier_count   = 2,
         wage_topk         = 3
     )
 
@@ -270,23 +279,6 @@ def credentials() -> list[Credential]:
         )
         for i in range(10)
     ]
-
-
-@fixture
-def job_zone_map(cluster_ids: list[int]) -> dict[int, int]:
-    """
-    Deterministic Job Zone assignment for synthetic clusters.
-
-    Spreads clusters across Job Zones 2-4 to exercise stepwise k-NN lateral and
-    upward edge logic. Production uses top-3 median cosine against O*NET,
-    but tests use fixed values to avoid coupling to fixture occupation
-    count.
-    """
-    job_zone_values = [2, 2, 3, 4]
-    return {
-        cluster_id: job_zone_values[idx % len(job_zone_values)]
-        for idx, cluster_id in enumerate(cluster_ids)
-    }
 
 
 @fixture

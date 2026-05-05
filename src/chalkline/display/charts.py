@@ -115,7 +115,7 @@ class Charts:
         return [
             f"Cluster {cid}<br>"
             f"{(c := self.pathway.clusters[cid]).soc_title}<br>"
-            f"Job Zone {c.job_zone} · {c.size} postings"
+            f"Tier {c.wage_tier + 1} · {c.size} postings"
             for cid in node_ids
         ]
 

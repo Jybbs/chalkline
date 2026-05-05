@@ -40,8 +40,8 @@ class CareerPathwayGraph:
         clusters               : Cluster map with centroids and vectors.
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
-        lateral_neighbors      : k for same Job Zone bidirectional edges.
-        upward_neighbors       : k for next Job Zone unidirectional edges.
+        lateral_neighbors      : k for same wage-tier bidirectional edges.
+        upward_neighbors       : k for next wage-tier unidirectional edges.
     """
 
     clusters               : Clusters
@@ -147,26 +147,25 @@ class CareerPathwayGraph:
         Add stepwise k-NN backbone edges to `g`.
 
         Each cluster gets `lateral_neighbors` bidirectional edges to its
-        most similar clusters at the same Job Zone and `upward_neighbors`
-        unidirectional edges to its most similar clusters at the next Job
-        Zone level. The stepwise constraint prevents tier-skipping
-        shortcuts.
+        most similar clusters at the same wage tier and `upward_neighbors`
+        unidirectional edges to its most similar clusters at the next wage
+        tier. The stepwise constraint prevents tier-skipping shortcuts.
         """
-        job_zones = self.clusters.job_zone_map
-        zones     = np.array([job_zones[c] for c in self.node_ids])
-        next_zone = dict(pairwise(sorted(set(zones))))
+        tiers     = self.clusters.wage_tier_map
+        per_node  = np.array([tiers[c] for c in self.node_ids])
+        next_tier = dict(pairwise(sorted(set(per_node))))
 
         for source in self.node_ids:
-            zone      = job_zones[source]
-            lateral   = self.node_ids[(zones == zone) & (self.node_ids > source)]
+            tier      = tiers[source]
+            lateral   = self.node_ids[(per_node == tier) & (self.node_ids > source)]
             proximity = similarity[source, lateral]
 
             for i in np.argsort(-proximity)[:self.lateral_neighbors]:
                 g.add_edge(int(source), int(lateral[i]), weight=float(proximity[i]))
                 g.add_edge(int(lateral[i]), int(source), weight=float(proximity[i]))
 
-            if zone in next_zone:
-                upward    = self.node_ids[zones == next_zone[zone]]
+            if tier in next_tier:
+                upward    = self.node_ids[per_node == next_tier[tier]]
                 proximity = similarity[source, upward]
 
                 for i in np.argsort(-proximity)[:self.upward_neighbors]:
@@ -220,19 +219,19 @@ class CareerPathwayGraph:
         """
         Local reach exploration from a given cluster.
 
-        Returns advancement paths (edges to higher Job Zone clusters) and
-        lateral pivots (edges to same Job Zone clusters) with their per-edge
+        Returns advancement paths (edges to higher wage-tier clusters) and
+        lateral pivots (edges to same wage-tier clusters) with their per-edge
         credential metadata sorted by edge weight.
         """
-        job_zones = self.clusters.job_zone_map
-        zone      = job_zones[cluster_id]
-        edges     = sorted(
+        tiers = self.clusters.wage_tier_map
+        tier  = tiers[cluster_id]
+        edges = sorted(
             (self._edge(cluster_id, t) for t in self.graph.successors(cluster_id)),
             key     = attrgetter("weight"),
             reverse = True
         )
         return Reach(
-            advancement = [e for e in edges if job_zones[e.cluster_id] >  zone],
-            lateral     = [e for e in edges if job_zones[e.cluster_id] == zone]
+            advancement = [e for e in edges if tiers[e.cluster_id] >  tier],
+            lateral     = [e for e in edges if tiers[e.cluster_id] == tier]
         )
 

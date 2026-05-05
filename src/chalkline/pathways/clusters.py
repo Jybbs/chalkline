@@ -16,6 +16,7 @@ from heapq           import nlargest
 from itertools       import chain
 from math            import log
 from operator        import itemgetter
+from sklearn.cluster import KMeans
 from typing          import NamedTuple
 
 from chalkline.collection.schemas import Posting
@@ -39,7 +40,6 @@ class Cluster:
 
     cluster_id  : int
     embeddings  : np.ndarray
-    job_zone    : int
     modal_title : str
     postings    : list[Posting]
     sector      : str
@@ -50,17 +50,20 @@ class Cluster:
     soc_weights   : np.ndarray = field(default_factory=lambda: np.empty(0), init=False)
     tasks         : list[Task] = field(default_factory=list)
     wage          : float      = field(default=0.0, init=False)
+    wage_tier     : int        = field(default=0,   init=False)
 
     @property
     def display_label(self) -> str:
         """
         Human-readable cluster identifier for dropdown labels, using the
         collision-resolved `display_title` so duplicate SOCs stay
-        distinguishable in the picker.
+        distinguishable in the picker. The wage tier suffix shows where
+        this family sits in the wage-banded career ladder, 1-indexed for
+        stakeholder readability while internal storage stays 0-indexed.
         """
         return (
             f"Cluster {self.cluster_id}: {self.display_title} "
-            f"(Job Zone {self.job_zone})"
+            f"(Tier {self.wage_tier + 1})"
         )
 
     @cached_property
@@ -179,6 +182,7 @@ class Clusters:
     softmax_tau       : float
     vectors           : np.ndarray
     wage_round        : int
+    wage_tier_count   : int
     wage_topk         : int
 
     cluster_ids: list[int] = field(init=False)
@@ -204,15 +208,19 @@ class Clusters:
     def __post_init__(self):
         """
         Derive sorted cluster IDs for stable iteration order, then fan the
-        softmax-derived `soc_weights`, `wage`, and collision-resolved
-        `display_title` onto each child `Cluster` so downstream callers read
-        per-cluster attributes without round-tripping through the parent.
+        softmax-derived `soc_weights`, `wage`, K-means-derived `wage_tier`,
+        and collision-resolved `display_title` onto each child `Cluster` so
+        downstream callers read per-cluster attributes without round-tripping
+        through the parent. `wage` must be set before `wage_tier_map` is
+        accessed because the partition reads `Cluster.wage` directly.
         """
         self.cluster_ids = sorted(self.items)
         for cid, cluster in self.items.items():
             cluster.soc_weights   = self.soc_weights[cid]
             cluster.wage          = float(self.cluster_wages[cid])
             cluster.display_title = self.display_titles[cid]
+        for cid, tier in self.wage_tier_map.items():
+            self.items[cid].wage_tier = tier
 
     @cached_property
     def bm25_average_length(self) -> float:
@@ -390,13 +398,6 @@ class Clusters:
 
         return titles
 
-    @cached_property
-    def job_zone_map(self) -> dict[int, int]:
-        """
-        Cluster ID to Job Zone for stepwise graph constraints.
-        """
-        return {cid: self.items[cid].job_zone for cid in self.cluster_ids}
-
     @property
     def location_count(self) -> int:
         """
@@ -449,10 +450,10 @@ class Clusters:
         """
         return {
             c.display_label: {
-                "Job Zone"    : c.job_zone,
                 "Modal Title" : c.modal_title,
                 "Sector"      : c.sector,
-                "Size"        : c.size
+                "Size"        : c.size,
+                "Wage Tier"   : c.wage_tier + 1
             }
             for c in self.values()
         }
@@ -530,13 +531,40 @@ class Clusters:
     def vector_map(self) -> dict[int, np.ndarray]:
         """
         Cluster ID to its row in the stacked `vectors` matrix, mirroring the
-        `job_zone_map` lookup pattern so display-layer factories can fetch a
+        `wage_tier_map` lookup pattern so display-layer factories can fetch a
         single cluster's vector without indexing into the row order via
         `cluster_ids.index(...)`. Cached because both `RelevantCredentials`
         and `RelevantJobBoards` look it up per render and the underlying
         matrix never changes after fit.
         """
         return dict(zip(self.cluster_ids, self.vectors))
+
+    @cached_property
+    def wage_tier_map(self) -> dict[int, int]:
+        """
+        Cluster ID to wage tier index, ordered so tier 0 is the lowest mean
+        log wage and tier `wage_tier_count - 1` is the highest. Forms the
+        spine of the career graph in place of O*NET Job Zone, partitioning
+        clusters by what they actually pay rather than by O*NET's preparation
+        ladder.
+
+        K-means on `log(wage)` separates the wage distribution into bands
+        whose boundaries respect the long tail without letting a few
+        high-wage clusters dominate Euclidean distance the way they would in
+        raw-dollar space. Tier indices come from sorting K-means labels by
+        each band's mean log wage, so advancement edges always point toward
+        higher pay.
+        """
+        wages     = np.array([self.items[cid].wage for cid in self.cluster_ids])
+        log_wages = np.log(np.where(wages > 0, wages, 1.0)).reshape(-1, 1)
+        raw       = KMeans(
+            n_clusters   = self.wage_tier_count,
+            n_init       = 10,
+            random_state = 42
+        ).fit_predict(log_wages)
+        order = np.argsort([log_wages[raw == j].mean() for j in range(self.wage_tier_count)])
+        rank  = {old: new for new, old in enumerate(order)}
+        return {cid: rank[int(label)] for cid, label in zip(self.cluster_ids, raw)}
 
     def values(self) -> Iterator[Cluster]:
         """

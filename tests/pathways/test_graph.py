@@ -3,7 +3,7 @@ Validate career pathway graph construction and per-pair credential
 filtering from synthetic embedding fixtures.
 
 Tests focus on invariants that would silently corrupt downstream
-reach exploration if broken, including edge directionality, Job Zone
+reach exploration if broken, including edge directionality, wage-tier
 ordering, backbone connectivity, and the dual-threshold credential
 filter.
 """
@@ -91,22 +91,19 @@ class TestCareerPathwayGraph:
         assert graph.graph.number_of_edges() > 0
         assert graph.credentials_for(clusters.cluster_ids[-1]) == []
 
-    def test_reach_types(
-        self,
-        job_zone_map  : dict[int, int],
-        pathway_graph : CareerPathwayGraph
-    ):
+    def test_reach_types(self, pathway_graph: CareerPathwayGraph):
         """
-        Reach advancement edges point to higher Job Zone clusters and
-        lateral edges point to same Job Zone clusters.
+        Reach advancement edges point to higher wage-tier clusters and
+        lateral edges point to same wage-tier clusters.
         """
+        tiers = pathway_graph.clusters.wage_tier_map
         for cluster_id in pathway_graph.clusters:
             reach       = pathway_graph.reach(cluster_id)
-            source_zone = job_zone_map[cluster_id]
+            source_tier = tiers[cluster_id]
             for edge in reach.advancement:
-                assert job_zone_map[edge.cluster_id] > source_zone
+                assert tiers[edge.cluster_id] > source_tier
             for edge in reach.lateral:
-                assert job_zone_map[edge.cluster_id] == source_zone
+                assert tiers[edge.cluster_id] == source_tier
 
     def test_reach_weight_order(self, pathway_graph: CareerPathwayGraph):
         """
@@ -119,22 +116,19 @@ class TestCareerPathwayGraph:
                 weights = [e.weight for e in edges]
                 assert weights == sorted(weights, reverse=True)
 
-    def test_upward_stepwise(
-        self,
-        job_zone_map  : dict[int, int],
-        pathway_graph : CareerPathwayGraph
-    ):
+    def test_upward_stepwise(self, pathway_graph: CareerPathwayGraph):
         """
-        Upward edges connect only to the next Job Zone level, never
+        Upward edges connect only to the next wage-tier level, never
         skipping tiers.
         """
-        levels    = sorted(set(job_zone_map.values()))
-        next_zone = dict(zip(levels, levels[1:]))
+        tiers     = pathway_graph.clusters.wage_tier_map
+        levels    = sorted(set(tiers.values()))
+        next_tier = dict(zip(levels, levels[1:]))
 
         for source, target in pathway_graph.graph.edges():
-            source_zone = job_zone_map[source]
-            target_zone = job_zone_map[target]
-            if target_zone > source_zone:
-                assert target_zone == next_zone[source_zone]
+            source_tier = tiers[source]
+            target_tier = tiers[target]
+            if target_tier > source_tier:
+                assert target_tier == next_tier[source_tier]
 
 

@@ -20,7 +20,7 @@ def methods_tab(ctx: TabContext) -> Html:
     tab         = ctx.content.tab("methods")
     ml          = MlMetrics.from_pipeline(ctx.pipeline)
     template_kw = ml.template_kwargs
-    zone_counts = ml.job_zone.labeled_counts(ctx.content.labels.job_zones)
+    tier_counts = ml.wage_tier.counts
 
     return ctx.layout.stack(
         ctx.layout.overview("overview", tab),
@@ -62,16 +62,16 @@ def methods_tab(ctx: TabContext) -> Html:
         ctx.layout.two_col(
             ctx.layout.panel(ctx.charts.bar(
                 color      = "primary",
-                data       = zone_counts,
+                data       = tier_counts,
                 height     = 320,
                 horizontal = True,
                 title      = tab.chart_labels["clusters_title"]
-            ), "job_zone_distribution", tab),
+            ), "wage_tier_distribution", tab),
             ctx.layout.panel(ctx.charts.heatmap(
-                ml.job_zone.matrix,
-                columns = list(zone_counts),
+                ml.wage_tier.matrix,
+                columns = list(tier_counts),
                 height  = 320
-            ), "sector_job_zone", tab)
+            ), "sector_wage_tier", tab)
         ),
 
         ctx.layout.two_col(

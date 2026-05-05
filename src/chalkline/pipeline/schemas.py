@@ -42,11 +42,11 @@ class PipelineConfig(BaseModel, extra="forbid"):
     embedding_model        : str   = "Alibaba-NLP/gte-base-en-v1.5"
     lateral_neighbors      : int   = Field(default=2,    ge=1)
     random_seed            : int   = Field(default=42,   ge=0)
-    soc_neighbors          : int   = Field(default=3,    ge=1)
     soc_softmax_tau        : float = Field(default=0.02, gt=0.0)
     soc_wage_round         : int   = Field(default=10,   ge=1)
     soc_wage_topk          : int   = Field(default=3,    ge=1)
     upward_neighbors       : int   = Field(default=2,    ge=1)
+    wage_tier_count        : int   = Field(default=5,    ge=2)
 
     @property
     def hamilton_cache_dir(self) -> Path:
