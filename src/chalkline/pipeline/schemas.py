@@ -35,7 +35,7 @@ class PipelineConfig(BaseModel, extra="forbid"):
     lexicon_dir  : Path
     postings_dir : Path
 
-    cluster_count          : int   = Field(default=20,   ge=2)
+    cluster_count          : int   = Field(default=25,   ge=2)
     component_count        : int   = Field(default=15,   ge=1)
     consensus_seeds        : int   = Field(default=50,   ge=1, le=200)
     destination_percentile : int   = Field(default=20,   ge=0, le=100)

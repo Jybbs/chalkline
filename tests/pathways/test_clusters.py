@@ -91,6 +91,23 @@ class TestClusters:
             for j in range(n):
                 assert matrix[i][j] == matrix[j][i]
 
+    def test_display_titles_disambiguate_duplicates(self, clusters: Clusters):
+        """
+        Clusters sharing a SOC title receive distinguishing TF-IDF
+        suffixes while clusters with a unique SOC title keep the bare
+        title unchanged.
+        """
+        titles_by_soc: dict[str, list[str]] = {}
+        for cid, label in clusters.display_titles.items():
+            titles_by_soc.setdefault(clusters[cid].soc_title, []).append(label)
+
+        for soc, labels in titles_by_soc.items():
+            if len(labels) == 1:
+                assert labels[0] == soc
+            else:
+                assert all(label.startswith(f"{soc} (") for label in labels)
+                assert len(set(labels)) == len(labels)
+
     def test_getitem(self, clusters: Clusters):
         """
         Bracket access returns the `Cluster` with the matching ID.

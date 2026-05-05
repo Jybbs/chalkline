@@ -15,6 +15,7 @@ from collections                 import Counter
 from hamilton.function_modifiers import extract_fields, tag
 from json                        import loads
 from loguru                      import logger
+from pathlib                     import Path
 from sklearn.cluster             import AgglomerativeClustering
 from sklearn.decomposition       import TruncatedSVD
 from sklearn.preprocessing       import normalize
@@ -29,10 +30,14 @@ from chalkline.pathways.schemas   import Credential, EncodedOccupation, Occupati
 from chalkline.pathways.schemas   import SkillType
 from chalkline.pathways.selection import SOCScorer
 from chalkline.pipeline.encoder   import SentenceEncoder
-from chalkline.pipeline.schemas   import PipelineConfig
 
 
-def assignments(config: PipelineConfig, raw_vectors: np.ndarray) -> np.ndarray:
+def assignments(
+    cluster_count   : int,
+    component_count : int,
+    consensus_seeds : int,
+    raw_vectors     : np.ndarray
+) -> np.ndarray:
     """
     Consensus cluster labels via evidence accumulation across
     `consensus_seeds` independent SVD-then-Ward chains, finalized by
@@ -43,24 +48,23 @@ def assignments(config: PipelineConfig, raw_vectors: np.ndarray) -> np.ndarray:
     normed = normalize(raw_vectors)
     co     = np.zeros((raw_vectors.shape[0],) * 2, dtype=np.float32)
     logger.info(
-        f"Consensus clustering: {config.consensus_seeds} seeds at "
-        f"k={config.cluster_count}"
+        f"Consensus clustering: {consensus_seeds} seeds at k={cluster_count}"
     )
-    for seed in range(config.consensus_seeds):
+    for seed in range(consensus_seeds):
         coordinates = TruncatedSVD(
-            n_components = config.component_count,
+            n_components = component_count,
             random_state = seed
         ).fit_transform(normed)
         labels = AgglomerativeClustering(
             linkage    = "ward",
-            n_clusters = config.cluster_count
+            n_clusters = cluster_count
         ).fit_predict(coordinates)
         co += np.equal.outer(labels, labels)
     return AgglomerativeClustering(
         linkage    = "average",
         metric     = "precomputed",
-        n_clusters = config.cluster_count
-    ).fit_predict(1.0 - co / config.consensus_seeds)
+        n_clusters = cluster_count
+    ).fit_predict(1.0 - co / consensus_seeds)
 
 
 def centroids(assignments: np.ndarray, coordinates: np.ndarray) -> np.ndarray:
@@ -88,7 +92,6 @@ def clusters(
     assignments         : np.ndarray,
     centroids           : np.ndarray,
     cluster_vectors     : np.ndarray,
-    config              : PipelineConfig,
     corpus              : Corpus,
     credentials         : list[Credential],
     job_zone_map        : dict[int, int],
@@ -97,7 +100,10 @@ def clusters(
     nearest_occupations : dict[int, Occupation],
     raw_vectors         : np.ndarray,
     soc_similarity      : np.ndarray,
-    soc_tasks           : dict[int, list[Task]]
+    soc_softmax_tau     : float,
+    soc_tasks           : dict[int, list[Task]],
+    soc_wage_round      : int,
+    soc_wage_topk       : int
 ) -> Clusters:
     """
     Build unified cluster objects from assignments, corpus, and O*NET SOC
@@ -105,9 +111,9 @@ def clusters(
     embedding vector matrices, and per-cluster posting embeddings sliced out
     of `raw_vectors` so display-layer projections never have to re-encode
     the corpus. `Clusters.__post_init__` fans the softmax-derived
-    `soc_weights`, `wage`, and asymmetrically-resolved `display_title` onto
-    each child cluster using the occupation titles, wage vector, and config
-    thresholds threaded through from this step.
+    `soc_weights`, `wage`, and zipf-windowed TF-IDF `display_title` onto
+    each child cluster using the occupation titles, wage vector, and the
+    softmax/wage thresholds threaded through from this step.
     """
     items: dict[int, Cluster] = {}
     for cid in sorted(np.unique(assignments).tolist()):
@@ -133,29 +139,34 @@ def clusters(
         labor             = labor,
         occupation_titles = [o.title for o in lexicons.occupations],
         soc_similarity    = soc_similarity,
-        softmax_tau       = config.soc_softmax_tau,
+        softmax_tau       = soc_softmax_tau,
         vectors           = cluster_vectors,
-        wage_round        = config.soc_wage_round,
-        wage_topk         = config.soc_wage_topk
+        wage_round        = soc_wage_round,
+        wage_topk         = soc_wage_topk
     )
 
 
-def corpus(config: PipelineConfig) -> Corpus:
+def corpus(corpus_mtime: float, postings_dir: str) -> Corpus:
     """
     Load the posting corpus from the configured directory.
+
+    `corpus_mtime` is threaded through so Hamilton's content-addressed
+    cache invalidates this node when `corpus.json` changes on disk, since
+    the path alone doesn't reflect file writes. `postings_dir` arrives as
+    a string so Hamilton's input hasher can fingerprint it, then converts
+    to `Path` here for filesystem operations.
 
     Raises:
         FileNotFoundError: When no valid postings exist.
     """
-    if not (postings := CorpusStorage(config.postings_dir).load()):
-        raise FileNotFoundError(
-            f"No postings found in {config.postings_dir}"
-        )
+    path = Path(postings_dir)
+    if not (postings := CorpusStorage(path).load()):
+        raise FileNotFoundError(f"No postings found in {path}")
     return Corpus({p.id: p for p in postings})
 
 
 @tag(batch_label="credentials")
-def credentials(config: PipelineConfig, encoder: SentenceEncoder) -> list[Credential]:
+def credentials(encoder: SentenceEncoder, lexicon_dir: str) -> list[Credential]:
     """
     Load the curated credential catalog, encode with the sentence
     transformer, and attach vectors to each credential instance.
@@ -163,9 +174,10 @@ def credentials(config: PipelineConfig, encoder: SentenceEncoder) -> list[Creden
     The curated `credentials.json` stores kind-specific extras inside a
     `metadata` object per record; the loader threads that through directly
     so apprenticeship RAPIDS codes, program URLs, and other type-specific
-    fields reach the display layer intact.
+    fields reach the display layer intact. `lexicon_dir` arrives as a
+    string for Hamilton input hashing and is wrapped in `Path` here.
     """
-    raw     = loads((config.lexicon_dir / "credentials.json").read_bytes())
+    raw     = loads((Path(lexicon_dir) / "credentials.json").read_bytes())
     records = [
         Credential(
             embedding_text = entry["embedding_text"],
@@ -187,9 +199,11 @@ def credentials(config: PipelineConfig, encoder: SentenceEncoder) -> list[Creden
 
 
 def graph(
-    clusters    : Clusters,
-    config      : PipelineConfig,
-    credentials : list[Credential]
+    clusters               : Clusters,
+    credentials            : list[Credential],
+    destination_percentile : int,
+    lateral_neighbors      : int,
+    upward_neighbors       : int
 ) -> CareerPathwayGraph:
     """
     Build the career pathway graph with stepwise k-NN backbone and on-demand
@@ -198,9 +212,9 @@ def graph(
     result = CareerPathwayGraph(
         clusters               = clusters,
         credentials            = credentials,
-        destination_percentile = config.destination_percentile,
-        lateral_neighbors      = config.lateral_neighbors,
-        upward_neighbors       = config.upward_neighbors
+        destination_percentile = destination_percentile,
+        lateral_neighbors      = lateral_neighbors,
+        upward_neighbors       = upward_neighbors
     )
     logger.info(
         f"Career graph: {result.graph.number_of_nodes()} nodes, "
@@ -211,8 +225,8 @@ def graph(
 
 def job_zone_map(
     assignments    : np.ndarray,
-    config         : PipelineConfig,
     lexicons       : LexiconLoader,
+    soc_neighbors  : int,
     soc_similarity : np.ndarray
 ) -> dict[int, int]:
     """
@@ -222,7 +236,7 @@ def job_zone_map(
     return {
         cid: int(np.median([
             lexicons.occupations[i].job_zone
-            for i in np.argsort(soc_similarity[cid])[-config.soc_neighbors:]
+            for i in np.argsort(soc_similarity[cid])[-soc_neighbors:]
         ]))
         for cid in sorted(np.unique(assignments))
     }
@@ -274,14 +288,18 @@ def raw_vectors(corpus: Corpus, encoder: SentenceEncoder) -> np.ndarray:
     "coordinates" : np.ndarray,
     "svd"         : TruncatedSVD
 })
-def reduction(config: PipelineConfig, raw_vectors: np.ndarray) -> dict:
+def reduction(
+    component_count : int,
+    random_seed     : int,
+    raw_vectors     : np.ndarray
+) -> dict:
     """
     L2-normalize raw embeddings, fit TruncatedSVD, and expose both the
     reduced coordinates and the fitted SVD for resume projection.
     """
     svd = TruncatedSVD(
-        n_components = config.component_count,
-        random_state = config.random_seed
+        n_components = component_count,
+        random_state = random_seed
     )
     return {
         "coordinates" : svd.fit_transform(normalize(raw_vectors)),
