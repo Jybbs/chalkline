@@ -352,18 +352,23 @@ export default {
                 .text((d) => d.subtitle);
 
             t1G.each(function (d) {
-                const g       = d3.select(this);
-                const lines   = tspanCount(g.select(".node-title"));
-                const blockH  = lines * 13 + (d.suffix ? 13 : 0) + 13;
-                const y0      = (cH - blockH) / 2 + 11;
-                let cursor    = y0;
-                g.select(".node-title").attr("y", cursor);
-                cursor += lines * 13;
+                const g           = d3.select(this);
+                const titleLines  = tspanCount(g.select(".node-title"));
+                const lineH       = 13;
+                const groupGap    = 5;
+                const ascent      = 9;
+                const titleGroupH = (titleLines + (d.suffix ? 1 : 0)) * lineH;
+                const blockH      = titleGroupH + groupGap + lineH;
+                const blockTop    = (cH - blockH) / 2;
+
+                let baseline = blockTop + ascent;
+                g.select(".node-title").attr("y", baseline);
+                baseline += titleLines * lineH;
                 if (d.suffix) {
-                    g.select(".node-suffix").attr("y", cursor + 2);
-                    cursor += 13;
+                    g.select(".node-suffix").attr("y", baseline);
+                    baseline += lineH;
                 }
-                g.select(".node-subtitle").attr("y", cursor + 2);
+                g.select(".node-subtitle").attr("y", baseline + groupGap);
             });
 
             /* ── Hero card ──────────────────────────────────────── */
