@@ -31,7 +31,7 @@
   },
   {
     "soc_code": "47-2081.00",
-    "title": "Drywall Installers",
+    "title": "Drywall & Tile Installers",
     "role_description": "Finishing interior office spaces and retail layouts.",
     "sector": "Building Construction"
   },
@@ -55,13 +55,13 @@
   },
   {
     "soc_code": "17-2051.01",
-    "title": "Transport Engineers",
+    "title": "Transportation Engineers",
     "role_description": "Specialized planning for highway systems and traffic flow.",
     "sector": "Heavy Highway Construction"
   },
   {
     "soc_code": "47-2071.00",
-    "title": "Paving Operators",
+    "title": "Paving & Tamping Operators",
     "role_description": "Operating machines that spread and level asphalt or concrete.",
     "sector": "Heavy Highway Construction"
   },
@@ -91,7 +91,7 @@
   },
   {
     "soc_code": "47-2171.00",
-    "title": "Rebar Workers",
+    "title": "Reinforcing Rebar Workers",
     "role_description": "Laying rebar for bridge decks and highway overpasses.",
     "sector": "Heavy Highway Construction"
   },

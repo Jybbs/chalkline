@@ -13826,7 +13826,7 @@
       }
     ],
     "soc_code": "17-2051.01",
-    "title": "Transport Engineers"
+    "title": "Transportation Engineers"
   },
   {
     "job_zone": 4,
@@ -27338,7 +27338,7 @@
       }
     ],
     "soc_code": "37-3013.00",
-    "title": "Tree Trimmers"
+    "title": "Tree Trimmers & Pruners"
   },
   {
     "job_zone": 1,
@@ -35589,7 +35589,7 @@
       }
     ],
     "soc_code": "47-2021.00",
-    "title": "Brick & Blockmasons"
+    "title": "Brickmasons & Blockmasons"
   },
   {
     "job_zone": 2,
@@ -44966,7 +44966,7 @@
       }
     ],
     "soc_code": "47-2043.00",
-    "title": "Floor Finishers"
+    "title": "Floor Sanders & Finishers"
   },
   {
     "job_zone": 2,
@@ -49666,7 +49666,7 @@
       }
     ],
     "soc_code": "47-2051.00",
-    "title": "Cement Masons"
+    "title": "Cement Masons & Finishers"
   },
   {
     "job_zone": 2,
@@ -55862,7 +55862,7 @@
       }
     ],
     "soc_code": "47-2071.00",
-    "title": "Paving Operators"
+    "title": "Paving & Tamping Operators"
   },
   {
     "job_zone": 2,
@@ -61464,7 +61464,7 @@
       }
     ],
     "soc_code": "47-2081.00",
-    "title": "Drywall Installers"
+    "title": "Drywall & Tile Installers"
   },
   {
     "job_zone": 2,
@@ -79639,7 +79639,7 @@
       }
     ],
     "soc_code": "47-2161.00",
-    "title": "Plasterers"
+    "title": "Plasterers & Stucco Masons"
   },
   {
     "job_zone": 2,
@@ -81042,7 +81042,7 @@
       }
     ],
     "soc_code": "47-2171.00",
-    "title": "Rebar Workers"
+    "title": "Reinforcing Rebar Workers"
   },
   {
     "job_zone": 2,
@@ -91768,7 +91768,7 @@
       }
     ],
     "soc_code": "47-4011.00",
-    "title": "Building Inspectors"
+    "title": "Construction Inspectors"
   },
   {
     "job_zone": 3,
@@ -102808,7 +102808,7 @@
       }
     ],
     "soc_code": "49-3042.00",
-    "title": "Heavy Equip. Mechanics"
+    "title": "Heavy Equipment Mechanics"
   },
   {
     "job_zone": 3,
@@ -120495,7 +120495,7 @@
       }
     ],
     "soc_code": "53-7021.00",
-    "title": "Crane Operators"
+    "title": "Crane & Tower Operators"
   },
   {
     "job_zone": 2,
@@ -121762,6 +121762,6 @@
       }
     ],
     "soc_code": "53-7041.00",
-    "title": "Hoist Operators"
+    "title": "Hoist & Winch Operators"
   }
 ]
