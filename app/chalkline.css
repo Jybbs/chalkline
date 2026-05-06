@@ -781,6 +781,22 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     & :is(.tooltip-positive, .tooltip-negative) { font-size: 10px; font-weight: 600; }
     & .tooltip-positive { fill: var(--cl-secondary); }
     & .tooltip-negative { fill: var(--cl-error); }
+
+    /* ── Legend ─────────────────────────────────────────── */
+
+    & .cl-legend-bg {
+        fill    : var(--cl-card);
+        opacity : 0.92;
+        stroke  : var(--cl-border);
+    }
+
+    & .cl-legend-swatch { stroke: var(--cl-border); stroke-width: 0.5; }
+
+    & .cl-legend-label {
+        fill        : var(--cl-foreground);
+        font-size   : 11px;
+        font-weight : 600;
+    }
 }
 
 /* ── Marimo overrides ────────────────────────────────────────── */

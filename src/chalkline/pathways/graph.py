@@ -157,15 +157,6 @@ class CareerPathwayGraph:
         """
         return np.array(self.clusters.cluster_ids)
 
-    @cached_property
-    def undirected_graph(self) -> nx.Graph:
-        """
-        Undirected projection of the directed pathway graph, cached so the
-        map widget's `hops_from` BFS materializes the projection once per
-        session.
-        """
-        return self.graph.to_undirected()
-
     def _add_edges(self, g: nx.DiGraph, similarity: np.ndarray):
         """
         Add stepwise k-NN backbone edges to `g`.
@@ -238,17 +229,6 @@ class CareerPathwayGraph:
         passing   = np.flatnonzero(scores >= threshold)
         ranked    = passing[np.argsort(-scores[passing])]
         return [creds[i] for i in ranked]
-
-    def hops_from(self, source: int) -> dict[int, int]:
-        """
-        BFS hop distance from `source` to every reachable cluster.
-
-        Operates on the undirected projection of the directed pathway graph
-        so distance reflects connectivity rather than edge direction. The
-        map widget uses these distances to fade nodes by their proximity to
-        the matched cluster.
-        """
-        return nx.single_source_shortest_path_length(self.undirected_graph, source)
 
     def reach(self, cluster_id: int) -> Reach:
         """

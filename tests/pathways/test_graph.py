@@ -63,19 +63,6 @@ class TestCareerPathwayGraph:
         for w in pathway_graph.edge_weights:
             assert -1 <= w <= 1
 
-    def test_hops_from_self_distance(
-        self,
-        cluster_ids   : list[int],
-        pathway_graph : CareerPathwayGraph
-    ):
-        """
-        Hops from a node to itself is zero, and all reachable nodes
-        carry non-negative integer distances.
-        """
-        distances = pathway_graph.hops_from(cluster_ids[0])
-        assert distances[cluster_ids[0]] == 0
-        assert all(d >= 0 for d in distances.values())
-
     def test_no_credentials_builds_graph(self, clusters: Clusters):
         """
         A graph with no credentials still builds a valid backbone, and
