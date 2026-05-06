@@ -200,7 +200,6 @@ class TestResumeMatcher:
         empty = Cluster(
             cluster_id  = 999,
             embeddings  = np.empty((0, 4)),
-            job_zone    = 1,
             modal_title = "Empty",
             postings    = [],
             sector      = "Test",
@@ -245,7 +244,6 @@ class TestResumeMatcher:
         cluster = Cluster(
             cluster_id  = 777,
             embeddings  = np.random.RandomState(55).randn(3, 16).astype(np.float32),
-            job_zone    = 2,
             modal_title = "Test",
             postings    = postings,
             sector      = "Test",
@@ -272,7 +270,6 @@ class TestResumeMatcher:
         solo = Cluster(
             cluster_id  = 888,
             embeddings  = vec,
-            job_zone    = 2,
             modal_title = "Solo",
             postings    = [],
             sector      = "Test",

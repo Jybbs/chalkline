@@ -20,14 +20,14 @@ class TestCluster:
 
     def test_display_label_format(self, clusters: Clusters):
         """
-        Display label includes the cluster ID, SOC title, and Job
-        Zone for human-readable dropdown labels.
+        Display label includes the cluster ID, SOC title, and 1-indexed
+        wage tier for human-readable dropdown labels.
         """
         cluster = clusters[clusters.cluster_ids[0]]
         label   = cluster.display_label
         assert f"Cluster {cluster.cluster_id}" in label
         assert cluster.soc_title in label
-        assert f"Job Zone {cluster.job_zone}" in label
+        assert f"Tier {cluster.wage_tier + 1}" in label
 
     def test_sub_role_labels_k1_fallback(self, clusters: Clusters):
         """
@@ -53,7 +53,8 @@ class TestClusters:
         "cluster_heatmap",
         "pairwise_distances",
         "soc_heatmap",
-        "vector_map"
+        "vector_map",
+        "wage_tier_map"
     ])
     def test_cached_property_stable(self, clusters: Clusters, prop: str):
         """
@@ -91,6 +92,23 @@ class TestClusters:
             for j in range(n):
                 assert matrix[i][j] == matrix[j][i]
 
+    def test_display_titles_disambiguate_duplicates(self, clusters: Clusters):
+        """
+        Clusters sharing a SOC title receive distinguishing TF-IDF
+        suffixes while clusters with a unique SOC title keep the bare
+        title unchanged.
+        """
+        titles_by_soc: dict[str, list[str]] = {}
+        for cid, label in clusters.display_titles.items():
+            titles_by_soc.setdefault(clusters[cid].soc_title, []).append(label)
+
+        for soc, labels in titles_by_soc.items():
+            if len(labels) == 1:
+                assert labels[0] == soc
+            else:
+                assert all(label.startswith(f"{soc} (") for label in labels)
+                assert len(set(labels)) == len(labels)
+
     def test_getitem(self, clusters: Clusters):
         """
         Bracket access returns the `Cluster` with the matching ID.
@@ -104,14 +122,6 @@ class TestClusters:
         Iteration yields cluster IDs in sorted order.
         """
         assert list(clusters) == sorted(clusters.cluster_ids)
-
-    def test_job_zone_map_coverage(self, clusters: Clusters):
-        """
-        `job_zone_map` has an entry for every cluster ID and values
-        match the underlying `Cluster.job_zone` attributes.
-        """
-        for cid in clusters.cluster_ids:
-            assert clusters.job_zone_map[cid] == clusters[cid].job_zone
 
     def test_len(self, clusters: Clusters):
         """

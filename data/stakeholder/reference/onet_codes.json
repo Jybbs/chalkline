@@ -19,7 +19,7 @@
   },
   {
     "soc_code": "47-2221.00",
-    "title": "Structural Iron and Steel Workers",
+    "title": "Iron & Steel Workers",
     "role_description": "Erecting the steel skeletons of high-rise commercial buildings.",
     "sector": "Building Construction"
   },
@@ -31,19 +31,19 @@
   },
   {
     "soc_code": "47-2081.00",
-    "title": "Drywall & Ceiling Tile Installers",
+    "title": "Drywall & Tile Installers",
     "role_description": "Finishing interior office spaces and retail layouts.",
     "sector": "Building Construction"
   },
   {
     "soc_code": "47-2132.00",
-    "title": "Insulation Workers, Mechanical",
+    "title": "Mechanical Insulators",
     "role_description": "Insulating commercial boilers, pipes, and HVAC ducts.",
     "sector": "Building Construction"
   },
   {
     "soc_code": "47-4021.00",
-    "title": "Elevator & Escalator Installers",
+    "title": "Elevator Installers",
     "role_description": "Essential for multi-story commercial structures.",
     "sector": "Building Construction"
   },
@@ -73,7 +73,7 @@
   },
   {
     "soc_code": "47-4051.00",
-    "title": "Highway Maintenance Workers",
+    "title": "Highway Maintenance",
     "role_description": "Repairing roads, guardrails, and highway markers.",
     "sector": "Heavy Highway Construction"
   },
@@ -91,13 +91,13 @@
   },
   {
     "soc_code": "47-2171.00",
-    "title": "Reinforcing Iron & Rebar Workers",
+    "title": "Reinforcing Rebar Workers",
     "role_description": "Laying rebar for bridge decks and highway overpasses.",
     "sector": "Heavy Highway Construction"
   },
   {
     "soc_code": "47-4061.00",
-    "title": "Rail-Track Laying Equipment",
+    "title": "Rail-Track Operators",
     "role_description": "Specialized for heavy rail and transit infrastructure.",
     "sector": "Heavy Highway Construction"
   },
@@ -109,13 +109,13 @@
   },
   {
     "soc_code": "13-1082.00",
-    "title": "Project Management Specialists",
+    "title": "Project Specialists",
     "role_description": "Broad management focusing on schedule/budget; often used for \"Project Coordinators.\"",
     "sector": "Construction Managers"
   },
   {
     "soc_code": "11-9041.00",
-    "title": "Architectural & Engineering Managers",
+    "title": "Arch. & Eng. Managers",
     "role_description": "Managing the design-phase and technical engineering teams.",
     "sector": "Construction Managers"
   },

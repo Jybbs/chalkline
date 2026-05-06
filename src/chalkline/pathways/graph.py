@@ -40,14 +40,16 @@ class CareerPathwayGraph:
         clusters               : Cluster map with centroids and vectors.
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
-        lateral_neighbors      : k for same Job Zone bidirectional edges.
-        upward_neighbors       : k for next Job Zone unidirectional edges.
+        lateral_neighbors      : k for same wage-tier bidirectional edges.
+        rrf_k                  : RRF damping constant (Cormack 2009 default).
+        upward_neighbors       : k for next wage-tier unidirectional edges.
     """
 
     clusters               : Clusters
     credentials            : list[Credential]
     destination_percentile : int
     lateral_neighbors      : int
+    rrf_k                  : int
     upward_neighbors       : int
 
     @property
@@ -93,6 +95,28 @@ class CareerPathwayGraph:
         return cosine_similarity(self.credential_vectors, self.clusters.vectors)
 
     @cached_property
+    def credential_task_maxsim(self) -> dict[int, np.ndarray]:
+        """
+        Max cosine similarity between each credential and each cluster's
+        O*NET task vectors, keyed by cluster id. Used as the second
+        ranking signal in the RRF candidate filter so destination-aligned
+        credentials surface alongside centroid-aligned ones.
+
+        Only clusters whose nearest occupation contributed Task or DWA
+        elements appear in the dict; clusters without tasks fall back to
+        the centroid signal alone in `credentials_for`.
+        """
+        if not self.credential_pool:
+            return {}
+        return {
+            cid: cosine_similarity(
+                self.credential_vectors, self.clusters[cid].task_matrix
+            ).max(axis=1)
+            for cid in self.clusters.cluster_ids
+            if self.clusters[cid].tasks
+        }
+
+    @cached_property
     def credential_vectors(self) -> np.ndarray:
         """
         Row-stacked vectors aligned with `credential_pool`, cached so the
@@ -133,40 +157,30 @@ class CareerPathwayGraph:
         """
         return np.array(self.clusters.cluster_ids)
 
-    @cached_property
-    def undirected_graph(self) -> nx.Graph:
-        """
-        Undirected projection of the directed pathway graph, cached so the
-        map widget's `hops_from` BFS materializes the projection once per
-        session.
-        """
-        return self.graph.to_undirected()
-
     def _add_edges(self, g: nx.DiGraph, similarity: np.ndarray):
         """
         Add stepwise k-NN backbone edges to `g`.
 
         Each cluster gets `lateral_neighbors` bidirectional edges to its
-        most similar clusters at the same Job Zone and `upward_neighbors`
-        unidirectional edges to its most similar clusters at the next Job
-        Zone level. The stepwise constraint prevents tier-skipping
-        shortcuts.
+        most similar clusters at the same wage tier and `upward_neighbors`
+        unidirectional edges to its most similar clusters at the next wage
+        tier. The stepwise constraint prevents tier-skipping shortcuts.
         """
-        job_zones = self.clusters.job_zone_map
-        zones     = np.array([job_zones[c] for c in self.node_ids])
-        next_zone = dict(pairwise(sorted(set(zones))))
+        tiers     = self.clusters.wage_tier_map
+        per_node  = np.array([tiers[c] for c in self.node_ids])
+        next_tier = dict(pairwise(sorted(set(per_node))))
 
         for source in self.node_ids:
-            zone      = job_zones[source]
-            lateral   = self.node_ids[(zones == zone) & (self.node_ids > source)]
+            tier      = tiers[source]
+            lateral   = self.node_ids[(per_node == tier) & (self.node_ids > source)]
             proximity = similarity[source, lateral]
 
             for i in np.argsort(-proximity)[:self.lateral_neighbors]:
                 g.add_edge(int(source), int(lateral[i]), weight=float(proximity[i]))
                 g.add_edge(int(lateral[i]), int(source), weight=float(proximity[i]))
 
-            if zone in next_zone:
-                upward    = self.node_ids[zones == next_zone[zone]]
+            if tier in next_tier:
+                upward    = self.node_ids[per_node == next_tier[tier]]
                 proximity = similarity[source, upward]
 
                 for i in np.argsort(-proximity)[:self.upward_neighbors]:
@@ -182,13 +196,16 @@ class CareerPathwayGraph:
 
     def credentials_for(self, target_id: int) -> list[Credential]:
         """
-        Credentials aligned with a specific destination, filtered by the top
-        destination_percentile of cluster-credential cosine similarity and
-        ranked by descending affinity to the target.
+        Credentials aligned with a specific destination, filtered via
+        Reciprocal Rank Fusion over centroid cosine and destination-task
+        MaxSim rankings, then gated to the top `destination_percentile` of
+        the fused score and returned in descending order.
 
-        Career-change recommendations are about destination relevance, so
-        the filter gates only on where the user is going, not on how closely
-        a credential already overlaps with where they are.
+        RRF (Cormack, Clarke, Buettcher 2009) absorbs the score-scale
+        mismatch between centroid cosine and task MaxSim without
+        calibration, letting both signals contribute on equal footing.
+        Falls back to centroid-only ranking when the destination has no
+        task elements.
 
         Args:
             target_id: Cluster ID the user clicked, may equal the matched cluster.
@@ -196,43 +213,40 @@ class CareerPathwayGraph:
         if not (creds := self.credential_pool):
             return []
 
-        similarity     = self.credential_similarity
         t_idx          = self.clusters.cluster_index[target_id]
-        dest_threshold = np.percentile(
-            similarity[:, t_idx], 100 - self.destination_percentile
-        )
-        passing = np.flatnonzero(similarity[:, t_idx] >= dest_threshold)
-        ranked  = passing[np.argsort(-similarity[passing, t_idx])]
+        centroid_score = self.credential_similarity[:, t_idx]
+        task_score     = self.credential_task_maxsim.get(target_id)
+
+        if task_score is None:
+            scores = centroid_score
+        else:
+            rank_centroid = (-centroid_score).argsort().argsort()
+            rank_task     = (-task_score).argsort().argsort()
+            scores        = (1.0 / (self.rrf_k + rank_centroid)
+                           + 1.0 / (self.rrf_k + rank_task))
+
+        threshold = np.percentile(scores, 100 - self.destination_percentile)
+        passing   = np.flatnonzero(scores >= threshold)
+        ranked    = passing[np.argsort(-scores[passing])]
         return [creds[i] for i in ranked]
-
-    def hops_from(self, source: int) -> dict[int, int]:
-        """
-        BFS hop distance from `source` to every reachable cluster.
-
-        Operates on the undirected projection of the directed pathway graph
-        so distance reflects connectivity rather than edge direction. The
-        map widget uses these distances to fade nodes by their proximity to
-        the matched cluster.
-        """
-        return nx.single_source_shortest_path_length(self.undirected_graph, source)
 
     def reach(self, cluster_id: int) -> Reach:
         """
         Local reach exploration from a given cluster.
 
-        Returns advancement paths (edges to higher Job Zone clusters) and
-        lateral pivots (edges to same Job Zone clusters) with their per-edge
+        Returns advancement paths (edges to higher wage-tier clusters) and
+        lateral pivots (edges to same wage-tier clusters) with their per-edge
         credential metadata sorted by edge weight.
         """
-        job_zones = self.clusters.job_zone_map
-        zone      = job_zones[cluster_id]
-        edges     = sorted(
+        tiers = self.clusters.wage_tier_map
+        tier  = tiers[cluster_id]
+        edges = sorted(
             (self._edge(cluster_id, t) for t in self.graph.successors(cluster_id)),
             key     = attrgetter("weight"),
             reverse = True
         )
         return Reach(
-            advancement = [e for e in edges if job_zones[e.cluster_id] >  zone],
-            lateral     = [e for e in edges if job_zones[e.cluster_id] == zone]
+            advancement = [e for e in edges if tiers[e.cluster_id] >  tier],
+            lateral     = [e for e in edges if tiers[e.cluster_id] == tier]
         )
 

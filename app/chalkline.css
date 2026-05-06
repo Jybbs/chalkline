@@ -708,6 +708,7 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
 
 .cl-pathway-map {
     & :is(.node-subtitle, .tooltip-dim)  { fill: var(--cl-muted-foreground); font-size: 10px; }
+    & .node-suffix                       { fill: var(--cl-muted-foreground); font-size: 10px; font-style: italic; }
     & :is(.edge, .matched-glow)          { fill: none; }
     & :is(.node, .node-circle)           { cursor: pointer; }
     & .node-rect                         { fill: var(--cl-border); }
@@ -729,7 +730,8 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
         stroke-width : 1;
     }
 
-    & :is(.circle-pct, .donut-label) { font-size: 9px; }
+    & .circle-pct                    { font-size: 9px; }
+    & .donut-label                   { font-size: 10px; }
     & .circle-label  { fill: var(--cl-muted-foreground); font-size: 7px; }
     & .progress-ring { fill: var(--cl-primary); opacity: 0.7; }
 
@@ -779,6 +781,22 @@ marimo-file, marimo-file > div, marimo-file label { width: 100% !important; }
     & :is(.tooltip-positive, .tooltip-negative) { font-size: 10px; font-weight: 600; }
     & .tooltip-positive { fill: var(--cl-secondary); }
     & .tooltip-negative { fill: var(--cl-error); }
+
+    /* ── Legend ─────────────────────────────────────────── */
+
+    & .cl-legend-bg {
+        fill    : var(--cl-card);
+        opacity : 0.92;
+        stroke  : var(--cl-border);
+    }
+
+    & .cl-legend-swatch { stroke: var(--cl-border); stroke-width: 0.5; }
+
+    & .cl-legend-label {
+        fill        : var(--cl-foreground);
+        font-size   : 11px;
+        font-weight : 600;
+    }
 }
 
 /* ── Marimo overrides ────────────────────────────────────────── */

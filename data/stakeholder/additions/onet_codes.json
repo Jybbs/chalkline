@@ -51,13 +51,13 @@
     "role_description": "Prepare detailed drawings of architectural and structural features of buildings or drawings and topographical relief maps used in civil engineering projects, such as highways, bridges, and public works. Use knowledge of building materials, engineering practices, and mathematics to complete drawings.",
     "sector": "Construction Managers",
     "soc_code": "17-3011.00",
-    "title": "Architectural and Civil Drafters"
+    "title": "Arch. & Civil Drafters"
   },
   {
     "role_description": "Apply theory and principles of civil engineering in planning, designing, and overseeing construction and maintenance of structures and facilities under the direction of engineering staff or physical scientists.",
     "sector": "Construction Managers",
     "soc_code": "17-3022.00",
-    "title": "Civil Engineering Technicians"
+    "title": "Civil Eng. Technicians"
   },
   {
     "role_description": "Cut away dead or excess branches from trees or shrubs to maintain right-of-way for roads, sidewalks, or utilities, or to improve appearance, health, and value of tree. Prune or treat trees or shrubs using handsaws, hand pruners, clippers, and power pruners. Works off the ground in the tree canopy and may use truck-mounted lifts.",
@@ -69,7 +69,7 @@
     "role_description": "Drive logging tractor or wheeled vehicle equipped with one or more accessories, such as bulldozer blade, frontal shear, grapple, logging arch, cable winches, hoisting rack, or crane boom, to fell tree, to skid, load, unload, or stack logs, or to pull stumps or clear brush. Includes operating grapple loaders and self-propelled log loaders and unloaders at a camp, landing, or mill.",
     "sector": "Heavy Highway Construction",
     "soc_code": "45-4022.00",
-    "title": "Logging Equipment Operators"
+    "title": "Logging Operators"
   },
   {
     "role_description": "Construct, assemble, maintain, and repair stationary steam boilers and boiler house auxiliaries. Align structures or plate sections to assemble boiler frame tanks or vats, following blueprints. Work involves use of hand and power tools, plumb bobs, levels, wedges, dogs, or turnbuckles. Assist in testing assembled vessels. Direct cleaning of boilers and boiler furnaces. Inspect and repair boiler fittings, such as safety valves, regulators, automatic-control mechanisms, water columns, and auxiliary machines.",
@@ -123,7 +123,7 @@
     "role_description": "Apply a mixture of cement, sand, pigment, or marble chips to floors, stairways, and cabinet fixtures to fashion durable and decorative surfaces.",
     "sector": "Building Construction",
     "soc_code": "47-2053.00",
-    "title": "Terrazzo Workers & Finishers"
+    "title": "Terrazzo Finishers"
   },
   {
     "role_description": "Perform tasks involving physical labor at construction sites. May operate hand and power tools of all types: air hammers, earth tampers, cement mixers, small mechanical hoists, surveying and measuring equipment, and a variety of other equipment and instruments. May clean and prepare sites, dig trenches, set braces to support the sides of excavations, erect scaffolding, and clean up rubble, debris, and other waste materials. May assist other craft workers.",
@@ -147,7 +147,7 @@
     "role_description": "Line and cover structures with insulating materials. May work with batt, roll, or blown insulation materials.",
     "sector": "Building Construction",
     "soc_code": "47-2131.00",
-    "title": "Insulation Workers, Envelope"
+    "title": "Envelope Insulators"
   },
   {
     "role_description": "Paint walls, equipment, buildings, bridges, and other structural surfaces, using brushes, rollers, and spray guns. May remove old paint to prepare surface prior to painting. May mix colors or oils to obtain desired color or consistency.",
@@ -201,13 +201,13 @@
     "role_description": "Diagnose, adjust, repair, or overhaul mobile mechanical, hydraulic, and pneumatic equipment, such as cranes, bulldozers, graders, and conveyors, used in construction, logging, and mining.",
     "sector": "Heavy Highway Construction",
     "soc_code": "49-3042.00",
-    "title": "Mobile Heavy Equipment Mechanics"
+    "title": "Heavy Equipment Mechanics"
   },
   {
     "role_description": "Install or repair heating, central air conditioning, HVAC, or refrigeration systems, including oil burners, hot-air furnaces, and heating stoves.",
     "sector": "Building Construction",
     "soc_code": "49-9021.00",
-    "title": "HVAC Mechanics & Installers"
+    "title": "HVAC Mechanics"
   },
   {
     "role_description": "Install, dismantle, or move machinery and heavy equipment according to layout plans, blueprints, or other drawings.",
@@ -219,13 +219,13 @@
     "role_description": "Install or repair cables or wires used in electrical power or distribution systems. May erect poles and light or heavy duty transmission towers.",
     "sector": "Building Construction",
     "soc_code": "49-9051.00",
-    "title": "Power-Line Installers & Repairers"
+    "title": "Power-Line Installers"
   },
   {
     "role_description": "Perform work involving the skills of two or more maintenance or craft occupations to keep machines, mechanical equipment, or the structure of a building in repair. Duties may involve pipe fitting; HVAC maintenance; insulating; welding; machining; carpentry; repairing electrical or mechanical equipment; installing, aligning, and balancing new equipment; and repairing buildings, floors, or stairs.",
     "sector": "Building Construction",
     "soc_code": "49-9071.00",
-    "title": "General Maintenance Workers"
+    "title": "General Maintenance"
   },
   {
     "role_description": "Set up or repair rigging for construction projects, manufacturing plants, logging yards, ships and shipyards, or for the entertainment industry.",
@@ -237,7 +237,7 @@
     "role_description": "Use hand-welding, flame-cutting, hand-soldering, or brazing equipment to weld or join metal components or to fill holes, indentations, or seams of fabricated metal products.",
     "sector": "Building Construction",
     "soc_code": "51-4121.00",
-    "title": "Welders, Cutters, & Solderers"
+    "title": "Welders & Solderers"
   },
   {
     "role_description": "Operate mechanical boom and cable or tower and cable equipment to lift and move materials, machines, or products in many directions.",

@@ -11,8 +11,8 @@ Task scoring uses sentence-level chunking with max-pooling so that a
 specific resume line can drive high similarity for a matching task even when
 the document-level mean is diluted by unrelated content. Credential coverage
 uses the same BM25 weighting with per-credential row normalization so the
-downstream waste-aware picker can distinguish narrow certifications from
-broad apprenticeships.
+downstream DPP picker can distinguish narrow certifications from broad
+apprenticeships when computing per-credential gap-coverage strength.
 """
 
 import numpy as np
@@ -206,7 +206,7 @@ class ResumeMatcher:
             for c in tasked
         ], axis=None)
         positive = scores[scores > 0]
-        self.credential_threshold = float(np.median(positive)) if positive.size else 0.0
+        self.credential_threshold = float(np.percentile(positive, 75)) if positive.size else 0.0
 
     def cluster_score(self, cluster_id: int) -> float:
         """
@@ -242,10 +242,11 @@ class ResumeMatcher:
         mapped to the BM25-weighted cosine affinity on that task.
 
         BM25 weighting produces sharper per-task discrimination than the
-        binary stem gate, so the downstream waste-aware picker can
-        distinguish narrow credentials from broad ones. Per-credential row
-        normalization follows the same pattern as `_task_similarities` to
-        prevent `embedding_text` length bias.
+        binary stem gate, so the downstream DPP picker can distinguish
+        narrow credentials from broad ones when computing each credential's
+        gap-coverage quality. Per-credential row normalization follows the
+        same pattern as `_task_similarities` to prevent `embedding_text`
+        length bias.
 
         Args:
             credentials : Must carry `.stems` and `.vector`, typically from

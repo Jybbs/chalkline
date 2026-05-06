@@ -1,10 +1,13 @@
 /**
  * Force-directed career pathway map rendered with D3.
  *
- * Nodes positioned by salary-driven force simulation. Tier-1 cards
- * (hop 0-1) show a match donut + title + subtitle. Tier-2 circles
- * (hop 2+) use a progress-ring border. The matched node renders as
- * an enriched hero card within the SVG.
+ * Nodes positioned by salary-driven force simulation, sector y-bands,
+ * and bbox collision. Tier-1 cards show a match donut + title +
+ * subtitle for the strongest matches. Tier-2 circles use a
+ * progress-ring border for the rest of the corpus. Edges fan from
+ * the matched cluster to its tier-1 cards with stroke weight scaled
+ * by match score. The matched node renders as an enriched hero card.
+ * A sector legend pins to the top-right corner.
  *
  * Static styling lives in `app/chalkline.css` under `.cl-pathway-map`.
  */
@@ -169,6 +172,7 @@ export default {
                 dimensions: dims,
                 edges,
                 hero,
+                legend,
                 nodes,
                 wage_range
             } = raw;
@@ -193,16 +197,13 @@ export default {
                 pad
             } = dims;
             const W      = el.clientWidth || dims.width;
-            const donutR = 17;
+            const donutR = 20;
 
             /* ── Scales ─────────────────────────────────────────── */
 
-            const we = [
-                Math.floor(wage_range[0] / 5000) * 5000,
-                Math.ceil(wage_range[1] / 5000) * 5000
-            ];
-            const xScale = d3.scaleLinear().domain(we)
-                .range([pad + hW / 2 + 20, W - pad - cW / 2 - 10]);
+            const xScale = d3.scaleLinear().domain(wage_range)
+                .range([pad + hW / 2 + 20, W - pad - cW / 2 - 10])
+                .nice();
 
             const sectors = [...new Set(nodes.map((n) => n.sector))].sort();
             const bandH   = (H - 2 * pad - 40) / Math.max(sectors.length, 1);
@@ -262,10 +263,10 @@ export default {
                 .attr("width", "100%")
                 .style("max-height", `${H}px`);
 
-            /* ── Edges (1-hop matched only, uniform style) ──────── */
+            /* ── Edges (matched → tier-1, weighted by match score) ─ */
 
             const edgeSel = svg.selectAll(".edge")
-                .data(sl.filter((e) => eid(e.source) === mid || eid(e.target) === mid))
+                .data(sl)
                 .join("path")
                 .attr("class", "edge")
                 .attr("d", (d) => {
@@ -276,7 +277,7 @@ export default {
                     return `M${s.x},${s.y} Q${mx},${my} ${t.x},${t.y}`;
                 })
                 .attr("stroke", (d) => d.color)
-                .attr("stroke-width", (d) => Math.max(1.5, d.weight * 3))
+                .attr("stroke-width", (d) => Math.max(1.5, d.weight * 6))
                 .attr("opacity", 0.5);
 
             /* ── Tier 2 circles ─────────────────────────────────── */
@@ -336,23 +337,39 @@ export default {
 
             const dnX = donutR + 10;
             const dnY = cH / 2;
-            addDonut(t1G, dnX, dnY, "donut-label", donutR, 3, 4);
+            addDonut(t1G, dnX, dnY, "donut-label", donutR, 3, 5);
 
-            /* Title + subtitle (vertically centered as a block) */
+            /* Title + italic suffix + stats subtitle (vertically centered) */
             const ttX = dnX + donutR + 8;
             t1G.append("text").attr("class", "node-title")
                 .attr("x", ttX).attr("y", 0)
                 .text((d) => d.title).call(wrapText, cW - ttX - 6);
+            t1G.filter((d) => d.suffix)
+                .append("text").attr("class", "node-suffix")
+                .attr("x", ttX).attr("y", 0)
+                .text((d) => d.suffix);
             t1G.append("text").attr("class", "node-subtitle")
                 .attr("x", ttX).attr("y", 0)
                 .text((d) => d.subtitle);
 
-            t1G.each(function () {
-                const g     = d3.select(this);
-                const lines = tspanCount(g.select(".node-title"));
-                const y0    = (cH - (lines * 13 + 14)) / 2 + 11;
-                g.select(".node-title").attr("y", y0);
-                g.select(".node-subtitle").attr("y", y0 + lines * 13 + 2);
+            t1G.each(function (d) {
+                const g           = d3.select(this);
+                const titleLines  = tspanCount(g.select(".node-title"));
+                const lineH       = 13;
+                const groupGap    = 5;
+                const ascent      = 9;
+                const titleGroupH = (titleLines + (d.suffix ? 1 : 0)) * lineH;
+                const blockH      = titleGroupH + groupGap + lineH;
+                const blockTop    = (cH - blockH) / 2;
+
+                let baseline = blockTop + ascent;
+                g.select(".node-title").attr("y", baseline);
+                baseline += titleLines * lineH;
+                if (d.suffix) {
+                    g.select(".node-suffix").attr("y", baseline);
+                    baseline += lineH;
+                }
+                g.select(".node-subtitle").attr("y", baseline + groupGap);
             });
 
             /* ── Hero card ──────────────────────────────────────── */
@@ -402,6 +419,35 @@ export default {
                     .text(heroSub);
             }
 
+            /* ── Legend (top-right corner) ──────────────────────── */
+
+            const lgPad = 12;
+            const lgSw  = 12;
+            const lgRow = 18;
+            const lgW   = 210;
+            const lgH   = lgPad * 2 + legend.length * lgRow;
+            const lgX   = W - pad - lgW;
+            const lgY   = 10;
+
+            const lg = svg.append("g").attr("class", "cl-legend")
+                .attr("transform", `translate(${lgX}, ${lgY})`);
+
+            lg.append("rect").attr("class", "cl-legend-bg")
+                .attr("width", lgW).attr("height", lgH).attr("rx", 6);
+
+            const rows = lg.selectAll(".cl-legend-row")
+                .data(legend).join("g")
+                .attr("class", "cl-legend-row")
+                .attr("transform", (_, i) =>
+                    `translate(0, ${lgPad + i * lgRow + lgRow / 2})`);
+            rows.append("rect").attr("class", "cl-legend-swatch")
+                .attr("x", lgPad).attr("y", -lgSw / 2)
+                .attr("width", lgSw).attr("height", lgSw).attr("rx", 2)
+                .attr("fill", (d) => d.color);
+            rows.append("text").attr("class", "cl-legend-label")
+                .attr("x", lgPad + lgSw + 8).attr("y", 4)
+                .text((d) => d.label);
+
             /* ── Tooltip ────────────────────────────────────────── */
 
             const tip = svg.append("g").attr("class", "cl-tooltip")
@@ -423,12 +469,6 @@ export default {
 
                 const titleLines = tspanCount(tip.select(".tooltip-title"));
                 if (titleLines > 1) y += (titleLines - 1) * lh;
-
-                tip.append("text").attr("class", "tooltip-dim")
-                    .attr("x", p).attr("y", y += lh)
-                    .text(d.hop != null
-                        ? `${d.hop} step${d.hop !== 1 ? "s" : ""} away`
-                        : "Not connected");
 
                 /* Wage bars */
                 const hw = hero.wage;
@@ -491,6 +531,11 @@ export default {
 
         const ro = new ResizeObserver(draw);
         ro.observe(el);
-        for (const t of ["graph_data", "selected_id"]) model.on(`change:${t}`, draw);
+        model.on("change:graph_data", draw);
+        model.on("change:selected_id", () => {
+            const sid = model.get("selected_id");
+            d3.select(el).selectAll(".node, .node-circle")
+                .classed("selected", (d) => d.id === sid);
+        });
     },
 };

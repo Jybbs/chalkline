@@ -35,17 +35,20 @@ class PipelineConfig(BaseModel, extra="forbid"):
     lexicon_dir  : Path
     postings_dir : Path
 
-    cluster_count          : int   = Field(default=20,   ge=2)
-    component_count        : int   = Field(default=10,   ge=1)
-    destination_percentile : int   = Field(default=20,   ge=0, le=100)
+    cluster_count          : int   = Field(default=25,   ge=2)
+    component_count        : int   = Field(default=15,   ge=1)
+    consensus_seeds        : int   = Field(default=50,   ge=1, le=200)
+    coverage_floor         : float = Field(default=0.80, ge=0.0, le=1.0)
+    destination_percentile : int   = Field(default=15,   ge=0, le=100)
+    rrf_k                  : int   = Field(default=60,   ge=1)
     embedding_model        : str   = "Alibaba-NLP/gte-base-en-v1.5"
     lateral_neighbors      : int   = Field(default=2,    ge=1)
     random_seed            : int   = Field(default=42,   ge=0)
-    soc_neighbors          : int   = Field(default=3,    ge=1)
     soc_softmax_tau        : float = Field(default=0.02, gt=0.0)
     soc_wage_round         : int   = Field(default=10,   ge=1)
     soc_wage_topk          : int   = Field(default=3,    ge=1)
     upward_neighbors       : int   = Field(default=2,    ge=1)
+    wage_tier_count        : int   = Field(default=5,    ge=2)
 
     @property
     def hamilton_cache_dir(self) -> Path:

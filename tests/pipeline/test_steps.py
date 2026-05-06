@@ -6,11 +6,61 @@ when fed synthetic fixture data, catching transform contract violations
 that would silently corrupt downstream results.
 """
 
+import numpy as np
+
 from pathlib import Path
 from pytest  import raises
 
 from chalkline.pipeline         import steps
 from chalkline.pipeline.schemas import PipelineConfig
+
+
+class TestAssignments:
+    """
+    Validate consensus clustering node.
+    """
+
+    def test_deterministic(
+        self,
+        pipeline_config : PipelineConfig,
+        raw_vectors     : np.ndarray
+    ):
+        """
+        Identical inputs produce identical labels because the internal seed
+        loop is `range(consensus_seeds)` rather than a sampled subset.
+        """
+        first = steps.assignments(
+            cluster_count   = pipeline_config.cluster_count,
+            component_count = pipeline_config.component_count,
+            consensus_seeds = pipeline_config.consensus_seeds,
+            raw_vectors     = raw_vectors
+        )
+        second = steps.assignments(
+            cluster_count   = pipeline_config.cluster_count,
+            component_count = pipeline_config.component_count,
+            consensus_seeds = pipeline_config.consensus_seeds,
+            raw_vectors     = raw_vectors
+        )
+        assert np.array_equal(first, second)
+
+    def test_shape_and_range(
+        self,
+        pipeline_config : PipelineConfig,
+        raw_vectors     : np.ndarray
+    ):
+        """
+        One label per posting, every label inside `[0, cluster_count)`.
+        """
+        labels = steps.assignments(
+            cluster_count   = pipeline_config.cluster_count,
+            component_count = pipeline_config.component_count,
+            consensus_seeds = pipeline_config.consensus_seeds,
+            raw_vectors     = raw_vectors
+        )
+
+        assert labels.shape == (raw_vectors.shape[0],)
+        assert labels.min() >= 0
+        assert labels.max() < pipeline_config.cluster_count
 
 
 class TestCorpus:
@@ -24,7 +74,4 @@ class TestCorpus:
         """
         (tmp_path / "corpus.json").write_text("[]")
         with raises(FileNotFoundError):
-            steps.corpus(PipelineConfig(
-                lexicon_dir  = tmp_path,
-                postings_dir = tmp_path
-            ))
+            steps.corpus(corpus_mtime=0.0, postings_dir=str(tmp_path))

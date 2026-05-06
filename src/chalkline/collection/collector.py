@@ -31,7 +31,7 @@ class Collector:
         self,
         postings_dir   : Path,
         search_terms   : list[str],
-        results_wanted : int       = 10000,
+        results_wanted : int       = 1000,
         sites          : list[str] = ["indeed"]
     ):
         """
@@ -122,24 +122,44 @@ class Collector:
 
 if __name__ == "__main__":
 
+    EXCLUSIONS = (
+        "-home -residential -homeowner -handyman "
+        "-custodian -custodial -janitor -janitorial -housekeeping -laundry "
+        "-cashier -waiter -waitress"
+    )
+    TRADES     = [
+        "carpenter",
+        "civil engineer",
+        "commercial roofing",
+        "construction",
+        "construction inspector",
+        "construction manager",
+        "cost estimator",
+        "crane operator",
+        "drywall",
+        "electrical engineer",
+        "electrician",
+        "equipment operator",
+        "foreman",
+        "heavy equipment mechanic",
+        "HVAC",
+        "insulator",
+        "ironworker",
+        "laborer",
+        "mason",
+        "mechanical engineer",
+        "millwright",
+        "paving",
+        "pipefitter",
+        "plumber",
+        "project manager construction",
+        "sheet metal worker",
+        "solar technician",
+        "superintendent",
+        "welder"
+    ]
+
     Collector(
         postings_dir = Path("data") / "postings",
-        search_terms = [
-            "carpenter",
-            "construction",
-            "crane operator",
-            "electrician",
-            "equipment operator",
-            "foreman",
-            "HVAC",
-            "ironworker",
-            "laborer",
-            "mason",
-            "paving",
-            "pipefitter",
-            "plumber",
-            "sheet metal worker",
-            "superintendent",
-            "welder"
-        ]
+        search_terms = [f"{trade} {EXCLUSIONS}" for trade in TRADES]
     ).run()

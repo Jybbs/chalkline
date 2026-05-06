@@ -161,11 +161,10 @@ def _(forms, pipeline):
 # ── Map widget ─────────────────────────────────────────────────────
 
 @app.cell
-def _(labor, mo, pathway, pipeline, result, theme):
+def _(mo, pathway, pipeline, result, theme):
     widget = mo.ui.anywidget(pathway.from_graph(
         clusters   = pipeline.clusters,
         graph      = pipeline.graph,
-        labor      = labor,
         matched_id = result.cluster_id,
         matcher    = pipeline.matcher,
         result     = result,
@@ -177,11 +176,10 @@ def _(labor, mo, pathway, pipeline, result, theme):
 # ── Map filter sync ────────────────────────────────────────────────
 
 @app.cell
-def _(labor, pathway, pipeline, result, theme, wage_slider, widget):
+def _(pathway, pipeline, result, theme, wage_slider, widget):
     widget.graph_data = pathway.build_graph_data(
         clusters    = pipeline.clusters,
         graph       = pipeline.graph,
-        labor       = labor,
         matched_id  = result.cluster_id,
         matcher     = pipeline.matcher,
         result      = result,

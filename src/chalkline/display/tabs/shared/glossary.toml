@@ -69,7 +69,7 @@ Identified by clustering sentence embeddings of all {n_postings} postings in the
 term       = 'career pathway'
 definition = '''A possible transition between two career families.
 
-Determined by how similar their job postings are in language and what credentials bridge the gap. Pathways can be *advancement* (*higher Job Zone*) or *lateral* (*same level*).'''
+Determined by how similar their job postings are in language and what credentials bridge the gap. Pathways can be *advancement* (*higher wage tier*) or *lateral* (*same wage tier*).'''
 
 [[terms]]
 term       = 'centroid'
@@ -186,18 +186,6 @@ url        = 'https://en.wikipedia.org/wiki/Hierarchical_clustering'
 url_label  = 'Hierarchical clustering on Wikipedia'
 
 [[terms]]
-term       = 'job zone'
-definition = '''An O*NET **experience level** ranging from 1 to 5.
-
-→ 1: Entry level, little preparation
-→ 2: Some preparation needed
-→ 3: Mid-career, training required
-→ 4: Experienced, specialized training
-→ 5: Advanced, graduate-level'''
-url        = 'https://www.onetonline.org/help/online/zones'
-url_label  = 'Job Zone definitions on O*NET'
-
-[[terms]]
 term       = 'k-means'
 aliases    = ['k-means clustering', 'kmeans', 'K-means']
 definition = '''A **partitioning clustering** algorithm that groups vectors into `k` clusters by iteratively assigning each point to its nearest centroid and recomputing centroids as the mean of their assigned points.
@@ -208,7 +196,7 @@ url_label  = 'k-means clustering on Wikipedia'
 
 [[terms]]
 term       = 'lateral move'
-definition = '''A career transition between two families at the **same Job Zone** (*experience level*).
+definition = '''A career transition between two families at the **same wage tier**.
 
 Lateral moves let you shift specialization without changing seniority, and appear as *horizontal connections* in the career ladder.'''
 
@@ -240,7 +228,7 @@ term       = 'O*NET'
 aliases    = ['Occupational Information Network']
 definition = '''The **Occupational Information Network**, a federal database of standardized occupation data.
 
-Maintained by the U.S. Department of Labor. Provides skills, tasks, wages, outlook, and Job Zone levels for every occupation. Chalkline uses {n_occupations} O*NET occupations spanning Maine construction.'''
+Maintained by the U.S. Department of Labor. Provides skills, tasks, wages, and outlook for every occupation. Chalkline uses {n_occupations} O*NET occupations spanning Maine construction.'''
 url        = 'https://www.onetonline.org/'
 url_label  = 'Browse O*NET OnLine'
 
@@ -366,9 +354,9 @@ url_label  = 'SOC system at BLS'
 
 [[terms]]
 term       = 'stepwise k-NN'
-definition = '''The graph construction method where each career family connects to its **k nearest neighbors** at its own Job Zone (*lateral moves*) and at one level up (*advancement paths*).
+definition = '''The graph construction method where each career family connects to its **k nearest neighbors** at its own wage tier (*lateral moves*) and at the next tier up (*advancement paths*).
 
-The "stepwise" part bounds connections by Job Zone step rather than raw distance, ensuring pathways respect realistic experience progression.'''
+The "stepwise" part bounds connections by wage-tier step rather than raw distance, ensuring pathways respect realistic wage progression.'''
 
 [[terms]]
 term       = 'strength'

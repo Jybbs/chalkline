@@ -12,10 +12,16 @@ from collections     import Counter, defaultdict
 from collections.abc import Iterator
 from dataclasses     import dataclass, field
 from functools       import cached_property
+from heapq           import nlargest
+from itertools       import chain
+from math            import log
+from operator        import itemgetter
+from sklearn.cluster import KMeans
 from typing          import NamedTuple
 
 from chalkline.collection.schemas import Posting
 from chalkline.pathways.loaders   import LaborLoader
+from chalkline.pathways.schemas   import Credential
 
 
 @dataclass
@@ -34,7 +40,6 @@ class Cluster:
 
     cluster_id  : int
     embeddings  : np.ndarray
-    job_zone    : int
     modal_title : str
     postings    : list[Posting]
     sector      : str
@@ -45,25 +50,34 @@ class Cluster:
     soc_weights   : np.ndarray = field(default_factory=lambda: np.empty(0), init=False)
     tasks         : list[Task] = field(default_factory=list)
     wage          : float      = field(default=0.0, init=False)
+    wage_tier     : int        = field(default=0,   init=False)
 
     @property
     def display_label(self) -> str:
         """
         Human-readable cluster identifier for dropdown labels, using the
         collision-resolved `display_title` so duplicate SOCs stay
-        distinguishable in the picker.
+        distinguishable in the picker. The wage tier suffix shows where
+        this family sits in the wage-banded career ladder, 1-indexed for
+        stakeholder readability while internal storage stays 0-indexed.
         """
         return (
             f"Cluster {self.cluster_id}: {self.display_title} "
-            f"(Job Zone {self.job_zone})"
+            f"(Tier {self.wage_tier + 1})"
         )
 
     @cached_property
     def distinctive_tokens(self) -> list[list[str]]:
         """
-        Per-posting bags of lowercased tokens longer than three characters
-        whose Zipf frequency falls below the common-word floor, lazily
-        computed once per session and cached on the instance.
+        Per-posting bags of lowercased alphabetic tokens longer than three
+        characters whose Zipf frequency falls below the common-word floor,
+        lazily computed once per session and cached on the instance.
+
+        Tokenization uses an alphabetic regex rather than whitespace
+        splitting so internal punctuation (curly apostrophes in
+        possessives like `Maine's`, hyphens in compounds, trademark
+        marks) cleanly separates words instead of leaking into token
+        strings.
 
         Display-layer factories that build TF-IDF rankings over postings
         iterate this list to assemble word counters without re-running the
@@ -71,12 +85,12 @@ class Cluster:
         tokenization shared between cross-corpus distinctiveness ranking and
         intra-cluster sub-role labeling.
         """
+        from re       import findall
         from wordfreq import zipf_frequency
         return [
             [
-                w for word in f"{p.title} {p.description}".split()
-                if  len(w := word.strip(".,;:!?()[]\"'").lower()) > 3
-                and zipf_frequency(w, "en") < 5.0
+                w for w in findall(r"[a-zA-Z]{4,}", f"{p.title} {p.description}".lower())
+                if zipf_frequency(w, "en") < 5.0
             ]
             for p in self.postings
         ]
@@ -128,10 +142,6 @@ class Cluster:
             assignments : Per-posting k-means cluster assignment array.
             k           : Number of sub-clusters.
         """
-        from collections import Counter
-        from heapq       import nlargest
-        from math        import log
-
         counts: list[Counter] = [Counter() for _ in range(k)]
         for label, bag in zip(assignments, self.distinctive_tokens):
             counts[label].update(bag)
@@ -164,6 +174,7 @@ class Clusters:
     """
 
     centroids         : np.ndarray
+    credentials       : list[Credential]
     items             : dict[int, Cluster]
     labor             : LaborLoader
     occupation_titles : list[str]
@@ -171,6 +182,7 @@ class Clusters:
     softmax_tau       : float
     vectors           : np.ndarray
     wage_round        : int
+    wage_tier_count   : int
     wage_topk         : int
 
     cluster_ids: list[int] = field(init=False)
@@ -196,16 +208,19 @@ class Clusters:
     def __post_init__(self):
         """
         Derive sorted cluster IDs for stable iteration order, then fan the
-        softmax-derived `soc_weights`, `wage`, and collision-resolved
-        `display_title` onto each child `Cluster` so downstream callers read
-        per-cluster attributes without round-tripping through the parent.
+        softmax-derived `soc_weights`, `wage`, K-means-derived `wage_tier`,
+        and collision-resolved `display_title` onto each child `Cluster` so
+        downstream callers read per-cluster attributes without round-tripping
+        through the parent. `wage` must be set before `wage_tier_map` is
+        accessed because the partition reads `Cluster.wage` directly.
         """
         self.cluster_ids = sorted(self.items)
-        for cid in self.cluster_ids:
-            cluster               = self.items[cid]
+        for cid, cluster in self.items.items():
             cluster.soc_weights   = self.soc_weights[cid]
             cluster.wage          = float(self.cluster_wages[cid])
             cluster.display_title = self.display_titles[cid]
+        for cid, tier in self.wage_tier_map.items():
+            self.items[cid].wage_tier = tier
 
     @cached_property
     def bm25_average_length(self) -> float:
@@ -213,30 +228,29 @@ class Clusters:
         Mean stem count across all task descriptions in the corpus, used as
         the average document length for BM25 length normalization.
         """
-        all_stems = [
-            ts for c in self.values() for ts in c.task_stems
-        ]
-        return float(np.mean([len(s) for s in all_stems]))
+        return float(np.mean([
+            len(ts) for c in self.values() for ts in c.task_stems
+        ]))
 
     @cached_property
     def bm25_idf(self) -> dict[str, float]:
         """
-        Inverse document frequency per stem across all task descriptions,
-        using the BM25 IDF variant with smoothing. Stems appearing in many
-        tasks get low weight, suppressing generic verbs like 'prepare' and
-        'use' while amplifying domain-specific terms like 'conduit' and
-        'circuit'.
-        """
-        from math import log
+        Inverse document frequency per stem across the union of cluster
+        task descriptions and credential descriptions, using the BM25 IDF
+        variant with smoothing.
 
-        all_stems = [
-            ts for c in self.values() for ts in c.task_stems
-        ]
-        n = len(all_stems)
-        df: dict[str, int] = {}
-        for doc in all_stems:
-            for s in doc:
-                df[s] = df.get(s, 0) + 1
+        Counting both sides of the matching pair surfaces what is rare
+        across the corpus rather than only what is rare across tasks.
+        Boilerplate stems shared by many credentials and many tasks
+        (`technician`, `inspector`, `professional`) get suppressed while
+        specialty stems on either side stay discriminative, narrowing the
+        gap by which broad-text apprenticeships accumulated coverage on
+        common stems.
+        """
+        all_stems  = [ts for c in self.values() for ts in c.task_stems]
+        all_stems += [c.stems for c in self.credentials]
+        n  = len(all_stems)
+        df = Counter(chain.from_iterable(all_stems))
 
         return {
             stem: log((n - count + 0.5) / (count + 0.5) + 1)
@@ -259,15 +273,26 @@ class Clusters:
         return cosine_similarity(self.centroids)
 
     @cached_property
+    def centroid_distance_matrix(self) -> np.ndarray:
+        """
+        Pairwise Euclidean distance between cluster centroids in the
+        reduced SVD space. Single source of truth shared by
+        `max_centroid_distance` (resume score normalization denominator)
+        and `pairwise_distances` (per-sector distance distributions).
+        """
+        from sklearn.metrics.pairwise import euclidean_distances
+        return euclidean_distances(self.centroids)
+
+    @cached_property
     def cluster_heatmap(self) -> dict[str, list[float]]:
         """
         Centroid cosine similarity keyed by SOC title for the inter-cluster
         heatmap.
         """
-        return {
-            c.soc_title: row
-            for c, row in zip(self.values(), self.cosine_similarity_matrix)
-        }
+        return dict(zip(
+            (c.soc_title for c in self.values()),
+            self.cosine_similarity_matrix
+        ))
 
     @cached_property
     def cluster_index(self) -> dict[int, int]:
@@ -288,10 +313,8 @@ class Clusters:
         downward and rounded to `wage_round` to match the granularity of the
         source labor records.
         """
-        picks = np.argsort(
-            np.where(self.occupation_wages > 0, self.soc_weights, 0),
-            axis=1
-        )[:, -self.wage_topk:]
+        masked = self.soc_weights * (self.occupation_wages > 0)
+        picks  = np.argpartition(masked, -self.wage_topk, axis=1)[:, -self.wage_topk:]
 
         weights   = np.take_along_axis(self.soc_weights, picks, axis=1)
         weights  /= weights.sum(axis=1, keepdims=True)
@@ -315,41 +338,65 @@ class Clusters:
         rounded floats for heatmap rendering. Derived from `centroid_cosine`
         to share the underlying matrix computation with the graph backbone.
         """
-        return [
-            [round(float(v), 3) for v in row]
-            for row in self.centroid_cosine
-        ]
+        return np.round(self.centroid_cosine, 3).tolist()
 
     @cached_property
     def display_titles(self) -> dict[int, str]:
         """
-        Shortest label per cluster that stays distinct across the corpus.
+        Cluster ID to display label, with TF-IDF token suffixes that
+        disambiguate clusters sharing a SOC title. Single-SOC clusters
+        keep the bare title. Cohorts of size `n` retain tokens
+        appearing in 2 to `n - 1` siblings (1 to 1 when `n == 2`) that
+        also clear a Zipf-frequency floor so brand vocabulary drops
+        out before ranking. The suffix is the top-ranked token alone
+        when its score exceeds twice the runner-up's, otherwise both
+        tokens joined by ` · `. Falls back to `#{cluster_id}` when no
+        token survives filtering.
+        """
+        from wordfreq import zipf_frequency
 
-        Each cluster picks from soc title, modal posting title, then
-        `{soc_title} (#{cluster_id})`. On collision the largest cluster
-        keeps the current level and the rest advance, so one Civil Engineers
-        stays bare while duplicates step forward.
-        """
-        cascade = {
-            cid: (c.soc_title, c.modal_title, f"{c.soc_title} (#{cid})")
-            for cid, c in self.items.items()
-        }
-        levels = dict.fromkeys(self.items, 0)
-        for _ in range(3):
-            groups = defaultdict(list)
-            for cid, lvl in levels.items():
-                groups[cascade[cid][lvl]].append(cid)
-            for g in groups.values():
-                for cid in sorted(g, key=lambda c: -self.items[c].size)[1:]:
-                    levels[cid] = min(levels[cid] + 1, 2)
-        return {cid: cascade[cid][lvl] for cid, lvl in levels.items()}
+        cohorts: dict[str, list[int]] = defaultdict(list)
+        for cid in self.cluster_ids:
+            cohorts[self.items[cid].soc_title].append(cid)
 
-    @cached_property
-    def job_zone_map(self) -> dict[int, int]:
-        """
-        Cluster ID to Job Zone for stepwise graph constraints.
-        """
-        return {cid: self.items[cid].job_zone for cid in self.cluster_ids}
+        titles: dict[int, str] = {}
+        for soc, siblings in cohorts.items():
+            if len(siblings) == 1:
+                titles[siblings[0]] = soc
+                continue
+
+            tokens = {
+                cid: Counter(chain.from_iterable(self.items[cid].distinctive_tokens))
+                for cid in siblings
+            }
+            doc_freq    = Counter(chain.from_iterable(tokens.values()))
+            cohort_size = len(siblings)
+            min_df      = 2 if cohort_size >= 3 else 1
+
+            for cid, counter in tokens.items():
+                total = counter.total() or 1
+                top   = nlargest(
+                    2,
+                    (
+                        (w, (c / total) * log(cohort_size / doc_freq[w]))
+                        for w, c in counter.items()
+                        if c >= 2
+                        and min_df <= doc_freq[w] < cohort_size
+                        and zipf_frequency(w, "en") >= 2.5
+                    ),
+                    key=itemgetter(1)
+                )
+                suffix = f"#{cid}"
+                match top:
+                    case [(word, _)]:
+                        suffix = word.title()
+                    case [(winner, hi), (_, lo)] if lo < 0.5 * hi:
+                        suffix = winner.title()
+                    case [(winner, _), (runner_up, _)]:
+                        suffix = f"{winner.title()} · {runner_up.title()}"
+                titles[cid] = f"{soc} ({suffix})"
+
+        return titles
 
     @property
     def location_count(self) -> int:
@@ -368,8 +415,7 @@ class Clusters:
         reduced SVD space. Fixed per-corpus, used as the denominator for
         normalizing resume-to-cluster distances into display match scores.
         """
-        pairs = self.centroids[:, None] - self.centroids[None, :]
-        return float(np.linalg.norm(pairs, axis=2).max())
+        return float(self.centroid_distance_matrix.max())
 
     @cached_property
     def occupation_wages(self) -> np.ndarray:
@@ -389,15 +435,13 @@ class Clusters:
         Euclidean distances between all centroid pairs, grouped by sector of
         the first cluster in each pair.
         """
-        from collections import defaultdict
-        from itertools   import combinations
-        dists = np.linalg.norm(
-            self.centroids[:, None] - self.centroids[None, :], axis=2
-        )
-        result: dict[str, list[float]] = defaultdict(list)
-        for i, j in combinations(range(len(self.cluster_ids)), 2):
-            result[self.sector_array[i]].append(float(dists[i, j]))
-        return dict(result)
+        i, j    = np.triu_indices(len(self.cluster_ids), k=1)
+        sectors = self.sector_array[i]
+        dists   = self.centroid_distance_matrix[i, j]
+        return {
+            s: dists[sectors == s].tolist()
+            for s in np.unique(sectors)
+        }
 
     @property
     def profile_map(self) -> dict[str, dict]:
@@ -406,10 +450,10 @@ class Clusters:
         """
         return {
             c.display_label: {
-                "Job Zone"    : c.job_zone,
                 "Modal Title" : c.modal_title,
                 "Sector"      : c.sector,
-                "Size"        : c.size
+                "Size"        : c.size,
+                "Wage Tier"   : c.wage_tier + 1
             }
             for c in self.values()
         }
@@ -419,17 +463,17 @@ class Clusters:
         """
         Sector name per cluster as a numpy array for sklearn APIs.
         """
-        return np.array([self.items[cid].sector for cid in self.cluster_ids])
+        return np.array([c.sector for c in self.values()])
 
     @property
     def sector_sizes(self) -> dict[str, int]:
         """
         Total posting count per sector.
         """
-        return {
-            s: sum(p.size for p in self.values() if p.sector == s)
-            for s in self.sectors
-        }
+        sizes: Counter[str] = Counter()
+        for c in self.values():
+            sizes[c.sector] += c.size
+        return dict(sizes)
 
     @property
     def sectors(self) -> list[str]:
@@ -445,15 +489,12 @@ class Clusters:
         to (title, sector, score) and sorted descending.
         """
         from sklearn.metrics import silhouette_samples
-        scores = np.asarray(
+        scores = np.round(np.asarray(
             silhouette_samples(self.centroids, self.sector_array, metric="cosine")
-        )
+        ), 3)
         return sorted(
-            (
-                (c.soc_title, c.sector, round(float(s), 3))
-                for c, s in zip(self.values(), scores)
-            ),
-            key     = lambda x: x[2],
+            ((c.soc_title, c.sector, float(s)) for c, s in zip(self.values(), scores)),
+            key     = itemgetter(2),
             reverse = True
         )
 
@@ -470,10 +511,10 @@ class Clusters:
         SOC similarity keyed by display label, rounded to three decimals for
         the SOC assignment heatmap.
         """
-        return {
-            c.display_label: [round(float(v), 3) for v in row]
-            for c, row in zip(self.values(), self.soc_similarity)
-        }
+        return dict(zip(
+            (c.display_label for c in self.values()),
+            np.round(self.soc_similarity, 3).tolist()
+        ))
 
     @cached_property
     def soc_weights(self) -> np.ndarray:
@@ -483,22 +524,47 @@ class Clusters:
         weighted wage computation and the runner-up fallback used by
         `display_titles` to differentiate colliding SOC labels.
         """
-        logits  = self.soc_similarity / self.softmax_tau
-        logits -= logits.max(axis=1, keepdims=True)
-        weights = np.exp(logits)
-        return weights / weights.sum(axis=1, keepdims=True)
+        from scipy.special import softmax
+        return softmax(self.soc_similarity / self.softmax_tau, axis=1)
 
     @cached_property
     def vector_map(self) -> dict[int, np.ndarray]:
         """
         Cluster ID to its row in the stacked `vectors` matrix, mirroring the
-        `job_zone_map` lookup pattern so display-layer factories can fetch a
+        `wage_tier_map` lookup pattern so display-layer factories can fetch a
         single cluster's vector without indexing into the row order via
         `cluster_ids.index(...)`. Cached because both `RelevantCredentials`
         and `RelevantJobBoards` look it up per render and the underlying
         matrix never changes after fit.
         """
         return dict(zip(self.cluster_ids, self.vectors))
+
+    @cached_property
+    def wage_tier_map(self) -> dict[int, int]:
+        """
+        Cluster ID to wage tier index, ordered so tier 0 is the lowest mean
+        log wage and tier `wage_tier_count - 1` is the highest. Forms the
+        spine of the career graph in place of O*NET Job Zone, partitioning
+        clusters by what they actually pay rather than by O*NET's preparation
+        ladder.
+
+        K-means on `log(wage)` separates the wage distribution into bands
+        whose boundaries respect the long tail without letting a few
+        high-wage clusters dominate Euclidean distance the way they would in
+        raw-dollar space. Tier indices come from sorting K-means labels by
+        each band's mean log wage, so advancement edges always point toward
+        higher pay.
+        """
+        wages     = np.array([self.items[cid].wage for cid in self.cluster_ids])
+        log_wages = np.log(np.where(wages > 0, wages, 1.0)).reshape(-1, 1)
+        raw       = KMeans(
+            n_clusters   = self.wage_tier_count,
+            n_init       = 10,
+            random_state = 42
+        ).fit_predict(log_wages)
+        order = np.argsort([log_wages[raw == j].mean() for j in range(self.wage_tier_count)])
+        rank  = {old: new for new, old in enumerate(order)}
+        return {cid: rank[int(label)] for cid, label in zip(self.cluster_ids, raw)}
 
     def values(self) -> Iterator[Cluster]:
         """

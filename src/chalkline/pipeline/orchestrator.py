@@ -106,6 +106,7 @@ class Chalkline:
         )
         display.encoder = encoder
 
+        corpus_path = config.postings_dir / "corpus.json"
         results = (Builder()
             .with_modules(steps)
             .with_adapters(display)
@@ -117,10 +118,25 @@ class Chalkline:
             .execute(
                 final_vars = [f.name for f in fields(Chalkline)],
                 inputs     = {
-                    "config"   : config,
-                    "encoder"  : encoder,
-                    "labor"    : LaborLoader(config.lexicon_dir / "labor.json"),
-                    "lexicons" : LexiconLoader(config.lexicon_dir)
+                    "config"                 : config,
+                    "cluster_count"          : config.cluster_count,
+                    "component_count"        : config.component_count,
+                    "consensus_seeds"        : config.consensus_seeds,
+                    "corpus_mtime"           : corpus_path.stat().st_mtime,
+                    "destination_percentile" : config.destination_percentile,
+                    "encoder"                : encoder,
+                    "labor"                  : LaborLoader(config.lexicon_dir / "labor.json"),
+                    "lateral_neighbors"      : config.lateral_neighbors,
+                    "lexicon_dir"            : str(config.lexicon_dir),
+                    "lexicons"               : LexiconLoader(config.lexicon_dir),
+                    "postings_dir"           : str(config.postings_dir),
+                    "random_seed"            : config.random_seed,
+                    "rrf_k"                  : config.rrf_k,
+                    "soc_softmax_tau"        : config.soc_softmax_tau,
+                    "soc_wage_round"         : config.soc_wage_round,
+                    "soc_wage_topk"          : config.soc_wage_topk,
+                    "upward_neighbors"       : config.upward_neighbors,
+                    "wage_tier_count"        : config.wage_tier_count
                 }
             )
         )
