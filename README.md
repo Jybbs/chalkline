@@ -51,7 +51,7 @@ The [Green Buildings Career Map](https://greenbuildingscareermap.org/) organized
 
 The premise is that postings encode implicit structure about how occupations relate to one another, which skills bridge adjacent roles, and what credentials separate one career level from the next. Occupational modeling at scale has confirmed this, showing that millions of unstructured postings yield taxonomies comparable to expert-curated frameworks[^2], and network models built from skill overlap reveal the same latent mobility structure[^1][^36]. Data-driven taxonomies extracted directly from online adverts have reached similar conclusions at smaller scale[^31], reinforcing that the signal is in the postings themselves.
 
-Chalkline works with **2,154** postings scraped from [AGC Maine](https://www.agcmaine.org/)'s listings and covers **60** [O\*NET](https://www.onetonline.org/) [SOC](https://www.bls.gov/soc/) codes across three sectors (*Building Construction, Construction Managers, Heavy Highway Construction*). A sentence transformer[^57] encodes each posting into a 768-dimensional embedding, Ward-linkage HAC[^27] clusters those embeddings into **20** career families, and a stepwise k-NN graph routes advancement and lateral moves enriched by **836** credentials (*19 apprenticeships, 787 certifications, 30 educational programs*) on a per-route basis. A joined labor table of [BLS OEWS](https://www.bls.gov/oes/) wages, growth projections, and [O\*NET Bright Outlook](https://www.onetonline.org/find/bright) designations covers **53** of the SOC codes, driving the cluster-level wage expectations that appear on every career card. Upload a resume, and the system chunks it into sentences, encodes each chunk, and projects into the same space for personalized skill-gap analysis[^44].
+Chalkline works with **2,154** postings scraped from [AGC Maine](https://www.agcmaine.org/)'s listings and covers **60** [O\*NET](https://www.onetonline.org/) [SOC](https://www.bls.gov/soc/) codes across three sectors (*Building Construction, Construction Managers, Heavy Highway Construction*). A sentence transformer[^57] encodes each posting into a 768-dimensional embedding, Ward-linkage HAC[^27] clusters those embeddings into **25** career families, and a stepwise k-NN graph routes advancement and lateral moves enriched by **836** credentials (*19 apprenticeships, 787 certifications, 30 educational programs*) on a per-route basis. A joined labor table of [BLS OEWS](https://www.bls.gov/oes/) wages, growth projections, and [O\*NET Bright Outlook](https://www.onetonline.org/find/bright) designations covers **53** of the SOC codes, driving the cluster-level wage expectations that appear on every career card. Upload a resume, and the system chunks it into sentences, encodes each chunk, and projects into the same space for personalized skill-gap analysis[^44].
 
 A chalk line snaps a straight reference path between two points. Chalkline does the same for careers.
 
@@ -65,11 +65,11 @@ Chalkline is a single-track embedding pipeline orchestrated by [Hamilton](https:
 |------|------|-----------|--------|
 | 1 | **Corpus Loading** | Deduplicate and filter JobSpy-collected postings, normalize companies and locations | `collection.collector` |
 | 2 | **Sentence Encoding** | [`Alibaba-NLP/gte-base-en-v1.5`](https://huggingface.co/Alibaba-NLP/gte-base-en-v1.5) via ONNX with CLS pooling | `pipeline.encoder` |
-| 3 | **Dimensionality Reduction** | L2-normalize embeddings, then [TruncatedSVD](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html) to **10** components | `pipeline.steps` |
-| 4 | **Clustering** | [Ward-linkage HAC](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html) at $`k = 20`$ career families | `pipeline.steps` |
+| 3 | **Dimensionality Reduction** | L2-normalize embeddings, then [TruncatedSVD](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html) to **15** components | `pipeline.steps` |
+| 4 | **Clustering** | [Ward-linkage HAC](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html) at $`k = 25`$ career families | `pipeline.steps` |
 | 5 | **SOC Assignment** | Posting-level ColBERTv2 MaxSim against Task embeddings of all **60** O\*NET occupations | `pathways.selection` |
 | 6 | **Per-Cluster Wage** | Top-K softmax expectation over labor wages weighted by SOC similarity | `pathways.clusters` |
-| 7 | **Career Graph** | Stepwise k-NN backbone (*lateral at same Job Zone, upward at next*) with per-route destination-affinity credential pool and waste-aware Pareto-knee selection | `pathways.graph` |
+| 7 | **Career Graph** | Stepwise k-NN backbone (*lateral at same wage tier, upward at next*) with per-route Reciprocal Rank Fusion[^68] candidate filter and waste-aware Pareto-knee[^69] credential selection, anchored on a single apprenticeship for the work-based path | `pathways.graph` |
 | 8 | **Resume Matching** | Sentence chunking, per-task MaxSim, BM25-weighted gap ranking, SVD projection for centroid distance | `matching.matcher` |
 
 The `SentenceEncoder` in `pipeline/encoder.py` downloads the ONNX model from HuggingFace on first use and runs inference via `onnxruntime` in fixed-size batches with CLS pooling followed by L2 normalization, with the ~430 MB model file deliberately instantiated outside the DAG, so that Hamilton's disk cache only serializes NumPy array outputs rather than the encoder weights themselves. Cold-start time for subsequent sessions drops from **~10.4s** to **~0.35s** because the encoder loads tokenizer files through `Tokenizer.from_file` and reuses `try_to_load_from_cache` rather than re-resolving the HuggingFace revision each time.
@@ -98,7 +98,7 @@ $`
 `$  
 <br>
 
-The pipeline retains $`k = 10`$ components, reducing each posting from **768** coordinates to **10** that capture the dominant structure of the original space. This generalizes latent semantic analysis[^18] to dense transformer embeddings, and the randomized SVD algorithm[^17] keeps the factorization efficient even for large matrices. Evidence suggests that cutting sentence embedding dimensions by roughly half can actually improve downstream clustering[^53].
+The pipeline retains $`k = 15`$ components, reducing each posting from **768** coordinates to **15** that capture the dominant structure of the original space. This generalizes latent semantic analysis[^18] to dense transformer embeddings, and the randomized SVD algorithm[^17] keeps the factorization efficient even for large matrices. Evidence suggests that cutting sentence embedding dimensions by roughly half can actually improve downstream clustering[^53].
 
 ### Ward-Linkage Hierarchical Clustering
 
@@ -110,7 +110,7 @@ d_{\text{Ward}}(A, B) = \sqrt{\frac{2 \cdot |A| \cdot |B|}{|A| + |B|}} \; \|\bar
 `$  
 <br>
 
-This builds a full merge hierarchy that is then cut at $`k = 20`$ to produce twenty career families. Ward linkage is the chosen criterion, because its variance-minimization objective produces the most cohesive families under the construction corpus's tight within-sector similarity.
+This builds a full merge hierarchy that is then cut at $`k = 25`$ to produce twenty-five career families. Ward linkage is the chosen criterion, because its variance-minimization objective produces the most cohesive families under the construction corpus's tight within-sector similarity.
 
 ### Cluster Quality and Connectivity
 
@@ -186,29 +186,37 @@ where $`f`$ is the term's frequency in the task, $`\ell`$ is the task length, $`
 
 ### Career Graph and Credential Filter
 
-The career graph connects the **20** career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint ensures edges only link clusters at the same Job Zone (*lateral pivots*) or one level apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_\text{lateral} = 2`$ bidirectional edges to clusters at the same Job Zone and $`k_\text{upward} = 2`$ unidirectional edges to clusters at the next Job Zone level.
+The career graph connects the **25** career families with directed, weighted edges representing plausible career moves[^1]. Graph-based representations of occupational transitions capture mobility patterns that flat taxonomies miss[^47][^55], and the stepwise constraint ensures edges only link clusters at the same wage tier (*lateral pivots*) or one tier apart (*upward advancement*), preventing unrealistic tier-skipping jumps[^48]. Each cluster gets $`k_\text{lateral} = 2`$ bidirectional edges to clusters at the same wage tier and $`k_\text{upward} = 2`$ unidirectional edges to clusters at the next tier.
 
-Credentials attach per route rather than per edge, meaning that `CareerPathwayGraph.credentials_for(target_id)` applies a destination-affinity filter to the full credential set on demand, so that every route the user explores receives a freshly computed, destination-specific credential pool. A credential $`\mathbf{c}`$ passes when its similarity to the destination cluster $`\mathbf{d}`$ exceeds the **80th** percentile of all credential similarities to that target:
+Credentials attach per route rather than per edge, meaning that `CareerPathwayGraph.credentials_for(target_id)` applies a Reciprocal Rank Fusion candidate filter[^68] on demand, so that every route the user explores receives a freshly computed, destination-specific credential pool. RRF combines two complementary rankings (*credential-to-cluster centroid cosine and credential-to-destination-task MaxSim*) into a single fused score:
 
 $`
 \hspace{0.5cm} \displaystyle
-\cos(\mathbf{c}, \mathbf{d}) \geq \tau_\text{dest}(\mathbf{d})
+\text{RRF}(c \mid \mathbf{d}) = \frac{1}{k + r_\text{centroid}(c, \mathbf{d})} + \frac{1}{k + r_\text{task}(c, \mathbf{d})}
 `$  
 <br>
 
-where $`\tau_\text{dest}(\mathbf{d})`$ is the **80th** percentile (*top 20%*) of credential similarities to cluster $`\mathbf{d}`$. Because career-change recommendations are about destination relevance, the filter gates only on where the user is going rather than requiring overlap with the user's current position. The filter runs per route, so the credential pool adapts to every destination the user explores rather than being frozen at fit time.
+where $`r_\text{centroid}`$ is the credential's rank by cosine to the destination cluster's mean posting embedding, $`r_\text{task}`$ is its rank by MaxSim against the destination SOC's O\*NET task vectors, and $`k = 60`$ is the Cormack 2009 default damping constant. RRF is robust to score-scale mismatch between the two signals, letting both contribute without weighted-sum tuning. Credentials passing the **top 15th-percentile** of fused score form the candidate pool.
 
 ### Gap Coverage via Waste-Aware Pareto-Knee Selection
 
-Once a route's gap set and credential pool are known, the `CredentialSelector` picks up to five credentials that jointly cover as many gaps as possible while minimizing redundant reach. The selector sweeps a waste-penalty parameter $`\alpha`$ across the candidate pool, where each step runs a greedy pass scoring credentials by
+Once a route's gap set and candidate pool are known, the `CredentialSelector` picks credentials by sweeping a waste penalty $`\alpha`$ across $`[0, 5]`$ and running a greedy gap-fill search at each setting. At step $`t`$, the picker chooses
 
 $`
 \hspace{0.5cm} \displaystyle
-\text{score}(c \mid R) = \Delta\text{gaps}(c, R) - \alpha \cdot \Delta\text{waste}(c, R)
+c^* = \arg\max_{c \in \mathcal{C} \setminus \mathcal{S}_t} \bigl| \text{reach}(c) \cap \mathcal{G}_t \bigr| - \alpha \cdot \bigl| \text{reach}(c) \setminus \mathcal{G}_t \bigr|
 `$  
 <br>
 
-where $`\Delta\text{gaps}`$ is the number of new gaps credential $`c`$ covers beyond the current residual $`R`$, and $`\Delta\text{waste}`$ is the number of positions in $`c`$'s reach that land on already-covered or non-gap tasks. Each $`\alpha`$ produces a different stack with a different trade-off between gap coverage and waste, and the set of non-dominated (*gaps filled, waste*) outcomes forms a Pareto frontier. The selector filters the frontier to stacks meeting a **coverage floor** of $`\lceil 0.80 \times |G| \rceil`$ gaps, then applies the Kneedle algorithm[^66] to find the knee point where marginal waste reduction per gap lost bends most sharply. When no stack on the frontier reaches the coverage floor, the selector falls back to the unconstrained Pareto knee. Each picked credential records its incremental `positions: frozenset[int]` (*newly covered gaps at pick time*), which the UI uses to check off only the gaps that credential contributes rather than every gap it can cover in isolation.
+where $`\mathcal{S}_t`$ is the set picked so far, $`\mathcal{G}_t`$ is the still-uncovered gap set, and the second term penalizes credentials that touch tasks outside the gap set. Sweeping $`\alpha`$ traces the Pareto frontier on the $`(\text{gaps filled}, \text{waste})`$ plane. Among frontier points meeting a configurable coverage floor (*default $`80\%`$ of gaps*), Kneedle[^69] locates the elbow where additional waste stops buying enough coverage to justify itself. Stack length is data-driven, in that the picker stops adding credentials once marginal score turns non-positive.
+
+Three strategies surface per route:
+
+- The single credential of any kind with the strongest gap-fill versus waste tradeoff, for users who want one concrete recommendation rather than a stack to assemble
+- A stack of certifications, for users who want to add training without committing to a multi-year apprenticeship
+- A single apprenticeship most aligned with the destination occupation, complemented by certifications that fill the gaps the apprenticeship leaves open, presenting the realistic shape of an apprenticeship-led career path rather than stacking multiple full apprenticeships
+
+Each picked credential records its incremental gap positions (*the gaps it newly contributes after earlier picks in the stack*), which the UI uses to check off only the gaps that credential contributes rather than every gap it can cover in isolation.
 
 ### Per-Cluster Wage Expectation
 
@@ -284,7 +292,7 @@ The matched cluster's internal composition comes from two analytical pieces that
 
 ### Methods Tab
 
-The methods tab documents the pipeline's design choices for technical audiences by combining a visual walkthrough of the Hamilton DAG with the analytical primitives that justified each step's configuration. The tab opens with a process flow diagram rendering every node's parameter-level dependency graph, accompanied by per-node timing pulled from the fit log, so that the reader can see which step dominates wall-clock cost. Bar charts of SVD explained variance reveal how much of the original 768-dimensional signal survives in the 10-component reduction, whereas sector cluster sizes and per-cluster silhouette coefficients describe the partition's balance and separation quality. A scatter plot pairs silhouette against brokerage centrality on the career graph, resulting in a two-dimensional view that distinguishes families that are well-defined but peripheral from families that are both well-defined and well-connected, and a matching brokerage bar chart ranks every cluster by its stepping-stone role in the graph. SOC-similarity heatmaps show how each cluster ranks against every O\*NET occupation, providing direct evidence for the MaxSim assignment decisions, and a node-to-file table mirrors `chalkline cache` output, so that a reader verifying an invalidation subtree can confirm which cached artifacts Hamilton will rebuild on the next fit.
+The methods tab documents the pipeline's design choices for technical audiences by combining a visual walkthrough of the Hamilton DAG with the analytical primitives that justified each step's configuration. The tab opens with a process flow diagram rendering every node's parameter-level dependency graph, accompanied by per-node timing pulled from the fit log, so that the reader can see which step dominates wall-clock cost. Bar charts of SVD explained variance reveal how much of the original 768-dimensional signal survives in the 15-component reduction, whereas sector cluster sizes and per-cluster silhouette coefficients describe the partition's balance and separation quality. A scatter plot pairs silhouette against brokerage centrality on the career graph, resulting in a two-dimensional view that distinguishes families that are well-defined but peripheral from families that are both well-defined and well-connected, and a matching brokerage bar chart ranks every cluster by its stepping-stone role in the graph. SOC-similarity heatmaps show how each cluster ranks against every O\*NET occupation, providing direct evidence for the MaxSim assignment decisions, and a node-to-file table mirrors `chalkline cache` output, so that a reader verifying an invalidation subtree can confirm which cached artifacts Hamilton will rebuild on the next fit.
 
 Interactive glossary tooltips sit throughout both analytical tabs via pipeline-specific substitutions, meaning technical terms like *silhouette*, *betweenness*, *MaxSim*, and *TruncatedSVD* render as underlined popover triggers that reveal rich definitions sourced from `display/tabs/shared/glossary.toml` without requiring the reader to leave the notebook for external documentation.
 
@@ -426,7 +434,7 @@ chalkline/
 │   │   ├── graph.py                       NetworkX stepwise k-NN backbone with per-pair credentials_for
 │   │   ├── loaders.py                     LaborLoader and StakeholderReference
 │   │   ├── schemas.py                     Credential, EncodedOccupation, Occupation, SkillType
-│   │   └── selection.py                   SOCScorer (ColBERTv2 MaxSim) and CredentialSelector (waste-aware Pareto-knee)
+│   │   └── selection.py                   SOCScorer (ColBERTv2 MaxSim) and CredentialSelector (Pareto-knee)
 │   │
 │   └── pipeline/                          Orchestration and shared types
 │       ├── encoder.py                     ONNX sentence transformer wrapper with CLS pooling
@@ -510,4 +518,6 @@ AGC provided the posting corpus, the stakeholder reference data defining the pro
 
 [^65]: Achananuparp, et al. 2025. "A Multi-Stage Framework with Taxonomy-Guided Reasoning for Occupation Classification Using Large Language Models." *arXiv preprint, accepted at ICWSM 2026*. https://doi.org/10.48550/arXiv.2503.12989
 
-[^66]: Satopaa, et al. 2011. "Finding a 'Kneedle' in a Haystack: Detecting Knee Points in System Behavior." *31st International Conference on Distributed Computing Systems Workshops*: 166-171. https://doi.org/10.1109/ICDCSW.2011.20
+[^68]: Cormack, Clarke & Buettcher. 2009. "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods." *Proceedings of the 32nd International ACM SIGIR Conference on Research and Development in Information Retrieval*: 758-759. https://doi.org/10.1145/1571941.1572114
+
+[^69]: Satopaa, Albrecht, Irwin & Raghavan. 2011. "Finding a 'Kneedle' in a Haystack: Detecting Knee Points in System Behavior." *31st International Conference on Distributed Computing Systems Workshops*: 166-171. https://doi.org/10.1109/ICDCSW.2011.20

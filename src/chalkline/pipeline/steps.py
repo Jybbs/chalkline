@@ -204,6 +204,7 @@ def graph(
     credentials            : list[Credential],
     destination_percentile : int,
     lateral_neighbors      : int,
+    rrf_k                  : int,
     upward_neighbors       : int
 ) -> CareerPathwayGraph:
     """
@@ -215,6 +216,7 @@ def graph(
         credentials            = credentials,
         destination_percentile = destination_percentile,
         lateral_neighbors      = lateral_neighbors,
+        rrf_k                  = rrf_k,
         upward_neighbors       = upward_neighbors
     )
     logger.info(

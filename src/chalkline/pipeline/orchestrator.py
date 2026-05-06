@@ -131,6 +131,7 @@ class Chalkline:
                     "lexicons"               : LexiconLoader(config.lexicon_dir),
                     "postings_dir"           : str(config.postings_dir),
                     "random_seed"            : config.random_seed,
+                    "rrf_k"                  : config.rrf_k,
                     "soc_softmax_tau"        : config.soc_softmax_tau,
                     "soc_wage_round"         : config.soc_wage_round,
                     "soc_wage_topk"          : config.soc_wage_topk,

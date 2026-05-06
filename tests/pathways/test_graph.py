@@ -86,6 +86,7 @@ class TestCareerPathwayGraph:
             credentials            = [],
             destination_percentile = 20,
             lateral_neighbors      = 2,
+            rrf_k                  = 60,
             upward_neighbors       = 2
         )
         assert graph.graph.number_of_edges() > 0

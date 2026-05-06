@@ -41,6 +41,7 @@ class CareerPathwayGraph:
         credentials            : Typed records with aligned embedding vectors.
         destination_percentile : Top-p threshold for destination affinity.
         lateral_neighbors      : k for same wage-tier bidirectional edges.
+        rrf_k                  : RRF damping constant (Cormack 2009 default).
         upward_neighbors       : k for next wage-tier unidirectional edges.
     """
 
@@ -48,6 +49,7 @@ class CareerPathwayGraph:
     credentials            : list[Credential]
     destination_percentile : int
     lateral_neighbors      : int
+    rrf_k                  : int
     upward_neighbors       : int
 
     @property
@@ -91,6 +93,28 @@ class CareerPathwayGraph:
         if not self.credential_pool:
             return np.empty((0, len(self.clusters.cluster_ids)))
         return cosine_similarity(self.credential_vectors, self.clusters.vectors)
+
+    @cached_property
+    def credential_task_maxsim(self) -> dict[int, np.ndarray]:
+        """
+        Max cosine similarity between each credential and each cluster's
+        O*NET task vectors, keyed by cluster id. Used as the second
+        ranking signal in the RRF candidate filter so destination-aligned
+        credentials surface alongside centroid-aligned ones.
+
+        Only clusters whose nearest occupation contributed Task or DWA
+        elements appear in the dict; clusters without tasks fall back to
+        the centroid signal alone in `credentials_for`.
+        """
+        if not self.credential_pool:
+            return {}
+        return {
+            cid: cosine_similarity(
+                self.credential_vectors, self.clusters[cid].task_matrix
+            ).max(axis=1)
+            for cid in self.clusters.cluster_ids
+            if self.clusters[cid].tasks
+        }
 
     @cached_property
     def credential_vectors(self) -> np.ndarray:
@@ -181,13 +205,16 @@ class CareerPathwayGraph:
 
     def credentials_for(self, target_id: int) -> list[Credential]:
         """
-        Credentials aligned with a specific destination, filtered by the top
-        destination_percentile of cluster-credential cosine similarity and
-        ranked by descending affinity to the target.
+        Credentials aligned with a specific destination, filtered via
+        Reciprocal Rank Fusion over centroid cosine and destination-task
+        MaxSim rankings, then gated to the top `destination_percentile` of
+        the fused score and returned in descending order.
 
-        Career-change recommendations are about destination relevance, so
-        the filter gates only on where the user is going, not on how closely
-        a credential already overlaps with where they are.
+        RRF (Cormack, Clarke, Buettcher 2009) absorbs the score-scale
+        mismatch between centroid cosine and task MaxSim without
+        calibration, letting both signals contribute on equal footing.
+        Falls back to centroid-only ranking when the destination has no
+        task elements.
 
         Args:
             target_id: Cluster ID the user clicked, may equal the matched cluster.
@@ -195,13 +222,21 @@ class CareerPathwayGraph:
         if not (creds := self.credential_pool):
             return []
 
-        similarity     = self.credential_similarity
         t_idx          = self.clusters.cluster_index[target_id]
-        dest_threshold = np.percentile(
-            similarity[:, t_idx], 100 - self.destination_percentile
-        )
-        passing = np.flatnonzero(similarity[:, t_idx] >= dest_threshold)
-        ranked  = passing[np.argsort(-similarity[passing, t_idx])]
+        centroid_score = self.credential_similarity[:, t_idx]
+        task_score     = self.credential_task_maxsim.get(target_id)
+
+        if task_score is None:
+            scores = centroid_score
+        else:
+            rank_centroid = (-centroid_score).argsort().argsort()
+            rank_task     = (-task_score).argsort().argsort()
+            scores        = (1.0 / (self.rrf_k + rank_centroid)
+                           + 1.0 / (self.rrf_k + rank_task))
+
+        threshold = np.percentile(scores, 100 - self.destination_percentile)
+        passing   = np.flatnonzero(scores >= threshold)
+        ranked    = passing[np.argsort(-scores[passing])]
         return [creds[i] for i in ranked]
 
     def hops_from(self, source: int) -> dict[int, int]:

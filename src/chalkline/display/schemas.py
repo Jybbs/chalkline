@@ -25,7 +25,8 @@ from chalkline.matching.schemas      import MatchResult, ScoredTask
 from chalkline.pathways.clusters     import Cluster, Clusters
 from chalkline.pathways.graph        import CareerPathwayGraph
 from chalkline.pathways.loaders      import LaborLoader, StakeholderReference
-from chalkline.pathways.schemas      import Credential
+from chalkline.pathways.schemas      import Credential, SelectedCredential
+from chalkline.pathways.selection    import CredentialSelector
 from chalkline.pipeline.encoder      import SentenceEncoder
 from chalkline.pipeline.orchestrator import Chalkline
 
@@ -47,10 +48,71 @@ class CredentialPath(NamedTuple):
     One gap-closure strategy with its credentials and total coverage.
     """
 
-    coverage_floor_met : bool
-    items              : list[PathItem]
-    strategy           : str
-    unique_coverage    : int
+    items           : list[PathItem]
+    strategy        : str
+    unique_coverage : int
+
+    @classmethod
+    def _from_picks(
+        cls,
+        credentials : dict[str, Credential],
+        picks       : list[SelectedCredential],
+        strategy    : str
+    ) -> Self:
+        """
+        Wrap a list of `SelectedCredential` picks into a `CredentialPath`.
+        """
+        return cls(
+            items           = [
+                PathItem.from_credential(credentials[p.label], p.label, p.positions)
+                for p in picks
+            ],
+            strategy        = strategy,
+            unique_coverage = sum(len(p.positions) for p in picks)
+        )
+
+    @classmethod
+    def anchored_from_route(
+        cls,
+        route    : RouteDetail,
+        strategy : str
+    ) -> Self | None:
+        """
+        Anchor-and-complement path for the work-based strategy.
+
+        Selects the apprenticeship most aligned with the destination by
+        `route.task_maxsim`, then runs the Pareto-knee picker on
+        certifications-only with the gap set reduced by what the anchor
+        already covers. Treats apprenticeships as career anchors rather
+        than stackable items, so the user sees one apprenticeship plus
+        supporting certifications instead of multiple full apprenticeships
+        layered together.
+
+        Falls back to a certifications-only stack via `from_route` when
+        the candidate pool contains no apprenticeships or when the
+        destination carries no task-MaxSim signal.
+
+        Args:
+            route    : Route carrying coverage, gap set, and task_maxsim.
+            strategy : Label written onto the returned path.
+        """
+        by_kind     = route.coverage_by_kind
+        apprentices = by_kind.get("apprenticeship", {})
+        if not apprentices or not route.task_maxsim:
+            return cls.from_route(route, strategy, frozenset({"certification"}))
+
+        gap_set     = frozenset(route.gap_indices)
+        anchor      = max(apprentices, key=lambda l: route.task_maxsim.get(l, 0.0))
+        anchor_gaps = frozenset(apprentices[anchor]) & gap_set
+        picks       = (
+            [SelectedCredential(label=anchor, positions=anchor_gaps)]
+            if anchor_gaps else []
+        ) + CredentialSelector(coverage_floor=route.coverage_floor).select_stack(
+            coverage  = by_kind.get("certification", {}),
+            gap_set   = gap_set - anchor_gaps,
+            max_picks = 4
+        )
+        return cls._from_picks(route.credential_map, picks, strategy) if picks else None
 
     @classmethod
     def from_route(
@@ -61,12 +123,11 @@ class CredentialPath(NamedTuple):
         max_picks : int = 5
     ) -> Self | None:
         """
-        Waste-aware credential stack via Pareto-knee selection.
+        Pareto-knee credential stack via `CredentialSelector.select_stack`.
 
-        Filters the route's full coverage to credentials of the requested
-        kinds, delegates to `CredentialSelector.select_stack` for the
-        frontier sweep and knee detection, then wraps the returned picks
-        into `PathItem` instances for shelf rendering.
+        Filters the route's coverage to credentials of the requested kinds
+        and runs the picker, wrapping the returned picks into `PathItem`
+        instances for shelf rendering.
 
         Args:
             route     : Route carrying per-task credential affinities.
@@ -75,30 +136,19 @@ class CredentialPath(NamedTuple):
                         accepts every kind.
             max_picks : Hard cap on stack size.
         """
-        from chalkline.pathways.selection import CredentialSelector
-
-        credentials = route.credential_map
-        coverage    = {
-            label: scored for label, scored in route.coverage.items()
-            if scored and (kinds is None or credentials[label].kind in kinds)
+        by_kind  = route.coverage_by_kind
+        coverage = {
+            label: scored
+            for kind, kind_map in by_kind.items()
+            if kinds is None or kind in kinds
+            for label, scored in kind_map.items()
         }
-        picks, floor_met = CredentialSelector().select_stack(
+        picks = CredentialSelector(coverage_floor=route.coverage_floor).select_stack(
             coverage  = coverage,
             gap_set   = frozenset(route.gap_indices),
             max_picks = max_picks
         )
-        if not picks:
-            return None
-
-        return cls(
-            coverage_floor_met = floor_met,
-            items              = [
-                PathItem.from_credential(credentials[p.label], p.label, p.positions)
-                for p in picks
-            ],
-            strategy        = strategy,
-            unique_coverage = sum(len(p.positions) for p in picks)
-        )
+        return cls._from_picks(route.credential_map, picks, strategy) if picks else None
 
 
 class DatedPoint(NamedTuple):
@@ -214,11 +264,19 @@ class GapCoverage(NamedTuple):
     """
     Gap-closure strategies for a career transition.
 
-    Assembles three candidate paths via the waste-aware Pareto-knee picker,
-    including a work-based stack (apprenticeship + certification), a single
-    bang-for-buck credential (any kind), and a certification-only stack. All
-    three route through the same picker with different kind filters and
-    max_picks caps.
+    Assembles three candidate paths surfaced in the order users encounter
+    them:
+
+    - A single bang-for-buck credential of any kind, picked by Pareto-knee
+    - A certifications-only stack, also picked by Pareto-knee
+    - A work-based stack anchored on the apprenticeship most aligned with
+      the destination by `anchored_from_route`, complemented by
+      certifications
+
+    Apprenticeships are treated as career anchors rather than stackable
+    items, so the user sees one apprenticeship plus supporting
+    certifications instead of multiple full apprenticeships layered
+    together.
     """
 
     paths: list[CredentialPath]
@@ -230,13 +288,11 @@ class GapCoverage(NamedTuple):
         coverage mapping.
         """
         return cls(paths=[path for path in (
-            CredentialPath.from_route(
-                route, "work_based", kinds=frozenset({"apprenticeship", "certification"})
-            ),
             CredentialPath.from_route(route, "biggest", max_picks=1),
             CredentialPath.from_route(
                 route, "certs", kinds=frozenset({"certification"})
-            )
+            ),
+            CredentialPath.anchored_from_route(route, "work_based")
         ) if path])
 
 
@@ -450,12 +506,11 @@ class MlMetrics(BaseModel, extra="forbid"):
         ratio     = pipeline.matcher.svd.explained_variance_ratio_
         brokerage = SectorRanking.from_ranking(clusters, pipeline.graph.brokerage)
 
-        tier_label   = lambda t: f"Tier {t + 1}"
         tier_counts  = Counter(c.wage_tier for c in clusters.values())
         sector_pairs = Counter((c.sector, c.wage_tier) for c in clusters.values())
         ordered      = sorted(tier_counts)
         wage_tier    = WageTierBreakdown(
-            counts = {tier_label(t): tier_counts[t] for t in ordered},
+            counts = {f"Tier {t + 1}": tier_counts[t] for t in ordered},
             matrix = {
                 sector: [sector_pairs[sector, t] for t in ordered]
                 for sector in clusters.sectors
@@ -611,15 +666,11 @@ class PostingProjection(BaseModel, extra="forbid"):
                 float(xy[1])
             ))
 
-        hover, x, y = range(3)
-        cls.series_cache[key] = (result := {
-            label: ScatterSeries(
-                hover = [p[hover] for p in pts],
-                x     = [p[x]     for p in pts],
-                y     = [p[y]     for p in pts]
-            )
-            for label, pts in grouped.items()
-        })
+        result: dict[str, ScatterSeries] = {}
+        for label, pts in grouped.items():
+            hover, x, y = zip(*pts)
+            result[label] = ScatterSeries(hover=list(hover), x=list(x), y=list(y))
+        cls.series_cache[key] = result
         return cls(series=result)
 
 
@@ -795,7 +846,24 @@ class RouteDetail(NamedTuple):
     source           : Cluster
     source_wage      : float | None
 
-    bright_outlook   : bool = False
+    bright_outlook   : bool             = False
+    coverage_floor   : float            = 0.80
+    task_maxsim      : dict[str, float] = {}
+
+    @property
+    def coverage_by_kind(self) -> dict[str, dict[str, dict[int, float]]]:
+        """
+        Coverage map grouped by credential kind, dropping credentials with
+        empty score dicts. Mirrors `credentials_by_kind` for the per-task
+        affinity view so both factory paths in `CredentialPath` share one
+        per-kind split.
+        """
+        credentials = self.credential_map
+        by_kind: dict[str, dict[str, dict[int, float]]] = {}
+        for label, scored in self.coverage.items():
+            if scored:
+                by_kind.setdefault(credentials[label].kind, {})[label] = scored
+        return by_kind
 
     @property
     def credential_map(self) -> dict[str, Credential]:
@@ -842,8 +910,6 @@ class RouteDetail(NamedTuple):
         """
         return len(self.gap_tasks)
 
-
-
     @property
     def gap_indices(self) -> list[int]:
         """
@@ -877,7 +943,6 @@ class RouteDetail(NamedTuple):
         """
         index = {t.name: i for i, t in enumerate(self.destination.tasks)}
         return {index[t.name]: t for t in self.scored_tasks}
-
 
     @property
     def top_gaps(self) -> list[ScoredTask]:
@@ -962,9 +1027,23 @@ class RouteDetail(NamedTuple):
             gap_vectors = np.empty((0, 0))
             coverage    = {}
 
+        cluster_maxsim = pipeline.graph.credential_task_maxsim.get(destination.cluster_id)
+        if cluster_maxsim is None:
+            task_maxsim = {}
+        else:
+            pool_index = {
+                c.label: i for i, c in enumerate(pipeline.graph.credential_pool)
+            }
+            task_maxsim = {
+                c.label: float(cluster_maxsim[pool_index[c.label]])
+                for c in credentials
+                if c.label in pool_index
+            }
+
         return cls(
             bright_outlook   = labor[destination.soc_title].bright_outlook,
             coverage         = coverage,
+            coverage_floor   = pipeline.config.coverage_floor,
             credentials      = credentials,
             destination      = destination,
             destination_wage = destination.wage,
@@ -973,7 +1052,8 @@ class RouteDetail(NamedTuple):
             match_score      = pipeline.matcher.cluster_score(destination.cluster_id),
             scored_tasks     = scored,
             source           = profile,
-            source_wage      = profile.wage
+            source_wage      = profile.wage,
+            task_maxsim      = task_maxsim
         )
 
 

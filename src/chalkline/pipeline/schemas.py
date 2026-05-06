@@ -38,7 +38,9 @@ class PipelineConfig(BaseModel, extra="forbid"):
     cluster_count          : int   = Field(default=25,   ge=2)
     component_count        : int   = Field(default=15,   ge=1)
     consensus_seeds        : int   = Field(default=50,   ge=1, le=200)
-    destination_percentile : int   = Field(default=20,   ge=0, le=100)
+    coverage_floor         : float = Field(default=0.80, ge=0.0, le=1.0)
+    destination_percentile : int   = Field(default=15,   ge=0, le=100)
+    rrf_k                  : int   = Field(default=60,   ge=1)
     embedding_model        : str   = "Alibaba-NLP/gte-base-en-v1.5"
     lateral_neighbors      : int   = Field(default=2,    ge=1)
     random_seed            : int   = Field(default=42,   ge=0)

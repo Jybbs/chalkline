@@ -235,9 +235,9 @@ class Reach(BaseModel, extra="forbid"):
 
 class SelectedCredential(NamedTuple):
     """
-    One credential in a waste-aware stack with its incremental gap
-    positions, meaning only the gaps this pick newly contributes relative to
-    earlier picks in the same stack.
+    One credential in a picked stack with its incremental gap positions,
+    meaning only the gaps this pick newly contributes relative to earlier
+    picks in the same stack.
     """
 
     label     : str
@@ -263,57 +263,6 @@ class SelectedCredential(NamedTuple):
             label     = label,
             positions = frozenset(task_axis[row_mask].tolist())
         )
-
-
-class SelectorConfig(BaseModel, extra="forbid"):
-    """
-    Tuning for the waste-aware Pareto-knee credential picker.
-
-    `alpha_max` and `alpha_steps` set the resolution of the penalty sweep
-    that builds the Pareto frontier. `coverage_floor` anchors the knee to
-    the eligible high-coverage region and has a direct stakeholder
-    interpretation, namely the minimum fraction of skill gaps a recommended
-    stack must fill when reachable.
-    """
-
-    alpha_max      : float = Field(default=5.0,  gt=0)
-    alpha_steps    : int   = Field(default=100,  ge=2)
-    coverage_floor : float = Field(default=0.80, ge=0, le=1)
-
-    @property
-    def alphas(self) -> list[float]:
-        """
-        Penalty coefficients the selector sweeps when building the Pareto
-        frontier, batched into Python floats via `tolist()` so the caller
-        iterates without per-step numpy conversions.
-        """
-        return np.linspace(0.0, self.alpha_max, self.alpha_steps).tolist()
-
-
-class SelectorFrontier(NamedTuple):
-    """
-    One Pareto-dominant point on the coverage-versus-waste curve.
-
-    `CredentialSelector` sweeps the penalty coefficient across a fixed range
-    and records each greedy run's (gaps_filled, total_reach) footprint with
-    the row indices that produced it. Points dominated on both axes drop
-    before knee detection. `waste` derives from the two stored counts so
-    callers see a single redundancy signal without storing it twice.
-    """
-
-    alpha       : float
-    gaps_filled : int
-    picks       : tuple[int, ...]
-    total_reach : int
-
-    @property
-    def waste(self) -> int:
-        """
-        Total reach across all picks minus the unique gaps they fill,
-        capturing redundant coverage within the stack plus leak onto
-        already-demonstrated tasks.
-        """
-        return self.total_reach - self.gaps_filled
 
 
 class Skill(BaseModel, extra="forbid"):
